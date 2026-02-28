@@ -1,0 +1,104 @@
+spring:
+  application:
+    name: barberbot-assist
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/barberbot_db
+    username: barberbot_user
+    password: barberbot_pass
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+server:
+  port: 8081
+
+# Configurações do Bot - LH Barbearia
+barberbot:
+  admin:
+    phone: "${ADMIN_PHONE}"
+  evolution:
+    base-url: "http://localhost:8080"
+    instance-name: "BarberBotOficial"
+    api-key: "${EVOLUTION_API_KEY:barberbot}"
+  openai:
+    api-key: "${OPENAI_API_KEY}"
+    model: "gpt-4o"
+    vision-model: "gpt-4o"
+    whisper-model: "whisper-1"
+    temperature: 0.7
+  schedule:
+    delay-minutes: 60
+    batch-size: 1
+    delay-between-messages: 60000
+
+  # Dados Completos da LH Barbearia
+  menu:
+    address-text: |
+      📍 *LH Barbearia*
+      R. Floriano Peixoto, 585 - Miranda
+      Araguari - MG, 38444-236
+    address-maps-url: "https://goo.gl/maps/3" # Se tiver o link curto real, coloque aqui
+    # Lista 100% completa baseada nos prints
+    services-text: |
+      🔥 *TABELA COMPLETA DE PREÇOS*
+
+      🏆 *PLANOS DE ASSINATURA (ILIMITADOS)*
+      _Cobrança recorrente no Cartão de Crédito_ 💳
+
+      💎 *VIP (Segunda a Sábado)*
+      • Corte e Barba VIP ILIMITADO: R$ 130,00/mês
+      • Limpeza de pele VIP: R$ 160,00/mês
+      • Corte VIP ILIMITADO: R$ 80,90/mês
+      • Barba VIP ILIMITADO: R$ 80,90/mês
+
+      🥈 *SILVER (Segunda a Sexta)*
+      • Corte e Barba SILVER ILIMITADO: R$ 110,00/mês
+      • Corte SILVER ILIMITADO: R$ 68,00/mês
+      • Barba SILVER ILIMITADO: R$ 68,00/mês
+
+      🥉 *BRONZE (Segunda a Quarta)*
+      • Corte e Barba BRONZE ILIMITADO: R$ 79,90/mês
+      • Corte BRONZE ILIMITADO: R$ 59,90/mês
+      • Barba BRONZE ILIMITADO: R$ 59,90/mês
+
+      ✂️ *CABELO & BARBA (AVULSO)*
+      • Corte de cabelo completo: A partir de R$ 35,00
+      • Barba: R$ 35,00
+      • Corte Visagista: R$ 75,00
+      • Barba Visagista: R$ 60,00
+      • Consultoria Visagista: R$ 190,00
+      • Sobrancelhas: R$ 15,00
+      • Acabamento (Pézinho): R$ 15,00
+      • Pigmentação Cabelo: A partir de R$ 25,00
+      • Pigmentação Barba: R$ 20,00
+
+      🧖‍♂️ *TRATAMENTOS & ESTÉTICA*
+      • Limpeza de pele EXPRESS: R$ 49,99
+      • Limpeza de pele profunda + argila: R$ 100,00
+      • Hidratação para barba e controle de frizz: R$ 30,00
+      • Super Hidratação Antiqueda + Reconstrução: A partir de R$ 30,00
+      • Realinhamento capilar + Hidratação: A partir de R$ 49,99
+
+      📲 _Para agendar:_
+
+    schedule-url: "https://cashbarber.com.br/lhbarbearia?utm_source=ig&utm_medium=social&utm_content=link_in_bio"
+    instagram-url: "https://www.instagram.com/lhbarbeariaa/"
+
+logging:
+  level:
+    root: WARN
+    com.barberbot: INFO
+    org.springframework.web: WARN

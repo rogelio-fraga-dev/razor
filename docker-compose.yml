@@ -1,0 +1,62 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: barberbot-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.7
+    container_name: barberbot-evolution-api
+    restart: always
+    environment:
+      SERVER_URL: http://localhost:8080
+      PORT: 8080
+
+      # Banco de Dados
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=evolution"
+
+      # Sessão
+      CONFIG_SESSION_PHONE_CLIENT: "Evolution API"
+      CONFIG_SESSION_PHONE_NAME: "BarberBot"
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+
+      # --- WEBHOOKS OTIMIZADOS E COM BASE64 ---
+      WEBHOOK_GLOBAL_ENABLED: "true"
+      WEBHOOK_GLOBAL_URL: "http://host.docker.internal:8081/api/webhook"
+      WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS: "false"
+      WEBHOOK_GLOBAL_BASE64: "true" # <-- A MÁGICA ESTÁ AQUI
+
+      # Habilitamos APENAS o necessário para o bot não travar
+      WEBHOOK_EVENTS_APPLICATION_STARTUP: "false"
+      WEBHOOK_EVENTS_QRCODE_UPDATED: "true"
+      WEBHOOK_EVENTS_MESSAGES_UPSERT: "true"
+      WEBHOOK_EVENTS_CONNECTION_UPDATE: "true"
+
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./evolution_store:/evolution/store # <-- ISSO IMPEDE O QR CODE DE DESCONECTAR SOZINHO
