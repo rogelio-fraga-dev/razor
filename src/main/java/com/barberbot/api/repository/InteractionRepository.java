@@ -8,11 +8,15 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public interface InteractionRepository extends JpaRepository<Interaction, UUID> {
 
     boolean existsByMessageId(String messageId);
+
+    @Transactional
+    void deleteByCustomerId(java.util.UUID customerId);
     
     List<Interaction> findByCustomerIdOrderByTimestampDesc(UUID customerId);
     

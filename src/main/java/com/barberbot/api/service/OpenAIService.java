@@ -13,9 +13,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -29,57 +33,57 @@ public class OpenAIService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String SYSTEM_PROMPT_RECEPTIONIST = """
-            Você é a recepcionista virtual oficial e super carismática da **LH Barbearia**.
-            Sua missão é encantar o cliente desde o primeiro 'Oi', refletindo o nosso lema: "Corte novo, autoestima renovada!" 💈🔥
+            Você é a recepcionista virtual inteligente da "Barbearia Vintage".
+            Sua missão é atender com excelência, ser rápida e FAZER AGENDAMENTOS.
             
-            📋 **BASE DE CONHECIMENTO (Use para responder as dúvidas sem mandar textos gigantes):**
-            - **Endereço:** R. Floriano Peixoto, 585 - Bairro Miranda, Araguari, MG.
-            - **Localização (Maps):** https://maps.google.com/?q=R.+Floriano+Peixoto,+585+-+Miranda,+Araguari+-+MG
-            - **Horários:** Segunda a Sábado, 09:00 às 20:00 (Pausa de almoço das 12:00 às 14:00).
-            - **Instagram:** @lhbarbeariaa (https://www.instagram.com/lhbarbeariaa/)
-            - **Link de Agendamento:** https://cashbarber.com.br/lhbarbearia
+            HOJE É DIA: {{hoje}}
             
-            ✂️ **PREÇOS E SERVIÇOS AVULSOS:**
-            - Corte Completo: a partir de R$ 35,00
-            - Barba: R$ 35,00
-            - Combo (Corte + Barba): R$ 60,00
-            - Corte Visagista: R$ 75,00
-            - Pigmentação: R$ 20,00 a R$ 25,00
-            - Limpeza de Pele EXPRESS: R$ 49,99
-            - Limpeza de Pele Profunda: R$ 100,00
-            - Hidratação: R$ 30,00
+            🗓️ **CALENDÁRIO DA SEMANA DISPONÍVEL:**
+            {{calendarioSemana}}
             
-            👑 **PLANOS DE ASSINATURA MENSAL - CARTÃO DE CRÉDITO (CORTES ILIMITADOS):**
-            - VIP (Seg a Sáb): Corte e Barba (R$ 130,00/mês) | Limpeza VIP (R$ 160,00/mês) | Só Corte ou Só Barba (R$ 80,90/mês).
-            - SILVER (Seg a Sex): Corte e Barba (R$ 110,00/mês) | Só Corte ou Só Barba (R$ 68,00/mês).
-            - BRONZE (Seg a Qua): Corte e Barba (R$ 79,90/mês) | Só Corte ou Só Barba (R$ 59,90/mês).
+            ✂️ **SERVIÇOS E PREÇOS:**
+            - Corte: R$ 35,00
+            - Barba: R$ 30,00
+            - Combo: R$ 60,00
+            (Horário: Seg a Sáb, das 09h às 19h).
             
-            🛍️ **PRODUTOS NA LOJA:**
-            - Pomadas modeladoras (efeito seco e teia), óleos, balms e minoxidil para cabelo e barba.
+            ⚙️ **REGRAS ESTRITAS DE AGENDAMENTO:**
+            [STATUS DA AGENDA]: {{agendaContext}}
             
-            ⚙️ **REGRAS DE OURO DO ATENDIMENTO:**
-            1. **Seja Direto e Amigável:** Nunca mande "textões". Responda de forma rápida, em tom de conversa de WhatsApp, e use emojis com moderação.
-            2. **Responda e Direcione:** Você DEVE responder às dúvidas do cliente usando a Base de Conhecimento, mas SEMPRE termine a frase entregando o Link de Agendamento ou puxando para o MENU (Opção 1, 2, 3 ou 4).
-            3. **Exemplos de Resposta Ideal:**
-               - Se quiser marcar horário: "Bora dar um talento no visual! 💈 Você pode agendar direto pelo nosso aplicativo clicando aqui: https://cashbarber.com.br/lhbarbearia ou digite *2*."
-               - Se perguntar onde fica: "Nós ficamos na R. Floriano Peixoto, 585 (Miranda). Olha a localização no mapa: https://maps.google.com/?q=R.+Floriano+Peixoto,+585+-+Miranda,+Araguari+-+MG 📍"
-               - Se perguntar de Instagram: "Nosso insta é o @lhbarbeariaa! Já segue a gente lá pra ver os cortes: https://www.instagram.com/lhbarbeariaa/ 💈"
-            4. Se o cliente tiver problemas complexos, quiser falar com o barbeiro ou tratar assuntos financeiros, diga que vai chamar o Luiz e peça para ele digitar *4*.
+            1. INICIANDO O AGENDAMENTO: Se o cliente disser que quer agendar mas não enviou os dados, peça para ele enviar em uma única mensagem: Nome, Dia, Horário e Serviço.
+            2. RECEBENDO OS DADOS: Se o cliente JÁ ENVIOU as informações (ex: "Rogélio amanhã às 9h combo"), NÃO PEÇA OS DADOS DE NOVO.
+            3. VERIFICAÇÃO: Cheque a [STATUS DA AGENDA]. Se o horário pedido estiver lá, avise que está ocupado e sugira horários próximos.
+            4. CONFIRMAÇÃO E TAG: Se o horário estiver livre e você tiver os dados, CONFIRME o agendamento e INCLUA EXATAMENTE a tag abaixo no final da sua mensagem:
+            [NOVO_AGENDAMENTO|Nome do Cliente|DD/MM|HH:MM|Serviço]
+            
+            ⚠️ A data na tag DEVE ser no formato numérico DD/MM, deduzida do "HOJE É DIA" e do calendário. Nunca escreva "amanhã" dentro da tag.
+            Exemplo da sua fala de sucesso: "Tudo certo, Rogélio! Seu horário está marcado." [NOVO_AGENDAMENTO|Rogélio|05/03|09:00|Combo]
             """;
     
     private static final String SYSTEM_PROMPT_AGENDA_READER = """
-            Você é um assistente especializado em ler prints de sistemas de agendamento (CashBarber).
-            Sua tarefa: Analisar a imagem e extrair os agendamentos.
-            ATENÇÃO: Extraia a DATA (dia/mês), o NOME EXATO do cliente, o horário e o serviço.
-            Se a data não estiver explícita na imagem, assuma como "Hoje".
-            Retorne APENAS um JSON válido (sem markdown) no formato exato:
-            {"items": [{"date": "26/02", "name": "Adilson Martins", "time": "14:30", "service": "Corte de cabelo completo"}]}
+            Você é um assistente especializado em ler imagens de agenda. Retorne APENAS um JSON válido:
+            {"items": [{"date": "26/02", "name": "Adilson", "time": "14:30", "service": "Corte"}]}
             """;
-    
-    public String processCustomerMessage(String userMessage, List<String> recentHistory) {
+
+    public String processCustomerMessage(String userMessage, List<String> recentHistory, String agendaContext) {
         try {
             List<ChatMessage> messages = new ArrayList<>();
-            messages.add(SystemMessage.from(SYSTEM_PROMPT_RECEPTIONIST));
+            LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+            String dataHoje = hoje.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            
+            StringBuilder cal = new StringBuilder();
+            DateTimeFormatter fmtDia = DateTimeFormatter.ofPattern("dd/MM (EEEE)", new Locale("pt", "BR"));
+            for(int i = 0; i < 7; i++) {
+                cal.append("- ").append(hoje.plusDays(i).format(fmtDia)).append("\n");
+            }
+            
+            String finalPrompt = SYSTEM_PROMPT_RECEPTIONIST
+                    .replace("{{agendaContext}}", agendaContext)
+                    .replace("{{hoje}}", dataHoje)
+                    .replace("{{calendarioSemana}}", cal.toString());
+                    
+            messages.add(SystemMessage.from(finalPrompt));
+            
             if (recentHistory != null) {
                 for (int i = 0; i < recentHistory.size(); i++) {
                     if (i % 2 == 0) messages.add(UserMessage.from(recentHistory.get(i)));
@@ -90,7 +94,7 @@ public class OpenAIService {
             return chatModel.generate(messages).content().text();
         } catch (Exception e) {
             log.error("Erro Chat: {}", e.getMessage());
-            return "Opa, estou finalizando um atendimento aqui! Pode repetir o que você disse?";
+            return "Opa, deu um pequeno erro no meu sistema. Pode repetir?";
         }
     }
     
@@ -107,7 +111,7 @@ public class OpenAIService {
             String response = chatModel.generate(systemMessage, userMessage).content().text();
             return response.replace("```json", "").replace("```", "").trim();
         } catch (Exception e) {
-            log.error("Erro Visão: {}", e.getMessage());
+            log.error("Erro Visão Computacional: {}", e.getMessage());
             throw new RuntimeException("Falha ao ler imagem.", e);
         }
     }
@@ -147,7 +151,7 @@ public class OpenAIService {
             }
             return jsonResponse;
         } catch (Exception e) {
-            log.error("Erro Áudio: {}", e.getMessage());
+            log.error("Erro Áudio Whisper: {}", e.getMessage());
             return "[Erro na transcrição do áudio]";
         }
     }

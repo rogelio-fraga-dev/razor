@@ -9,12 +9,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Slf4j
 @Service
@@ -26,20 +28,79 @@ public class AgendaService {
     private final WhatsAppService whatsAppService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     
-    // Objeto Interno para guardar as informações exatas do agendamento
     @Data
     public static class Agendamento {
         private String name;
         private String phone;
         private String time;
-        private String date;
+        private String date; 
         private String service;
-        private boolean notified; // Trava para não mandar duas vezes
+        private boolean notified = false;
+        private boolean thanked = false;
     }
 
-    // A memória do robô para os cortes de hoje/amanhã
-    private static final List<Agendamento> agendaAtiva = new ArrayList<>();
-    private static final List<String> agendaDisplay = new ArrayList<>(); 
+    private static final List<Agendamento> agendaAtiva = new CopyOnWriteArrayList<>();
+    private static final List<String> agendaDisplay = new CopyOnWriteArrayList<>(); 
+
+    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
+        Agendamento ag = new Agendamento();
+        ag.setName(name);
+        ag.setPhone(phone);
+        ag.setDate(date);
+        ag.setTime(time);
+        ag.setService(service);
+        agendaAtiva.add(ag);
+        agendaDisplay.add("✅ " + date + " às " + time + " - " + name + " | " + service + " (Via IA)");
+        log.info("[AGENDA] Novo agendamento salvo: {} para o dia {} às {}", name, date, time);
+    }
+
+    public String getHorariosOcupadosParaIA() {
+        if (agendaAtiva.isEmpty()) return "Agenda totalmente livre.";
+        List<String> ocupados = new ArrayList<>();
+        for (Agendamento ag : agendaAtiva) {
+            ocupados.add(ag.getDate() + " às " + ag.getTime());
+        }
+        return "Horários INDISPONÍVEIS: " + String.join(" | ", ocupados);
+    }
+
+    public Agendamento getAgendamentoCliente(String phone) {
+        return agendaAtiva.stream()
+                .filter(a -> a.getPhone() != null && a.getPhone().equals(phone))
+                .findFirst().orElse(null);
+    }
+
+    public boolean cancelarAgendamentoCliente(String phone) {
+        Agendamento ag = getAgendamentoCliente(phone);
+        if (ag != null) {
+            agendaAtiva.remove(ag);
+            agendaDisplay.removeIf(d -> d.contains(ag.getTime()) && d.contains(ag.getName()));
+            log.info("[AGENDA] Cancelamento feito para o cliente do número: {}", phone);
+            return true;
+        }
+        return false;
+    }
+
+    public String getAgendaSalva() {
+        if (agendaDisplay.isEmpty()) return "Nenhum agendamento registrado no sistema.";
+        return String.join("\n", agendaDisplay);
+    }
+
+    public String getResumoDoDia() {
+        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
+        int totalCortes = 0;
+        double faturamentoEstimado = 0.0;
+
+        for (Agendamento ag : agendaAtiva) {
+            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
+                totalCortes++;
+                String serv = ag.getService().toLowerCase();
+                if (serv.contains("combo")) faturamentoEstimado += 60.0;
+                else if (serv.contains("barba")) faturamentoEstimado += 30.0;
+                else faturamentoEstimado += 35.0; 
+            }
+        }
+        return String.format("📈 *Fechamento de %s*\n\n✂️ Cortes realizados hoje: %d\n💰 Faturamento estimado: R$ %.2f", dataHoje, totalCortes, faturamentoEstimado);
+    }
 
     public int processAgenda(String jsonAgenda) {
         int agendados = 0;
@@ -54,84 +115,62 @@ public class AgendaService {
                 for (JsonNode item : items) {
                     String name = item.has("name") ? item.get("name").asText() : "";
                     String time = item.has("time") ? item.get("time").asText() : "";
-                    String date = item.has("date") ? item.get("date").asText() : "Hoje";
+                    String date = item.has("date") ? item.get("date").asText() : LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM"));
                     String service = item.has("service") ? item.get("service").asText() : "Corte";
 
                     if (!name.isEmpty() && !time.isEmpty()) {
-                        // Faz o Match com o CSV
                         Customer customer = customerService.findByName(name);
                         String phone = (customer != null) ? customer.getPhoneNumber() : null;
-                        String phoneStatus = (phone != null) ? " (✅ Cadastrado)" : " (⚠️ Sem telefone na base)";
                         
-                        // Guarda o agendamento estruturado
                         Agendamento ag = new Agendamento();
                         ag.setName(name);
                         ag.setPhone(phone);
                         ag.setTime(time);
                         ag.setDate(date);
                         ag.setService(service);
-                        ag.setNotified(false); // Nasce como NÃO avisado
                         
                         agendaAtiva.add(ag);
-                        agendaDisplay.add("📅 " + date + " às ⏰ " + time + " - " + name + " | " + service + phoneStatus);
-                        
+                        agendaDisplay.add("📅 " + date + " às ⏰ " + time + " - " + name + " | " + service);
                         if (phone != null) agendados++;
                     }
                 }
             }
-            log.info("Agenda processada. {} clientes válidos para notificação.", agendados);
             return agendados;
         } catch (Exception e) {
             log.error("Erro Agenda JSON: {}", e.getMessage());
             throw new RuntimeException("Falha na agenda", e);
         }
     }
-    
-    public String getAgendaSalva() {
-        if (agendaDisplay.isEmpty()) return "Nenhum agendamento lido. Me mande a foto da agenda primeiro!";
-        return String.join("\n", agendaDisplay);
-    }
 
-    // ==============================================================
-    // A MÁGICA: RODA A CADA 1 MINUTO OLHANDO O RELÓGIO
-    // ==============================================================
     @Scheduled(cron = "0 * * * * *", zone = "America/Sao_Paulo")
-    public void dispararLembretes1HoraAntes() {
+    public void monitorarFluxo() {
         if (agendaAtiva.isEmpty()) return;
-
         LocalTime now = LocalTime.now(ZoneId.of("America/Sao_Paulo"));
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
 
         for (Agendamento appt : agendaAtiva) {
-            // Se já avisou ou se não achou o telefone no CSV, ignora
-            if (appt.isNotified() || appt.getPhone() == null) continue;
+            if (appt.getPhone() == null || (!appt.getDate().equals(dataHoje) && !appt.getDate().equalsIgnoreCase("hoje"))) continue;
 
             try {
-                // Limpa o horário caso a IA mande "09h00" ou "9:00"
                 String cleanTime = appt.getTime().trim().replace("h", ":").replace(" ", "");
                 if (cleanTime.length() == 4 && cleanTime.charAt(1) == ':') cleanTime = "0" + cleanTime;
-                
                 LocalTime apptTime = LocalTime.parse(cleanTime, formatter);
                 
-                // Calcula a diferença em minutos de agora até o horário do corte
                 long minutesUntil = ChronoUnit.MINUTES.between(now, apptTime);
-                
-                // Se faltar exatamente entre 59 e 61 minutos (1 hora)
-                if (minutesUntil <= 61 && minutesUntil >= 59) {
-                    // Pega só o primeiro nome do cliente (Ex: "Adilson Martins" vira "Adilson")
-                    String primeiroNome = appt.getName().split(" ")[0];
-                    
-                    String msg = String.format("Fala, %s! 💈\n\nPassando pra te lembrar do nosso horário agendado para daqui a pouco, às *%s* (%s).\n\nTe esperamos lá na LH Barbearia! ✂️🔥", 
-                        primeiroNome, appt.getTime(), appt.getService());
-                    
-                    whatsAppService.sendTextMessage(appt.getPhone(), msg);
-                    appt.setNotified(true); // Trava para não mandar de novo no próximo minuto
-                    
-                    log.info("[AGENDA] Lembrete de 1H enviado com sucesso para {} às {}", appt.getName(), appt.getTime());
+                if (!appt.isNotified() && minutesUntil <= 61 && minutesUntil >= 59) {
+                    String pNome = appt.getName().split(" ")[0];
+                    whatsAppService.sendTextMessage(appt.getPhone(), "Fala, " + pNome + "! 💈\nSeu horário está chegando! Te esperamos hoje às *" + appt.getTime() + "* na Barbearia Vintage.");
+                    appt.setNotified(true);
                 }
-            } catch (Exception e) {
-                log.error("[AGENDA-ERRO] Erro ao calcular horário para {}: {}", appt.getName(), e.getMessage());
-            }
+
+                long minutesAfter = ChronoUnit.MINUTES.between(apptTime, now);
+                if (!appt.isThanked() && minutesAfter <= 45 && minutesAfter >= 35) {
+                    String pNome = appt.getName().split(" ")[0];
+                    whatsAppService.sendTextMessage(appt.getPhone(), "E aí, " + pNome + ", curtiu o talento? 🧔‍♂️\nSua avaliação ajuda a barbearia a crescer! Leva só 1 minuto:\n⭐ https://maps.app.goo.gl/link-ficticio-google\n\nValeu\n\nValeu demais! 👊");
+                    appt.setThanked(true);
+                }
+            } catch (Exception e) {}
         }
     }
 }

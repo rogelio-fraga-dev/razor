@@ -1,77 +1,53 @@
-# 💈 BarberBot - LH Barbearia Assist
+# 💈 BarberBot AI - Sistema de Agendamento Autônomo com GPT-4o
 
-O **BarberBot** é um assistente virtual inteligente e um sistema de gestão de relacionamento com o cliente (CRM) construído exclusivamente para o WhatsApp da LH Barbearia.
+O **BarberBot** é um SaaS (Software as a Service) completo construído em Spring Boot, projetado para revolucionar a forma como barbearias, salões e clínicas gerenciam suas agendas. Integrado ao WhatsApp e alimentado por Inteligência Artificial (OpenAI), ele atua como uma recepcionista virtual 24/7 capaz de conversar humanamente, negociar horários e realizar agendamentos de forma 100% autônoma.
 
-Movido por Inteligência Artificial, ele atua em duas frentes: como uma **Recepcionista Virtual** 24/7 para os clientes e como um **Painel de Controle de Bolso** para o administrador (Luiz).
+Este projeto foi construído do zero com foco em arquitetura limpa, processamento assíncrono e resiliência de banco de dados.
+
+---
 
 ## 🚀 Principais Funcionalidades
 
-### 👥 Para os Clientes (Recepcionista IA)
+### 🤖 Para o Cliente (Interface Inteligente)
 
-- **Atendimento Natural:** Conversa humanizada usando GPT-4o, com foco em conversão e agendamentos.
-- **Leitura de Áudio:** Entende mensagens de voz enviadas pelos clientes usando OpenAI Whisper.
-- **Filtro Anti-Spam:** Ignora figurinhas silenciosamente para evitar respostas desnecessárias.
-- **Transbordo Humano:** Auto-pausa a inteligência artificial assim que o cliente pede para "falar com o Luiz".
+- **Menu de Autoatendimento:** Resposta imediata a saudações com um menu interativo (Localização, Preços, Redes Sociais).
+- **Agendamento por IA (NLP):** O cliente não precisa preencher formulários engessados. Ele manda um áudio ou digita "Quero cortar sexta às 15h" e a IA verifica a disponibilidade, negocia alternativas caso esteja ocupado, e salva no banco de dados.
+- **Gestão de Agendamento:** O próprio cliente pode consultar ou cancelar seu horário diretamente pelo chat, sem intervenção humana.
+- **Lembretes e Pós-Venda Automáticos:** O sistema envia uma notificação automática 1 hora antes do corte e, 40 minutos após o término, solicita uma avaliação no Google Meu Negócio.
 
-### 👑 Para o Administrador (Painel no WhatsApp)
+### 🛠️ Para o Administrador (Mini-CRM no WhatsApp)
 
-O administrador controla todo o sistema mandando mensagens ou áudios para o próprio bot:
+- **Dashboard Financeiro (CRON):** Resumo diário disparado automaticamente mostrando o total de clientes atendidos e o faturamento estimado do dia.
+- **Disparo de Mensagens em Massa:** Capacidade de enviar _Avisos_ ou _Promoções do Dia_ para toda a base de clientes cadastrada no banco de dados, respeitando o limite de taxa do WhatsApp.
+- **Transbordo Humano Inteligente:** Se o cliente exigir falar com o dono, a IA realiza uma "triagem", pergunta o motivo, pausa o próprio atendimento por 15 minutos e envia um alerta ao administrador.
+- **CRUD Via Chat:** O administrador consegue listar e excluir clientes do banco de dados (PostgreSQL) usando apenas comandos no WhatsApp.
 
-- **Leitura de Agenda via Imagem:** O Admin envia um print da agenda (CashBarber), a IA lê os nomes e horários usando Visão Computacional e cruza com o Banco de Dados.
-- **Lembretes Automáticos:** O Bot avisa o cliente automaticamente **exatamente 1 hora antes** do seu corte.
-- **Disparos em Massa (Broadcast):** Opção de enviar avisos gerais ou mensagens de prospecção para a base.
-- **Gestão de Pausas:** Religa ou pausa o bot para clientes específicos diretamente pelo WhatsApp.
-- **Importação de Base (CSV):** Atualização instantânea do banco de dados ao enviar um arquivo `.csv` pelo chat.
+---
 
-## 🛠️ Tecnologias Utilizadas
+## 🏗️ Arquitetura e Tecnologias Utilizadas
 
-- **Java 23** + **Spring Boot 3.2.0**
-- **PostgreSQL** (Banco de dados relacional)
-- **Evolution API** (Integração não-oficial e robusta com WhatsApp)
-- **LangChain4j** (Orquestração da Inteligência Artificial)
-- **OpenAI (GPT-4o & Whisper-1)** (Cérebro do chatbot, Visão e Transcrição)
+O sistema foi arquitetado priorizando a separação de responsabilidades (Controllers, Services e Repositories).
 
-## ⚙️ Como Executar o Projeto
+- **Java 17+ & Spring Boot 3:** Core da aplicação (API REST).
+- **Spring Data JPA & PostgreSQL:** Persistência relacional. Proteção rigorosa contra anomalias com integridade referencial (`Foreign Keys` e `@Transactional`).
+- **LangChain4j & OpenAI (GPT-4o / Whisper):** Processamento de Linguagem Natural (NLP) dinâmico, alimentado por um prompt de sistema contextual que se atualiza com um calendário gerado em tempo real e o estado da memória da agenda. Visão computacional para leitura de imagens e Whisper para transcrição de áudios.
+- **Evolution API:** Gateway de comunicação com o WhatsApp via Webhooks assíncronos.
+- **Spring Scheduling (@Scheduled):** CRON Jobs responsáveis pelas rotinas de lembretes, monitoramento temporal de agenda e relatórios de fechamento de caixa.
 
-### Pré-requisitos
+---
 
-1. PostgreSQL rodando localmente ou em nuvem.
-2. Evolution API rodando e com a instância do WhatsApp conectada.
-3. Chaves de API da OpenAI e da Evolution configuradas.
+## 🧠 Como a "Mágica" do Agendamento Funciona (Under The Hood)
 
-### Instalação e Execução
+1. A classe `AgendaService` mapeia todos os horários ocupados e os formata em uma String.
+2. A classe `OpenAIService` gera os próximos 7 dias em tempo real (`dd/MM (EEEE)`).
+3. Ambos os contextos são injetados no **System Prompt** da IA durante a chamada.
+4. A IA negocia com o cliente. Quando os requisitos são preenchidos (Nome, Data, Hora e Serviço), a IA gera uma tag invisível ao usuário: `[NOVO_AGENDAMENTO|João|04/03|14:00|Corte]`.
+5. O `OrchestratorService` intercepta essa string via Regex/Substring, remove do texto, salva no banco e confirma a transação em milissegundos.
 
-1. Clone este repositório.
-2. Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
-   ```ini
-   OPENAI_API_KEY=sk-...
-   EVOLUTION_API_KEY=sua_apikey_aqui
-   POSTGRES_USER=postgres
-   POSTGRES_PASSWORD=sua_senha
-   POSTGRES_DB=barberbot
-   ADMIN_PHONE=5534999999999
-   Execute o script de inicialização pelo PowerShell:
-   ```
+---
 
-PowerShell
-.\run.ps1
-O Spring Boot iniciará na porta 8081 e conectará automaticamente aos Webhooks da Evolution API.
+## 👨‍💻 Sobre o Desenvolvedor
 
-📱 Menu de Comandos (Admin)
-Envie qualquer comando de texto ou áudio para o Bot sendo o número Administrador:
+Este sistema foi desenvolvido como uma prova de conceito de minhas habilidades em **Integração de Sistemas, Clean Code e Automação de Processos com Inteligência Artificial**.
 
-1 ou Resumo - Exibe o status do bot e clientes cadastrados.
-
-2 ou Avisos - Inicia disparo para a base atual.
-
-3 ou Prospecção - Inicia disparo de marketing.
-
-4 ou Pausar - Silencia o bot para um DDD + Número.
-
-5 ou Retomar - Religa o bot via menu interativo de clientes pausados.
-
-6 ou Agenda - Mostra a agenda processada do dia.
-
-7 ou Importar - Salva um cliente (Nome, Telefone) manualmente.
-
-Desenvolvido com ☕ e foco total na automatização de barbearias de alto nível.
+Sinta-se à vontade para explorar o código, clonar e entrar em contato para discutirmos soluções de software!
