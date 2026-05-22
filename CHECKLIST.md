@@ -131,10 +131,10 @@
 ## 📋 Planejado: Excel CashBarber e Novos Clientes
 
 ### Lista de contatos do CashBarber (Excel)
-- [ ] **Importar Excel com todos os contatos** do aplicativo CashBarber do Luiz
+- [ ] **Importar Excel com todos os contatos** do aplicativo CashBarber do administrador
   - Objetivo: evitar conflito entre “nome no agendamento” e “nome/contato salvo” – ao cruzar por **telefone**, o bot usa o mesmo cadastro (nome do CashBarber) para lembretes e mensagens do dia
   - Fluxo sugerido: endpoint (ex.: POST `/api/admin/import-contacts`) que recebe o Excel; ler colunas (telefone, nome); criar/atualizar `customers` por telefone; assim, agendamentos do dia e mensagens usam o mesmo cliente
-- [ ] **Formato do Excel**: definir colunas (ex.: `telefone`, `nome`) e documentar para o Luiz exportar do CashBarber no formato esperado
+- [ ] **Formato do Excel**: definir colunas (ex.: `telefone`, `nome`) e documentar para o administrador exportar do CashBarber no formato esperado
 
 ### Prospecção – novos clientes
 - [ ] **Enviar mensagem para pessoas sem cadastro** (conhecer a barbearia)
@@ -208,7 +208,7 @@
 
 ## 📞 Informações de Contato e Configuração
 
-- **Número do Admin (Luiz)**: 34984141504
+- **Número do Admin (Exemplo)**: 34999999999
 - **Porta do Backend**: 8081
 - **Porta da Evolution API**: 8080
 - **Nome da Instância**: BarberBot
