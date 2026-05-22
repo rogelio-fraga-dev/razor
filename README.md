@@ -79,6 +79,36 @@ sequenceDiagram
     Bot->>Cliente: "PARABÉNS! Você completou 10 pontos e ganhou o cupom FIDELIDADE10-XXXXX!"
 ```
 
+### 2.4. Fluxo de Compreensão e Processamento de Áudio (OpenAI Whisper-1)
+Este diagrama detalha o funcionamento assíncrono e concorrente da recepção de áudio no sistema. O bot baixa o arquivo de voz do WhatsApp de forma transparente via API do Evolution, decodifica a mídia e utiliza a inteligência artificial do Whisper para transcrever a voz em texto de alta fidelidade, permitindo processar a intenção do cliente na recepção ou executar comandos administrativos remotamente por voz.
+
+```mermaid
+sequenceDiagram
+    actor Usuário (Cliente/Admin)
+    participant WA as WhatsApp Client
+    participant Evo as Evolution API
+    participant Bot as BarberBot Core
+    participant OAI as OpenAI Whisper API
+    participant GPT as OpenAI GPT-4o API
+
+    Usuário (Cliente/Admin)->>WA: Envia mensagem de áudio ou comando de voz (.ogg / .mp3)
+    WA->>Evo: Transmite arquivo de mídia de áudio
+    Evo->>Bot: Dispara Webhook de Áudio (contendo messageId)
+    Bot->>Evo: Requisita o arquivo decodificado em Base64 (/chat/getBase64FromMediaMessage)
+    Evo-->>Bot: Retorna o conteúdo de mídia em string Base64
+    Bot->>OAI: Transmite Base64 para transcrição de áudio (Whisper-1)
+    OAI-->>Bot: Retorna transcrição em texto (ex: "quero marcar amanhã 10h corte" ou "dashboard")
+    
+    alt Fluxo do Cliente
+        Bot->>GPT: Processa texto transcrito com histórico da conversa (GPT-4o)
+        GPT-->>Bot: Retorna tags estruturadas + resposta receptiva
+        Bot->>WA: Envia mensagem confirmando agendamento ou tirando dúvidas
+    else Fluxo do Administrador
+        Note over Bot: Identifica comando administrativo falado e executa
+        Bot->>WA: Retorna painel financeiro, pausa/retoma robô ou exibe a transcrição
+    end
+```
+
 ---
 
 ## 🛠️ 3. Mapeamento e Especificação dos Módulos do Sistema
@@ -86,7 +116,7 @@ sequenceDiagram
 ### MÓDULO A: INTEGRAÇÃO INTELIGENTE DE ATENDIMENTO (CLIENTE)
 * **Inteligência Artificial Conversacional (NLP - OpenAI GPT-4o)**: Compreensão de linguagem natural, gírias e agendamentos diretos em conversas livres por chat.
 * **Extração Temática de Tags de IA**: Geração e interceptação em milissegundos das tags `[NOVO_AGENDAMENTO|...]` e `[LISTA_DE_ESPERA|...]` sem exibição visual ao cliente.
-* **Transcrição de Voz (OpenAI Whisper)**: Download dinâmico de mensagens de áudio do WhatsApp e transcrição nativa para responder na mesma linha de conversa da IA.
+* **Compreensão de Áudio em Tempo Real (OpenAI Whisper)**: O cliente pode fazer agendamentos, cancelar horários ou tirar dúvidas enviando mensagens de voz normais no WhatsApp. O sistema realiza o download dinâmico do áudio, faz a transcrição de alta fidelidade nativamente e processa o texto pela inteligência do GPT-4o como se tivesse sido digitado, respondendo o cliente com agilidade e fluidez.
 * **Menus Nativos Interativos (WhatsApp List Messages)**: Interface de gaveta clicável nativa do WhatsApp com fallback numérico robusto (1 a 8) e reconciliação total de rotas.
 * **Autogestão de Agendamentos**: Possibilidade de o cliente consultar seu horário ativo ou cancelá-lo informando apenas a frase `"cancelar meu horário"`.
 
@@ -97,6 +127,7 @@ sequenceDiagram
 * **Checkout PIX Copia e Cola**: Fluxo imediato de pagamento pós-agendamento com payloads formatados e badges visuais (`[PIX 💳]`, `[Presencial 💵]`, `[Pendente ⏳]`) no fechamento do dia do administrador.
 
 ### MÓDULO C: PAINEL ADMINISTRATIVO & CRM (ADMINISTRADOR)
+* **Controle Total por Comandos de Voz**: O proprietário/administrador pode comandar a barbearia por mensagens de áudio no WhatsApp! O Whisper transcreve a voz e o sistema executa o comando correspondente diretamente (ex: falar *"dashboard"* para ver faturamento, *"relatório matinal"* ou *"relatório noturno"*, *"pausar"* ou *"retomar"* o robô para clientes específicos). O bot também retorna a transcrição de voz no chat para acompanhamento visual.
 * **Dashboard Financeiro**: Resumo estimado de faturamento e cortes efetuados no chat administrativo.
 * **Relatório Matinal Automatizado (07h30)**: Disparo diário com a contagem de clientes agendados e a listagem das horas de cada atendimento.
 * **Relatório Noturno Detalhado (22h30)**: Fechamento detalhado dos serviços do dia integrados com as badges de pagamento de cada cliente.
