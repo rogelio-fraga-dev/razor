@@ -29,6 +29,13 @@ public class Customer {
     @Column(name = "paused_until")
     private LocalDateTime pausedUntil;
     
+    @Builder.Default
+    @Column(name = "fidelity_points")
+    private Integer fidelityPoints = 0;
+    
+    @Column(name = "last_service_date")
+    private LocalDateTime lastServiceDate;
+    
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
     

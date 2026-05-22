@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-
 import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -20,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import com.barberbot.api.model.WaitlistEntry;
+import com.barberbot.api.repository.WaitlistRepository;
 
 @Slf4j
 @Service
@@ -34,12 +35,24 @@ public class OrchestratorService {
     private final WhatsAppService whatsAppService;
     private final AgendaService agendaService;
     private final BarberBotProperties properties;
+    private final WaitlistRepository waitlistRepository;
+
+    @lombok.Data
+    @lombok.AllArgsConstructor
+    private static class WaitlistOffer {
+        private String phone;
+        private String name;
+        private String date;
+        private String time;
+        private String service;
+    }
 
     private static final Map<String, LocalDateTime> processedMessageIds = new ConcurrentHashMap<>();
     private static final Map<String, String> adminStates = new ConcurrentHashMap<>();
     private static final Map<String, List<String>> adminRetomarOptions = new ConcurrentHashMap<>();
     private static final Map<String, List<String>> adminApagarOptions = new ConcurrentHashMap<>();
     private static final Map<String, String> customerStates = new ConcurrentHashMap<>();
+    private static final Map<String, WaitlistOffer> waitlistOffers = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private void sendMsg(String phone, String text, String role) {
@@ -56,14 +69,25 @@ public class OrchestratorService {
     @Scheduled(cron = "0 30 7 * * *", zone = "America/Sao_Paulo")
     public void dispararLembretesMatinais() {
         String adminPhone = properties.getAdmin().getPhone();
-        sendMsg(adminPhone, "☀️ Bom dia, Chefe! O expediente vai começar. 🤖\n\n📅 *Agenda de Hoje:*\n" + agendaService.getAgendaSalva() + "\n\nEu cuidarei de lembrar todos eles para não faltarem!", "ADMIN");
+        int totalHoje = agendaService.getAgendamentosHojeCount();
+        String agendaHoje = agendaService.getAgendaHojeText();
+        String report = String.format("""
+                ☀️ *Bom dia, Chefe! O expediente vai começar.* 🤖💈
+                
+                📅 *Hoje temos %d agendamento(s):*
+                
+                %s
+                
+                Eu cuidarei de lembrar todos eles para não faltarem!
+                """, totalHoje, agendaHoje);
+        sendMsg(adminPhone, report, "ADMIN");
     }
 
     @Scheduled(cron = "0 30 22 * * *", zone = "America/Sao_Paulo")
     public void fechamentoDiario() {
         String adminPhone = properties.getAdmin().getPhone();
-        String resumo = agendaService.getResumoDoDia();
-        sendMsg(adminPhone, "🌙 Boa noite, Chefe! Expediente finalizado.\n\n" + resumo + "\n\nBom descanso! 🤖", "ADMIN");
+        String resumoDetalhado = agendaService.getResumoDetelhadoDoDia();
+        sendMsg(adminPhone, resumoDetalhado, "ADMIN");
     }
 
     @Async
@@ -213,6 +237,20 @@ public class OrchestratorService {
             String normalized = Normalizer.normalize(originalCommand.toLowerCase(), Normalizer.Form.NFD)
                     .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "");
             String cmdLower = normalized.replaceAll("[^a-z0-9 ]", "").trim();
+
+            String adminRowId = MenuOptions.resolveAdminMenuOptionId(originalCommand);
+            if (adminRowId != null) {
+                if (MenuOptions.ROW_ID_ADMIN_DASHBOARD.equals(adminRowId)) cmdLower = "1";
+                else if (MenuOptions.ROW_ID_ADMIN_AVISOS.equals(adminRowId)) cmdLower = "2";
+                else if (MenuOptions.ROW_ID_ADMIN_PROMO.equals(adminRowId)) cmdLower = "3";
+                else if (MenuOptions.ROW_ID_ADMIN_PAUSAR.equals(adminRowId)) cmdLower = "4";
+                else if (MenuOptions.ROW_ID_ADMIN_RETOMAR.equals(adminRowId)) cmdLower = "5";
+                else if (MenuOptions.ROW_ID_ADMIN_AGENDA.equals(adminRowId)) cmdLower = "6";
+                else if (MenuOptions.ROW_ID_ADMIN_REL_MATINAL.equals(adminRowId)) cmdLower = "7";
+                else if (MenuOptions.ROW_ID_ADMIN_REL_NOTURNO.equals(adminRowId)) cmdLower = "8";
+                else if (MenuOptions.ROW_ID_ADMIN_LISTAR.equals(adminRowId)) cmdLower = "9";
+                else if (MenuOptions.ROW_ID_ADMIN_APAGAR.equals(adminRowId)) cmdLower = "10";
+            }
             
             String currentState = adminStates.get(phoneNumber);
 
@@ -312,6 +350,22 @@ public class OrchestratorService {
                 }
             } else if (cmdLower.equals("6") || cmdLower.contains("agenda")) {
                 sendMsg(phoneNumber, "📅 *Agenda Atual*\n\n" + agendaService.getAgendaSalva(), "ADMIN");
+            } else if (cmdLower.equals("7") || cmdLower.contains("matinal") || cmdLower.contains("bom dia")) {
+                int totalHoje = agendaService.getAgendamentosHojeCount();
+                String agendaHoje = agendaService.getAgendaHojeText();
+                String report = String.format("""
+                        ☀️ *Relatório Matinal BarberBot*
+                        
+                        📅 *Hoje temos %d agendamento(s):*
+                        
+                        %s
+                        
+                        Eu cuidarei de lembrar todos eles para não faltarem! 🤖💈
+                        """, totalHoje, agendaHoje);
+                sendMsg(phoneNumber, report, "ADMIN");
+            } else if (cmdLower.equals("8") || cmdLower.contains("noturno") || cmdLower.contains("fechamento")) {
+                String resumoDetalhado = agendaService.getResumoDetelhadoDoDia();
+                sendMsg(phoneNumber, resumoDetalhado, "ADMIN");
             } else if (cmdLower.equals("9") || cmdLower.contains("lista")) {
                 List<Customer> customers = customerRepository.findAll();
                 if (customers.isEmpty()) {
@@ -346,19 +400,36 @@ public class OrchestratorService {
     }
 
     private void sendFullMenu(String phoneNumber) {
-        String fullMenu = """
-                🛠️ *PAINEL DA BARBEARIA*
-                
-                *1* - 📊 Dashboard e Caixa
-                *2* - 📢 Avisos (Geral)
-                *3* - 🎯 Promoções do dia
-                *4* - ⏸️ Pausar bot (Cliente)
-                *5* - ▶️ Retomar bot (Cliente)
-                *6* - 📅 Ver Agenda Completa
-                *9* - 📋 Listar Clientes
-                *10* - 🗑️ Apagar um Cliente
-                """;
-        sendMsg(phoneNumber, fullMenu, "ADMIN");
+        try {
+            log.info("[SISTEMA] Enviando Lista Interativa de Gestão para o Administrador: {}", phoneNumber);
+            whatsAppService.sendListMessage(
+                phoneNumber,
+                "🛠️ Painel Administrativo",
+                "Olá, Administrador! Escolha uma das ações ou relatórios abaixo:",
+                "Ver Opções 📋",
+                "Barbearia Vintage - Gestão",
+                MenuOptions.buildAdminListSections()
+            );
+        } catch (Exception e) {
+            log.warn("[SISTEMA] Falha ao enviar lista interativa para admin, usando fallback em texto: {}", e.getMessage());
+            String fullMenu = """
+                    🛠️ *PAINEL DA BARBEARIA*
+                    
+                    *1* - 📊 Dashboard e Caixa
+                    *2* - 📢 Avisos (Geral)
+                    *3* - 🎯 Promoções do dia
+                    *4* - ⏸️ Pausar bot (Cliente)
+                    *5* - ▶️ Retomar bot (Cliente)
+                    *6* - 📅 Ver Agenda Completa
+                    *7* - ☀️ Relatório Matinal (Hoje)
+                    *8* - 🌙 Relatório Noturno (Fechamento)
+                    *9* - 📋 Listar Clientes
+                    *10* - 🗑️ Apagar um Cliente
+                    
+                    _Digite o número ou comando desejado._
+                    """;
+            sendMsg(phoneNumber, fullMenu, "ADMIN");
+        }
     }
 
     @Async
@@ -382,6 +453,9 @@ public class OrchestratorService {
     // ==========================================
     // FLUXO DO CLIENTE (COM MENU VISUAL + IA)
     // ==========================================
+    // ==========================================
+    // FLUXO DO CLIENTE (COM MENU VISUAL + IA)
+    // ==========================================
     private void processCustomerMessage(EvolutionWebhookDTO webhook, String phoneNumber) {
         if (webhook.hasSticker()) return;
 
@@ -400,7 +474,25 @@ public class OrchestratorService {
 
         String msgLower = contentToSave.toLowerCase().trim();
         String cState = customerStates.get(phoneNumber);
-        
+
+        // 1. Confirmação de Oferta da Lista de Espera
+        if (waitlistOffers.containsKey(phoneNumber) && (msgLower.equals("sim") || msgLower.equals("s") || msgLower.contains("quero"))) {
+            WaitlistOffer offer = waitlistOffers.remove(phoneNumber);
+            agendaService.adicionarAgendamentoViaIA(offer.getName(), phoneNumber, offer.getDate(), offer.getTime(), offer.getService());
+            
+            String successMsg = "Perfeito, " + offer.getName().split(" ")[0] + "! 🥳\n\n" +
+                                 "Seu horário foi agendado automaticamente para *" + offer.getDate() + "* às *" + offer.getTime() + "* para *" + offer.getService() + "*! 🎉\n\n" +
+                                 "*Como deseja realizar o pagamento?*\n\n" +
+                                 "1️⃣ **Pagar agora via PIX** 💳\n" +
+                                 "2️⃣ **Pagar presencialmente** na barbearia 💵\n\n" +
+                                 "_Responda com o número da opção desejada (1 ou 2)._";
+                                 
+            customerStates.put(phoneNumber, "ESPERANDO_PAGAMENTO");
+            saveAndSend(customer, successMsg, phoneNumber);
+            return;
+        }
+
+        // 2. Estado: Esperando motivo de falar com atendente
         if ("ESPERANDO_MOTIVO".equals(cState)) {
             customerStates.remove(phoneNumber);
             customerService.pauseCustomer(phoneNumber, 15);
@@ -409,59 +501,112 @@ public class OrchestratorService {
             return;
         }
 
-        if (msgLower.equals("menu") || msgLower.matches("^(oi|olá|ola|bom dia|boa tarde|boa noite|tudo bem)$")) {
-            String menuCli = """
-                    💈 *Bem-vindo à Barbearia Vintage!* 💈
-                    
-                    Eu sou o assistente virtual. Digite o número da opção desejada para eu te ajudar rapidinho:
-                    
-                    *1* - ✂️ Agendar um Horário
-                    *2* - 📅 Meus Agendamentos (Ver/Cancelar)
-                    *3* - 🕒 Ver Horários Disponíveis
-                    *4* - 📍 Localização e Endereço
-                    *5* - 📱 Nossas Redes Sociais
-                    *6* - ℹ️ Informações Úteis (Preços e Horários)
-                    *7* - 👤 Falar com Atendente Humano
-                    """;
-            saveAndSend(customer, menuCli, phoneNumber);
+        // 3. Estado: Esperando escolha de pagamento (PIX / Presencial)
+        if ("ESPERANDO_PAGAMENTO".equals(cState)) {
+            customerStates.remove(phoneNumber);
+            AgendaService.Agendamento ag = agendaService.getAgendamentoCliente(phoneNumber);
+            
+            if (msgLower.equals("1") || msgLower.contains("pix") || msgLower.contains("agora") || msgLower.contains("pagar")) {
+                if (ag != null) {
+                    ag.setPaymentStatus("PIX");
+                    agendaService.salvarAgendaEmArquivo();
+                }
+                String pixMsg = "🔑 *CHAVE PIX (CNPJ):* `12.345.678/0001-90`\n\n" +
+                                "📌 *PIX Copia e Cola:*\n" +
+                                "`00020101021126580014br.gov.bcb.pix013612345678000190520400005303986540535.005802BR5918Barbearia Vintage6009Sao Paulo62070503***63041A2B`\n\n" +
+                                "💡 _Realize o pagamento e traga o comprovante no dia do atendimento. Seu horário está 100% garantido! Te esperamos lá!_ 💈👊";
+                saveAndSend(customer, pixMsg, phoneNumber);
+                return;
+            } else {
+                if (ag != null) {
+                    ag.setPaymentStatus("PRESENCIAL");
+                    agendaService.salvarAgendaEmArquivo();
+                }
+                String presMsg = "Perfeito! Seu agendamento foi configurado para **pagamento presencial** direto no caixa da barbearia. Te esperamos lá! 💈👊";
+                saveAndSend(customer, presMsg, phoneNumber);
+                return;
+            }
+        }
+
+        // 4. Interceptação de Menus Interativos (Botões WhatsApp)
+        String rowId = MenuOptions.resolveMenuOptionId(contentToSave);
+        if (rowId != null) {
+            log.info("[SISTEMA] Menu Interativo ativado para cliente {}: {}", phoneNumber, rowId);
+            
+            if (MenuOptions.ROW_ID_ATENDENTE.equals(rowId)) {
+                customerStates.put(phoneNumber, "ESPERANDO_MOTIVO");
+                saveAndSend(customer, "Poxa, vi que você quer um atendimento humano! 🧔‍♂️\nPor favor, me explique brevemente a sua dúvida para eu já adiantar o assunto para o barbeiro:", phoneNumber);
+            } else if (MenuOptions.ROW_ID_AGENDAR.equals(rowId)) {
+                String promptParaIA = "Quero agendar um horário. O que você precisa saber?";
+                chamaIAETrataMensagem(customer, promptParaIA, phoneNumber);
+            } else if (MenuOptions.ROW_ID_MEUS_AGENDAMENTOS.equals(rowId)) {
+                trataVisualizarAgendamentos(customer, phoneNumber);
+            } else if (MenuOptions.ROW_ID_HORARIOS_LIVRES.equals(rowId)) {
+                String promptParaIA = "Quais os horários livres para agendar?";
+                chamaIAETrataMensagem(customer, promptParaIA, phoneNumber);
+            } else if (MenuOptions.ROW_ID_FIDELIDADE.equals(rowId)) {
+                trataExibirFidelidade(customer, phoneNumber);
+            } else {
+                String response = MenuOptions.getResponseForOption(rowId, properties);
+                saveAndSend(customer, response, phoneNumber);
+            }
             return;
         }
 
-        if (msgLower.equals("2") || msgLower.contains("meus agendamentos") || msgLower.contains("meu agendamento")) {
-            AgendaService.Agendamento ag = agendaService.getAgendamentoCliente(phoneNumber);
-            if (ag != null) {
-                saveAndSend(customer, "📅 *Seu Agendamento:*\n\nServiço: " + ag.getService() + "\nDia: " + ag.getDate() + " às " + ag.getTime() + "\n\n❌ Para desmarcar, digite exatamente:\n*cancelar meu horário*", phoneNumber);
-            } else {
-                saveAndSend(customer, "Você não possui nenhum agendamento ativo conosco no momento! Digite *1* para marcar um horário.", phoneNumber);
+        // 5. Exibição de Menu Principal Textual
+        if (msgLower.equals("menu") || msgLower.matches("^(oi|olá|ola|bom dia|boa tarde|boa noite|tudo bem)$")) {
+            try {
+                log.info("[SISTEMA] Enviando Lista Interativa Oficial para: {}", phoneNumber);
+                whatsAppService.sendListMessage(
+                    phoneNumber,
+                    "💈 Barbearia Vintage 💈",
+                    "Olá! Sou o assistente virtual da Barbearia Vintage. Como posso te ajudar hoje?\n\nEscolha uma das opções abaixo no botão:",
+                    "Ver Opções 📋",
+                    "Barbearia Vintage - Centro",
+                    MenuOptions.buildListSections()
+                );
+            } catch (Exception e) {
+                log.warn("[SISTEMA] Falha ao enviar lista interativa, usando fallback em texto: {}", e.getMessage());
+                saveAndSend(customer, MenuOptions.getMenuAsText(), phoneNumber);
             }
+            return;
+        }
+
+        // 6. Tratamento de Comandos Textuais / Números Fallback
+        if (msgLower.equals("2") || msgLower.contains("meus agendamentos") || msgLower.contains("meu agendamento")) {
+            trataVisualizarAgendamentos(customer, phoneNumber);
             return;
         }
 
         if (msgLower.equals("cancelar meu horário") || msgLower.equals("cancelar meu horario")) {
-            if (agendaService.cancelarAgendamentoCliente(phoneNumber)) {
-                saveAndSend(customer, "✅ Seu agendamento foi cancelado com sucesso!", phoneNumber);
-            } else {
-                saveAndSend(customer, "❌ Não encontrei nenhum agendamento seu ativo para cancelar.", phoneNumber);
-            }
+            trataCancelarAgendamento(customer, phoneNumber);
             return;
         }
 
         if (msgLower.equals("4") || msgLower.contains("localização") || msgLower.contains("onde fica")) {
-            saveAndSend(customer, "📍 *Nossa Localização*\n\nEstamos na Av. Fictícia, 1000 - Bairro Nobre, Araguari, MG.\n🔗 Veja a rota no Maps: https://maps.app.goo.gl/link-ficticio", phoneNumber);
+            String resp = properties.getMenu().getAddressText() + "\n\n🗺️ *Abrir no Maps:* " + properties.getMenu().getAddressMapsUrl();
+            saveAndSend(customer, resp, phoneNumber);
             return;
         }
 
-        if (msgLower.equals("5") || msgLower.contains("instagram") || msgLower.contains("redes")) {
-            saveAndSend(customer, "📱 *Nossas Redes*\n\nAcompanhe os melhores cortes no nosso Instagram!\n👉 @barbeariavintage_oficial (https://instagram.com/barbearia)", phoneNumber);
+        if (msgLower.equals("5") || msgLower.contains("preço") || msgLower.contains("preços") || msgLower.contains("serviços")) {
+            String resp = properties.getMenu().getServicesText() + "\n👉 " + properties.getMenu().getScheduleUrl();
+            saveAndSend(customer, resp, phoneNumber);
             return;
         }
 
-        if (msgLower.equals("6") || msgLower.contains("informações") || msgLower.contains("preço")) {
-            saveAndSend(customer, "ℹ️ *Informações Úteis*\n\n*Horário de Funcionamento:*\nSegunda a Sábado: 09h às 19h\n\n*Serviços:*\n- Corte: R$ 35,00\n- Barba: R$ 30,00\n- Combo: R$ 60,00\n\nDigite *1* para agendar um horário com a gente!", phoneNumber);
+        if (msgLower.equals("6") || msgLower.contains("fidelidade") || msgLower.contains("cartão") || msgLower.contains("pontos")) {
+            trataExibirFidelidade(customer, phoneNumber);
             return;
         }
 
-        if (msgLower.equals("7") || msgLower.contains("falar com") || msgLower.contains("atendente")) {
+        if (msgLower.equals("7") || msgLower.contains("instagram") || msgLower.contains("redes")) {
+            String resp = "📸 *Siga nossa Barbearia!*\n\nFique por dentro dos cortes e novidades:\n" + properties.getMenu().getInstagramUrl();
+            saveAndSend(customer, resp, phoneNumber);
+            return;
+        }
+
+        if (msgLower.equals("8") || msgLower.contains("falar com") || msgLower.contains("atendente")) {
             customerStates.put(phoneNumber, "ESPERANDO_MOTIVO");
             saveAndSend(customer, "Poxa, vi que você quer um atendimento humano! 🧔‍♂️\nPor favor, me explique brevemente a sua dúvida para eu já adiantar o assunto para o barbeiro:", phoneNumber);
             return;
@@ -474,9 +619,61 @@ public class OrchestratorService {
             contentToSave = "Quais os horários livres para agendar?";
         }
 
+        chamaIAETrataMensagem(customer, contentToSave, phoneNumber);
+    }
+
+    private void trataVisualizarAgendamentos(Customer customer, String phoneNumber) {
+        AgendaService.Agendamento ag = agendaService.getAgendamentoCliente(phoneNumber);
+        if (ag != null) {
+            saveAndSend(customer, "📅 *Seu Agendamento:*\n\nServiço: " + ag.getService() + "\nDia: " + ag.getDate() + " às " + ag.getTime() + "\n\n❌ Para desmarcar, digite exatamente:\n*cancelar meu horário*", phoneNumber);
+        } else {
+            saveAndSend(customer, "Você não possui nenhum agendamento ativo conosco no momento! Digite *1* para marcar um horário.", phoneNumber);
+        }
+    }
+
+    private void trataExibirFidelidade(Customer customer, String phoneNumber) {
+        int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
+        String resp = "🎫 *Seu Cartão Fidelidade - Barbearia Vintage*\n\n" +
+                      "Você possui *" + points + "* de *10* pontos! 🌟\n\n" +
+                      "A cada corte você ganha 1 ponto. Ao completar 10 pontos, você ganha *10% de desconto* no seu próximo corte! ✂️🔥";
+        saveAndSend(customer, resp, phoneNumber);
+    }
+
+    private void trataCancelarAgendamento(Customer customer, String phoneNumber) {
+        AgendaService.Agendamento ag = agendaService.getAgendamentoCliente(phoneNumber);
+        if (ag != null) {
+            String diaSemana = null;
+            try {
+                String[] parts = ag.getDate().split("/");
+                int day = Integer.parseInt(parts[0].trim());
+                int month = Integer.parseInt(parts[1].trim());
+                int year = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).getYear();
+                java.time.LocalDate dateObj = java.time.LocalDate.of(year, month, day);
+                diaSemana = dateObj.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
+            } catch (Exception e) {
+                log.warn("Erro ao deduzir dia da semana para cancelamento: {}", e.getMessage());
+            }
+
+            String apptTime = ag.getTime();
+            String apptDate = ag.getDate();
+            String apptService = ag.getService();
+
+            if (agendaService.cancelarAgendamentoCliente(phoneNumber)) {
+                saveAndSend(customer, "✅ Seu agendamento foi cancelado com sucesso!", phoneNumber);
+                
+                if (diaSemana != null) {
+                    verificarListaEsperaECanalizar(diaSemana, apptDate, apptTime, apptService);
+                }
+            }
+        } else {
+            saveAndSend(customer, "❌ Não encontrei nenhum agendamento seu ativo para cancelar.", phoneNumber);
+        }
+    }
+
+    private void chamaIAETrataMensagem(Customer customer, String prompt, String phoneNumber) {
         log.info("[IA PROCESSING] Chamando o GPT-4o...");
         String agendaContext = agendaService.getHorariosOcupadosParaIA();
-        String aiResponse = openAIService.processCustomerMessage(contentToSave, getRecentHistory(customer.getId()), agendaContext);
+        String aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext);
 
         if (aiResponse.contains("[NOVO_AGENDAMENTO|")) {
             try {
@@ -485,10 +682,46 @@ public class OrchestratorService {
                 String tag = aiResponse.substring(startIndex, endIndex + 1);
 
                 String[] parts = tag.replace("[", "").replace("]", "").split("\\|");
-                agendaService.adicionarAgendamentoViaIA(parts[1], phoneNumber, parts[2], parts[3], parts[4]);
+                String name = parts[1];
+                String date = parts[2];
+                String time = parts[3];
+                String service = parts[4];
+                
+                agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
 
                 aiResponse = aiResponse.replace(tag, "").trim();
-            } catch (Exception e) { log.error("Falha ao ler TAG", e); }
+                
+                String paymentPrompt = "\n\n*Como deseja realizar o pagamento?*\n\n" +
+                                       "1️⃣ **Pagar agora via PIX** 💳\n" +
+                                       "2️⃣ **Pagar presencialmente** na barbearia 💵\n\n" +
+                                       "_Responda com o número da opção desejada (1 ou 2)._";
+                aiResponse = aiResponse + paymentPrompt;
+                customerStates.put(phoneNumber, "ESPERANDO_PAGAMENTO");
+            } catch (Exception e) { log.error("Falha ao ler TAG NOVO_AGENDAMENTO", e); }
+        } else if (aiResponse.contains("[LISTA_DE_ESPERA|")) {
+            try {
+                int startIndex = aiResponse.indexOf("[LISTA_DE_ESPERA|");
+                int endIndex = aiResponse.indexOf("]", startIndex);
+                String tag = aiResponse.substring(startIndex, endIndex + 1);
+
+                String[] parts = tag.replace("[", "").replace("]", "").split("\\|");
+                String name = parts[1];
+                String preferredDay = parts[2];
+
+                if (!waitlistRepository.existsByCustomerPhone(phoneNumber)) {
+                    WaitlistEntry entry = WaitlistEntry.builder()
+                            .customerPhone(phoneNumber)
+                            .customerName(name)
+                            .preferredDay(preferredDay)
+                            .build();
+                    waitlistRepository.save(entry);
+                    log.info("[LISTA ESPERA] {} adicionado para o dia {}", phoneNumber, preferredDay);
+                } else {
+                    log.info("[LISTA ESPERA] {} já estava na lista", phoneNumber);
+                }
+
+                aiResponse = aiResponse.replace(tag, "").trim();
+            } catch (Exception e) { log.error("Falha ao ler TAG LISTA_DE_ESPERA", e); }
         }
 
         saveAndSend(customer, aiResponse, phoneNumber);
@@ -502,5 +735,45 @@ public class OrchestratorService {
     private List<String> getRecentHistory(java.util.UUID customerId) {
         return interactionRepository.findRecentInteractionsByCustomerId(customerId).stream()
                 .map(Interaction::getContent).collect(Collectors.toList());
+    }
+
+    private void verificarListaEsperaECanalizar(String diaSemana, String date, String time, String service) {
+        try {
+            List<WaitlistEntry> allEntries = waitlistRepository.findAll();
+            WaitlistEntry matched = null;
+            
+            String cleanedDia = Normalizer.normalize(diaSemana.toLowerCase(), Normalizer.Form.NFD)
+                    .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "")
+                    .replaceAll("[^a-z0-9]", "");
+
+            for (WaitlistEntry entry : allEntries) {
+                String preferred = entry.getPreferredDay().toLowerCase();
+                String cleanedPref = Normalizer.normalize(preferred, Normalizer.Form.NFD)
+                        .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "")
+                        .replaceAll("[^a-z0-9]", "");
+                
+                if (cleanedPref.contains(cleanedDia) || cleanedDia.contains(cleanedPref)) {
+                    matched = entry;
+                    break;
+                }
+            }
+            
+            if (matched != null) {
+                WaitlistOffer offer = new WaitlistOffer(matched.getCustomerPhone(), matched.getCustomerName(), date, time, service);
+                waitlistOffers.put(matched.getCustomerPhone(), offer);
+                
+                String capitalizeDia = diaSemana.substring(0, 1).toUpperCase() + diaSemana.substring(1);
+                String notificationMsg = "Opa, " + matched.getCustomerName().split(" ")[0] + "! 💈\n\n" +
+                                         "Um horário acaba de vagar para este *" + capitalizeDia + "* (" + date + ") às *" + time + "* para *" + service + "*! 🎉\n\n" +
+                                         "Deseja reservar este horário para você?\n\n" +
+                                         "Responda apenas **SIM** para confirmar o agendamento automático!";
+                
+                waitlistRepository.delete(matched);
+                sendMsg(matched.getCustomerPhone(), notificationMsg, "SISTEMA");
+                log.info("[LISTA ESPERA] Oferta enviada para {} para o dia {} às {}", matched.getCustomerPhone(), date, time);
+            }
+        } catch (Exception e) {
+            log.error("[LISTA ESPERA] Erro ao verificar lista de espera: {}", e.getMessage(), e);
+        }
     }
 }

@@ -58,7 +58,7 @@ public class CustomerService {
         return false;
     }
     
-    // NOVO: Retorna a lista de números pausados para o Luiz escolher
+    // NOVO: Retorna a lista de números pausados para o administrador escolher
     public List<String> getPausedPhones() {
         // Primeiro limpa os que já venceram o tempo (1 hora)
         pausedCustomers.entrySet().removeIf(e -> LocalDateTime.now().isAfter(e.getValue()));

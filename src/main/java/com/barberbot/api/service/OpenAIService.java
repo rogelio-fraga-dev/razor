@@ -56,8 +56,12 @@ public class OpenAIService {
             4. CONFIRMAÇÃO E TAG: Se o horário estiver livre e você tiver os dados, CONFIRME o agendamento e INCLUA EXATAMENTE a tag abaixo no final da sua mensagem:
             [NOVO_AGENDAMENTO|Nome do Cliente|DD/MM|HH:MM|Serviço]
             
+            5. LISTA DE ESPERA INTELIGENTE (Sextas e Sábados): Sábados e Sextas-feiras são os dias mais disputados. Se o cliente tentar agendar nesses dias e o horário pedido estiver indisponível ou a agenda estiver cheia, avise-o amigavelmente e ofereça a oportunidade de entrar na "Lista de Espera Inteligente". Se ele aceitar, confirme que o adicionou e finalize a mensagem incluindo EXATAMENTE a tag abaixo no final da mensagem:
+            [LISTA_DE_ESPERA|Nome do Cliente|Dia da Semana (ex: Sexta-feira ou Sábado)]
+            
             ⚠️ A data na tag DEVE ser no formato numérico DD/MM, deduzida do "HOJE É DIA" e do calendário. Nunca escreva "amanhã" dentro da tag.
-            Exemplo da sua fala de sucesso: "Tudo certo, Rogélio! Seu horário está marcado." [NOVO_AGENDAMENTO|Rogélio|05/03|09:00|Combo]
+            Exemplo de sucesso de agendamento: "Tudo certo, Rogélio! Seu horário está marcado." [NOVO_AGENDAMENTO|Rogélio|05/03|09:00|Combo]
+            Exemplo de sucesso de lista de espera: "Combinado, Rogélio! Já te coloquei na nossa lista de espera de Sábado. Se alguma vaga surgir, eu te aviso aqui na hora!" [LISTA_DE_ESPERA|Rogélio|Sábado]
             """;
     
     private static final String SYSTEM_PROMPT_AGENDA_READER = """

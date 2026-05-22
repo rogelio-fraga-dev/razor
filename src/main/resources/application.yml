@@ -25,7 +25,7 @@ spring:
 server:
   port: 8081
 
-# Configurações do Bot - LH Barbearia
+# Configurações do Bot - Barbearia Vintage
 barberbot:
   admin:
     phone: "${ADMIN_PHONE}"
@@ -44,13 +44,13 @@ barberbot:
     batch-size: 1
     delay-between-messages: 60000
 
-  # Dados Completos da LH Barbearia
+  # Dados Completos da Barbearia Vintage
   menu:
     address-text: |
-      📍 *LH Barbearia*
-      R. Floriano Peixoto, 585 - Miranda
-      Araguari - MG, 38444-236
-    address-maps-url: "https://goo.gl/maps/3" # Se tiver o link curto real, coloque aqui
+      📍 *Barbearia Vintage*
+      Rua dos Clássicos, 123 - Centro
+      Cidade Exemplo - SP, 01000-000
+    address-maps-url: "https://maps.google.com" # Link de exemplo
     # Lista 100% completa baseada nos prints
     services-text: |
       🔥 *TABELA COMPLETA DE PREÇOS*
@@ -94,8 +94,8 @@ barberbot:
 
       📲 _Para agendar:_
 
-    schedule-url: "https://cashbarber.com.br/lhbarbearia?utm_source=ig&utm_medium=social&utm_content=link_in_bio"
-    instagram-url: "https://www.instagram.com/lhbarbeariaa/"
+    schedule-url: "https://www.agendamentoexemplo.com.br/barbeariavintage"
+    instagram-url: "https://www.instagram.com/barbeariavintage_exemplo/"
 
 logging:
   level:

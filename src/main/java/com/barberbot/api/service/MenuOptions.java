@@ -9,21 +9,25 @@ import java.util.Map;
 
 public final class MenuOptions {
 
+    public static final String ROW_ID_AGENDAR = "menu_agendar";
+    public static final String ROW_ID_MEUS_AGENDAMENTOS = "menu_meus_agendamentos";
+    public static final String ROW_ID_HORARIOS_LIVRES = "menu_horarios_livres";
     public static final String ROW_ID_ENDERECO = "menu_endereco";
     public static final String ROW_ID_SERVICOS = "menu_servicos";
-    public static final String ROW_ID_PRODUTOS = "menu_produtos";
-    public static final String ROW_ID_AGENDAR = "menu_agendar";
-    public static final String ROW_ID_ATENDENTE = "menu_atendente";
+    public static final String ROW_ID_FIDELIDADE = "menu_fidelidade";
     public static final String ROW_ID_INSTAGRAM = "menu_instagram";
+    public static final String ROW_ID_ATENDENTE = "menu_atendente";
 
     private static final String[] ALL_ROW_IDS = {
-            ROW_ID_ENDERECO, ROW_ID_SERVICOS, ROW_ID_PRODUTOS,
-            ROW_ID_AGENDAR, ROW_ID_ATENDENTE, ROW_ID_INSTAGRAM
+            ROW_ID_AGENDAR, ROW_ID_MEUS_AGENDAMENTOS, ROW_ID_HORARIOS_LIVRES,
+            ROW_ID_ENDERECO, ROW_ID_SERVICOS, ROW_ID_FIDELIDADE,
+            ROW_ID_INSTAGRAM, ROW_ID_ATENDENTE
     };
 
     private static final String[] ROW_IDS_BY_NUMBER = {
-            ROW_ID_ENDERECO, ROW_ID_SERVICOS, ROW_ID_PRODUTOS,
-            ROW_ID_AGENDAR, ROW_ID_ATENDENTE, ROW_ID_INSTAGRAM
+            ROW_ID_AGENDAR, ROW_ID_MEUS_AGENDAMENTOS, ROW_ID_HORARIOS_LIVRES,
+            ROW_ID_ENDERECO, ROW_ID_SERVICOS, ROW_ID_FIDELIDADE,
+            ROW_ID_INSTAGRAM, ROW_ID_ATENDENTE
     };
 
     public static String resolveMenuOptionId(String messageText) {
@@ -32,7 +36,7 @@ public final class MenuOptions {
         for (String id : ALL_ROW_IDS) {
             if (id.equals(t)) return id;
         }
-        if (t.length() == 1 && t.charAt(0) >= '1' && t.charAt(0) <= '6') {
+        if (t.length() == 1 && t.charAt(0) >= '1' && t.charAt(0) <= '8') {
             return ROW_IDS_BY_NUMBER[t.charAt(0) - '1'];
         }
         return null;
@@ -50,12 +54,14 @@ public final class MenuOptions {
      */
     public static List<Map<String, Object>> buildListSections() {
         List<Map<String, String>> rows = new ArrayList<>();
+        rows.add(EvolutionClient.listRow(ROW_ID_AGENDAR, "📅 Agendar Horário", "Iniciar agendamento por IA"));
+        rows.add(EvolutionClient.listRow(ROW_ID_MEUS_AGENDAMENTOS, "📅 Meus Agendamentos", "Ver ou cancelar seu horário"));
+        rows.add(EvolutionClient.listRow(ROW_ID_HORARIOS_LIVRES, "🕒 Horários Disponíveis", "Ver as vagas livres"));
         rows.add(EvolutionClient.listRow(ROW_ID_ENDERECO, "📍 Endereço", "Localização e Mapa"));
         rows.add(EvolutionClient.listRow(ROW_ID_SERVICOS, "💰 Serviços e Planos", "Tabela de preços VIP"));
-        rows.add(EvolutionClient.listRow(ROW_ID_AGENDAR, "📅 Agendar Horário", "Link do CashBarber"));
-        rows.add(EvolutionClient.listRow(ROW_ID_PRODUTOS, "💈 Produtos", "O que vendemos"));
+        rows.add(EvolutionClient.listRow(ROW_ID_FIDELIDADE, "🎫 Cartão Fidelidade", "Veja seus pontos e prêmios"));
         rows.add(EvolutionClient.listRow(ROW_ID_INSTAGRAM, "📸 Instagram", "Nossas redes"));
-        rows.add(EvolutionClient.listRow(ROW_ID_ATENDENTE, "🗣️ Falar com Luiz", "Atendimento humano"));
+        rows.add(EvolutionClient.listRow(ROW_ID_ATENDENTE, "🗣️ Falar com Barbeiro", "Atendimento humano"));
 
         List<Map<String, Object>> sections = new ArrayList<>();
         sections.add(EvolutionClient.listSection("Escolha uma opção", rows));
@@ -67,40 +73,87 @@ public final class MenuOptions {
 
         switch (rowId) {
             case ROW_ID_ENDERECO:
-                // Link formatado para ficar mais curto visualmente (embora a URL seja a mesma)
                 return menu.getAddressText() + "\n\n🗺️ *Abrir no Maps:* " + menu.getAddressMapsUrl();
             
             case ROW_ID_SERVICOS:
                 return menu.getServicesText() + "\n👉 " + menu.getScheduleUrl();
             
-            case ROW_ID_PRODUTOS:
-                return "💈 *Produtos LH Barbearia*\n\nTemos pomadas, óleos e minoxidil disponíveis na bancada.\nPergunte ao seu barbeiro no próximo corte!";
-            
-            case ROW_ID_AGENDAR:
-                return "✂️ *Agende seu horário agora:*\n" + menu.getScheduleUrl() + "\n\nEscolha o barbeiro e o serviço de sua preferência!";
-            
-            case ROW_ID_ATENDENTE:
-                return "🗣️ *Chamando o Luiz...*\n\nJá notifiquei ele aqui. Assim que ele desocupar, ele te responde!\n\nEnquanto isso, se quiser agendar, o link está no menu.";
-            
             case ROW_ID_INSTAGRAM:
-                return "📸 *Siga a LH Barbearia!*\n\nFique por dentro dos cortes e novidades:\n" + menu.getInstagramUrl();
+                return "📸 *Siga nossa Barbearia!*\n\nFique por dentro dos cortes e novidades:\n" + menu.getInstagramUrl();
             
             default:
-                return "Opção não reconhecida. Digite *Menu* para ver as opções.";
+                return "Opção processada dinamicamente pelo assistente.";
         }
     }
 
     public static String getMenuAsText() {
         return """
-                💈 *Menu LH Barbearia*
+                💈 *Menu Barbearia Vintage*
                 
-                1️⃣ Endereço e Localização
-                2️⃣ Serviços e Preços (Planos VIP)
-                3️⃣ Produtos
-                4️⃣ Agendar Horário 📅
-                5️⃣ Falar com o Luiz (Atendente)
-                6️⃣ Instagram
+                1️⃣ Agendar Horário 📅
+                2️⃣ Meus Agendamentos (Ver/Cancelar)
+                3️⃣ Horários Disponíveis 🕒
+                4️⃣ Endereço e Localização 📍
+                5️⃣ Serviços e Preços (Planos VIP) 💰
+                6️⃣ Cartão Fidelidade Digital 🎫
+                7️⃣ Instagram 📸
+                8️⃣ Falar com o Barbeiro 🗣️
                 
                 _Digite o número da opção desejada ou clique no botão abaixo._""";
+    }
+
+    public static final String ROW_ID_ADMIN_DASHBOARD = "admin_dashboard";
+    public static final String ROW_ID_ADMIN_AVISOS = "admin_avisos";
+    public static final String ROW_ID_ADMIN_PROMO = "admin_promo";
+    public static final String ROW_ID_ADMIN_PAUSAR = "admin_pausar";
+    public static final String ROW_ID_ADMIN_RETOMAR = "admin_retomar";
+    public static final String ROW_ID_ADMIN_AGENDA = "admin_agenda";
+    public static final String ROW_ID_ADMIN_REL_MATINAL = "admin_rel_matinal";
+    public static final String ROW_ID_ADMIN_REL_NOTURNO = "admin_rel_noturno";
+    public static final String ROW_ID_ADMIN_LISTAR = "admin_listar";
+    public static final String ROW_ID_ADMIN_APAGAR = "admin_apagar";
+
+    public static final String[] ALL_ADMIN_ROW_IDS = {
+            ROW_ID_ADMIN_DASHBOARD, ROW_ID_ADMIN_AVISOS, ROW_ID_ADMIN_PROMO,
+            ROW_ID_ADMIN_PAUSAR, ROW_ID_ADMIN_RETOMAR, ROW_ID_ADMIN_AGENDA,
+            ROW_ID_ADMIN_REL_MATINAL, ROW_ID_ADMIN_REL_NOTURNO, ROW_ID_ADMIN_LISTAR,
+            ROW_ID_ADMIN_APAGAR
+    };
+
+    public static String resolveAdminMenuOptionId(String messageText) {
+        if (messageText == null) return null;
+        String t = messageText.trim();
+        for (String id : ALL_ADMIN_ROW_IDS) {
+            if (id.equals(t)) return id;
+        }
+        return null;
+    }
+
+    public static List<Map<String, Object>> buildAdminListSections() {
+        List<Map<String, Object>> sections = new ArrayList<>();
+
+        // Seção 1: Gestão Diária
+        List<Map<String, String>> gestaoRows = new ArrayList<>();
+        gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_DASHBOARD, "📊 Dashboard & Caixa", "Resumo financeiro e status do bot"));
+        gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_AGENDA, "📅 Agenda Completa", "Todos os agendamentos cadastrados"));
+        gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_LISTAR, "📋 Listar Clientes", "Ver base de contatos"));
+        sections.add(EvolutionClient.listSection("Gestão Diária", gestaoRows));
+
+        // Seção 2: Relatórios do Sistema
+        List<Map<String, String>> relRows = new ArrayList<>();
+        relRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_REL_MATINAL, "☀️ Relatório Matinal", "Agendamentos programados para hoje"));
+        relRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_REL_NOTURNO, "🌙 Relatório Noturno", "Fechamento de cortes e serviços feitos"));
+        sections.add(EvolutionClient.listSection("Relatórios do Sistema", relRows));
+
+        // Seção 3: Controle e Disparos
+        List<Map<String, String>> controleRows = new ArrayList<>();
+        controleRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_AVISOS, "📢 Disparar Avisos", "Enviar aviso geral para toda a base"));
+        controleRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_PROMO, "🎯 Promoções do Dia", "Disparar oferta/prospecção de clientes"));
+        controleRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_PAUSAR, "⏸️ Pausar Bot", "Silenciar assistente para um cliente"));
+        controleRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_RETOMAR, "▶️ Retomar Bot", "Reativar assistente para um cliente"));
+        controleRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_APAGAR, "🗑️ Apagar Cliente", "Remover um cliente do banco de dados"));
+        sections.add(EvolutionClient.listSection("Controle e Disparos", controleRows));
+
+        return sections;
     }
 }

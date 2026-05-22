@@ -1,8 +1,12 @@
 package com.barberbot.api.service;
 
+import com.barberbot.api.config.BarberBotProperties;
 import com.barberbot.api.model.Customer;
+import com.barberbot.api.model.ScheduledTask;
+import com.barberbot.api.repository.ScheduledTaskRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -26,6 +31,8 @@ public class AgendaService {
 
     private final CustomerService customerService;
     private final WhatsAppService whatsAppService;
+    private final ScheduledTaskRepository taskRepository;
+    private final BarberBotProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     @Data
@@ -37,10 +44,119 @@ public class AgendaService {
         private String service;
         private boolean notified = false;
         private boolean thanked = false;
+        private String paymentStatus = "PENDENTE";
     }
 
     private static final List<Agendamento> agendaAtiva = new CopyOnWriteArrayList<>();
     private static final List<String> agendaDisplay = new CopyOnWriteArrayList<>(); 
+
+    @PostConstruct
+    public void init() {
+        carregarAgendaDeArquivo();
+    }
+
+    public void salvarAgendaEmArquivo() {
+        try {
+            java.nio.file.Path path = java.nio.file.Paths.get("agenda.json");
+            String json = objectMapper.writeValueAsString(agendaAtiva);
+            java.nio.file.Files.writeString(path, json);
+            log.info("[AGENDA] Agenda ativa salva localmente em agenda.json.");
+        } catch (Exception e) {
+            log.error("[AGENDA] Erro ao salvar agenda em arquivo: {}", e.getMessage());
+        }
+    }
+
+    private void carregarAgendaDeArquivo() {
+        try {
+            java.nio.file.Path path = java.nio.file.Paths.get("agenda.json");
+            if (java.nio.file.Files.exists(path)) {
+                String json = java.nio.file.Files.readString(path);
+                List<Agendamento> list = objectMapper.readValue(json, objectMapper.getTypeFactory().constructCollectionType(List.class, Agendamento.class));
+                agendaAtiva.clear();
+                agendaAtiva.addAll(list);
+                
+                agendaDisplay.clear();
+                for (Agendamento ag : agendaAtiva) {
+                    agendaDisplay.add("📅 " + ag.getDate() + " às ⏰ " + ag.getTime() + " - " + ag.getName() + " | " + ag.getService());
+                }
+                log.info("[AGENDA] Agenda ativa carregada com sucesso do arquivo. Total: {}", agendaAtiva.size());
+            } else {
+                log.info("[AGENDA] Nenhum arquivo agenda.json encontrado. Iniciando agenda vazia.");
+            }
+        } catch (Exception e) {
+            log.error("[AGENDA] Erro ao carregar agenda do arquivo: {}", e.getMessage());
+        }
+    }
+
+    private void criarTarefasAgendadas(Agendamento ag) {
+        if (ag.getPhone() == null || ag.getPhone().trim().isEmpty()) return;
+        
+        try {
+            // Parser de hora
+            String cleanTime = ag.getTime().trim().replace("h", ":").replace(" ", "");
+            if (cleanTime.length() == 4 && cleanTime.charAt(1) == ':') cleanTime = "0" + cleanTime;
+            LocalTime apptTime = LocalTime.parse(cleanTime, DateTimeFormatter.ofPattern("HH:mm"));
+            
+            // Parser de data
+            String[] dateParts = ag.getDate().split("/");
+            int day = Integer.parseInt(dateParts[0].trim());
+            int month = Integer.parseInt(dateParts[1].trim());
+            int year = LocalDate.now(ZoneId.of("America/Sao_Paulo")).getYear();
+            
+            LocalDate apptDate = LocalDate.of(year, month, day);
+            LocalDateTime apptDateTime = LocalDateTime.of(apptDate, apptTime);
+            
+            String pNome = ag.getName().split(" ")[0];
+            
+            // 1. Tarefa de LEMBRETE (1 hora antes do horário)
+            LocalDateTime reminderTime = apptDateTime.minusHours(1);
+            String reminderMsg = "Olá, " + pNome + "! 💈\nLembramos que você tem um agendamento hoje às *" + ag.getTime() + "* para *" + ag.getService() + "* na Barbearia Vintage.";
+            
+            ScheduledTask reminderTask = ScheduledTask.builder()
+                    .customerPhone(ag.getPhone())
+                    .executionTime(reminderTime)
+                    .taskType("REMINDER")
+                    .messageContent(reminderMsg)
+                    .status(ScheduledTask.TaskStatus.PENDING)
+                    .build();
+            taskRepository.save(reminderTask);
+            log.info("[AGENDA] Tarefa de LEMBRETE criada para {} às {}", ag.getPhone(), reminderTime);
+            
+            // 2. Tarefa de AVALIAÇÃO (1 hora depois do horário)
+            LocalDateTime reviewTime = apptDateTime.plusHours(1);
+            String reviewMsg = "E aí, " + pNome + ", curtiu o talento? 🧔‍♂️\nSua avaliação ajuda a barbearia a crescer! Leva só 1 minuto:\n⭐ " + properties.getMenu().getAddressMapsUrl() + "\n\nValeu demais! 👊";
+            
+            ScheduledTask reviewTask = ScheduledTask.builder()
+                    .customerPhone(ag.getPhone())
+                    .executionTime(reviewTime)
+                    .taskType("REVIEW_REQUEST")
+                    .messageContent(reviewMsg)
+                    .status(ScheduledTask.TaskStatus.PENDING)
+                    .build();
+            taskRepository.save(reviewTask);
+            log.info("[AGENDA] Tarefa de AVALIAÇÃO criada para {} às {}", ag.getPhone(), reviewTime);
+            
+        } catch (Exception e) {
+            log.error("[AGENDA] Erro ao criar tarefas no banco para {}: {}", ag.getName(), e.getMessage());
+        }
+    }
+
+    private void cancelarTarefasBanco(String phone) {
+        try {
+            List<ScheduledTask> tasks = taskRepository.findByCustomerPhone(phone);
+            List<ScheduledTask> pendingToCancel = tasks.stream()
+                    .filter(t -> t.getStatus() == ScheduledTask.TaskStatus.PENDING && t.getExecutionTime().isAfter(LocalDateTime.now()))
+                    .toList();
+            
+            for (ScheduledTask task : pendingToCancel) {
+                task.setStatus(ScheduledTask.TaskStatus.CANCELLED);
+                taskRepository.save(task);
+            }
+            log.info("[AGENDA] Canceladas {} tarefas pendentes para o telefone {}", pendingToCancel.size(), phone);
+        } catch (Exception e) {
+            log.error("[AGENDA] Erro ao cancelar tarefas do banco para {}: {}", phone, e.getMessage());
+        }
+    }
 
     public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
         Agendamento ag = new Agendamento();
@@ -52,6 +168,9 @@ public class AgendaService {
         agendaAtiva.add(ag);
         agendaDisplay.add("✅ " + date + " às " + time + " - " + name + " | " + service + " (Via IA)");
         log.info("[AGENDA] Novo agendamento salvo: {} para o dia {} às {}", name, date, time);
+        
+        salvarAgendaEmArquivo();
+        criarTarefasAgendadas(ag);
     }
 
     public String getHorariosOcupadosParaIA() {
@@ -75,6 +194,9 @@ public class AgendaService {
             agendaAtiva.remove(ag);
             agendaDisplay.removeIf(d -> d.contains(ag.getTime()) && d.contains(ag.getName()));
             log.info("[AGENDA] Cancelamento feito para o cliente do número: {}", phone);
+            
+            salvarAgendaEmArquivo();
+            cancelarTarefasBanco(phone);
             return true;
         }
         return false;
@@ -131,10 +253,14 @@ public class AgendaService {
                         
                         agendaAtiva.add(ag);
                         agendaDisplay.add("📅 " + date + " às ⏰ " + time + " - " + name + " | " + service);
-                        if (phone != null) agendados++;
+                        if (phone != null) {
+                            agendados++;
+                            criarTarefasAgendadas(ag);
+                        }
                     }
                 }
             }
+            salvarAgendaEmArquivo();
             return agendados;
         } catch (Exception e) {
             log.error("Erro Agenda JSON: {}", e.getMessage());
@@ -142,7 +268,7 @@ public class AgendaService {
         }
     }
 
-    @Scheduled(cron = "0 * * * * *", zone = "America/Sao_Paulo")
+    // Removida a anotação @Scheduled para evitar duplicidade de mensagens (as tarefas agora rodam via banco pelo BarberBotScheduler)
     public void monitorarFluxo() {
         if (agendaAtiva.isEmpty()) return;
         LocalTime now = LocalTime.now(ZoneId.of("America/Sao_Paulo"));
@@ -172,5 +298,71 @@ public class AgendaService {
                 }
             } catch (Exception e) {}
         }
+    }
+
+    public int getAgendamentosHojeCount() {
+        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
+        int count = 0;
+        for (Agendamento ag : agendaAtiva) {
+            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public String getAgendaHojeText() {
+        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
+        List<String> list = new ArrayList<>();
+        for (Agendamento ag : agendaAtiva) {
+            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
+                list.add("⏰ " + ag.getTime() + " - " + ag.getName() + " (" + ag.getService() + ")");
+            }
+        }
+        if (list.isEmpty()) {
+            return "Nenhum agendamento registrado para hoje.";
+        }
+        return String.join("\n", list);
+    }
+
+    public String getResumoDetelhadoDoDia() {
+        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
+        int totalCortes = 0;
+        double faturamentoEstimado = 0.0;
+        List<String> list = new ArrayList<>();
+
+        for (Agendamento ag : agendaAtiva) {
+            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
+                totalCortes++;
+                String serv = ag.getService();
+                String servLower = serv.toLowerCase();
+                if (servLower.contains("combo")) faturamentoEstimado += 60.0;
+                else if (servLower.contains("barba")) faturamentoEstimado += 30.0;
+                else faturamentoEstimado += 35.0; 
+                
+                String paymentBadge = "";
+                if ("PIX".equalsIgnoreCase(ag.getPaymentStatus())) {
+                    paymentBadge = " [PIX 💳]";
+                } else if ("PRESENCIAL".equalsIgnoreCase(ag.getPaymentStatus())) {
+                    paymentBadge = " [Presencial 💵]";
+                } else {
+                    paymentBadge = " [Pendente ⏳]";
+                }
+                
+                list.add("✅ " + ag.getTime() + " - " + ag.getName() + " (" + serv + ")" + paymentBadge);
+            }
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append("📈 *Relatório de Fechamento - ").append(dataHoje).append("*\n\n");
+        sb.append("✂️ *Serviços Realizados hoje:* ").append(totalCortes).append("\n");
+        sb.append("💰 *Faturamento estimado:* R$ ").append(String.format("%.2f", faturamentoEstimado)).append("\n\n");
+        if (list.isEmpty()) {
+            sb.append("Nenhum serviço realizado hoje.");
+        } else {
+            sb.append("📋 *Detalhes dos Atendimentos:*\n");
+            sb.append(String.join("\n", list));
+        }
+        return sb.toString();
     }
 }
