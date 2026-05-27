@@ -819,7 +819,8 @@ public class OrchestratorService {
         log.info("[IA] Chamando o GPT-4o para processar a intencao do cliente.");
         String agendaContext = agendaService.getHorariosOcupadosParaIA();
         int activeAppointments = agendaService.getAgendamentosClienteList(phoneNumber).size();
-        String aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext, activeAppointments);
+        String knownName = (customer.getName() != null && !customer.getName().isBlank()) ? customer.getName() : "Desconhecido";
+        String aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext, activeAppointments, knownName);
 
         if (aiResponse.contains("[NOVO_AGENDAMENTO|")) {
             try {
@@ -842,6 +843,12 @@ public class OrchestratorService {
                 aiResponse = aiResponse.replace(tag, "").trim();
                 
                 if (!isDuplicado) {
+                    // Atualiza o nome do cliente no banco de dados para a IA "lembrar" dele no futuro
+                    if (name != null && !name.isBlank()) {
+                        customer.setName(name);
+                        customerRepository.save(customer);
+                    }
+
                     agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
 
                     // Verifica se a IA já incluiu a pergunta de pagamento (novo prompt instrui isso).

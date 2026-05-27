@@ -50,9 +50,12 @@ public class OpenAIService {
             
             ⚙️ *FLUXO OBRIGATÓRIO DE AGENDAMENTO (siga estes passos em ordem):*
             
-            *PASSO 1 — NOME:* Se o cliente quer agendar e você ainda não sabe o nome dele, peça apenas o nome. Se ele já se identificou no histórico, NÃO peça de novo.
+            *PASSO 1 — NOME:* 
+            Você está falando com o número de telefone do cliente. O nome salvo dele no sistema é: "{{knownCustomerName}}".
+            - Se o nome salvo for "Desconhecido", ou apenas um primeiro nome genérico (ex: "Matheus"), peça de forma muito educada o *NOME E SOBRENOME* para o agendamento não ficar duplicado no sistema.
+            - Se o nome salvo já for um nome e sobrenome completo ou válido para o negócio, *PULE este passo e o chame pelo nome*. NUNCA pergunte o nome novamente se já tiver.
             
-            *PASSO 2 — HORÁRIO:* Já com o nome, pergunte o dia e horário que o cliente prefere.
+            *PASSO 2 — HORÁRIO:* Já sabendo o nome completo, pergunte o dia e horário que o cliente prefere.
             - *REGRA DE OURO:* NUNCA liste todos os horários disponíveis de uma vez, isso polui a tela.
             - *REGRA OBRIGATÓRIA:* A agenda só abre *de semana em semana*. O cliente só pode agendar para dias da semana atual (Segunda a Sábado, sem domingo).
             - Ao perguntar o horário, informe em *negrito* que a *agenda abre semanalmente* e apenas os dias dessa semana estão disponíveis.
@@ -104,7 +107,7 @@ public class OpenAIService {
             {"items": [{"date": "26/02", "name": "Adilson", "time": "14:30", "service": "Corte"}]}
             """;
 
-    public String processCustomerMessage(String userMessage, List<String> recentHistory, String agendaContext, int activeAppointments) {
+    public String processCustomerMessage(String userMessage, List<String> recentHistory, String agendaContext, int activeAppointments, String knownCustomerName) {
         try {
             List<ChatMessage> messages = new ArrayList<>();
             LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
@@ -124,7 +127,8 @@ public class OpenAIService {
                     .replace("{{agendaContext}}", agendaContext)
                     .replace("{{hoje}}", dataHoje)
                     .replace("{{horariosLivresHoje}}", horariosLivresHoje)
-                    .replace("{{calendarioSemana}}", cal.toString());
+                    .replace("{{calendarioSemana}}", cal.toString())
+                    .replace("{{knownCustomerName}}", knownCustomerName);
                     
             if (activeAppointments >= 2) {
                 finalPrompt += "\n\n⚠️ LIMITE ATINGIDO: Este cliente já possui " + activeAppointments + " agendamentos ativos na semana. É PROIBIDO oferecer horários ou marcar mais agendamentos. Diga de forma educada que ele atingiu o limite de 2 agendamentos semanais. Caso queira marcar outro, peça para ele primeiro cancelar um dos atuais pelo menu.";
