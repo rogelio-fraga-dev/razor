@@ -120,7 +120,7 @@ public class BarberBotScheduler {
      * RETENÇÃO INTELIGENTE (11:00)
      * Envia um lembrete amigável a cada 15 dias de inatividade.
      */
-    @Scheduled(cron = "0 0 11 * * *")
+    @Scheduled(cron = "0 0 11 * * *", zone = "America/Sao_Paulo")
     @Transactional
     public void processCustomerRetentionReminders() {
         log.info("[RETENÇÃO] Rodando motor de lembrete de cabelo crescido...");
@@ -161,7 +161,7 @@ public class BarberBotScheduler {
     /**
      * RELATÓRIO MATINAL (08:00) - Bom dia e Status do Sistema
      */
-    @Scheduled(cron = "0 0 8 * * *")
+    @Scheduled(cron = "0 0 8 * * *", zone = "America/Sao_Paulo")
     public void sendDailyAdminReport() {
         try {
             String adminPhone = properties.getAdmin().getPhone();
@@ -193,7 +193,7 @@ public class BarberBotScheduler {
      * RELATÓRIO NOTURNO DA AGENDA (21:00)
      * Envia o fechamento com os cortes e serviços feitos no dia.
      */
-    @Scheduled(cron = "0 0 21 * * *")
+    @Scheduled(cron = "0 0 21 * * *", zone = "America/Sao_Paulo")
     public void sendNightlyAgendaRequest() {
         try {
             String adminPhone = properties.getAdmin().getPhone();

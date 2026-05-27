@@ -39,7 +39,7 @@ public class Interaction {
     @PrePersist
     protected void onCreate() {
         if (timestamp == null) {
-            timestamp = LocalDateTime.now();
+            timestamp = LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"));
         }
     }
     

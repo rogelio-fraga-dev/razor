@@ -367,7 +367,7 @@ public class OrchestratorService {
                 }
             }
 
-            if (cmdLower.contains("comando") || cmdLower.contains("menu") || cmdLower.contains("ajuda")) {
+            if (cmdLower.contains("comando") || cmdLower.contains("menu")) {
                 sendFullMenu(phoneNumber);
             } else if (cmdLower.equals("1") || cmdLower.contains("dashboard") || cmdLower.contains("resumo") || cmdLower.contains("financeiro") || cmdLower.contains("caixa")) {
                 String resumoFinanceiro = agendaService.getResumoFinanceiroDetalhado();
@@ -442,6 +442,33 @@ public class OrchestratorService {
                     sb.append("\nDigite o *NÚMERO DA OPÇÃO* para apagar.");
                     sendMsg(phoneNumber, sb.toString(), "ADMIN");
                 }
+            } else if (cmdLower.equals("11") || cmdLower.contains("ajuda") || cmdLower.contains("manual")) {
+                String manual = """
+                        📖 *MANUAL DO ADMINISTRADOR - BARBERBOT*
+                        
+                        Aqui estão todas as automações que o sistema realiza nos bastidores:
+                        
+                        🤖 *Atendimento e IA:*
+                        - A IA agenda, tira dúvidas e negocia horários sozinha.
+                        - Protege a agenda (não marca 2 clientes na mesma hora).
+                        - Lê fotos de agenda em papel se você enviar para cá.
+                        
+                        ⏰ *Rotinas Automáticas (Horário de Brasília):*
+                        - *08:00* ➡️ Relatório Matinal com os clientes de hoje.
+                        - *11:00* ➡️ Cobra clientes sumidos (mais de 15 dias sem vir).
+                        - *21:00* ➡️ Fechamento de Caixa com faturamento.
+                        - *1 Hora Antes* ➡️ Lembrete de agendamento pro cliente.
+                        - *1 Hora Depois* ➡️ Pesquisa de satisfação pro cliente.
+                        
+                        ⭐ *Fidelidade:*
+                        - Quando o cliente avalia, ganha 1 ponto.
+                        - Aos 10 pontos, ganha cupom automático de 10% OFF.
+                        
+                        🛠️ *Disparos e Controle:*
+                        - O botão de 'Avisos/Promoções' dispara mensagem em massa para todos os contatos da base.
+                        - Pausar Robô (4) desliga a IA por 1 hora naquele número caso você queira assumir o WhatsApp.
+                        """;
+                sendMsg(phoneNumber, manual, "ADMIN");
             } else {
                 if (!webhook.hasAudio()) {
                     sendMsg(phoneNumber, "Fala, Chefe! 💈 Digite *menu* para ver as opções.", "ADMIN");
@@ -465,6 +492,7 @@ public class OrchestratorService {
                 *8* - 🌙 Relatório Noturno (Fechamento)
                 *9* - 📋 Listar Clientes
                 *10* - 🗑️ Apagar um Cliente
+                *11* - ℹ️ Ajuda / Manual do Sistema
                 
                 _Digite o número ou comando desejado._
                 """;
@@ -490,10 +518,7 @@ public class OrchestratorService {
     }
 
     // ==========================================
-    // FLUXO DO CLIENTE (COM MENU VISUAL + IA)
-    // ==========================================
-    // ==========================================
-    // FLUXO DO CLIENTE (COM MENU VISUAL + IA)
+    // FLUXO DO CLIENTE
     // ==========================================
     private void processCustomerMessage(EvolutionWebhookDTO webhook, String phoneNumber) {
         if (webhook.hasSticker()) return;
@@ -520,11 +545,11 @@ public class OrchestratorService {
             agendaService.adicionarAgendamentoViaIA(offer.getName(), phoneNumber, offer.getDate(), offer.getTime(), offer.getService());
             
             String successMsg = "Perfeito, " + offer.getName().split(" ")[0] + "! 🥳\n\n" +
-                                 "Seu horário foi agendado automaticamente para *" + offer.getDate() + "* às *" + offer.getTime() + "* para *" + offer.getService() + "*! 🎉\n\n" +
-                                 "*Como deseja realizar o pagamento?*\n\n" +
-                                 "1️⃣ **Pagar agora via PIX** 💳\n" +
-                                 "2️⃣ **Pagar presencialmente** na barbearia 💵\n\n" +
-                                 "_Responda com o número da opção desejada (1 ou 2)._";
+                                 "Seu horário foi agendado para *" + offer.getDate() + "* às *" + offer.getTime() + "* para *" + offer.getService() + "*! 🎉\n\n" +
+                                 "*Como deseja pagar?*\n\n" +
+                                 "1️⃣ PIX 💳\n" +
+                                 "2️⃣ Presencialmente 💵\n\n" +
+                                 "_Responda 1 ou 2. Ou digite *cancelar* para desistir._";
                                  
             customerStates.put(phoneNumber, "ESPERANDO_PAGAMENTO");
             saveAndSend(customer, successMsg, phoneNumber);
@@ -541,11 +566,23 @@ public class OrchestratorService {
         }
 
         // 3. Estado: Esperando escolha de pagamento (PIX / Presencial)
+        //    Agora com escape: "cancelar" aborta o fluxo e cancela a pré-reserva.
+        //    Só aceita "1" (PIX) e "2" (Presencial) explicitamente.
+        //    Qualquer outra coisa re-pergunta em vez de forçar presencial.
         if ("ESPERANDO_PAGAMENTO".equals(cState)) {
-            customerStates.remove(phoneNumber);
             AgendaService.Agendamento ag = agendaService.getAgendamentoCliente(phoneNumber);
             
-            if (msgLower.equals("1") || msgLower.contains("pix") || msgLower.contains("agora") || msgLower.contains("pagar")) {
+            // Escape: cancelar a pré-reserva
+            if (msgLower.contains("cancelar") || msgLower.contains("desistir") || msgLower.contains("não quero") || msgLower.contains("nao quero")) {
+                customerStates.remove(phoneNumber);
+                agendaService.cancelarAgendamentoCliente(phoneNumber);
+                saveAndSend(customer, "❌ Agendamento cancelado! Se mudar de ideia, é só digitar *menu* para recomeçar. 😊", phoneNumber);
+                return;
+            }
+            
+            // PIX
+            if (msgLower.equals("1") || msgLower.contains("pix")) {
+                customerStates.remove(phoneNumber);
                 if (ag != null) {
                     ag.setPaymentStatus("PIX");
                     agendaService.salvarAgendaEmArquivo();
@@ -556,56 +593,43 @@ public class OrchestratorService {
                                 "💡 _Realize o pagamento e traga o comprovante no dia do atendimento. Seu horário está 100% garantido! Te esperamos lá!_ 💈👊";
                 saveAndSend(customer, pixMsg, phoneNumber);
                 return;
-            } else {
+            }
+            
+            // Presencial
+            if (msgLower.equals("2") || msgLower.contains("presencial")) {
+                customerStates.remove(phoneNumber);
                 if (ag != null) {
                     ag.setPaymentStatus("PRESENCIAL");
                     agendaService.salvarAgendaEmArquivo();
                 }
-                String presMsg = "Perfeito! Seu agendamento está confirmado para *pagamento presencial* direto no caixa da barbearia. Te esperamos lá! 💈👊";
-                saveAndSend(customer, presMsg, phoneNumber);
+                saveAndSend(customer, "Perfeito! Seu agendamento está confirmado para *pagamento presencial* direto no caixa da barbearia. Te esperamos lá! 💈👊", phoneNumber);
                 return;
             }
-        }
-
-        // 4. Interceptação de Menus Interativos (Botões WhatsApp)
-        String rowId = MenuOptions.resolveMenuOptionId(contentToSave);
-        if (rowId != null) {
-            log.info("[SISTEMA] Menu Interativo ativado para cliente {}: {}", phoneNumber, rowId);
             
-            if (MenuOptions.ROW_ID_ATENDENTE.equals(rowId)) {
-                customerStates.put(phoneNumber, "ESPERANDO_MOTIVO");
-                saveAndSend(customer, "Poxa, vi que você quer um atendimento humano! 🧔‍♂️\nPor favor, me explique brevemente a sua dúvida para eu já adiantar o assunto para o barbeiro:", phoneNumber);
-            } else if (MenuOptions.ROW_ID_AGENDAR.equals(rowId)) {
-                String promptParaIA = "Quero agendar um horário. O que você precisa saber?";
-                chamaIAETrataMensagem(customer, promptParaIA, phoneNumber);
-            } else if (MenuOptions.ROW_ID_MEUS_AGENDAMENTOS.equals(rowId)) {
-                trataVisualizarAgendamentos(customer, phoneNumber);
-            } else if (MenuOptions.ROW_ID_HORARIOS_LIVRES.equals(rowId)) {
-                String promptParaIA = "Quais os horários livres para agendar?";
-                chamaIAETrataMensagem(customer, promptParaIA, phoneNumber);
-            } else if (MenuOptions.ROW_ID_FIDELIDADE.equals(rowId)) {
-                trataExibirFidelidade(customer, phoneNumber);
-            } else {
-                String response = MenuOptions.getResponseForOption(rowId, properties);
-                saveAndSend(customer, response, phoneNumber);
-            }
+            // Qualquer outra coisa: re-perguntar (em vez de forçar presencial)
+            saveAndSend(customer, "Desculpa, não entendi! 😅\nResponda *1* para PIX ou *2* para Presencial.\n_Ou digite *cancelar* para desistir._", phoneNumber);
             return;
         }
 
-        // 5. Exibição de Menu Principal Textual (Qualquer saudação ou comando menu)
-        // IMPORTANTE: Só exibe o menu se o cliente NÃO estiver em nenhum fluxo de agendamento ativo
-        // para não interromper o processo quando o cliente envia seu nome (ex: "Oi, sou o João")
-        if (cState == null && !waitlistOffers.containsKey(phoneNumber)) {
-            if (msgLower.equals("menu") || 
-                msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
-                log.info("[SISTEMA] Enviando Menu Textual para o Cliente: {}", phoneNumber);
+        // 4. Comando "menu" explícito — SEMPRE funciona
+        if (msgLower.equals("menu")) {
+            log.info("[SISTEMA] Enviando Menu Textual para o Cliente: {}", phoneNumber);
+            saveAndSend(customer, MenuOptions.getMenuAsText(), phoneNumber);
+            return;
+        }
+
+        // 5. Saudações — exibe menu APENAS se não há conversa recente com a IA
+        //    Isso evita que "Oi, me chamo João" quebre o fluxo de agendamento
+        if (cState == null && !waitlistOffers.containsKey(phoneNumber) && !hasRecentIAConversation(customer.getId())) {
+            if (msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
+                log.info("[SISTEMA] Saudação detectada sem conversa ativa, enviando Menu para: {}", phoneNumber);
                 saveAndSend(customer, MenuOptions.getMenuAsText(), phoneNumber);
                 return;
             }
         }
 
-        // 6. Tratamento de Comandos Textuais / Números Fallback
-        if (msgLower.equals("2") || msgLower.contains("meus agendamentos") || msgLower.contains("meu agendamento")) {
+        // 6. Comandos textuais explícitos por palavra-chave (NÃO por número isolado)
+        if (msgLower.contains("meus agendamentos") || msgLower.contains("meu agendamento") || msgLower.contains("meu horário") || msgLower.contains("meu horario")) {
             trataVisualizarAgendamentos(customer, phoneNumber);
             return;
         }
@@ -615,43 +639,14 @@ public class OrchestratorService {
             return;
         }
 
-        if (msgLower.equals("4") || msgLower.contains("localização") || msgLower.contains("onde fica")) {
-            String resp = properties.getMenu().getAddressText() + "\n\n🗺️ *Abrir no Maps:* " + properties.getMenu().getAddressMapsUrl();
-            saveAndSend(customer, resp, phoneNumber);
-            return;
-        }
-
-        if (msgLower.equals("5") || msgLower.contains("preço") || msgLower.contains("preços") || msgLower.contains("serviços")) {
-            String resp = properties.getMenu().getServicesText() + "\n👉 " + properties.getMenu().getScheduleUrl();
-            saveAndSend(customer, resp, phoneNumber);
-            return;
-        }
-
-        if (msgLower.equals("6") || msgLower.contains("fidelidade") || msgLower.contains("cartão") || msgLower.contains("pontos")) {
-            trataExibirFidelidade(customer, phoneNumber);
-            return;
-        }
-
-        if (msgLower.equals("7") || msgLower.contains("instagram") || msgLower.contains("redes")) {
-            String resp = "📸 *Siga nossa Barbearia!*\n\nFique por dentro dos cortes e novidades:\n" + properties.getMenu().getInstagramUrl();
-            saveAndSend(customer, resp, phoneNumber);
-            return;
-        }
-
         if (msgLower.equals("8") || msgLower.contains("falar com") || msgLower.contains("atendente")) {
             customerStates.put(phoneNumber, "ESPERANDO_MOTIVO");
             saveAndSend(customer, "Poxa, vi que você quer um atendimento humano! 🧔‍♂️\nPor favor, me explique brevemente a sua dúvida para eu já adiantar o assunto para o barbeiro:", phoneNumber);
             return;
         }
 
-        // --- GATILHOS DA IA CORRIGIDOS ---
-        // "1" só vai para IA se não estiver em nenhum estado aguardando resposta do Java
-        if (msgLower.equals("1") && cState == null) {
-            contentToSave = "Quero agendar um horário.";
-        } else if (msgLower.equals("3") && cState == null) {
-            contentToSave = "Quais os horários livres para agendar?";
-        }
-
+        // 7. Tudo o resto vai para a IA (incluindo números, nomes, horários, etc.)
+        //    A IA tem o contexto completo da conversa e decide o que fazer.
         chamaIAETrataMensagem(customer, contentToSave, phoneNumber);
     }
 
@@ -721,22 +716,39 @@ public class OrchestratorService {
                 String service = parts[4];
                 
                 log.info("[IA] Tag de agendamento identificada! Cliente: {}, Data: {}, Hora: {}, Servico: {}", name, date, time, service);
-                agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
+                
+                AgendaService.Agendamento existente = agendaService.getAgendamentoCliente(phoneNumber);
+                boolean isDuplicado = existente != null && existente.getDate().equals(date) && existente.getTime().equals(time);
 
                 // Remove a tag técnica da resposta antes de enviar
                 aiResponse = aiResponse.replace(tag, "").trim();
                 
-                // Verifica se a IA já incluiu a pergunta de pagamento (novo prompt instrui isso).
-                // Se não incluiu, adiciona como fallback para garantir o fluxo.
-                if (!aiResponse.contains("PIX") && !aiResponse.contains("presencial") && !aiResponse.contains("pagamento")) {
-                    aiResponse += "\n\n*Como deseja realizar o pagamento?*\n\n" +
-                                  "1️⃣ Pagar agora via PIX 💳\n" +
-                                  "2️⃣ Pagar presencialmente na barbearia 💵\n\n" +
-                                  "_Responda com 1 ou 2._";
+                if (!isDuplicado) {
+                    agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
+
+                    // Verifica se a IA já incluiu a pergunta de pagamento (novo prompt instrui isso).
+                    // Se não incluiu, adiciona como fallback para garantir o fluxo.
+                    if (!aiResponse.contains("PIX") && !aiResponse.contains("presencial") && !aiResponse.contains("pagamento")) {
+                        aiResponse += "\n\n*Como deseja realizar o pagamento?*\n\n" +
+                                      "1️⃣ Pagar agora via PIX 💳\n" +
+                                      "2️⃣ Pagar presencialmente na barbearia 💵\n\n" +
+                                      "_Responda com 1 ou 2._";
+                    }
+                    customerStates.put(phoneNumber, "ESPERANDO_PAGAMENTO");
+                    log.info("[AGENDA] Estado ESPERANDO_PAGAMENTO definido para {}", phoneNumber);
+                } else {
+                    log.info("[AGENDA] Ignorando tag duplicada gerada pela IA, pois o cliente já possui este agendamento exato.");
                 }
-                customerStates.put(phoneNumber, "ESPERANDO_PAGAMENTO");
-                log.info("[AGENDA] Estado ESPERANDO_PAGAMENTO definido para {}", phoneNumber);
             } catch (Exception e) { log.error("[IA] Falha ao extrair ou criar agendamento da TAG NOVO_AGENDAMENTO: {}", e.getMessage(), e); }
+        } else if (aiResponse.contains("[CANCELAR_AGENDAMENTO]")) {
+            // IA solicitou cancelamento via conversa natural
+            aiResponse = aiResponse.replace("[CANCELAR_AGENDAMENTO]", "").trim();
+            boolean cancelled = agendaService.cancelarAgendamentoCliente(phoneNumber);
+            if (cancelled) {
+                log.info("[AGENDA] Cancelamento via IA executado para {}", phoneNumber);
+            } else {
+                log.info("[AGENDA] IA tentou cancelar mas nao havia agendamento para {}", phoneNumber);
+            }
         } else if (aiResponse.contains("[LISTA_DE_ESPERA|")) {
             try {
                 int startIndex = aiResponse.indexOf("[LISTA_DE_ESPERA|");
@@ -774,6 +786,22 @@ public class OrchestratorService {
     private List<String> getRecentHistory(java.util.UUID customerId) {
         return interactionRepository.findRecentInteractionsByCustomerId(customerId).stream()
                 .map(Interaction::getContent).collect(Collectors.toList());
+    }
+
+    /**
+     * Verifica se o cliente tem uma conversa ativa recente com a IA (últimas 4+ interações nos últimos 5 min).
+     * Isso evita que saudações como "Oi, me chamo João" disparem o menu no meio de um agendamento.
+     */
+    private boolean hasRecentIAConversation(java.util.UUID customerId) {
+        List<Interaction> recent = interactionRepository.findRecentInteractionsByCustomerId(customerId);
+        if (recent.size() < 4) return false;
+        // Se temos pelo menos 4 interações recentes, checa se a mais recente do bot é de <5min
+        Interaction lastBotMsg = recent.stream()
+                .filter(i -> i.getType() == Interaction.InteractionType.BOT)
+                .findFirst().orElse(null);
+        if (lastBotMsg == null || lastBotMsg.getTimestamp() == null) return false;
+        long diffMinutes = java.time.Duration.between(lastBotMsg.getTimestamp(), java.time.LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"))).toMinutes();
+        return Math.abs(diffMinutes) <= 5;
     }
 
     private void verificarListaEsperaECanalizar(String diaSemana, String date, String time, String service) {
