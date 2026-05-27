@@ -110,7 +110,7 @@ public class AgendaService {
             
             // 1. Tarefa de LEMBRETE (1 hora antes do horário)
             LocalDateTime reminderTime = apptDateTime.minusHours(1);
-            String reminderMsg = "Olá, " + pNome + "! 💈\nLembramos que você tem um agendamento hoje às *" + ag.getTime() + "* para *" + ag.getService() + "* na Barbearia Vintage.";
+            String reminderMsg = "Olá, " + pNome + "! 💈\nLembramos que você tem um agendamento hoje às *" + ag.getTime() + "* para *" + ag.getService() + "* na Barbearia Ficticia.";
             
             ScheduledTask reminderTask = ScheduledTask.builder()
                     .customerPhone(ag.getPhone())
@@ -286,7 +286,7 @@ public class AgendaService {
                 long minutesUntil = ChronoUnit.MINUTES.between(now, apptTime);
                 if (!appt.isNotified() && minutesUntil <= 61 && minutesUntil >= 59) {
                     String pNome = appt.getName().split(" ")[0];
-                    whatsAppService.sendTextMessage(appt.getPhone(), "Fala, " + pNome + "! 💈\nSeu horário está chegando! Te esperamos hoje às *" + appt.getTime() + "* na Barbearia Vintage.");
+                    whatsAppService.sendTextMessage(appt.getPhone(), "Fala, " + pNome + "! 💈\nSeu horário está chegando! Te esperamos hoje às *" + appt.getTime() + "* na Barbearia Ficticia.");
                     appt.setNotified(true);
                 }
 
@@ -364,5 +364,111 @@ public class AgendaService {
             sb.append(String.join("\n", list));
         }
         return sb.toString();
+    }
+
+    public String getResumoFinanceiroDetalhado() {
+        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
+        int totalCortes = 0;
+        int totalCombo = 0;
+        int totalBarba = 0;
+        int totalSimples = 0;
+        
+        int pixCount = 0;
+        double pixVal = 0.0;
+        int presencialCount = 0;
+        double presencialVal = 0.0;
+        int pendenteCount = 0;
+        double pendenteVal = 0.0;
+        
+        double faturamentoTotal = 0.0;
+
+        for (Agendamento ag : agendaAtiva) {
+            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
+                totalCortes++;
+                
+                double valorServico = 35.0;
+                String serv = ag.getService().toLowerCase();
+                if (serv.contains("combo")) {
+                    valorServico = 60.0;
+                    totalCombo++;
+                } else if (serv.contains("barba")) {
+                    valorServico = 30.0;
+                    totalBarba++;
+                } else {
+                    totalSimples++;
+                }
+                
+                faturamentoTotal += valorServico;
+                
+                String status = ag.getPaymentStatus();
+                if ("PIX".equalsIgnoreCase(status)) {
+                    pixCount++;
+                    pixVal += valorServico;
+                } else if ("PRESENCIAL".equalsIgnoreCase(status)) {
+                    presencialCount++;
+                    presencialVal += valorServico;
+                } else {
+                    pendenteCount++;
+                    pendenteVal += valorServico;
+                }
+            }
+        }
+        
+        double ticketMedio = totalCortes > 0 ? faturamentoTotal / totalCortes : 0.0;
+        
+        return String.format("""
+                💰 *RESUMO FINANCEIRO DETALHADO (%s)*
+                
+                ✂️ *Volume de Serviços:*
+                - Total de Atendimentos: %d
+                - Combos (Cabelo + Barba): %d
+                - Apenas Barba: %d
+                - Cortes Simples / Outros: %d
+                
+                💳 *Fluxo de Caixa por Meio de Pagamento:*
+                - ✅ *PIX (Confirmado):* R$ %.2f (%d recebimento(s))
+                - 💵 *Presencial (A Receber):* R$ %.2f (%d recebimento(s))
+                - ⏳ *Pendente / Outros:* R$ %.2f (%d agendamento(s))
+                
+                📈 *Indicadores de Performance:*
+                - Faturamento Estimado Total: *R$ %.2f*
+                - Ticket Médio por Cliente: *R$ %.2f*
+                """, 
+                dataHoje, totalCortes, totalCombo, totalBarba, totalSimples, 
+                pixVal, pixCount, presencialVal, presencialCount, pendenteVal, pendenteCount,
+                faturamentoTotal, ticketMedio);
+    }
+
+    public String getPainelAgendamentosDetalhado(long totalBase, long waitlistCount, long pausedCount) {
+        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
+        
+        List<String> list = new ArrayList<>();
+        int countHoje = 0;
+        for (Agendamento ag : agendaAtiva) {
+            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
+                countHoje++;
+                String badge = "";
+                if ("PIX".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🟢 [PIX]";
+                else if ("PRESENCIAL".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🔵 [Presencial]";
+                else badge = " 🟡 [Pendente]";
+                
+                list.add(String.format("⏰ *%s* - %s (%s)%s", ag.getTime(), ag.getName(), ag.getService(), badge));
+            }
+        }
+        
+        String agendaStr = list.isEmpty() ? "_Nenhum agendamento para hoje até o momento._" : String.join("\n", list);
+        
+        return String.format("""
+                📅 *PAINEL DE AGENDAMENTOS (%s)*
+                
+                👥 *Status dos Clientes & Fila:*
+                - Clientes Cadastrados na Base: %d
+                - Fila de Espera (Lista): %d
+                - Robô Silenciado (Suporte Humano): %d cliente(s)
+                
+                📋 *Agendamentos do Dia (%d total):*
+                %s
+                """, 
+                dataHoje, totalBase, waitlistCount, pausedCount, countHoje, agendaStr);
     }
 }

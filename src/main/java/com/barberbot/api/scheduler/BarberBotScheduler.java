@@ -82,7 +82,7 @@ public class BarberBotScheduler {
                                 customerRepository.save(customer);
                                 
                                 String coupon = "FIDELIDADE10-" + java.util.UUID.randomUUID().toString().substring(0, 5).toUpperCase();
-                                String fidelityRewardMsg = "🎉 *PARABÉNS!* Você completou 10 pontos no seu Cartão Fidelidade da Barbearia Vintage! 🥳✂️\n\n" +
+                                String fidelityRewardMsg = "🎉 *PARABÉNS!* Você completou 10 pontos no seu Cartão Fidelidade da Barbearia Ficticia! 🥳✂️\n\n" +
                                         "Como recompensa, você ganhou *10% de desconto* no seu próximo corte! Apresente o código abaixo no caixa:\n\n" +
                                         "🎟️ *" + coupon + "*\n\n" +
                                         "Obrigado pela preferência e por fazer parte da nossa história! 👊💈";
@@ -132,7 +132,7 @@ public class BarberBotScheduler {
                     if (agendaService.getAgendamentoCliente(c.getPhoneNumber()) == null) {
                         String first = c.getName() != null ? c.getName().split(" ")[0] : "amigo";
                         String reminderMsg = "Fala, " + first + "! 💈\n\n" +
-                                "Já faz " + daysSince + " dias desde o seu último corte na Barbearia Vintage. O cabelo já está pedindo aquele trato, hein? ✂️\n\n" +
+                                "Já faz " + daysSince + " dias desde o seu último corte na Barbearia Ficticia. O cabelo já está pedindo aquele trato, hein? ✂️\n\n" +
                                 "Quer garantir seu horário para essa semana? Digite **Menu** para ver as opções!";
                         
                         whatsAppService.sendTextMessage(c.getPhoneNumber(), reminderMsg);

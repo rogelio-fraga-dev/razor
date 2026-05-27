@@ -88,7 +88,7 @@ public final class MenuOptions {
 
     public static String getMenuAsText() {
         return """
-                💈 *Menu Barbearia Vintage*
+                💈 *Menu Barbearia Ficticia*
                 
                 1️⃣ Agendar Horário 📅
                 2️⃣ Meus Agendamentos (Ver/Cancelar)
@@ -134,8 +134,8 @@ public final class MenuOptions {
 
         // Seção 1: Gestão Diária
         List<Map<String, String>> gestaoRows = new ArrayList<>();
-        gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_DASHBOARD, "📊 Dashboard & Caixa", "Resumo financeiro e status do bot"));
-        gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_AGENDA, "📅 Agenda Completa", "Todos os agendamentos cadastrados"));
+        gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_DASHBOARD, "💰 Resumo Financeiro & Caixa", "Faturamento detalhado do caixa de hoje"));
+        gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_AGENDA, "📅 Painel de Agendamentos (Hoje)", "Status de clientes, fila de espera e horários de hoje"));
         gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_LISTAR, "📋 Listar Clientes", "Ver base de contatos"));
         sections.add(EvolutionClient.listSection("Gestão Diária", gestaoRows));
 

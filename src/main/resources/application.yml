@@ -44,11 +44,11 @@ barberbot:
     batch-size: 1
     delay-between-messages: 60000
 
-  # Dados Completos da Barbearia Vintage
+  # Dados Completos da Barbearia Ficticia Figaro
   menu:
     address-text: |
-      📍 *Barbearia Vintage*
-      Rua dos Clássicos, 123 - Centro
+      📍 *Barbearia Ficticia Figaro*
+      Rua dos Classicos, 123 - Centro
       Cidade Exemplo - SP, 01000-000
     address-maps-url: "https://maps.google.com" # Link de exemplo
     # Lista 100% completa baseada nos prints
@@ -94,8 +94,8 @@ barberbot:
 
       📲 _Para agendar:_
 
-    schedule-url: "https://www.agendamentoexemplo.com.br/barbeariavintage"
-    instagram-url: "https://www.instagram.com/barbeariavintage_exemplo/"
+    schedule-url: "https://www.agendamentoexemplo.com.br/barbeariaficticia"
+    instagram-url: "https://www.instagram.com/barbeariaficticia_exemplo/"
 
 logging:
   level:

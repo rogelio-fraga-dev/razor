@@ -57,14 +57,11 @@ public class WhatsAppService {
     public void sendListMessage(String phone, String title, String description, 
                                 String buttonText, String footerText, 
                                 List<Map<String, Object>> sections) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                evolutionClient.sendListMessage(phone, title, description, buttonText, footerText, sections).block();
-            } catch (Exception e) {
-                log.error("Erro ao enviar lista interativa para {}: {}", phone, e.getMessage());
-                // Lança exceção para o Orchestrator pegar e fazer fallback
-                throw new RuntimeException(e);
-            }
-        });
+        try {
+            evolutionClient.sendListMessage(phone, title, description, buttonText, footerText, sections).block();
+        } catch (Exception e) {
+            log.error("Erro ao enviar lista interativa para {}: {}", phone, e.getMessage());
+            throw new RuntimeException(e);
+        }
     }
 }       

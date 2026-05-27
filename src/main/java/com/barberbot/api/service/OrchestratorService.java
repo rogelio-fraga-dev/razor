@@ -56,7 +56,7 @@ public class OrchestratorService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private void sendMsg(String phone, String text, String role) {
-        log.info("[{} OUT] Enviando: '{}'", role, text.replace("\n", " "));
+        log.info("[{} OUT] Enviando: '{}'", role, sanitizeForConsole(text.replace("\n", " ")));
         whatsAppService.sendTextMessage(phone, text);
     }
 
@@ -93,27 +93,40 @@ public class OrchestratorService {
     @Async
     public void processWebhook(EvolutionWebhookDTO webhook) {
         try {
-            if (shouldIgnoreMessage(webhook)) return;
-            if (isDuplicateMessage(webhook)) return;
+            if (shouldIgnoreMessage(webhook)) {
+                log.debug("[IGNORED] Mensagem ignorada (do proprio bot, grupo ou sem numero valido).");
+                return;
+            }
+            if (isDuplicateMessage(webhook)) {
+                log.info("[DUP] Mensagem duplicada ignorada (ID: {}).", webhook.getData().getKey().getId());
+                return;
+            }
 
             String phoneNumber = webhook.getPhoneNumber();
-            log.info("=====================================================");
-            log.info("[WEBHOOK] Msg recebida de: {}", phoneNumber);
+            String pushName = webhook.getData() != null ? webhook.getData().getPushName() : "Desconhecido";
+            String msgType = webhook.hasAudio() ? "AUDIO" :
+                             webhook.hasImage() ? "IMAGEM" :
+                             webhook.hasDocument() ? "DOCUMENTO" :
+                             webhook.hasSticker() ? "STICKER" : "TEXTO";
+
+            log.info("=======================================================================");
+            log.info("[RECEBIDO] Nova mensagem de: {} ({}) | Tipo: {}", pushName, phoneNumber, msgType);
 
             if (isAdminNumber(phoneNumber)) {
-                log.info("[SISTEMA] Identificado como ADMINISTRADOR.");
+                log.info("[SISTEMA] Remetente identificado como ADMINISTRADOR.");
                 processAdminMessage(webhook, phoneNumber);
             } else {
                 if (customerService.isCustomerPaused(phoneNumber)) {
-                    log.info("[SISTEMA] Cliente {} está PAUSADO. Bot silenciado.", phoneNumber);
+                    log.info("[PAUSADO] O cliente {} esta pausado. Atendimento automatico suspenso.", phoneNumber);
+                    log.info("=======================================================================");
                     return;
                 }
-                log.info("[SISTEMA] Identificado como CLIENTE.");
+                log.info("[CLIENTE] Remetente identificado como CLIENTE.");
                 processCustomerMessage(webhook, phoneNumber);
             }
-            log.info("=====================================================");
+            log.info("=======================================================================");
         } catch (Exception e) {
-            log.error("[ERRO FATAL ORCHESTRATOR] {}", e.getMessage(), e);
+            log.error("[ERRO FATAL ORCHESTRATOR] Falha critica ao processar webhook: {}", e.getMessage(), e);
         }
     }
 
@@ -132,13 +145,31 @@ public class OrchestratorService {
         return false;
     }
 
+    private String normalizeBrazilianNumber(String rawNumber) {
+        if (rawNumber == null) return "";
+        String num = rawNumber.replaceAll("[^0-9]", "");
+        if (num.startsWith("55") && num.length() >= 12) {
+            num = num.substring(2);
+        }
+        if (num.length() == 11 && num.charAt(2) == '9') {
+            num = num.substring(0, 2) + num.substring(3);
+        }
+        return num;
+    }
+
+    private String sanitizeForConsole(String text) {
+        if (text == null) return "";
+        String temp = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD);
+        temp = temp.replaceAll("[\\p{InCombiningDiacriticalMarks}]", "");
+        temp = temp.replaceAll("[^\\p{ASCII}]", "");
+        return temp.trim();
+    }
+
     private boolean isAdminNumber(String phoneNumber) {
-        String adminEnv = properties.getAdmin().getPhone().replaceAll("[^0-9]", "");
-        String phoneIn = phoneNumber.replaceAll("[^0-9]", "");
-        if (adminEnv.isEmpty()) return false;
-        String adminBase = adminEnv.startsWith("55") ? adminEnv.substring(2) : adminEnv;
-        String phoneBase = phoneIn.startsWith("55") ? phoneIn.substring(2) : phoneIn;
-        return adminBase.equals(phoneBase);
+        String adminNormalized = normalizeBrazilianNumber(properties.getAdmin().getPhone());
+        String phoneNormalized = normalizeBrazilianNumber(phoneNumber);
+        if (adminNormalized.isEmpty()) return false;
+        return adminNormalized.equals(phoneNormalized);
     }
 
     private String fetchBase64FromEvolution(String messageId) {
@@ -189,12 +220,18 @@ public class OrchestratorService {
             adminStates.remove(phoneNumber);
             String base64 = webhook.getBase64() != null ? webhook.getBase64() : fetchBase64FromEvolution(webhook.getData().getKey().getId());
             if (base64 != null) {
+                log.info("[ADMIN] CSV de contatos recebido do Admin {}.", phoneNumber);
                 sendMsg(phoneNumber, "⏳ Lendo a base CSV...", "ADMIN");
                 try {
                     int salvos = customerService.importCustomersFromCsvBase64(base64);
+                    log.info("[ADMIN] CSV processado com sucesso. {} contatos salvos.", salvos);
                     sendMsg(phoneNumber, "✅ Importação Concluída! *" + salvos + "* clientes na base.", "ADMIN");
-                } catch (Exception e) { sendMsg(phoneNumber, "❌ Erro no CSV.", "ADMIN"); }
+                } catch (Exception e) {
+                    log.error("[ADMIN] Falha ao processar CSV: {}", e.getMessage(), e);
+                    sendMsg(phoneNumber, "❌ Erro no CSV.", "ADMIN");
+                }
             } else {
+                log.warn("[ADMIN] Recebido CSV corrompido ou sem base64.");
                 sendMsg(phoneNumber, "❌ O arquivo chegou corrompido.", "ADMIN");
             }
             return;
@@ -204,13 +241,20 @@ public class OrchestratorService {
             adminStates.remove(phoneNumber);
             String base64 = webhook.getBase64() != null ? webhook.getBase64() : fetchBase64FromEvolution(webhook.getData().getKey().getId());
             if (base64 != null) {
+                log.info("[ADMIN] Imagem de agenda recebida do Admin {} para processamento via GPT-4o Vision.", phoneNumber);
                 sendMsg(phoneNumber, "⏳ Lendo imagem da agenda com IA...", "ADMIN");
                 try {
                     String agendaJson = openAIService.extractAgendaFromImage(base64, webhook.getMimeType());
+                    log.info("[ADMIN] JSON extraido da imagem de agenda: {}", sanitizeForConsole(agendaJson));
                     int salvos = agendaService.processAgenda(agendaJson);
+                    log.info("[ADMIN] Agenda atualizada. {} agendamentos importados.", salvos);
                     sendMsg(phoneNumber, "✅ " + salvos + " clientes identificados na imagem!", "ADMIN");
-                } catch (Exception e) { sendMsg(phoneNumber, "❌ Erro na Visão IA.", "ADMIN"); }
+                } catch (Exception e) {
+                    log.error("[ADMIN] Falha ao ler imagem com Vision: {}", e.getMessage(), e);
+                    sendMsg(phoneNumber, "❌ Erro na Visão IA.", "ADMIN");
+                }
             } else {
+                log.warn("[ADMIN] Recebida imagem da agenda corrompida.");
                 sendMsg(phoneNumber, "❌ A imagem não pôde ser decodificada.", "ADMIN");
             }
             return;
@@ -218,10 +262,14 @@ public class OrchestratorService {
 
         if (webhook.hasAudio()) {
             String base64 = webhook.getBase64() != null ? webhook.getBase64() : fetchBase64FromEvolution(webhook.getData().getKey().getId());
-            if (base64 == null) return;
+            if (base64 == null) {
+                log.warn("[ADMIN] Audio recebido do Admin, mas sem base64 disponível.");
+                return;
+            }
+            log.info("[ADMIN] Mensagem de voz recebida do Admin {}, transcrevendo com Whisper...", phoneNumber);
             sendMsg(phoneNumber, "🎧 Ouvindo áudio...", "ADMIN");
             command = openAIService.transcribeAudio(base64, webhook.getMimeType());
-            log.info("[ADMIN IN] Áudio transcrito: '{}'", command);
+            log.info("[ADMIN] Audio transcrito: '{}'", sanitizeForConsole(command));
             
             if (!adminStates.containsKey(phoneNumber) && command != null && !isSystemCommand(command)) {
                 sendMsg(phoneNumber, "📝 *Transcrição Livre:*\n" + command, "ADMIN");
@@ -229,7 +277,7 @@ public class OrchestratorService {
             }
         } else {
             command = webhook.getMessageText();
-            log.info("[ADMIN IN] Mensagem de texto: '{}'", command);
+            log.info("[ADMIN] Comando de texto recebido do Admin: '{}'", sanitizeForConsole(command));
         }
 
         if (command != null) {
@@ -321,10 +369,9 @@ public class OrchestratorService {
 
             if (cmdLower.contains("comando") || cmdLower.contains("menu") || cmdLower.contains("ajuda")) {
                 sendFullMenu(phoneNumber);
-            } else if (cmdLower.equals("1") || cmdLower.contains("dashboard") || cmdLower.contains("resumo")) {
-                long total = customerRepository.count();
-                String resumoCaixa = agendaService.getResumoDoDia();
-                sendMsg(phoneNumber, "📊 *Painel de Controle BarberBot*\n\n👥 Clientes na Base: " + total + "\n🤖 Status IA: Online 🟢\n\n" + resumoCaixa, "ADMIN");
+            } else if (cmdLower.equals("1") || cmdLower.contains("dashboard") || cmdLower.contains("resumo") || cmdLower.contains("financeiro") || cmdLower.contains("caixa")) {
+                String resumoFinanceiro = agendaService.getResumoFinanceiroDetalhado();
+                sendMsg(phoneNumber, resumoFinanceiro, "ADMIN");
             } else if (cmdLower.equals("2") || (cmdLower.contains("aviso") && !cmdLower.contains("promocao"))) {
                 adminStates.put(phoneNumber, "AVISO_BASE");
                 sendMsg(phoneNumber, "📢 *Disparo de Avisos*\nEnvie a mensagem agora. _(Ou digite 'cancelar')_", "ADMIN");
@@ -348,8 +395,12 @@ public class OrchestratorService {
                     sb.append("\nDigite o *NÚMERO DA OPÇÃO*.");
                     sendMsg(phoneNumber, sb.toString(), "ADMIN");
                 }
-            } else if (cmdLower.equals("6") || cmdLower.contains("agenda")) {
-                sendMsg(phoneNumber, "📅 *Agenda Atual*\n\n" + agendaService.getAgendaSalva(), "ADMIN");
+            } else if (cmdLower.equals("6") || cmdLower.contains("agenda") || cmdLower.contains("painel")) {
+                long total = customerRepository.count();
+                long waitlistCount = waitlistRepository.count();
+                long pausedCount = customerService.getPausedPhones().size();
+                String painelAgendamentos = agendaService.getPainelAgendamentosDetalhado(total, waitlistCount, pausedCount);
+                sendMsg(phoneNumber, painelAgendamentos, "ADMIN");
             } else if (cmdLower.equals("7") || cmdLower.contains("matinal") || cmdLower.contains("bom dia")) {
                 int totalHoje = agendaService.getAgendamentosHojeCount();
                 String agendaHoje = agendaService.getAgendaHojeText();
@@ -400,36 +451,24 @@ public class OrchestratorService {
     }
 
     private void sendFullMenu(String phoneNumber) {
-        try {
-            log.info("[SISTEMA] Enviando Lista Interativa de Gestão para o Administrador: {}", phoneNumber);
-            whatsAppService.sendListMessage(
-                phoneNumber,
-                "🛠️ Painel Administrativo",
-                "Olá, Administrador! Escolha uma das ações ou relatórios abaixo:",
-                "Ver Opções 📋",
-                "Barbearia Vintage - Gestão",
-                MenuOptions.buildAdminListSections()
-            );
-        } catch (Exception e) {
-            log.warn("[SISTEMA] Falha ao enviar lista interativa para admin, usando fallback em texto: {}", e.getMessage());
-            String fullMenu = """
-                    🛠️ *PAINEL DA BARBEARIA*
-                    
-                    *1* - 📊 Dashboard e Caixa
-                    *2* - 📢 Avisos (Geral)
-                    *3* - 🎯 Promoções do dia
-                    *4* - ⏸️ Pausar bot (Cliente)
-                    *5* - ▶️ Retomar bot (Cliente)
-                    *6* - 📅 Ver Agenda Completa
-                    *7* - ☀️ Relatório Matinal (Hoje)
-                    *8* - 🌙 Relatório Noturno (Fechamento)
-                    *9* - 📋 Listar Clientes
-                    *10* - 🗑️ Apagar um Cliente
-                    
-                    _Digite o número ou comando desejado._
-                    """;
-            sendMsg(phoneNumber, fullMenu, "ADMIN");
-        }
+        log.info("[SISTEMA] Enviando Menu Textual de Gestao para o Administrador: {}", phoneNumber);
+        String fullMenu = """
+                🛠️ *PAINEL DA BARBEARIA*
+                
+                *1* - 💰 Resumo Financeiro (Caixa)
+                *2* - 📢 Avisos (Geral)
+                *3* - 🎯 Promoções do dia
+                *4* - ⏸️ Pausar bot (Cliente)
+                *5* - ▶️ Retomar bot (Cliente)
+                *6* - 📅 Painel de Agendamentos (Hoje)
+                *7* - ☀️ Relatório Matinal (Hoje)
+                *8* - 🌙 Relatório Noturno (Fechamento)
+                *9* - 📋 Listar Clientes
+                *10* - 🗑️ Apagar um Cliente
+                
+                _Digite o número ou comando desejado._
+                """;
+        sendMsg(phoneNumber, fullMenu, "ADMIN");
     }
 
     @Async
@@ -441,7 +480,7 @@ public class OrchestratorService {
         for (Customer customer : allCustomers) {
             try {
                 if (customer.getPhoneNumber().contains(adminPhone)) continue;
-                String header = isProspecting ? "💈 *Barbearia Vintage - Promoção* 💈\n\n" : "📢 *Aviso da Barbearia Vintage*\n\n";
+                String header = isProspecting ? "💈 *Barbearia Ficticia - Promoção* 💈\n\n" : "📢 *Aviso da Barbearia Ficticia*\n\n";
                 sendMsg(customer.getPhoneNumber(), header + message, "DISPARO");
                 contatosSucesso.add("✅ " + customer.getName());
                 Thread.sleep(3000);
@@ -469,7 +508,7 @@ public class OrchestratorService {
             contentToSave = "[Arquivo]";
         }
 
-        log.info("[CLIENTE IN] Mensagem: '{}'", contentToSave);
+        log.info("[CLIENTE IN] Mensagem: '{}'", sanitizeForConsole(contentToSave));
         interactionRepository.save(Interaction.builder().customer(customer).type(Interaction.InteractionType.USER).content(contentToSave).messageId(webhook.getData().getKey().getId()).build());
 
         String msgLower = contentToSave.toLowerCase().trim();
@@ -513,7 +552,7 @@ public class OrchestratorService {
                 }
                 String pixMsg = "🔑 *CHAVE PIX (CNPJ):* `12.345.678/0001-90`\n\n" +
                                 "📌 *PIX Copia e Cola:*\n" +
-                                "`00020101021126580014br.gov.bcb.pix013612345678000190520400005303986540535.005802BR5918Barbearia Vintage6009Sao Paulo62070503***63041A2B`\n\n" +
+                                "`00020101021126580014br.gov.bcb.pix013612345678000190520400005303986540535.005802BR5918Barbearia Ficticia6009Sao Paulo62070503***63041A2B`\n\n" +
                                 "💡 _Realize o pagamento e traga o comprovante no dia do atendimento. Seu horário está 100% garantido! Te esperamos lá!_ 💈👊";
                 saveAndSend(customer, pixMsg, phoneNumber);
                 return;
@@ -553,22 +592,11 @@ public class OrchestratorService {
             return;
         }
 
-        // 5. Exibição de Menu Principal Textual
-        if (msgLower.equals("menu") || msgLower.matches("^(oi|olá|ola|bom dia|boa tarde|boa noite|tudo bem)$")) {
-            try {
-                log.info("[SISTEMA] Enviando Lista Interativa Oficial para: {}", phoneNumber);
-                whatsAppService.sendListMessage(
-                    phoneNumber,
-                    "💈 Barbearia Vintage 💈",
-                    "Olá! Sou o assistente virtual da Barbearia Vintage. Como posso te ajudar hoje?\n\nEscolha uma das opções abaixo no botão:",
-                    "Ver Opções 📋",
-                    "Barbearia Vintage - Centro",
-                    MenuOptions.buildListSections()
-                );
-            } catch (Exception e) {
-                log.warn("[SISTEMA] Falha ao enviar lista interativa, usando fallback em texto: {}", e.getMessage());
-                saveAndSend(customer, MenuOptions.getMenuAsText(), phoneNumber);
-            }
+        // 5. Exibição de Menu Principal Textual (Qualquer saudação ou comando menu)
+        if (msgLower.equals("menu") || 
+            msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
+            log.info("[SISTEMA] Enviando Menu Textual para o Cliente: {}", phoneNumber);
+            saveAndSend(customer, MenuOptions.getMenuAsText(), phoneNumber);
             return;
         }
 
@@ -633,7 +661,7 @@ public class OrchestratorService {
 
     private void trataExibirFidelidade(Customer customer, String phoneNumber) {
         int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
-        String resp = "🎫 *Seu Cartão Fidelidade - Barbearia Vintage*\n\n" +
+        String resp = "🎫 *Seu Cartão Fidelidade - Barbearia Ficticia*\n\n" +
                       "Você possui *" + points + "* de *10* pontos! 🌟\n\n" +
                       "A cada corte você ganha 1 ponto. Ao completar 10 pontos, você ganha *10% de desconto* no seu próximo corte! ✂️🔥";
         saveAndSend(customer, resp, phoneNumber);
@@ -671,7 +699,7 @@ public class OrchestratorService {
     }
 
     private void chamaIAETrataMensagem(Customer customer, String prompt, String phoneNumber) {
-        log.info("[IA PROCESSING] Chamando o GPT-4o...");
+        log.info("[IA] Chamando o GPT-4o para processar a intencao do cliente.");
         String agendaContext = agendaService.getHorariosOcupadosParaIA();
         String aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext);
 
@@ -687,6 +715,7 @@ public class OrchestratorService {
                 String time = parts[3];
                 String service = parts[4];
                 
+                log.info("[IA] Tag de agendamento identificada! Cliente: {}, Data: {}, Hora: {}, Servico: {}", name, date, time, service);
                 agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
 
                 aiResponse = aiResponse.replace(tag, "").trim();
@@ -697,7 +726,7 @@ public class OrchestratorService {
                                        "_Responda com o número da opção desejada (1 ou 2)._";
                 aiResponse = aiResponse + paymentPrompt;
                 customerStates.put(phoneNumber, "ESPERANDO_PAGAMENTO");
-            } catch (Exception e) { log.error("Falha ao ler TAG NOVO_AGENDAMENTO", e); }
+            } catch (Exception e) { log.error("[IA] Falha ao extrair ou criar agendamento da TAG NOVO_AGENDAMENTO: {}", e.getMessage(), e); }
         } else if (aiResponse.contains("[LISTA_DE_ESPERA|")) {
             try {
                 int startIndex = aiResponse.indexOf("[LISTA_DE_ESPERA|");
@@ -717,11 +746,11 @@ public class OrchestratorService {
                     waitlistRepository.save(entry);
                     log.info("[LISTA ESPERA] {} adicionado para o dia {}", phoneNumber, preferredDay);
                 } else {
-                    log.info("[LISTA ESPERA] {} já estava na lista", phoneNumber);
+                    log.info("[LISTA ESPERA] {} ja estava cadastrado na lista", phoneNumber);
                 }
 
                 aiResponse = aiResponse.replace(tag, "").trim();
-            } catch (Exception e) { log.error("Falha ao ler TAG LISTA_DE_ESPERA", e); }
+            } catch (Exception e) { log.error("[IA] Falha ao ler TAG LISTA_DE_ESPERA: {}", e.getMessage(), e); }
         }
 
         saveAndSend(customer, aiResponse, phoneNumber);

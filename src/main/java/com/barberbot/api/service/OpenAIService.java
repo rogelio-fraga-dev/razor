@@ -33,7 +33,7 @@ public class OpenAIService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String SYSTEM_PROMPT_RECEPTIONIST = """
-            Você é a recepcionista virtual inteligente da "Barbearia Vintage".
+            Você é a recepcionista virtual inteligente da "Barbearia Ficticia".
             Sua missão é atender com excelência, ser rápida e FAZER AGENDAMENTOS.
             
             HOJE É DIA: {{hoje}}
