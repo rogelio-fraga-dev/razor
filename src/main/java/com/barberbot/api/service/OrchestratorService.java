@@ -726,8 +726,8 @@ public class OrchestratorService {
                 ag.setPaymentStatus("PRESENCIAL");
                 appointmentRepository.save(ag);
             }
-            // NAO envia mensagem de erro e NAO da return! 
-            // A mensagem continua o fluxo para a IA responder ao "obrigado" mantendo o contexto.
+            saveAndSend(customer, "Tudo certo! Confirmamos seu pagamento como *presencial* direto no caixa. Muito obrigado! 💈👊", phoneNumber);
+            return;
         }
 
         // 4. Comando "menu" explícito — SEMPRE funciona
@@ -899,6 +899,7 @@ public class OrchestratorService {
                     log.info("[AGENDA] Estado ESPERANDO_PAGAMENTO definido para {}", phoneNumber);
                 } else {
                     log.info("[AGENDA] Ignorando tag duplicada gerada pela IA, pois o cliente já possui este agendamento exato.");
+                    aiResponse = "Tudo certo! Seu agendamento para o dia " + date + " às " + time + " já está garantido no sistema. Te esperamos lá!";
                 }
             } catch (Exception e) { log.error("[IA] Falha ao extrair ou criar agendamento da TAG NOVO_AGENDAMENTO: {}", e.getMessage(), e); }
         } else if (aiResponse.contains("[CANCELAR_AGENDAMENTO]")) {
