@@ -62,12 +62,12 @@ public class OrchestratorService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private void setCustomerState(String phone, String state) {
-        setCustomerState(phone, state);
+        customerStates.put(phone, state);
         customerStatesTimestamps.put(phone, LocalDateTime.now());
     }
 
     private void clearCustomerState(String phone) {
-        clearCustomerState(phone);
+        customerStates.remove(phone);
         customerStatesTimestamps.remove(phone);
     }
 
