@@ -86,20 +86,18 @@ public final class MenuOptions {
         }
     }
 
-    public static String getMenuAsText() {
-        return """
-                💈 *Menu Barbearia Ficticia*
-                
-                1️⃣ Agendar Horário 📅
-                2️⃣ Meus Agendamentos (Ver/Cancelar)
-                3️⃣ Horários Disponíveis 🕒
-                4️⃣ Endereço e Localização 📍
-                5️⃣ Serviços e Preços (Planos VIP) 💰
-                6️⃣ Cartão Fidelidade Digital 🎫
-                7️⃣ Instagram 📸
-                8️⃣ Falar com o Barbeiro 🗣️
-                
-                _Digite o número da opção desejada ou clique no botão abaixo._""";
+    public static String getMenuAsText(int points) {
+        return "💈 *Menu Barbearia Ficticia*\n\n" +
+               "1️⃣ Agendar Horário 📅\n" +
+               "2️⃣ Meus Agendamentos (Ver/Cancelar)\n" +
+               "3️⃣ Horários Disponíveis 🕒\n" +
+               "4️⃣ Endereço e Localização 📍\n" +
+               "5️⃣ Serviços e Preços (Planos VIP) 💰\n" +
+               "6️⃣ Cartão Fidelidade Digital 🎫 (Você tem " + points + " pontos)\n" +
+               "7️⃣ Instagram 📸\n" +
+               "8️⃣ Falar com o Barbeiro 🗣️\n\n" +
+               "_Digite o número da opção desejada ou clique no botão abaixo._\n\n" +
+               "🎙️ _Dica: Eu também escuto áudios! Fique à vontade para mandar mensagem de voz._";
     }
 
     public static final String ROW_ID_ADMIN_DASHBOARD = "admin_dashboard";

@@ -52,6 +52,7 @@ public class OrchestratorService {
     private static final Map<String, List<String>> adminRetomarOptions = new ConcurrentHashMap<>();
     private static final Map<String, List<String>> adminApagarOptions = new ConcurrentHashMap<>();
     private static final Map<String, String> customerStates = new ConcurrentHashMap<>();
+    private static final Map<String, List<AgendaService.Agendamento>> customerCancelOptions = new ConcurrentHashMap<>();
     private static final Map<String, WaitlistOffer> waitlistOffers = new ConcurrentHashMap<>();
     private static final Map<String, String> adminScheduledMsg = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -583,6 +584,60 @@ public class OrchestratorService {
             return;
         }
 
+        // Tratamento do estado de escolha múltipla para cancelamento
+        if ("ESPERANDO_CANCELAMENTO_MULTIPLO".equals(cState)) {
+            List<AgendaService.Agendamento> apps = customerCancelOptions.get(phoneNumber);
+            if (apps == null || apps.isEmpty()) {
+                customerStates.remove(phoneNumber);
+                saveAndSend(customer, "Sua sessão de cancelamento expirou. Tente novamente.", phoneNumber);
+                return;
+            }
+            
+            if (msgLower.contains("cancelar") || msgLower.contains("desistir") || msgLower.contains("sair") || msgLower.equals("0")) {
+                customerStates.remove(phoneNumber);
+                customerCancelOptions.remove(phoneNumber);
+                saveAndSend(customer, "Operação cancelada! Nenhum agendamento foi excluído.", phoneNumber);
+                return;
+            }
+            
+            try {
+                int index = Integer.parseInt(msgLower.trim()) - 1;
+                if (index >= 0 && index < apps.size()) {
+                    AgendaService.Agendamento ag = apps.get(index);
+                    String diaSemana = null;
+                    try {
+                        String[] parts = ag.getDate().split("/");
+                        int day = Integer.parseInt(parts[0].trim());
+                        int month = Integer.parseInt(parts[1].trim());
+                        int year = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).getYear();
+                        java.time.LocalDate dateObj = java.time.LocalDate.of(year, month, day);
+                        diaSemana = dateObj.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
+                    } catch (Exception e) {}
+                    
+                    String apptTime = ag.getTime();
+                    String apptDate = ag.getDate();
+                    String apptService = ag.getService();
+                    
+                    if (agendaService.cancelarAgendamentoExato(ag)) {
+                        saveAndSend(customer, "✅ Seu agendamento de *" + apptDate + " às " + apptTime + "* foi cancelado com sucesso!", phoneNumber);
+                        if (diaSemana != null) {
+                            verificarListaEsperaECanalizar(diaSemana, apptDate, apptTime, apptService);
+                        }
+                    } else {
+                        saveAndSend(customer, "❌ Não foi possível cancelar esse agendamento.", phoneNumber);
+                    }
+                    customerStates.remove(phoneNumber);
+                    customerCancelOptions.remove(phoneNumber);
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                // Ignore and fall through to ask again
+            }
+            
+            saveAndSend(customer, "Por favor, digite apenas o *NÚMERO* da opção que deseja cancelar, ou *0* para sair.", phoneNumber);
+            return;
+        }
+
         // 3. Estado: Esperando escolha de pagamento (PIX / Presencial)
         //    Agora com escape: "cancelar" aborta o fluxo e cancela a pré-reserva.
         //    Só aceita "1" (PIX) e "2" (Presencial) explicitamente.
@@ -636,7 +691,8 @@ public class OrchestratorService {
         // 4. Comando "menu" explícito — SEMPRE funciona
         if (msgLower.equals("menu")) {
             log.info("[SISTEMA] Enviando Menu Textual para o Cliente: {}", phoneNumber);
-            saveAndSend(customer, MenuOptions.getMenuAsText(), phoneNumber);
+            int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
+            saveAndSend(customer, MenuOptions.getMenuAsText(points), phoneNumber);
             return;
         }
 
@@ -645,7 +701,8 @@ public class OrchestratorService {
         if (cState == null && !waitlistOffers.containsKey(phoneNumber) && !hasRecentIAConversation(customer.getId())) {
             if (msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
                 log.info("[SISTEMA] Saudação detectada sem conversa ativa, enviando Menu para: {}", phoneNumber);
-                saveAndSend(customer, MenuOptions.getMenuAsText(), phoneNumber);
+                int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
+                saveAndSend(customer, MenuOptions.getMenuAsText(points), phoneNumber);
                 return;
             }
         }
@@ -673,9 +730,14 @@ public class OrchestratorService {
     }
 
     private void trataVisualizarAgendamentos(Customer customer, String phoneNumber) {
-        AgendaService.Agendamento ag = agendaService.getAgendamentoCliente(phoneNumber);
-        if (ag != null) {
-            saveAndSend(customer, "📅 *Seu Agendamento:*\n\nServiço: " + ag.getService() + "\nDia: " + ag.getDate() + " às " + ag.getTime() + "\n\n❌ Para desmarcar, digite exatamente:\n*cancelar meu horário*", phoneNumber);
+        List<AgendaService.Agendamento> apps = agendaService.getAgendamentosClienteList(phoneNumber);
+        if (!apps.isEmpty()) {
+            StringBuilder sb = new StringBuilder("📅 *Seus Agendamentos:*\n\n");
+            for (AgendaService.Agendamento ag : apps) {
+                sb.append("🔹 ").append(ag.getService()).append("\nDia: ").append(ag.getDate()).append(" às ").append(ag.getTime()).append("\n\n");
+            }
+            sb.append("❌ Para desmarcar, digite exatamente:\n*cancelar meu horário*");
+            saveAndSend(customer, sb.toString(), phoneNumber);
         } else {
             saveAndSend(customer, "Você não possui nenhum agendamento ativo conosco no momento! Digite *1* para marcar um horário.", phoneNumber);
         }
@@ -690,8 +752,15 @@ public class OrchestratorService {
     }
 
     private void trataCancelarAgendamento(Customer customer, String phoneNumber) {
-        AgendaService.Agendamento ag = agendaService.getAgendamentoCliente(phoneNumber);
-        if (ag != null) {
+        List<AgendaService.Agendamento> apps = agendaService.getAgendamentosClienteList(phoneNumber);
+        
+        if (apps.isEmpty()) {
+            saveAndSend(customer, "❌ Não encontrei nenhum agendamento seu ativo para cancelar.", phoneNumber);
+            return;
+        }
+        
+        if (apps.size() == 1) {
+            AgendaService.Agendamento ag = apps.get(0);
             String diaSemana = null;
             try {
                 String[] parts = ag.getDate().split("/");
@@ -700,15 +769,13 @@ public class OrchestratorService {
                 int year = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).getYear();
                 java.time.LocalDate dateObj = java.time.LocalDate.of(year, month, day);
                 diaSemana = dateObj.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
-            } catch (Exception e) {
-                log.warn("Erro ao deduzir dia da semana para cancelamento: {}", e.getMessage());
-            }
+            } catch (Exception e) {}
 
             String apptTime = ag.getTime();
             String apptDate = ag.getDate();
             String apptService = ag.getService();
 
-            if (agendaService.cancelarAgendamentoCliente(phoneNumber)) {
+            if (agendaService.cancelarAgendamentoExato(ag)) {
                 saveAndSend(customer, "✅ Seu agendamento foi cancelado com sucesso!", phoneNumber);
                 
                 if (diaSemana != null) {
@@ -716,14 +783,22 @@ public class OrchestratorService {
                 }
             }
         } else {
-            saveAndSend(customer, "❌ Não encontrei nenhum agendamento seu ativo para cancelar.", phoneNumber);
+            customerStates.put(phoneNumber, "ESPERANDO_CANCELAMENTO_MULTIPLO");
+            customerCancelOptions.put(phoneNumber, apps);
+            StringBuilder sb = new StringBuilder("Você tem mais de um agendamento ativo. Qual deles deseja cancelar?\n\n");
+            for (int i = 0; i < apps.size(); i++) {
+                sb.append("*").append(i + 1).append("* - ").append(apps.get(i).getDate()).append(" às ").append(apps.get(i).getTime()).append("\n");
+            }
+            sb.append("\nDigite o *NÚMERO* do agendamento que deseja cancelar (ou *0* para sair).");
+            saveAndSend(customer, sb.toString(), phoneNumber);
         }
     }
 
     private void chamaIAETrataMensagem(Customer customer, String prompt, String phoneNumber) {
         log.info("[IA] Chamando o GPT-4o para processar a intencao do cliente.");
         String agendaContext = agendaService.getHorariosOcupadosParaIA();
-        String aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext);
+        int activeAppointments = agendaService.getAgendamentosClienteList(phoneNumber).size();
+        String aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext, activeAppointments);
 
         if (aiResponse.contains("[NOVO_AGENDAMENTO|")) {
             try {

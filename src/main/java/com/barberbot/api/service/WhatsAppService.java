@@ -47,8 +47,8 @@ public class WhatsAppService {
         });
     }
 
-    public void sendMenuList(String phone) {
-        sendTextMessage(phone, MenuOptions.getMenuAsText());
+    public void sendMenuList(String phone, int points) {
+        sendTextMessage(phone, MenuOptions.getMenuAsText(points));
     }
 
     /**

@@ -103,7 +103,7 @@ public class OpenAIService {
             {"items": [{"date": "26/02", "name": "Adilson", "time": "14:30", "service": "Corte"}]}
             """;
 
-    public String processCustomerMessage(String userMessage, List<String> recentHistory, String agendaContext) {
+    public String processCustomerMessage(String userMessage, List<String> recentHistory, String agendaContext, int activeAppointments) {
         try {
             List<ChatMessage> messages = new ArrayList<>();
             LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
@@ -124,6 +124,10 @@ public class OpenAIService {
                     .replace("{{hoje}}", dataHoje)
                     .replace("{{horariosLivresHoje}}", horariosLivresHoje)
                     .replace("{{calendarioSemana}}", cal.toString());
+                    
+            if (activeAppointments >= 2) {
+                finalPrompt += "\n\n⚠️ LIMITE ATINGIDO: Este cliente já possui " + activeAppointments + " agendamentos ativos na semana. É PROIBIDO oferecer horários ou marcar mais agendamentos. Diga de forma educada que ele atingiu o limite de 2 agendamentos semanais. Caso queira marcar outro, peça para ele primeiro cancelar um dos atuais pelo menu.";
+            }
                     
             messages.add(SystemMessage.from(finalPrompt));
             
