@@ -517,7 +517,9 @@ public class OrchestratorService {
                 *9* - 📋 Listar Clientes
                 *10* - 🗑️ Apagar um Cliente
                 *11* - ℹ️ Ajuda / Manual do Sistema
-                *12* - 📅 Agendar Disparo
+                *12* - 📊 Resumo da Semana
+                *13* - 📆 Agenda da Semana
+                *14* - 📅 Agendar Disparo
                 
                 _Digite o número ou comando desejado._
                 """;
