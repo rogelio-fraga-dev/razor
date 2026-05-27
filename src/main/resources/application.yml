@@ -28,7 +28,7 @@ server:
 # Configurações do Bot - Barbearia Vintage
 barberbot:
   admin:
-    phone: "${ADMIN_PHONE}"
+    phones: "${ADMIN_PHONES}"
   evolution:
     base-url: "http://localhost:8080"
     instance-name: "BarberBotOficial"

@@ -99,7 +99,16 @@ public class BarberBotScheduler {
             LocalDate today = LocalDate.now();
             
             for (com.barberbot.api.model.Customer c : customers) {
-                if (c.isPaused() || c.getPhoneNumber().equals(properties.getAdmin().getPhone())) {
+                // Ignorar administradores
+                boolean isAdmin = false;
+                for (String admPhone : properties.getAdmin().getPhones()) {
+                    if (c.getPhoneNumber().equals(admPhone)) {
+                        isAdmin = true;
+                        break;
+                    }
+                }
+                
+                if (c.isPaused() || isAdmin) {
                     continue;
                 }
                 
@@ -139,7 +148,16 @@ public class BarberBotScheduler {
         try {
             List<com.barberbot.api.model.Customer> customers = customerRepository.findAll();
             for (com.barberbot.api.model.Customer c : customers) {
-                if (c.isPaused() || c.getPhoneNumber().equals(properties.getAdmin().getPhone())) {
+                // Ignora pausados, sem interação, ou se for Admin
+                boolean isAdmin = false;
+                for (String admPhone : properties.getAdmin().getPhones()) {
+                    if (c.getPhoneNumber().equals(admPhone)) {
+                        isAdmin = true;
+                        break;
+                    }
+                }
+                
+                if (c.isPaused() || isAdmin) {
                     continue;
                 }
                 
@@ -164,7 +182,6 @@ public class BarberBotScheduler {
     @Scheduled(cron = "0 0 8 * * *", zone = "America/Sao_Paulo")
     public void sendDailyAdminReport() {
         try {
-            String adminPhone = properties.getAdmin().getPhone();
             long totalCustomers = customerRepository.count();
             int totalHoje = agendaService.getAgendamentosHojeCount();
             String agendaHoje = agendaService.getAgendaHojeText();
@@ -189,7 +206,9 @@ public class BarberBotScheduler {
                     Qualquer dúvida você me fala!
                     """, totalCustomers, totalHoje, agendaHoje);
 
-            whatsAppService.sendTextMessage(adminPhone, report);
+            for (String adminPhone : properties.getAdmin().getPhones()) {
+                whatsAppService.sendTextMessage(adminPhone, report);
+            }
             
         } catch (Exception e) {
             log.error("Erro ao enviar relatório matinal: {}", e.getMessage());
@@ -203,10 +222,11 @@ public class BarberBotScheduler {
     @Scheduled(cron = "0 0 21 * * *", zone = "America/Sao_Paulo")
     public void sendNightlyAgendaRequest() {
         try {
-            String adminPhone = properties.getAdmin().getPhone();
             String resumoDetalhado = agendaService.getResumoDetelhadoDoDia();
-            whatsAppService.sendTextMessage(adminPhone, resumoDetalhado);
-            log.info("Relatório noturno de serviços enviado para o admin.");
+            for (String adminPhone : properties.getAdmin().getPhones()) {
+                whatsAppService.sendTextMessage(adminPhone, resumoDetalhado);
+            }
+            log.info("Relatório noturno de serviços enviado para os administradores.");
         } catch (Exception e) {
             log.error("Erro ao enviar relatório noturno: {}", e.getMessage());
         }

@@ -17,7 +17,7 @@ public class BarberBotProperties {
 
     @Data
     public static class Admin {
-        private String phone;
+        private java.util.List<String> phones = new java.util.ArrayList<>();
     }
 
     @Data

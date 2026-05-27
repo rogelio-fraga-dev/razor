@@ -270,7 +270,14 @@ public class AgendaService {
     public void agendarDisparoMassa(String msg, LocalDateTime execTime) {
         List<com.barberbot.api.model.Customer> customers = customerRepository.findAll();
         for (com.barberbot.api.model.Customer c : customers) {
-            if (c.getPhoneNumber().equals(properties.getAdmin().getPhone())) continue;
+            boolean isAdmin = false;
+            for (String admPhone : properties.getAdmin().getPhones()) {
+                if (c.getPhoneNumber().equals(admPhone)) {
+                    isAdmin = true;
+                    break;
+                }
+            }
+            if (isAdmin) continue;
             ScheduledTask task = ScheduledTask.builder()
                     .customerPhone(c.getPhoneNumber())
                     .executionTime(execTime)

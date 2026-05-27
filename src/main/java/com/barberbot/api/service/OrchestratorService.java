@@ -67,29 +67,7 @@ public class OrchestratorService {
         processedMessageIds.entrySet().removeIf(entry -> entry.getValue().isBefore(limit));
     }
 
-    @Scheduled(cron = "0 30 7 * * *", zone = "America/Sao_Paulo")
-    public void dispararLembretesMatinais() {
-        String adminPhone = properties.getAdmin().getPhone();
-        int totalHoje = agendaService.getAgendamentosHojeCount();
-        String agendaHoje = agendaService.getAgendaHojeText();
-        String report = String.format("""
-                ☀️ *Bom dia, Chefe! O expediente vai começar.* 🤖💈
-                
-                📅 *Hoje temos %d agendamento(s):*
-                
-                %s
-                
-                Eu cuidarei de lembrar todos eles para não faltarem!
-                """, totalHoje, agendaHoje);
-        sendMsg(adminPhone, report, "ADMIN");
-    }
 
-    @Scheduled(cron = "0 30 22 * * *", zone = "America/Sao_Paulo")
-    public void fechamentoDiario() {
-        String adminPhone = properties.getAdmin().getPhone();
-        String resumoDetalhado = agendaService.getResumoDetelhadoDoDia();
-        sendMsg(adminPhone, resumoDetalhado, "ADMIN");
-    }
 
     @Async
     public void processWebhook(EvolutionWebhookDTO webhook) {
@@ -167,10 +145,13 @@ public class OrchestratorService {
     }
 
     private boolean isAdminNumber(String phoneNumber) {
-        String adminNormalized = normalizeBrazilianNumber(properties.getAdmin().getPhone());
         String phoneNormalized = normalizeBrazilianNumber(phoneNumber);
-        if (adminNormalized.isEmpty()) return false;
-        return adminNormalized.equals(phoneNormalized);
+        for (String adminPhone : properties.getAdmin().getPhones()) {
+            if (normalizeBrazilianNumber(adminPhone).equals(phoneNormalized)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String fetchBase64FromEvolution(String messageId) {
@@ -377,7 +358,7 @@ public class OrchestratorService {
                     adminStates.remove(phoneNumber);
                     String msg = adminScheduledMsg.remove(phoneNumber);
                     try {
-                        String[] parts = cmdLower.replaceAll("[^0-9/:]", " ").trim().split("\\\\s+");
+                        String[] parts = cmdLower.replaceAll("[^0-9/:]", " ").trim().split("\\s+");
                         String datePart = parts[0];
                         String timePart = parts[1];
                         int day = Integer.parseInt(datePart.split("/")[0]);
@@ -595,7 +576,9 @@ public class OrchestratorService {
         if ("ESPERANDO_MOTIVO".equals(cState)) {
             customerStates.remove(phoneNumber);
             customerService.pauseCustomer(phoneNumber, 15);
-            sendMsg(properties.getAdmin().getPhone(), "🚨 *ATENDIMENTO*\n👤 " + customer.getName() + " (" + phoneNumber + ")\n💬 Motivo: " + contentToSave, "ADMIN");
+            for (String adm : properties.getAdmin().getPhones()) {
+                sendMsg(adm, "🚨 *ATENDIMENTO*\n👤 " + customer.getName() + " (" + phoneNumber + ")\n💬 Motivo: " + contentToSave, "ADMIN");
+            }
             saveAndSend(customer, "✅ Entendido! O responsável já foi avisado e vai te responder aqui em breve.\n_(Meu atendimento automático foi pausado por 15 minutos)_", phoneNumber);
             return;
         }
