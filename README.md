@@ -117,11 +117,13 @@ sequenceDiagram
 * **Inteligência Artificial Conversacional (NLP - OpenAI GPT-4o)**: Compreensão de linguagem natural, gírias e agendamentos diretos em conversas livres por chat.
 * **Extração Temática de Tags de IA**: Geração e interceptação em milissegundos das tags `[NOVO_AGENDAMENTO|...]` e `[LISTA_DE_ESPERA|...]` sem exibição visual ao cliente.
 * **Compreensão de Áudio em Tempo Real (OpenAI Whisper)**: O cliente pode fazer agendamentos, cancelar horários ou tirar dúvidas enviando mensagens de voz normais no WhatsApp. O sistema realiza o download dinâmico do áudio, faz a transcrição de alta fidelidade nativamente e processa o texto pela inteligência do GPT-4o como se tivesse sido digitado, respondendo o cliente com agilidade e fluidez.
+* **Trava de Agenda Semanal Dinâmica**: A IA possui uma diretriz rígida que impede o cliente de agendar para datas futuras distantes, forçando e limitando a exibição da agenda apenas para a semana corrente (Segunda a Sábado), priorizando o fechamento rápido e o fluxo de caixa imediato.
 * **Menus Nativos Interativos (WhatsApp List Messages)**: Interface de gaveta clicável nativa do WhatsApp com fallback numérico robusto (1 a 8) e reconciliação total de rotas.
 * **Autogestão de Agendamentos**: Possibilidade de o cliente consultar seu horário ativo ou cancelá-lo informando apenas a frase `"cancelar meu horário"`.
 
 ### MÓDULO B: AUTOMAÇÕES FINANCEIRAS & FIDELIZAÇÃO
 * **Cartão Fidelidade Digital**: Acúmulo automático de **1 ponto** na conta do Postgres toda vez que o cliente conclui a rotina de pós-venda. Zera ao chegar a **10 pontos** e envia um cupom promocional único de **10% de desconto** (`FIDELIDADE10-[HASH]`).
+* **Automação "Sextou" (Engajamento em Massa)**: Motor de varredura que dispara toda sexta-feira às **09h00** uma mensagem descontraída de lembrete do final de semana para *toda* a base de clientes que ainda não marcou horário para sexta ou sábado.
 * **Retenção Inteligente ("Cabelo Crescido")**: Motor diário rodando via CRON às **11h00** que busca inativos por ciclos de **15 dias** e dispara lembretes calorosos se não houver reserva futura.
 * **Lista de Espera Reativa (Sexta & Sábado)**: Fila automatizada persistida na tabela `waitlist_entries` quando a agenda do fim de semana está lotada. Preenche a vaga de forma concorrente e avisa o cliente da lista com auto-booking sob resposta `"SIM"`.
 * **Checkout PIX Copia e Cola**: Fluxo imediato de pagamento pós-agendamento com payloads formatados e badges visuais (`[PIX 💳]`, `[Presencial 💵]`, `[Pendente ⏳]`) no fechamento do dia do administrador.
@@ -132,6 +134,7 @@ sequenceDiagram
 * **Relatório Matinal Automatizado (07h30)**: Disparo diário com a contagem de clientes agendados e a listagem das horas de cada atendimento.
 * **Relatório Noturno Detalhado (22h30)**: Fechamento detalhado dos serviços do dia integrados com as badges de pagamento de cada cliente.
 * **Importação via Visão Computacional (IA Vision)**: O administrador envia a foto de uma agenda física e a IA mapeia e cadastra todos os horários e clientes automaticamente no banco de dados.
+* **Agendamento de Disparos Promocionais**: O proprietário redige campanhas de marketing ou avisos em dias de baixo movimento e programa uma data e hora para que o sistema efetue o disparo em massa para toda a base, de forma 100% autônoma e silenciosa.
 * **Importação de Leads em Lote (CSV)**: Decodificação e cadastro de base de clientes inteira enviando um arquivo de planilha CSV no chat.
 * **Transbordo Humano & Pausa Inteligente**: Silenciamento do robô para um cliente específico durante **15 minutos** quando ele solicita falar com o barbeiro, com triagem de motivos disparada para o administrador.
 * **CRUD de Clientes**: Possibilidade de listar toda a base relacional ou deletar um contato permanentemente via chat de controle.
