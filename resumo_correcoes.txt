@@ -1,0 +1,26 @@
+Resumo das Implementações e Correções do BarberBot
+Data: 27 de Maio de 2026
+
+1. INCLUSÃO DE NOVO ADMINISTRADOR
+- O número 5534984141504 foi adicionado na lista de administradores no arquivo `.env` do servidor de produção (EC2).
+- Agora este número possui acesso completo aos relatórios, comandos ocultos de gestão e disparos.
+
+2. CONTROLE DE "FLOOD" DA IA (LIMITE DE OPÇÕES)
+- O prompt do ChatGPT (`OpenAIService.java`) foi alterado para proibir a listagem excessiva de horários.
+- A IA agora deve sugerir no máximo de 3 a 4 opções bem espaçadas ao cliente, só enviando o resto caso o cliente não queira os primeiros horários.
+
+3. NOVA GESTÃO SEMANAL (ADMIN)
+- Criados os comandos '12' e '13' para Resumo Financeiro da Semana e Agenda da Semana.
+- Lógica de Caixa Blindada: O Resumo da Semana calcula o faturamento acumulado, mas restringe a soma até o "dia de hoje". Um agendamento pra sexta-feira não infla o caixa se hoje for quarta.
+- O menu de texto do Admin (`sendFullMenu` no `OrchestratorService.java`) foi atualizado para mostrar as 14 opções corretamente (o botão 'Agendar Disparo' passou a ser o 14).
+
+4. LEMBRETE AUTOMÁTICO DE FECHAMENTO
+- Adicionado o cron job `sendWeeklySummaryReminder` no `BarberBotScheduler.java`.
+- Todo Sábado, às 18:00, o sistema disparará uma notificação automática pelo WhatsApp a todos os administradores alertando que o fechamento da semana está disponível.
+
+5. IDENTIFICAÇÃO E MEMÓRIA DE CLIENTES (PELO NÚMERO)
+- Para evitar duplicação de clientes homônimos (vários "Matheus" ou "Rodrigo"), o ID raiz continuou atrelado estritamente ao número de telefone.
+- `OrchestratorService.java`: Assim que a IA finaliza o 1º agendamento via tag `[NOVO_AGENDAMENTO]`, o nome completo do cliente é salvo no banco de dados (`customerRepository.save`).
+- `OpenAIService.java`: A IA recebe a informação do nome já salvo no início da conversa.
+  - Se for um cliente recorrente, a IA pula a etapa de perguntar o nome e o chama pelo nome direto.
+  - Se o nome for "Desconhecido" ou muito curto/genérico, a IA solicita amigavelmente o "Nome e Sobrenome" para melhorar o controle da Barbearia.

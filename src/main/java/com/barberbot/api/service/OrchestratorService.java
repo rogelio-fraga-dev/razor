@@ -2,6 +2,8 @@ package com.barberbot.api.service;
 
 import com.barberbot.api.config.BarberBotProperties;
 import com.barberbot.api.dto.EvolutionWebhookDTO;
+import com.barberbot.api.model.Appointment;
+import com.barberbot.api.repository.AppointmentRepository;
 import com.barberbot.api.model.Customer;
 import com.barberbot.api.model.Interaction;
 import com.barberbot.api.repository.CustomerRepository;
@@ -36,6 +38,7 @@ public class OrchestratorService {
     private final AgendaService agendaService;
     private final BarberBotProperties properties;
     private final WaitlistRepository waitlistRepository;
+    private final AppointmentRepository appointmentRepository;
 
     @lombok.Data
     @lombok.AllArgsConstructor
@@ -52,10 +55,21 @@ public class OrchestratorService {
     private static final Map<String, List<String>> adminRetomarOptions = new ConcurrentHashMap<>();
     private static final Map<String, List<String>> adminApagarOptions = new ConcurrentHashMap<>();
     private static final Map<String, String> customerStates = new ConcurrentHashMap<>();
-    private static final Map<String, List<AgendaService.Agendamento>> customerCancelOptions = new ConcurrentHashMap<>();
+    private static final Map<String, LocalDateTime> customerStatesTimestamps = new ConcurrentHashMap<>();
+    private static final Map<String, List<Appointment>> customerCancelOptions = new ConcurrentHashMap<>();
     private static final Map<String, WaitlistOffer> waitlistOffers = new ConcurrentHashMap<>();
     private static final Map<String, String> adminScheduledMsg = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private void setCustomerState(String phone, String state) {
+        setCustomerState(phone, state);
+        customerStatesTimestamps.put(phone, LocalDateTime.now());
+    }
+
+    private void clearCustomerState(String phone) {
+        clearCustomerState(phone);
+        customerStatesTimestamps.remove(phone);
+    }
 
     private void sendMsg(String phone, String text, String role) {
         log.info("[{} OUT] Enviando: '{}'", role, sanitizeForConsole(text.replace("\n", " ")));
@@ -66,6 +80,16 @@ public class OrchestratorService {
     public void clearProcessedCache() {
         LocalDateTime limit = LocalDateTime.now().minusMinutes(20);
         processedMessageIds.entrySet().removeIf(entry -> entry.getValue().isBefore(limit));
+        
+        // Limpa estados zumbi abandonados (Bug 3)
+        LocalDateTime stateLimit = LocalDateTime.now().minusMinutes(30);
+        customerStatesTimestamps.entrySet().removeIf(entry -> {
+            if (entry.getValue().isBefore(stateLimit)) {
+                clearCustomerState(entry.getKey());
+                return true;
+            }
+            return false;
+        });
     }
 
 
@@ -578,14 +602,14 @@ public class OrchestratorService {
                                  "2️⃣ Presencialmente 💵\n\n" +
                                  "_Responda 1 ou 2. Ou digite *cancelar* para desistir._";
                                  
-            customerStates.put(phoneNumber, "ESPERANDO_PAGAMENTO");
+            setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
             saveAndSend(customer, successMsg, phoneNumber);
             return;
         }
 
         // 2. Estado: Esperando motivo de falar com atendente
         if ("ESPERANDO_MOTIVO".equals(cState)) {
-            customerStates.remove(phoneNumber);
+            clearCustomerState(phoneNumber);
             customerService.pauseCustomer(phoneNumber, 15);
             for (String adm : properties.getAdmin().getPhones()) {
                 sendMsg(adm, "🚨 *ATENDIMENTO*\n👤 " + customer.getName() + " (" + phoneNumber + ")\n💬 Motivo: " + contentToSave, "ADMIN");
@@ -596,15 +620,15 @@ public class OrchestratorService {
 
         // Tratamento do estado de escolha múltipla para cancelamento
         if ("ESPERANDO_CANCELAMENTO_MULTIPLO".equals(cState)) {
-            List<AgendaService.Agendamento> apps = customerCancelOptions.get(phoneNumber);
+            List<Appointment> apps = customerCancelOptions.get(phoneNumber);
             if (apps == null || apps.isEmpty()) {
-                customerStates.remove(phoneNumber);
+                clearCustomerState(phoneNumber);
                 saveAndSend(customer, "Sua sessão de cancelamento expirou. Tente novamente.", phoneNumber);
                 return;
             }
             
             if (msgLower.contains("cancelar") || msgLower.contains("desistir") || msgLower.contains("sair") || msgLower.equals("0")) {
-                customerStates.remove(phoneNumber);
+                clearCustomerState(phoneNumber);
                 customerCancelOptions.remove(phoneNumber);
                 saveAndSend(customer, "Operação cancelada! Nenhum agendamento foi excluído.", phoneNumber);
                 return;
@@ -613,10 +637,10 @@ public class OrchestratorService {
             try {
                 int index = Integer.parseInt(msgLower.trim()) - 1;
                 if (index >= 0 && index < apps.size()) {
-                    AgendaService.Agendamento ag = apps.get(index);
+                    Appointment ag = apps.get(index);
                     String diaSemana = null;
                     try {
-                        String[] parts = ag.getDate().split("/");
+                        String[] parts = ag.getAppointmentDate().split("/");
                         int day = Integer.parseInt(parts[0].trim());
                         int month = Integer.parseInt(parts[1].trim());
                         int year = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).getYear();
@@ -624,8 +648,8 @@ public class OrchestratorService {
                         diaSemana = dateObj.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
                     } catch (Exception e) {}
                     
-                    String apptTime = ag.getTime();
-                    String apptDate = ag.getDate();
+                    String apptTime = ag.getAppointmentTime();
+                    String apptDate = ag.getAppointmentDate();
                     String apptService = ag.getService();
                     
                     if (agendaService.cancelarAgendamentoExato(ag)) {
@@ -636,7 +660,7 @@ public class OrchestratorService {
                     } else {
                         saveAndSend(customer, "❌ Não foi possível cancelar esse agendamento.", phoneNumber);
                     }
-                    customerStates.remove(phoneNumber);
+                    clearCustomerState(phoneNumber);
                     customerCancelOptions.remove(phoneNumber);
                     return;
                 }
@@ -645,7 +669,7 @@ public class OrchestratorService {
             }
             
             if (msgLower.equals("menu") || msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
-                customerStates.remove(phoneNumber);
+                clearCustomerState(phoneNumber);
                 customerCancelOptions.remove(phoneNumber);
                 // Não damos return! A mensagem flui normalmente para exibir o menu ou cumprimentar.
             } else {
@@ -655,28 +679,25 @@ public class OrchestratorService {
         }
 
         // 3. Estado: Esperando escolha de pagamento (PIX / Presencial)
-        //    Agora com escape: "cancelar" aborta o fluxo e cancela a pré-reserva.
-        //    Só aceita "1" (PIX) e "2" (Presencial) explicitamente.
-        //    Qualquer outra coisa re-pergunta em vez de forçar presencial.
         if ("ESPERANDO_PAGAMENTO".equals(cState)) {
-            AgendaService.Agendamento ag = agendaService.getAgendamentoCliente(phoneNumber);
+            Appointment ag = agendaService.getAgendamentoCliente(phoneNumber);
             
             // Escape: cancelar a pré-reserva
             if (msgLower.contains("cancelar") || msgLower.contains("desistir") || msgLower.contains("não quero") || msgLower.contains("nao quero")) {
-                customerStates.remove(phoneNumber);
+                clearCustomerState(phoneNumber);
                 agendaService.cancelarAgendamentoCliente(phoneNumber);
-                interactionRepository.deleteByCustomerId(customer.getId());
+                // Histórico mantido para a IA ter contexto de cancelamento
                 saveAndSend(customer, "❌ Agendamento cancelado! Se mudar de ideia, é só digitar *menu* para recomeçar. 😊", phoneNumber);
                 return;
             }
             
             // PIX
             if (msgLower.equals("1") || msgLower.contains("pix")) {
-                customerStates.remove(phoneNumber);
-                interactionRepository.deleteByCustomerId(customer.getId());
+                clearCustomerState(phoneNumber);
+                // Sem apagar o histórico! Correção do Bug 1
                 if (ag != null) {
                     ag.setPaymentStatus("PIX");
-                    agendaService.salvarAgendaEmArquivo();
+                    appointmentRepository.save(ag);
                 }
                 String pixMsg = "🔑 *CHAVE PIX (CNPJ):* `12.345.678/0001-90`\n\n" +
                                 "📌 *PIX Copia e Cola:*\n" +
@@ -689,11 +710,10 @@ public class OrchestratorService {
             
             // 2. Presencial
             if (msgLower.equals("2") || msgLower.contains("presencial")) {
-                customerStates.remove(phoneNumber);
-                interactionRepository.deleteByCustomerId(customer.getId());
+                clearCustomerState(phoneNumber);
                 if (ag != null) {
                     ag.setPaymentStatus("PRESENCIAL");
-                    agendaService.salvarAgendaEmArquivo();
+                    appointmentRepository.save(ag);
                 }
                 saveAndSend(customer, "Perfeito! Seu agendamento está confirmado para *pagamento presencial* direto no caixa da barbearia. Te esperamos lá! 💈👊\n\n_Para voltar ao início ou ver outras opções, digite *Menu*._", phoneNumber);
                 return;
@@ -701,14 +721,13 @@ public class OrchestratorService {
             
             // Qualquer outra coisa: o cliente ignorou a pergunta (ex: mandou "obrigado").
             // Assumimos Presencial por padrão e removemos a trava para ele não ficar preso!
-            customerStates.remove(phoneNumber);
-            interactionRepository.deleteByCustomerId(customer.getId());
+            clearCustomerState(phoneNumber);
             if (ag != null) {
                 ag.setPaymentStatus("PRESENCIAL");
-                agendaService.salvarAgendaEmArquivo();
+                appointmentRepository.save(ag);
             }
             // NAO envia mensagem de erro e NAO da return! 
-            // A mensagem continua o fluxo (ex: se ele disse 'obrigado', a IA vai responder cordialmente).
+            // A mensagem continua o fluxo para a IA responder ao "obrigado" mantendo o contexto.
         }
 
         // 4. Comando "menu" explícito — SEMPRE funciona
@@ -742,7 +761,7 @@ public class OrchestratorService {
         }
 
         if (msgLower.equals("8") || msgLower.contains("falar com") || msgLower.contains("atendente")) {
-            customerStates.put(phoneNumber, "ESPERANDO_MOTIVO");
+            setCustomerState(phoneNumber, "ESPERANDO_MOTIVO");
             saveAndSend(customer, "Poxa, vi que você quer um atendimento humano! 🧔‍♂️\nPor favor, me explique brevemente a sua dúvida para eu já adiantar o assunto para o barbeiro:", phoneNumber);
             return;
         }
@@ -753,11 +772,11 @@ public class OrchestratorService {
     }
 
     private void trataVisualizarAgendamentos(Customer customer, String phoneNumber) {
-        List<AgendaService.Agendamento> apps = agendaService.getAgendamentosClienteList(phoneNumber);
+        List<Appointment> apps = agendaService.getAgendamentosClienteList(phoneNumber);
         if (!apps.isEmpty()) {
             StringBuilder sb = new StringBuilder("📅 *Seus Agendamentos:*\n\n");
-            for (AgendaService.Agendamento ag : apps) {
-                sb.append("🔹 ").append(ag.getService()).append("\nDia: ").append(ag.getDate()).append(" às ").append(ag.getTime()).append("\n\n");
+            for (Appointment ag : apps) {
+                sb.append("🔹 ").append(ag.getService()).append("\nDia: ").append(ag.getAppointmentDate()).append(" às ").append(ag.getAppointmentTime()).append("\n\n");
             }
             sb.append("❌ Para desmarcar, digite exatamente:\n*cancelar meu horário*");
             saveAndSend(customer, sb.toString(), phoneNumber);
@@ -775,7 +794,7 @@ public class OrchestratorService {
     }
 
     private void trataCancelarAgendamento(Customer customer, String phoneNumber) {
-        List<AgendaService.Agendamento> apps = agendaService.getAgendamentosClienteList(phoneNumber);
+        List<Appointment> apps = agendaService.getAgendamentosClienteList(phoneNumber);
         
         if (apps.isEmpty()) {
             saveAndSend(customer, "❌ Não encontrei nenhum agendamento seu ativo para cancelar.", phoneNumber);
@@ -783,10 +802,10 @@ public class OrchestratorService {
         }
         
         if (apps.size() == 1) {
-            AgendaService.Agendamento ag = apps.get(0);
+            Appointment ag = apps.get(0);
             String diaSemana = null;
             try {
-                String[] parts = ag.getDate().split("/");
+                String[] parts = ag.getAppointmentDate().split("/");
                 int day = Integer.parseInt(parts[0].trim());
                 int month = Integer.parseInt(parts[1].trim());
                 int year = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).getYear();
@@ -794,8 +813,8 @@ public class OrchestratorService {
                 diaSemana = dateObj.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
             } catch (Exception e) {}
 
-            String apptTime = ag.getTime();
-            String apptDate = ag.getDate();
+            String apptTime = ag.getAppointmentTime();
+            String apptDate = ag.getAppointmentDate();
             String apptService = ag.getService();
 
             if (agendaService.cancelarAgendamentoExato(ag)) {
@@ -806,11 +825,11 @@ public class OrchestratorService {
                 }
             }
         } else {
-            customerStates.put(phoneNumber, "ESPERANDO_CANCELAMENTO_MULTIPLO");
+            setCustomerState(phoneNumber, "ESPERANDO_CANCELAMENTO_MULTIPLO");
             customerCancelOptions.put(phoneNumber, apps);
             StringBuilder sb = new StringBuilder("Você tem mais de um agendamento ativo. Qual deles deseja cancelar?\n\n");
             for (int i = 0; i < apps.size(); i++) {
-                sb.append("*").append(i + 1).append("* - ").append(apps.get(i).getDate()).append(" às ").append(apps.get(i).getTime()).append("\n");
+                sb.append("*").append(i + 1).append("* - ").append(apps.get(i).getAppointmentDate()).append(" às ").append(apps.get(i).getAppointmentTime()).append("\n");
             }
             sb.append("\nDigite o *NÚMERO* do agendamento que deseja cancelar (ou *0* para sair).");
             saveAndSend(customer, sb.toString(), phoneNumber);
@@ -838,8 +857,8 @@ public class OrchestratorService {
                 
                 log.info("[IA] Tag de agendamento identificada! Cliente: {}, Data: {}, Hora: {}, Servico: {}", name, date, time, service);
                 
-                AgendaService.Agendamento existente = agendaService.getAgendamentoCliente(phoneNumber);
-                boolean isDuplicado = existente != null && existente.getDate().equals(date) && existente.getTime().equals(time);
+                List<Appointment> apps = agendaService.getAgendamentosClienteList(phoneNumber);
+                boolean isDuplicado = apps.stream().anyMatch(a -> a.getAppointmentDate().equals(date) && a.getAppointmentTime().equals(time));
 
                 // Remove a tag técnica da resposta antes de enviar
                 aiResponse = aiResponse.replace(tag, "").trim();
@@ -861,7 +880,7 @@ public class OrchestratorService {
                                       "2️⃣ Pagar presencialmente na barbearia 💵\n\n" +
                                       "_Responda com 1 ou 2._";
                     }
-                    customerStates.put(phoneNumber, "ESPERANDO_PAGAMENTO");
+                    setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
                     log.info("[AGENDA] Estado ESPERANDO_PAGAMENTO definido para {}", phoneNumber);
                 } else {
                     log.info("[AGENDA] Ignorando tag duplicada gerada pela IA, pois o cliente já possui este agendamento exato.");

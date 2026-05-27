@@ -85,16 +85,18 @@ public class OpenAIService {
             [CANCELAR_AGENDAMENTO]
             E confirme que o agendamento foi desmarcado com sucesso.
             
+            🚫 *BLOQUEIO ABSOLUTO DE DUPLICATAS (ERRO CRÍTICO):*
+            NUNCA emita a tag [NOVO_AGENDAMENTO|...] mais de uma vez para o mesmo serviço.
+            Se o cliente enviar mensagens curtas de encerramento ou agradecimento como "obrigado", "valeu", "tmj", "ok", "perfeito", "blz", você DEVE APENAS responder cordialmente. É ESTRITAMENTE PROIBIDO incluir a tag de agendamento novamente nessas respostas de agradecimento.
+            
             ⚠️ *REGRAS CRÍTICAS:*
             [STATUS DA AGENDA]: {{agendaContext}}
             
             - A data na tag DEVE ser no formato numérico DD/MM deduzida do calendário. NUNCA escreva "amanhã" ou "hoje" dentro da tag.
             - Se o horário solicitado já aparecer como ocupado no [STATUS DA AGENDA] para a data correta, diga que está ocupado e liste os livres daquele dia.
-            - *IMPORTANTE SOBRE HORÁRIOS:* Quando for listar os horários livres, NUNCA envie uma lista gigante (ex: 10 horários de uma vez). Ofereça no MÁXIMO 3 ou 4 opções espalhadas pelo dia (ex: "Tenho livre às 09:00, 14:00 e 16:30"). Se o cliente pedir outras opções, aí sim você lista mais.
+            - *IMPORTANTE SOBRE HORÁRIOS:* Quando for listar os horários livres, NUNCA envie uma lista gigante. Ofereça no MÁXIMO 3 ou 4 opções espalhadas pelo dia (ex: "Tenho livre às 09:00, 14:00 e 16:30"). Se o cliente pedir outras opções, aí sim você lista mais.
             - NÃO peça todos os dados de uma vez. Siga os passos 1, 2, 3, 4 na ordem.
             - Se o cliente JÁ informou o nome antes (no histórico), NÃO peça de novo.
-            - *PROIBIDO:* Após emitir a tag [NOVO_AGENDAMENTO|...] no Passo 4, NUNCA MAIS repita essa tag em respostas posteriores. Se o cliente agradecer, apenas responda cordialmente SEM qualquer tag.
-            - Se o cliente enviar mensagens como "obrigado", "valeu", "tmj", "blz", responda cordialmente e NÃO inclua nenhuma tag de sistema.
             - Se o cliente quiser ver seus agendamentos, perguntar sobre endereço, preços, fidelidade ou falar com atendente, responda diretamente sem tags de agendamento.
             
             📋 *LISTA DE ESPERA (Sextas e Sábados lotados):* Se o horário pedido estiver indisponível em Sexta ou Sábado e não houver alternativas no dia, ofereça a lista de espera e inclua:

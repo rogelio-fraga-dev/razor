@@ -1,43 +1,43 @@
 package com.barberbot.api.service;
 
 import com.barberbot.api.config.BarberBotProperties;
-import com.barberbot.api.model.Customer;
+import com.barberbot.api.model.Appointment;
 import com.barberbot.api.model.ScheduledTask;
+import com.barberbot.api.repository.AppointmentRepository;
 import com.barberbot.api.repository.ScheduledTaskRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@SuppressWarnings("null")
 public class AgendaService {
 
     private final CustomerService customerService;
     private final WhatsAppService whatsAppService;
     private final ScheduledTaskRepository taskRepository;
     private final com.barberbot.api.repository.CustomerRepository customerRepository;
+    private final AppointmentRepository appointmentRepository;
     private final BarberBotProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    
+
+    // Classe auxiliar de leitura para manter a migração legada funcionando
     @Data
-    public static class Agendamento {
+    public static class AgendamentoLegado {
         private String name;
         private String phone;
         private String time;
@@ -48,105 +48,114 @@ public class AgendaService {
         private String paymentStatus = "PENDENTE";
     }
 
-    private static final List<Agendamento> agendaAtiva = new CopyOnWriteArrayList<>();
-    private static final List<String> agendaDisplay = new CopyOnWriteArrayList<>(); 
-
     @PostConstruct
     public void init() {
-        carregarAgendaDeArquivo();
+        carregarEMigrarAgendaDeArquivo();
     }
 
     public void salvarAgendaEmArquivo() {
-        try {
-            java.nio.file.Path path = java.nio.file.Paths.get("agenda.json");
-            String json = objectMapper.writeValueAsString(agendaAtiva);
-            java.nio.file.Files.writeString(path, json);
-            log.info("[AGENDA] Agenda ativa salva localmente em agenda.json.");
-        } catch (Exception e) {
-            log.error("[AGENDA] Erro ao salvar agenda em arquivo: {}", e.getMessage());
-        }
+        // Obsoleto - agora salva no Postgres direto via Repository.
     }
 
-    private void carregarAgendaDeArquivo() {
+    private void carregarEMigrarAgendaDeArquivo() {
         try {
             java.nio.file.Path path = java.nio.file.Paths.get("agenda.json");
             if (java.nio.file.Files.exists(path)) {
                 String json = java.nio.file.Files.readString(path);
-                List<Agendamento> list = objectMapper.readValue(json, objectMapper.getTypeFactory().constructCollectionType(List.class, Agendamento.class));
-                agendaAtiva.clear();
-                agendaAtiva.addAll(list);
+                List<AgendamentoLegado> list = objectMapper.readValue(json, objectMapper.getTypeFactory().constructCollectionType(List.class, AgendamentoLegado.class));
                 
-                agendaDisplay.clear();
-                for (Agendamento ag : agendaAtiva) {
-                    agendaDisplay.add("📅 " + ag.getDate() + " às ⏰ " + ag.getTime() + " - " + ag.getName() + " | " + ag.getService());
+                log.info("[AGENDA] Iniciando migração de {} registros do agenda.json para o PostgreSQL...", list.size());
+                
+                for (AgendamentoLegado leg : list) {
+                    Appointment app = Appointment.builder()
+                        .customerName(leg.getName())
+                        .customerPhone(leg.getPhone() != null ? leg.getPhone() : "N/A")
+                        .appointmentTime(leg.getTime())
+                        .appointmentDate(leg.getDate())
+                        .service(leg.getService())
+                        .paymentStatus(leg.getPaymentStatus())
+                        .notified(leg.isNotified())
+                        .thanked(leg.isThanked())
+                        .build();
+                    appointmentRepository.save(app);
                 }
-                log.info("[AGENDA] Agenda ativa carregada com sucesso do arquivo. Total: {}", agendaAtiva.size());
+                
+                log.info("[AGENDA] Migração concluída. Renomeando arquivo para agenda.json.bkp");
+                java.nio.file.Path backupPath = java.nio.file.Paths.get("agenda.json.bkp");
+                java.nio.file.Files.move(path, backupPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                
             } else {
-                log.info("[AGENDA] Nenhum arquivo agenda.json encontrado. Iniciando agenda vazia.");
+                log.info("[AGENDA] Nenhum arquivo agenda.json encontrado para migração. Utilizando PostgreSQL.");
             }
         } catch (Exception e) {
-            log.error("[AGENDA] Erro ao carregar agenda do arquivo: {}", e.getMessage());
+            log.error("[AGENDA] Erro ao carregar/migrar agenda do arquivo JSON: {}", e.getMessage());
         }
     }
 
-    private void criarTarefasAgendadas(Agendamento ag) {
-        if (ag.getPhone() == null || ag.getPhone().trim().isEmpty()) return;
+    private void criarTarefasAgendadas(Appointment ag) {
+        if (ag.getCustomerPhone() == null || ag.getCustomerPhone().trim().isEmpty() || ag.getCustomerPhone().equals("N/A")) return;
         
         try {
             // Parser de hora
-            String cleanTime = ag.getTime().trim().replace("h", ":").replace(" ", "");
+            String cleanTime = ag.getAppointmentTime().trim().replace("h", ":").replace(" ", "");
             if (cleanTime.length() == 4 && cleanTime.charAt(1) == ':') cleanTime = "0" + cleanTime;
             LocalTime apptTime = LocalTime.parse(cleanTime, DateTimeFormatter.ofPattern("HH:mm"));
             
             // Parser de data
-            String[] dateParts = ag.getDate().split("/");
-            int day = Integer.parseInt(dateParts[0].trim());
-            int month = Integer.parseInt(dateParts[1].trim());
+            String cleanDate = ag.getAppointmentDate().trim();
+            if (cleanDate.equalsIgnoreCase("hoje")) {
+                cleanDate = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
+            }
+            String[] parts = cleanDate.split("/");
+            int day = Integer.parseInt(parts[0].trim());
+            int month = Integer.parseInt(parts[1].trim());
             int year = LocalDate.now(ZoneId.of("America/Sao_Paulo")).getYear();
             
-            LocalDate apptDate = LocalDate.of(year, month, day);
-            LocalDateTime apptDateTime = LocalDateTime.of(apptDate, apptTime);
+            LocalDateTime apptDateTime = LocalDateTime.of(year, month, day, apptTime.getHour(), apptTime.getMinute());
             
-            String pNome = ag.getName().split(" ")[0];
+            // Se já passou, não agenda lembrete
+            if (apptDateTime.isBefore(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")))) {
+                return;
+            }
+            
+            String pNome = ag.getCustomerName().split(" ")[0];
             
             // 1. Tarefa de LEMBRETE (1 hora antes do horário)
             LocalDateTime reminderTime = apptDateTime.minusHours(1);
-            String reminderMsg = "Olá, " + pNome + "! 💈\nLembramos que você tem um agendamento hoje às *" + ag.getTime() + "* para *" + ag.getService() + "* na Barbearia Ficticia.";
+            String reminderMsg = "Olá, " + pNome + "! 💈\nLembramos que você tem um agendamento hoje às *" + ag.getAppointmentTime() + "* para *" + ag.getService() + "* na Barbearia Ficticia.";
             
             ScheduledTask reminderTask = ScheduledTask.builder()
-                    .customerPhone(ag.getPhone())
+                    .customerPhone(ag.getCustomerPhone())
                     .executionTime(reminderTime)
                     .taskType("REMINDER")
                     .messageContent(reminderMsg)
                     .status(ScheduledTask.TaskStatus.PENDING)
                     .build();
             taskRepository.save(reminderTask);
-            log.info("[AGENDA] Tarefa de LEMBRETE criada para {} às {}", ag.getPhone(), reminderTime);
+            log.info("[AGENDA] Tarefa de LEMBRETE criada para {} às {}", ag.getCustomerPhone(), reminderTime);
             
             // 2. Tarefa de AVALIAÇÃO (1 hora depois do horário)
             LocalDateTime reviewTime = apptDateTime.plusHours(1);
             String reviewMsg = "E aí, " + pNome + ", curtiu o talento? 🧔‍♂️\nSua avaliação ajuda a barbearia a crescer! Leva só 1 minuto:\n⭐ " + properties.getMenu().getAddressMapsUrl() + "\n\nValeu demais! 👊";
             
             ScheduledTask reviewTask = ScheduledTask.builder()
-                    .customerPhone(ag.getPhone())
+                    .customerPhone(ag.getCustomerPhone())
                     .executionTime(reviewTime)
                     .taskType("REVIEW_REQUEST")
                     .messageContent(reviewMsg)
                     .status(ScheduledTask.TaskStatus.PENDING)
                     .build();
             taskRepository.save(reviewTask);
-            log.info("[AGENDA] Tarefa de AVALIAÇÃO criada para {} às {}", ag.getPhone(), reviewTime);
+            log.info("[AGENDA] Tarefa de AVALIAÇÃO criada para {} às {}", ag.getCustomerPhone(), reviewTime);
             
         } catch (Exception e) {
-            log.error("[AGENDA] Erro ao criar tarefas no banco para {}: {}", ag.getName(), e.getMessage());
+            log.error("[AGENDA] Erro ao criar tarefas agendadas para {}: {}", ag.getCustomerPhone(), e.getMessage());
         }
     }
 
     private void cancelarTarefasBanco(String phone) {
         try {
             List<ScheduledTask> tasks = taskRepository.findByCustomerPhone(phone);
-            // Cancela TODAS as tasks PENDING, inclusive as que já estão no passado (zumbis)
-            // para evitar disparos indesejados após cancelamento e reagendamento rápido
             List<ScheduledTask> pendingToCancel = tasks.stream()
                     .filter(t -> t.getStatus() == ScheduledTask.TaskStatus.PENDING)
                     .toList();
@@ -162,18 +171,19 @@ public class AgendaService {
     }
 
     public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
-        Agendamento ag = new Agendamento();
-        ag.setName(name);
-        ag.setPhone(phone);
-        ag.setDate(date);
-        ag.setTime(time);
-        ag.setService(service);
-        agendaAtiva.add(ag);
-        agendaDisplay.add("✅ " + date + " às " + time + " - " + name + " | " + service + " (Via IA)");
+        Appointment app = Appointment.builder()
+            .customerName(name)
+            .customerPhone(phone)
+            .appointmentDate(date)
+            .appointmentTime(time)
+            .service(service)
+            .paymentStatus("PENDENTE")
+            .build();
+        appointmentRepository.save(app);
+        
         log.info("[AGENDA] Novo agendamento salvo: {} para o dia {} às {}", name, date, time);
         
-        salvarAgendaEmArquivo();
-        criarTarefasAgendadas(ag);
+        criarTarefasAgendadas(app);
         
         try {
             com.barberbot.api.model.Customer customer = customerRepository.findByPhoneNumber(phone).orElse(null);
@@ -204,11 +214,12 @@ public class AgendaService {
     }
 
     public String getHorariosOcupadosParaIA() {
+        List<Appointment> agendaAtiva = appointmentRepository.findAll();
         if (agendaAtiva.isEmpty()) return "Agenda totalmente livre. Todos os horários estão disponíveis.";
         // Agrupa por data para clareza da IA e evitar falsos positivos entre dias diferentes
         java.util.Map<String, List<String>> porData = new java.util.LinkedHashMap<>();
-        for (Agendamento ag : agendaAtiva) {
-            porData.computeIfAbsent(ag.getDate(), k -> new ArrayList<>()).add(ag.getTime());
+        for (Appointment ag : agendaAtiva) {
+            porData.computeIfAbsent(ag.getAppointmentDate(), k -> new ArrayList<>()).add(ag.getAppointmentTime());
         }
         StringBuilder sb = new StringBuilder("Horários INDISPONÍVEIS por data:\n");
         for (java.util.Map.Entry<String, List<String>> entry : porData.entrySet()) {
@@ -217,20 +228,18 @@ public class AgendaService {
         return sb.toString().trim();
     }
 
-    /**
-     * Retorna lista de horários livres do dia especificado (de 30 em 30 minutos, 09:00 às 19:00).
-     * @param date Data no formato "dd/MM"
-     */
     public String getHorariosDisponiveisDoDia(String date) {
+        List<Appointment> agendaAtiva = appointmentRepository.findAll();
         List<String> ocupadosDoDia = new ArrayList<>();
-        for (Agendamento ag : agendaAtiva) {
-            if (ag.getDate().equals(date)) {
+        for (Appointment ag : agendaAtiva) {
+            if (ag.getAppointmentDate().equals(date) || (date.equalsIgnoreCase("hoje") && ag.getAppointmentDate().equals(LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"))))) {
                 // Normaliza o horário para HH:MM para comparação
-                String cleanTime = ag.getTime().trim().replace("h", ":").replace(" ", "");
+                String cleanTime = ag.getAppointmentTime().trim().replace("h", ":").replace(" ", "");
                 if (cleanTime.length() == 4 && cleanTime.charAt(1) == ':') cleanTime = "0" + cleanTime;
                 ocupadosDoDia.add(cleanTime);
             }
         }
+        
         List<String> livres = new ArrayList<>();
         LocalTime inicio = LocalTime.of(9, 0);
         LocalTime fim = LocalTime.of(19, 0);
@@ -254,27 +263,32 @@ public class AgendaService {
             cursor = cursor.plusMinutes(30);
         }
         if (livres.isEmpty()) return "Nenhum horário disponível para este dia.";
+        
+        // Limita a 4 opções espaçadas para evitar flood
+        if (livres.size() > 4) {
+            List<String> spread = new ArrayList<>();
+            spread.add(livres.get(0)); // Primeiro livre
+            spread.add(livres.get(livres.size() / 3)); // 1/3 do dia livre
+            spread.add(livres.get(livres.size() * 2 / 3)); // 2/3 do dia livre
+            spread.add(livres.get(livres.size() - 1)); // Último livre
+            livres = spread.stream().distinct().limit(4).collect(Collectors.toList());
+        }
+        
         return String.join(", ", livres);
     }
 
-    public Agendamento getAgendamentoCliente(String phone) {
-        return agendaAtiva.stream()
-                .filter(a -> a.getPhone() != null && a.getPhone().equals(phone))
-                .findFirst().orElse(null);
+    public Appointment getAgendamentoCliente(String phone) {
+        return appointmentRepository.findByCustomerPhone(phone).stream().findFirst().orElse(null);
     }
     
-    public List<Agendamento> getAgendamentosClienteList(String phone) {
-        return agendaAtiva.stream()
-                .filter(a -> a.getPhone() != null && a.getPhone().equals(phone))
-                .toList();
+    public List<Appointment> getAgendamentosClienteList(String phone) {
+        return appointmentRepository.findByCustomerPhone(phone);
     }
 
-    public boolean cancelarAgendamentoExato(Agendamento ag) {
-        if (ag != null && agendaAtiva.contains(ag)) {
-            agendaAtiva.remove(ag);
-            agendaDisplay.removeIf(d -> d.contains(ag.getTime()) && d.contains(ag.getName()));
-            salvarAgendaEmArquivo();
-            cancelarTarefasClienteExato(ag.getPhone(), ag.getDate(), ag.getTime());
+    public boolean cancelarAgendamentoExato(Appointment ag) {
+        if (ag != null) {
+            appointmentRepository.delete(ag);
+            cancelarTarefasClienteExato(ag.getCustomerPhone(), ag.getAppointmentDate(), ag.getAppointmentTime());
             return true;
         }
         return false;
@@ -285,9 +299,6 @@ public class AgendaService {
             List<ScheduledTask> tasks = taskRepository.findByCustomerPhone(phone);
             List<ScheduledTask> pendingToCancel = tasks.stream()
                     .filter(t -> t.getStatus() == ScheduledTask.TaskStatus.PENDING)
-                    // Filtro basico de tempo para não cancelar as tarefas de outro agendamento.
-                    // Ideal seria cruzar a executionTime com date/time. 
-                    // Vamos cancelar tudo pendente por segurança (como era antes).
                     .toList();
             
             for (ScheduledTask task : pendingToCancel) {
@@ -300,13 +311,10 @@ public class AgendaService {
     }
 
     public boolean cancelarAgendamentoCliente(String phone) {
-        Agendamento ag = getAgendamentoCliente(phone);
+        Appointment ag = getAgendamentoCliente(phone);
         if (ag != null) {
-            agendaAtiva.remove(ag);
-            agendaDisplay.removeIf(d -> d.contains(ag.getTime()) && d.contains(ag.getName()));
+            appointmentRepository.delete(ag);
             log.info("[AGENDA] Cancelamento feito para o cliente do número: {}", phone);
-            
-            salvarAgendaEmArquivo();
             cancelarTarefasBanco(phone);
             return true;
         }
@@ -337,8 +345,14 @@ public class AgendaService {
     }
 
     public String getAgendaSalva() {
-        if (agendaDisplay.isEmpty()) return "Nenhum agendamento registrado no sistema.";
-        return String.join("\n", agendaDisplay);
+        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        if (agendaAtiva.isEmpty()) return "Nenhum agendamento registrado no sistema.";
+        
+        List<String> display = new ArrayList<>();
+        for (Appointment ag : agendaAtiva) {
+            display.add("📅 " + ag.getAppointmentDate() + " às ⏰ " + ag.getAppointmentTime() + " - " + ag.getCustomerName() + " | " + ag.getService());
+        }
+        return String.join("\n", display);
     }
 
     public String getResumoDoDia() {
@@ -346,8 +360,9 @@ public class AgendaService {
         int totalCortes = 0;
         double faturamentoEstimado = 0.0;
 
-        for (Agendamento ag : agendaAtiva) {
-            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
+        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        for (Appointment ag : agendaAtiva) {
+            if (ag.getAppointmentDate().equals(dataHoje) || ag.getAppointmentDate().equalsIgnoreCase("hoje")) {
                 totalCortes++;
                 String serv = ag.getService().toLowerCase();
                 if (serv.contains("combo")) faturamentoEstimado += 60.0;
@@ -358,11 +373,29 @@ public class AgendaService {
         return String.format("📈 *Fechamento de %s*\n\n✂️ Cortes realizados hoje: %d\n💰 Faturamento estimado: R$ %.2f", dataHoje, totalCortes, faturamentoEstimado);
     }
 
+    public int getAgendamentosHojeCount() {
+        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
+        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        return (int) agendaAtiva.stream().filter(a -> a.getAppointmentDate().equals(dataHoje) || a.getAppointmentDate().equalsIgnoreCase("hoje")).count();
+    }
+
+    public String getAgendaHojeText() {
+        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
+        List<Appointment> apps = appointmentRepository.findAll().stream()
+            .filter(a -> a.getAppointmentDate().equals(dataHoje) || a.getAppointmentDate().equalsIgnoreCase("hoje"))
+            .collect(Collectors.toList());
+            
+        if (apps.isEmpty()) return "Nenhum agendamento para hoje.";
+        
+        StringBuilder sb = new StringBuilder();
+        for (Appointment ag : apps) {
+            sb.append("⏰ ").append(ag.getAppointmentTime()).append(" - ").append(ag.getCustomerName()).append(" | ").append(ag.getService()).append("\n");
+        }
+        return sb.toString().trim();
+    }
+
     public int processAgenda(String jsonAgenda) {
         int agendados = 0;
-        agendaAtiva.clear();
-        agendaDisplay.clear();
-
         try {
             JsonNode root = objectMapper.readTree(jsonAgenda);
             JsonNode items = root.get("items");
@@ -375,125 +408,62 @@ public class AgendaService {
                     String service = item.has("service") ? item.get("service").asText() : "Corte";
 
                     if (!name.isEmpty() && !time.isEmpty()) {
-                        Customer customer = customerService.findByName(name);
+                        com.barberbot.api.model.Customer customer = customerService.findByName(name);
                         String phone = (customer != null) ? customer.getPhoneNumber() : null;
                         
-                        Agendamento ag = new Agendamento();
-                        ag.setName(name);
-                        ag.setPhone(phone);
-                        ag.setTime(time);
-                        ag.setDate(date);
-                        ag.setService(service);
+                        Appointment app = Appointment.builder()
+                            .customerName(name)
+                            .customerPhone(phone != null ? phone : "N/A")
+                            .appointmentTime(time)
+                            .appointmentDate(date)
+                            .service(service)
+                            .paymentStatus("PENDENTE")
+                            .build();
                         
-                        agendaAtiva.add(ag);
-                        agendaDisplay.add("📅 " + date + " às ⏰ " + time + " - " + name + " | " + service);
+                        appointmentRepository.save(app);
+                        
                         if (phone != null) {
                             agendados++;
-                            criarTarefasAgendadas(ag);
+                            criarTarefasAgendadas(app);
                         }
                     }
                 }
             }
-            salvarAgendaEmArquivo();
             return agendados;
         } catch (Exception e) {
             log.error("Erro Agenda JSON: {}", e.getMessage());
-            throw new RuntimeException("Falha na agenda", e);
+            return 0;
         }
-    }
-
-    // Método monitorarFluxo() removido. Os disparos de lembrete e avaliação agora são
-    // gerenciados exclusivamente pelo BarberBotScheduler via banco de dados (ScheduledTask),
-    // evitando duplicidade e garantindo controle preciso de timing.
-
-    public int getAgendamentosHojeCount() {
-        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
-        int count = 0;
-        for (Agendamento ag : agendaAtiva) {
-            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    public String getAgendaHojeText() {
-        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
-        List<String> list = new ArrayList<>();
-        for (Agendamento ag : agendaAtiva) {
-            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
-                list.add("⏰ " + ag.getTime() + " - " + ag.getName() + " (" + ag.getService() + ")");
-            }
-        }
-        if (list.isEmpty()) {
-            return "Nenhum agendamento registrado para hoje.";
-        }
-        return String.join("\n", list);
     }
 
     public String getResumoDetelhadoDoDia() {
-        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
-        int totalCortes = 0;
-        double faturamentoEstimado = 0.0;
-        List<String> list = new ArrayList<>();
-
-        for (Agendamento ag : agendaAtiva) {
-            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
-                totalCortes++;
-                String serv = ag.getService();
-                String servLower = serv.toLowerCase();
-                if (servLower.contains("combo")) faturamentoEstimado += 60.0;
-                else if (servLower.contains("barba")) faturamentoEstimado += 30.0;
-                else faturamentoEstimado += 35.0; 
-                
-                String paymentBadge = "";
-                if ("PIX".equalsIgnoreCase(ag.getPaymentStatus())) {
-                    paymentBadge = " [PIX 💳]";
-                } else if ("PRESENCIAL".equalsIgnoreCase(ag.getPaymentStatus())) {
-                    paymentBadge = " [Presencial 💵]";
-                } else {
-                    paymentBadge = " [Pendente ⏳]";
-                }
-                
-                list.add("✅ " + ag.getTime() + " - " + ag.getName() + " (" + serv + ")" + paymentBadge);
-            }
-        }
-        
-        StringBuilder sb = new StringBuilder();
-        sb.append("📈 *Relatório de Fechamento - ").append(dataHoje).append("*\n\n");
-        sb.append("✂️ *Serviços Realizados hoje:* ").append(totalCortes).append("\n");
-        sb.append("💰 *Faturamento estimado:* R$ ").append(String.format("%.2f", faturamentoEstimado)).append("\n\n");
-        if (list.isEmpty()) {
-            sb.append("Nenhum serviço realizado hoje.");
-        } else {
-            sb.append("📋 *Detalhes dos Atendimentos:*\n");
-            sb.append(String.join("\n", list));
-        }
-        return sb.toString();
+        return getResumoFinanceiroDetalhado();
     }
-
+    
     public String getResumoFinanceiroDetalhado() {
         String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
+        
         int totalCortes = 0;
         int totalCombo = 0;
         int totalBarba = 0;
         int totalSimples = 0;
         
-        int pixCount = 0;
+        double faturamentoTotal = 0.0;
         double pixVal = 0.0;
-        int presencialCount = 0;
         double presencialVal = 0.0;
-        int pendenteCount = 0;
         double pendenteVal = 0.0;
         
-        double faturamentoTotal = 0.0;
+        int pixCount = 0;
+        int presencialCount = 0;
+        int pendenteCount = 0;
 
-        for (Agendamento ag : agendaAtiva) {
-            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
+        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        for (Appointment ag : agendaAtiva) {
+            if (ag.getAppointmentDate().equals(dataHoje) || ag.getAppointmentDate().equalsIgnoreCase("hoje")) {
                 totalCortes++;
-                
-                double valorServico = 35.0;
                 String serv = ag.getService().toLowerCase();
+                double valorServico = 35.0; // Padrão
+                
                 if (serv.contains("combo")) {
                     valorServico = 60.0;
                     totalCombo++;
@@ -550,15 +520,16 @@ public class AgendaService {
         
         List<String> list = new ArrayList<>();
         int countHoje = 0;
-        for (Agendamento ag : agendaAtiva) {
-            if (ag.getDate().equals(dataHoje) || ag.getDate().equalsIgnoreCase("hoje")) {
+        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        for (Appointment ag : agendaAtiva) {
+            if (ag.getAppointmentDate().equals(dataHoje) || ag.getAppointmentDate().equalsIgnoreCase("hoje")) {
                 countHoje++;
                 String badge = "";
                 if ("PIX".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🟢 [PIX]";
                 else if ("PRESENCIAL".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🔵 [Presencial]";
                 else badge = " 🟡 [Pendente]";
                 
-                list.add(String.format("⏰ *%s* - %s (%s)%s", ag.getTime(), ag.getName(), ag.getService(), badge));
+                list.add(String.format("⏰ *%s* - %s (%s)%s", ag.getAppointmentTime(), ag.getCustomerName(), ag.getService(), badge));
             }
         }
         
@@ -585,9 +556,10 @@ public class AgendaService {
         
         java.util.Map<String, List<String>> porDia = new java.util.TreeMap<>();
         
-        for (Agendamento ag : agendaAtiva) {
+        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        for (Appointment ag : agendaAtiva) {
             try {
-                String dateStr = ag.getDate().equalsIgnoreCase("hoje") ? hoje.format(DateTimeFormatter.ofPattern("dd/MM")) : ag.getDate();
+                String dateStr = ag.getAppointmentDate().equalsIgnoreCase("hoje") ? hoje.format(DateTimeFormatter.ofPattern("dd/MM")) : ag.getAppointmentDate();
                 String[] parts = dateStr.split("/");
                 int day = Integer.parseInt(parts[0].trim());
                 int month = Integer.parseInt(parts[1].trim());
@@ -603,7 +575,7 @@ public class AgendaService {
                     else badge = " 🟡";
                     
                     porDia.computeIfAbsent(key, k -> new ArrayList<>())
-                          .add("⏰ " + ag.getTime() + " - " + ag.getName() + " (" + ag.getService() + ")" + badge);
+                          .add("⏰ " + ag.getAppointmentTime() + " - " + ag.getCustomerName() + " (" + ag.getService() + ")" + badge);
                 }
             } catch (Exception e) {}
         }
@@ -642,9 +614,10 @@ public class AgendaService {
         int presencialCount = 0;
         int pendenteCount = 0;
 
-        for (Agendamento ag : agendaAtiva) {
+        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        for (Appointment ag : agendaAtiva) {
             try {
-                String dateStr = ag.getDate().equalsIgnoreCase("hoje") ? hoje.format(DateTimeFormatter.ofPattern("dd/MM")) : ag.getDate();
+                String dateStr = ag.getAppointmentDate().equalsIgnoreCase("hoje") ? hoje.format(DateTimeFormatter.ofPattern("dd/MM")) : ag.getAppointmentDate();
                 String[] parts = dateStr.split("/");
                 int day = Integer.parseInt(parts[0].trim());
                 int month = Integer.parseInt(parts[1].trim());
