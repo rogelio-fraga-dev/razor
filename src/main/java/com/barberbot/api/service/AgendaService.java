@@ -144,15 +144,17 @@ public class AgendaService {
     private void cancelarTarefasBanco(String phone) {
         try {
             List<ScheduledTask> tasks = taskRepository.findByCustomerPhone(phone);
+            // Cancela TODAS as tasks PENDING, inclusive as que já estão no passado (zumbis)
+            // para evitar disparos indesejados após cancelamento e reagendamento rápido
             List<ScheduledTask> pendingToCancel = tasks.stream()
-                    .filter(t -> t.getStatus() == ScheduledTask.TaskStatus.PENDING && t.getExecutionTime().isAfter(LocalDateTime.now()))
+                    .filter(t -> t.getStatus() == ScheduledTask.TaskStatus.PENDING)
                     .toList();
             
             for (ScheduledTask task : pendingToCancel) {
                 task.setStatus(ScheduledTask.TaskStatus.CANCELLED);
                 taskRepository.save(task);
             }
-            log.info("[AGENDA] Canceladas {} tarefas pendentes para o telefone {}", pendingToCancel.size(), phone);
+            log.info("[AGENDA] Canceladas {} tarefas pendentes (incluindo expiradas) para o telefone {}", pendingToCancel.size(), phone);
         } catch (Exception e) {
             log.error("[AGENDA] Erro ao cancelar tarefas do banco para {}: {}", phone, e.getMessage());
         }
@@ -174,12 +176,47 @@ public class AgendaService {
     }
 
     public String getHorariosOcupadosParaIA() {
-        if (agendaAtiva.isEmpty()) return "Agenda totalmente livre.";
-        List<String> ocupados = new ArrayList<>();
+        if (agendaAtiva.isEmpty()) return "Agenda totalmente livre. Todos os horários estão disponíveis.";
+        // Agrupa por data para clareza da IA e evitar falsos positivos entre dias diferentes
+        java.util.Map<String, List<String>> porData = new java.util.LinkedHashMap<>();
         for (Agendamento ag : agendaAtiva) {
-            ocupados.add(ag.getDate() + " às " + ag.getTime());
+            porData.computeIfAbsent(ag.getDate(), k -> new ArrayList<>()).add(ag.getTime());
         }
-        return "Horários INDISPONÍVEIS: " + String.join(" | ", ocupados);
+        StringBuilder sb = new StringBuilder("Horários INDISPONÍVEIS por data:\n");
+        for (java.util.Map.Entry<String, List<String>> entry : porData.entrySet()) {
+            sb.append("  - ").append(entry.getKey()).append(": ").append(String.join(", ", entry.getValue())).append("\n");
+        }
+        return sb.toString().trim();
+    }
+
+    /**
+     * Retorna lista de horários livres do dia especificado (de 30 em 30 minutos, 09:00 às 19:00).
+     * @param date Data no formato "dd/MM"
+     */
+    public String getHorariosDisponiveisDoDia(String date) {
+        List<String> ocupadosDoDia = new ArrayList<>();
+        for (Agendamento ag : agendaAtiva) {
+            if (ag.getDate().equals(date)) {
+                // Normaliza o horário para HH:MM para comparação
+                String cleanTime = ag.getTime().trim().replace("h", ":").replace(" ", "");
+                if (cleanTime.length() == 4 && cleanTime.charAt(1) == ':') cleanTime = "0" + cleanTime;
+                ocupadosDoDia.add(cleanTime);
+            }
+        }
+        List<String> livres = new ArrayList<>();
+        LocalTime inicio = LocalTime.of(9, 0);
+        LocalTime fim = LocalTime.of(19, 0);
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm");
+        LocalTime cursor = inicio;
+        while (!cursor.isAfter(fim.minusMinutes(30))) {
+            String horario = cursor.format(fmt);
+            if (!ocupadosDoDia.contains(horario)) {
+                livres.add(horario);
+            }
+            cursor = cursor.plusMinutes(30);
+        }
+        if (livres.isEmpty()) return "Nenhum horário disponível para este dia.";
+        return String.join(", ", livres);
     }
 
     public Agendamento getAgendamentoCliente(String phone) {
@@ -268,37 +305,9 @@ public class AgendaService {
         }
     }
 
-    // Removida a anotação @Scheduled para evitar duplicidade de mensagens (as tarefas agora rodam via banco pelo BarberBotScheduler)
-    public void monitorarFluxo() {
-        if (agendaAtiva.isEmpty()) return;
-        LocalTime now = LocalTime.now(ZoneId.of("America/Sao_Paulo"));
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
-        String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
-
-        for (Agendamento appt : agendaAtiva) {
-            if (appt.getPhone() == null || (!appt.getDate().equals(dataHoje) && !appt.getDate().equalsIgnoreCase("hoje"))) continue;
-
-            try {
-                String cleanTime = appt.getTime().trim().replace("h", ":").replace(" ", "");
-                if (cleanTime.length() == 4 && cleanTime.charAt(1) == ':') cleanTime = "0" + cleanTime;
-                LocalTime apptTime = LocalTime.parse(cleanTime, formatter);
-                
-                long minutesUntil = ChronoUnit.MINUTES.between(now, apptTime);
-                if (!appt.isNotified() && minutesUntil <= 61 && minutesUntil >= 59) {
-                    String pNome = appt.getName().split(" ")[0];
-                    whatsAppService.sendTextMessage(appt.getPhone(), "Fala, " + pNome + "! 💈\nSeu horário está chegando! Te esperamos hoje às *" + appt.getTime() + "* na Barbearia Ficticia.");
-                    appt.setNotified(true);
-                }
-
-                long minutesAfter = ChronoUnit.MINUTES.between(apptTime, now);
-                if (!appt.isThanked() && minutesAfter <= 45 && minutesAfter >= 35) {
-                    String pNome = appt.getName().split(" ")[0];
-                    whatsAppService.sendTextMessage(appt.getPhone(), "E aí, " + pNome + ", curtiu o talento? 🧔‍♂️\nSua avaliação ajuda a barbearia a crescer! Leva só 1 minuto:\n⭐ https://maps.app.goo.gl/link-ficticio-google\n\nValeu\n\nValeu demais! 👊");
-                    appt.setThanked(true);
-                }
-            } catch (Exception e) {}
-        }
-    }
+    // Método monitorarFluxo() removido. Os disparos de lembrete e avaliação agora são
+    // gerenciados exclusivamente pelo BarberBotScheduler via banco de dados (ScheduledTask),
+    // evitando duplicidade e garantindo controle preciso de timing.
 
     public int getAgendamentosHojeCount() {
         String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));

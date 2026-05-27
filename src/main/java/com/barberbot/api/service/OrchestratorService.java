@@ -561,7 +561,7 @@ public class OrchestratorService {
                     ag.setPaymentStatus("PRESENCIAL");
                     agendaService.salvarAgendaEmArquivo();
                 }
-                String presMsg = "Perfeito! Seu agendamento foi configurado para **pagamento presencial** direto no caixa da barbearia. Te esperamos lá! 💈👊";
+                String presMsg = "Perfeito! Seu agendamento está confirmado para *pagamento presencial* direto no caixa da barbearia. Te esperamos lá! 💈👊";
                 saveAndSend(customer, presMsg, phoneNumber);
                 return;
             }
@@ -593,11 +593,15 @@ public class OrchestratorService {
         }
 
         // 5. Exibição de Menu Principal Textual (Qualquer saudação ou comando menu)
-        if (msgLower.equals("menu") || 
-            msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
-            log.info("[SISTEMA] Enviando Menu Textual para o Cliente: {}", phoneNumber);
-            saveAndSend(customer, MenuOptions.getMenuAsText(), phoneNumber);
-            return;
+        // IMPORTANTE: Só exibe o menu se o cliente NÃO estiver em nenhum fluxo de agendamento ativo
+        // para não interromper o processo quando o cliente envia seu nome (ex: "Oi, sou o João")
+        if (cState == null && !waitlistOffers.containsKey(phoneNumber)) {
+            if (msgLower.equals("menu") || 
+                msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
+                log.info("[SISTEMA] Enviando Menu Textual para o Cliente: {}", phoneNumber);
+                saveAndSend(customer, MenuOptions.getMenuAsText(), phoneNumber);
+                return;
+            }
         }
 
         // 6. Tratamento de Comandos Textuais / Números Fallback
@@ -641,9 +645,10 @@ public class OrchestratorService {
         }
 
         // --- GATILHOS DA IA CORRIGIDOS ---
-        if (msgLower.equals("1")) {
-            contentToSave = "Quero agendar um horário. O que você precisa saber?";
-        } else if (msgLower.equals("3")) {
+        // "1" só vai para IA se não estiver em nenhum estado aguardando resposta do Java
+        if (msgLower.equals("1") && cState == null) {
+            contentToSave = "Quero agendar um horário.";
+        } else if (msgLower.equals("3") && cState == null) {
             contentToSave = "Quais os horários livres para agendar?";
         }
 
@@ -718,14 +723,19 @@ public class OrchestratorService {
                 log.info("[IA] Tag de agendamento identificada! Cliente: {}, Data: {}, Hora: {}, Servico: {}", name, date, time, service);
                 agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
 
+                // Remove a tag técnica da resposta antes de enviar
                 aiResponse = aiResponse.replace(tag, "").trim();
                 
-                String paymentPrompt = "\n\n*Como deseja realizar o pagamento?*\n\n" +
-                                       "1️⃣ **Pagar agora via PIX** 💳\n" +
-                                       "2️⃣ **Pagar presencialmente** na barbearia 💵\n\n" +
-                                       "_Responda com o número da opção desejada (1 ou 2)._";
-                aiResponse = aiResponse + paymentPrompt;
+                // Verifica se a IA já incluiu a pergunta de pagamento (novo prompt instrui isso).
+                // Se não incluiu, adiciona como fallback para garantir o fluxo.
+                if (!aiResponse.contains("PIX") && !aiResponse.contains("presencial") && !aiResponse.contains("pagamento")) {
+                    aiResponse += "\n\n*Como deseja realizar o pagamento?*\n\n" +
+                                  "1️⃣ Pagar agora via PIX 💳\n" +
+                                  "2️⃣ Pagar presencialmente na barbearia 💵\n\n" +
+                                  "_Responda com 1 ou 2._";
+                }
                 customerStates.put(phoneNumber, "ESPERANDO_PAGAMENTO");
+                log.info("[AGENDA] Estado ESPERANDO_PAGAMENTO definido para {}", phoneNumber);
             } catch (Exception e) { log.error("[IA] Falha ao extrair ou criar agendamento da TAG NOVO_AGENDAMENTO: {}", e.getMessage(), e); }
         } else if (aiResponse.contains("[LISTA_DE_ESPERA|")) {
             try {

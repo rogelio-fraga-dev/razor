@@ -52,3 +52,9 @@ qrcode-evolution.png
 # OS
 .DS_Store
 Thumbs.db
+
+# Sensitive and Local Data
+*.pem
+agenda.json
+postgres_data/
+evolution_store/

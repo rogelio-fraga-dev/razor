@@ -12,7 +12,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
@@ -60,3 +60,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./evolution_store:/evolution/store # <-- ISSO IMPEDE O QR CODE DE DESCONECTAR SOZINHO
+
+volumes:
+  postgres_data:
+

@@ -37,7 +37,11 @@ public class BarberBotScheduler {
     @Scheduled(fixedRate = 60000)
     @Transactional
     public void processScheduledTasks() {
-        LocalDateTime now = LocalDateTime.now();
+        // IMPORTANTE: usar timezone de São Paulo pois os agendamentos são armazenados
+        // em horário de Brasília. O servidor EC2 roda em UTC e sem ZoneId o scheduler
+        // dispararia tarefas 3 horas antes do previsto.
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"));
+        log.debug("[SCHEDULER] Rodando motor de tarefas. Hora BRT: {}", now);
         
         // Busca tarefas que já deram o horário e ainda não foram enviadas
         List<ScheduledTask> pendingTasks = taskRepository.findByStatusAndExecutionTimeBefore(
@@ -52,6 +56,14 @@ public class BarberBotScheduler {
             try {
                 String phone = task.getCustomerPhone();
 
+                // Se a task expirou (está mais de 2 horas no passado), descarta sem disparar
+                if (task.getExecutionTime().isBefore(now.minusHours(2))) {
+                    log.warn("[SCHEDULER] Task {} expirada (era para {}). Descartando sem disparar.", task.getId(), task.getExecutionTime());
+                    task.setStatus(ScheduledTask.TaskStatus.CANCELLED);
+                    taskRepository.save(task);
+                    continue;
+                }
+
                 // Se o cliente estiver pausado (falando com o atendimento humano), adia o lembrete por 1 hora
                 if (customerService.isCustomerPaused(phone)) {
                     log.info("Cliente {} em pausa. Adiando tarefa.", phone);
@@ -64,6 +76,7 @@ public class BarberBotScheduler {
 
                 task.setStatus(ScheduledTask.TaskStatus.COMPLETED);
                 taskRepository.save(task);
+
 
                 // Regra de Cartão Fidelidade ao concluir REVIEW_REQUEST
                 if ("REVIEW_REQUEST".equals(task.getTaskType())) {
