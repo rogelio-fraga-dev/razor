@@ -749,25 +749,40 @@ public class OrchestratorService {
             }
         }
 
-        // 6. Comandos textuais explícitos por palavra-chave (NÃO por número isolado)
-        if (msgLower.contains("meus agendamentos") || msgLower.contains("meu agendamento") || msgLower.contains("meu horário") || msgLower.contains("meu horario")) {
+        // 6. Tratamento das Opções do Menu Numérico e Palavras-chave
+        if (msgLower.equals("1") || msgLower.equals("agendar") || msgLower.equals("agendar horario")) {
+            contentToSave = "Quero agendar um horário."; // IA assume
+        } else if (msgLower.equals("2") || msgLower.contains("meus agendamentos") || msgLower.contains("meu agendamento") || msgLower.contains("meu horário") || msgLower.contains("meu horario")) {
             trataVisualizarAgendamentos(customer, phoneNumber);
             return;
-        }
-
-        if (msgLower.equals("cancelar meu horário") || msgLower.equals("cancelar meu horario")) {
+        } else if (msgLower.equals("3") || msgLower.contains("horarios disponiveis") || msgLower.contains("horários disponíveis")) {
+            contentToSave = "Quais os horários disponíveis?"; // IA assume
+        } else if (msgLower.equals("4") || msgLower.contains("endereco") || msgLower.contains("endereço") || msgLower.contains("localizacao") || msgLower.contains("localização")) {
+            String endMsg = properties.getMenu().getAddressText() + "\n\n📍 Mapa: " + properties.getMenu().getAddressMapsUrl();
+            saveAndSend(customer, endMsg, phoneNumber);
+            return;
+        } else if (msgLower.equals("5") || msgLower.contains("servicos") || msgLower.contains("serviços") || msgLower.contains("precos") || msgLower.contains("preços") || msgLower.contains("planos vip")) {
+            saveAndSend(customer, properties.getMenu().getServicesText(), phoneNumber);
+            return;
+        } else if (msgLower.equals("6") || msgLower.contains("cartao fidelidade") || msgLower.contains("cartão fidelidade") || msgLower.contains("fidelidade")) {
+            int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
+            String fidMsg = "💳 *Seu Cartão Fidelidade Digital*\n\nVocê tem *" + points + "* pontos acumulados!\n(Lembre-se: A cada 10 pontos você ganha um serviço grátis!)";
+            saveAndSend(customer, fidMsg, phoneNumber);
+            return;
+        } else if (msgLower.equals("7") || msgLower.contains("instagram")) {
+            saveAndSend(customer, "📸 Siga a gente no Instagram para acompanhar nosso trabalho!\n\n" + properties.getMenu().getInstagramUrl(), phoneNumber);
+            return;
+        } else if (msgLower.equals("cancelar meu horário") || msgLower.equals("cancelar meu horario")) {
             trataCancelarAgendamento(customer, phoneNumber);
             return;
-        }
-
-        if (msgLower.equals("8") || msgLower.contains("falar com") || msgLower.contains("atendente")) {
+        } else if (msgLower.equals("8") || msgLower.contains("falar com") || msgLower.contains("atendente")) {
             setCustomerState(phoneNumber, "ESPERANDO_MOTIVO");
             saveAndSend(customer, "Poxa, vi que você quer um atendimento humano! 🧔‍♂️\nPor favor, me explique brevemente a sua dúvida para eu já adiantar o assunto para o barbeiro:", phoneNumber);
             return;
         }
 
-        // 7. Tudo o resto vai para a IA (incluindo números, nomes, horários, etc.)
-        //    A IA tem o contexto completo da conversa e decide o que fazer.
+        // 7. Tudo o resto vai para a IA (incluindo intenções traduzidas)
+        // A IA tem o contexto completo da conversa e decide o que fazer.
         chamaIAETrataMensagem(customer, contentToSave, phoneNumber);
     }
 
