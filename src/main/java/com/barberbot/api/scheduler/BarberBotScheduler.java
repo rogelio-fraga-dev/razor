@@ -180,6 +180,13 @@ public class BarberBotScheduler {
                     %s
                     
                     Tenha um excelente dia de trabalho! 💈
+                    
+                    ---
+                    *Recado do Dev:*
+                    Fala meu querido professor, subi algumas atualizações!
+                    O botão de ajuda (11) lista o que o sistema faz.
+                    Teste o disparo de mensagens (opção 2): mande um áudio e veja se ele entende e dispara pra base de clientes.
+                    Qualquer dúvida você me fala!
                     """, totalCustomers, totalHoje, agendaHoje);
 
             whatsAppService.sendTextMessage(adminPhone, report);
