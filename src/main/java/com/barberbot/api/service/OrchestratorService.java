@@ -634,8 +634,14 @@ public class OrchestratorService {
                 // Ignore and fall through to ask again
             }
             
-            saveAndSend(customer, "Por favor, digite apenas o *NÚMERO* da opção que deseja cancelar, ou *0* para sair.", phoneNumber);
-            return;
+            if (msgLower.equals("menu") || msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
+                customerStates.remove(phoneNumber);
+                customerCancelOptions.remove(phoneNumber);
+                // Não damos return! A mensagem flui normalmente para exibir o menu ou cumprimentar.
+            } else {
+                saveAndSend(customer, "Por favor, digite apenas o *NÚMERO* da opção que deseja cancelar, ou *0* para sair.", phoneNumber);
+                return;
+            }
         }
 
         // 3. Estado: Esperando escolha de pagamento (PIX / Presencial)
@@ -671,7 +677,7 @@ public class OrchestratorService {
                 return;
             }
             
-            // Presencial
+            // 2. Presencial
             if (msgLower.equals("2") || msgLower.contains("presencial")) {
                 customerStates.remove(phoneNumber);
                 interactionRepository.deleteByCustomerId(customer.getId());
@@ -683,9 +689,16 @@ public class OrchestratorService {
                 return;
             }
             
-            // Qualquer outra coisa: re-perguntar (em vez de forçar presencial)
-            saveAndSend(customer, "Desculpa, não entendi! 😅\nResponda *1* para PIX ou *2* para Presencial.\n_Ou digite *cancelar* para desistir._", phoneNumber);
-            return;
+            // Qualquer outra coisa: o cliente ignorou a pergunta (ex: mandou "obrigado").
+            // Assumimos Presencial por padrão e removemos a trava para ele não ficar preso!
+            customerStates.remove(phoneNumber);
+            interactionRepository.deleteByCustomerId(customer.getId());
+            if (ag != null) {
+                ag.setPaymentStatus("PRESENCIAL");
+                agendaService.salvarAgendaEmArquivo();
+            }
+            // NAO envia mensagem de erro e NAO da return! 
+            // A mensagem continua o fluxo (ex: se ele disse 'obrigado', a IA vai responder cordialmente).
         }
 
         // 4. Comando "menu" explícito — SEMPRE funciona
