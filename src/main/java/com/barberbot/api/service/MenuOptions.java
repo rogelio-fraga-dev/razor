@@ -101,21 +101,24 @@ public final class MenuOptions {
     }
 
     public static final String ROW_ID_ADMIN_DASHBOARD = "admin_dashboard";
+    public static final String ROW_ID_ADMIN_RESUMO_SEMANA = "admin_resumo_semana";
+    public static final String ROW_ID_ADMIN_AGENDA = "admin_agenda";
+    public static final String ROW_ID_ADMIN_AGENDA_SEMANA = "admin_agenda_semana";
+    public static final String ROW_ID_ADMIN_LISTAR = "admin_listar_clientes";
     public static final String ROW_ID_ADMIN_AVISOS = "admin_avisos";
     public static final String ROW_ID_ADMIN_PROMO = "admin_promo";
     public static final String ROW_ID_ADMIN_PAUSAR = "admin_pausar";
     public static final String ROW_ID_ADMIN_RETOMAR = "admin_retomar";
-    public static final String ROW_ID_ADMIN_AGENDA = "admin_agenda";
     public static final String ROW_ID_ADMIN_REL_MATINAL = "admin_rel_matinal";
     public static final String ROW_ID_ADMIN_REL_NOTURNO = "admin_rel_noturno";
-    public static final String ROW_ID_ADMIN_LISTAR = "admin_listar";
     public static final String ROW_ID_ADMIN_APAGAR = "admin_apagar";
 
     public static final String[] ALL_ADMIN_ROW_IDS = {
-            ROW_ID_ADMIN_DASHBOARD, ROW_ID_ADMIN_AVISOS, ROW_ID_ADMIN_PROMO,
-            ROW_ID_ADMIN_PAUSAR, ROW_ID_ADMIN_RETOMAR, ROW_ID_ADMIN_AGENDA,
-            ROW_ID_ADMIN_REL_MATINAL, ROW_ID_ADMIN_REL_NOTURNO, ROW_ID_ADMIN_LISTAR,
-            ROW_ID_ADMIN_APAGAR
+        ROW_ID_ADMIN_DASHBOARD, ROW_ID_ADMIN_RESUMO_SEMANA, ROW_ID_ADMIN_AGENDA, ROW_ID_ADMIN_AGENDA_SEMANA,
+        ROW_ID_ADMIN_REL_MATINAL, ROW_ID_ADMIN_REL_NOTURNO,
+        ROW_ID_ADMIN_LISTAR, ROW_ID_ADMIN_AVISOS,
+        ROW_ID_ADMIN_PROMO, ROW_ID_ADMIN_PAUSAR,
+        ROW_ID_ADMIN_RETOMAR, ROW_ID_ADMIN_APAGAR
     };
 
     public static String resolveAdminMenuOptionId(String messageText) {
@@ -132,10 +135,16 @@ public final class MenuOptions {
 
         // Seção 1: Gestão Diária
         List<Map<String, String>> gestaoRows = new ArrayList<>();
-        gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_DASHBOARD, "💰 Resumo Financeiro & Caixa", "Faturamento detalhado do caixa de hoje"));
-        gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_AGENDA, "📅 Painel de Agendamentos (Hoje)", "Status de clientes, fila de espera e horários de hoje"));
+        gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_DASHBOARD, "💰 Resumo do Caixa (Hoje)", "Faturamento detalhado de hoje"));
+        gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_AGENDA, "📅 Agenda (Hoje)", "Status de clientes e fila de hoje"));
         gestaoRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_LISTAR, "📋 Listar Clientes", "Ver base de contatos"));
         sections.add(EvolutionClient.listSection("Gestão Diária", gestaoRows));
+
+        // Seção 2: Gestão Semanal
+        List<Map<String, String>> gestaoSemanaRows = new ArrayList<>();
+        gestaoSemanaRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_RESUMO_SEMANA, "📊 Resumo da Semana", "Faturamento parcial acumulado na semana"));
+        gestaoSemanaRows.add(EvolutionClient.listRow(ROW_ID_ADMIN_AGENDA_SEMANA, "📆 Agenda da Semana", "Todos agendamentos programados na semana"));
+        sections.add(EvolutionClient.listSection("Gestão Semanal", gestaoSemanaRows));
 
         // Seção 2: Relatórios do Sistema
         List<Map<String, String>> relRows = new ArrayList<>();

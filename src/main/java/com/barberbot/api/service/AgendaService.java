@@ -577,4 +577,136 @@ public class AgendaService {
                 """, 
                 dataHoje, totalBase, waitlistCount, pausedCount, countHoje, agendaStr);
     }
+
+    public String getAgendaSemanaText() {
+        LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        LocalDate inicioSemana = hoje.with(java.time.DayOfWeek.MONDAY);
+        LocalDate fimSemana = hoje.with(java.time.DayOfWeek.SUNDAY);
+        
+        java.util.Map<String, List<String>> porDia = new java.util.TreeMap<>();
+        
+        for (Agendamento ag : agendaAtiva) {
+            try {
+                String dateStr = ag.getDate().equalsIgnoreCase("hoje") ? hoje.format(DateTimeFormatter.ofPattern("dd/MM")) : ag.getDate();
+                String[] parts = dateStr.split("/");
+                int day = Integer.parseInt(parts[0].trim());
+                int month = Integer.parseInt(parts[1].trim());
+                LocalDate agDate = LocalDate.of(hoje.getYear(), month, day);
+                
+                if (!agDate.isBefore(inicioSemana) && !agDate.isAfter(fimSemana)) {
+                    String diaSemana = agDate.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
+                    String key = String.format("2026-%02d-%02d | %02d/%02d - %s", month, day, day, month, diaSemana.substring(0, 1).toUpperCase() + diaSemana.substring(1));
+                    
+                    String badge = "";
+                    if ("PIX".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🟢";
+                    else if ("PRESENCIAL".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🔵";
+                    else badge = " 🟡";
+                    
+                    porDia.computeIfAbsent(key, k -> new ArrayList<>())
+                          .add("⏰ " + ag.getTime() + " - " + ag.getName() + " (" + ag.getService() + ")" + badge);
+                }
+            } catch (Exception e) {}
+        }
+        
+        if (porDia.isEmpty()) {
+            return "Nenhum agendamento para esta semana.";
+        }
+        
+        StringBuilder sb = new StringBuilder("📆 *AGENDA DA SEMANA*\n\n");
+        for (java.util.Map.Entry<String, List<String>> entry : porDia.entrySet()) {
+            String title = entry.getKey().split("\\|")[1].trim(); // Extrai só "DD/MM - Dia" (o início era pra ordenação)
+            sb.append("📅 *").append(title).append("*\n");
+            for (String linha : entry.getValue()) {
+                sb.append("  ").append(linha).append("\n");
+            }
+            sb.append("\n");
+        }
+        return sb.toString().trim();
+    }
+
+    public String getResumoFinanceiroDaSemana() {
+        LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        LocalDate inicioSemana = hoje.with(java.time.DayOfWeek.MONDAY);
+        
+        int totalCortes = 0;
+        int totalCombo = 0;
+        int totalBarba = 0;
+        int totalSimples = 0;
+        
+        double faturamentoTotal = 0.0;
+        double pixVal = 0.0;
+        double presencialVal = 0.0;
+        double pendenteVal = 0.0;
+        
+        int pixCount = 0;
+        int presencialCount = 0;
+        int pendenteCount = 0;
+
+        for (Agendamento ag : agendaAtiva) {
+            try {
+                String dateStr = ag.getDate().equalsIgnoreCase("hoje") ? hoje.format(DateTimeFormatter.ofPattern("dd/MM")) : ag.getDate();
+                String[] parts = dateStr.split("/");
+                int day = Integer.parseInt(parts[0].trim());
+                int month = Integer.parseInt(parts[1].trim());
+                LocalDate agDate = LocalDate.of(hoje.getYear(), month, day);
+                
+                // Só conta até "hoje" na semana atual!
+                if (!agDate.isBefore(inicioSemana) && !agDate.isAfter(hoje)) {
+                    totalCortes++;
+                    String serv = ag.getService().toLowerCase();
+                    double valorServico = 35.0; // Padrão
+                    
+                    if (serv.contains("combo")) {
+                        valorServico = 60.0;
+                        totalCombo++;
+                    } else if (serv.contains("barba")) {
+                        valorServico = 30.0;
+                        totalBarba++;
+                    } else {
+                        totalSimples++;
+                    }
+                    
+                    faturamentoTotal += valorServico;
+                    
+                    String status = ag.getPaymentStatus();
+                    if ("PIX".equalsIgnoreCase(status)) {
+                        pixCount++;
+                        pixVal += valorServico;
+                    } else if ("PRESENCIAL".equalsIgnoreCase(status)) {
+                        presencialCount++;
+                        presencialVal += valorServico;
+                    } else {
+                        pendenteCount++;
+                        pendenteVal += valorServico;
+                    }
+                }
+            } catch (Exception e) {}
+        }
+        
+        double ticketMedio = totalCortes > 0 ? faturamentoTotal / totalCortes : 0.0;
+        String periodo = inicioSemana.format(DateTimeFormatter.ofPattern("dd/MM")) + " até " + hoje.format(DateTimeFormatter.ofPattern("dd/MM"));
+        
+        return String.format("""
+                📊 *RESUMO FINANCEIRO DA SEMANA*
+                _Acumulado de %s (Até hoje)_
+                
+                ✂️ *Volume de Serviços Realizados:*
+                - Total de Atendimentos: %d
+                - Combos: %d
+                - Apenas Barba: %d
+                - Cortes Simples / Outros: %d
+                
+                💳 *Fluxo de Caixa por Meio de Pagamento:*
+                - ✅ *PIX (Confirmado):* R$ %.2f (%d rec.)
+                - 💵 *Presencial:* R$ %.2f (%d rec.)
+                - ⏳ *Pendente:* R$ %.2f (%d agendamentos)
+                
+                📈 *Indicadores de Performance:*
+                - Faturamento Parcial: *R$ %.2f*
+                - Ticket Médio na Semana: *R$ %.2f*
+                """, 
+                periodo, totalCortes, totalCombo, totalBarba, totalSimples, 
+                pixVal, pixCount, presencialVal, presencialCount, pendenteVal, pendenteCount,
+                faturamentoTotal, ticketMedio);
+    }
 }

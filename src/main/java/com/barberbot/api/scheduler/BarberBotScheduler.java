@@ -224,4 +224,22 @@ public class BarberBotScheduler {
             log.error("Erro ao enviar relatório noturno: {}", e.getMessage());
         }
     }
+
+    /**
+     * RELATÓRIO DA SEMANA (Sábado 18:00)
+     */
+    @Scheduled(cron = "0 0 18 * * SAT", zone = "America/Sao_Paulo")
+    public void sendWeeklySummaryReminder() {
+        try {
+            for (String adminPhone : properties.getAdmin().getPhones()) {
+                String msg = "📊 *Fechamento da Semana Disponível!*\n\n" +
+                             "A semana está quase acabando! Você já pode conferir o seu *Resumo Financeiro da Semana* completo.\n\n" +
+                             "Acesse o painel enviando o comando *menu* (opção Admin) e confira o quanto a barbearia faturou essa semana!";
+                whatsAppService.sendTextMessage(adminPhone, msg);
+            }
+            log.info("Lembrete de Resumo Semanal enviado para os administradores.");
+        } catch (Exception e) {
+            log.error("Erro ao enviar lembrete de Resumo Semanal: {}", e.getMessage());
+        }
+    }
 }

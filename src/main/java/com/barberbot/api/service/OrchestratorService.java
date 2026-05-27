@@ -281,6 +281,8 @@ public class OrchestratorService {
                 else if (MenuOptions.ROW_ID_ADMIN_REL_NOTURNO.equals(adminRowId)) cmdLower = "8";
                 else if (MenuOptions.ROW_ID_ADMIN_LISTAR.equals(adminRowId)) cmdLower = "9";
                 else if (MenuOptions.ROW_ID_ADMIN_APAGAR.equals(adminRowId)) cmdLower = "10";
+                else if (MenuOptions.ROW_ID_ADMIN_RESUMO_SEMANA.equals(adminRowId)) cmdLower = "12";
+                else if (MenuOptions.ROW_ID_ADMIN_AGENDA_SEMANA.equals(adminRowId)) cmdLower = "13";
             }
             
             String currentState = adminStates.get(phoneNumber);
@@ -478,11 +480,17 @@ public class OrchestratorService {
                         
                         🛠️ *Disparos e Controle:*
                         - O botão de 'Avisos' (2) e 'Promoções' (3) dispara mensagem IMEDIATA para todos.
-                        - O botão 'Agendar Disparo' (12) permite escrever um texto para disparar num dia e hora futuros.
-                        - Pausar Robô (4) desliga a IA por 1 hora naquele número.
+                        - O botão 'Agendar Disparo' (14) permite escrever um texto para disparar num dia e hora futuros.
+                        - Pressione 11 ou diga 'manual' para ver esta mensagem novamente.
                         """;
                 sendMsg(phoneNumber, manual, "ADMIN");
-            } else if (cmdLower.equals("12") || cmdLower.contains("agendar disparo")) {
+            } else if (cmdLower.equals("12") || cmdLower.contains("resumo da semana")) {
+                String resumo = agendaService.getResumoFinanceiroDaSemana();
+                sendMsg(phoneNumber, resumo, "ADMIN");
+            } else if (cmdLower.equals("13") || cmdLower.contains("agenda da semana")) {
+                String agendaSemana = agendaService.getAgendaSemanaText();
+                sendMsg(phoneNumber, agendaSemana, "ADMIN");
+            } else if (cmdLower.equals("14") || cmdLower.contains("agendar disparo")) {
                 adminStates.put(phoneNumber, "AGENDAR_DISPARO_MSG");
                 sendMsg(phoneNumber, "📝 *Agendar Disparo*\nQual é a mensagem que deseja enviar para a base? (Digite 'cancelar' para abortar)", "ADMIN");
             } else {
