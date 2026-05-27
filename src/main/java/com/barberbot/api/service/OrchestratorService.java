@@ -594,6 +594,7 @@ public class OrchestratorService {
             if (msgLower.contains("cancelar") || msgLower.contains("desistir") || msgLower.contains("não quero") || msgLower.contains("nao quero")) {
                 customerStates.remove(phoneNumber);
                 agendaService.cancelarAgendamentoCliente(phoneNumber);
+                interactionRepository.deleteByCustomerId(customer.getId());
                 saveAndSend(customer, "❌ Agendamento cancelado! Se mudar de ideia, é só digitar *menu* para recomeçar. 😊", phoneNumber);
                 return;
             }
@@ -601,6 +602,7 @@ public class OrchestratorService {
             // PIX
             if (msgLower.equals("1") || msgLower.contains("pix")) {
                 customerStates.remove(phoneNumber);
+                interactionRepository.deleteByCustomerId(customer.getId());
                 if (ag != null) {
                     ag.setPaymentStatus("PIX");
                     agendaService.salvarAgendaEmArquivo();
@@ -608,7 +610,8 @@ public class OrchestratorService {
                 String pixMsg = "🔑 *CHAVE PIX (CNPJ):* `12.345.678/0001-90`\n\n" +
                                 "📌 *PIX Copia e Cola:*\n" +
                                 "`00020101021126580014br.gov.bcb.pix013612345678000190520400005303986540535.005802BR5918Barbearia Ficticia6009Sao Paulo62070503***63041A2B`\n\n" +
-                                "💡 _Realize o pagamento e traga o comprovante no dia do atendimento. Seu horário está 100% garantido! Te esperamos lá!_ 💈👊";
+                                "💡 _Realize o pagamento e traga o comprovante no dia do atendimento. Seu horário está 100% garantido! Te esperamos lá!_ 💈👊\n\n" +
+                                "_Para voltar ao início ou ver outras opções, digite *Menu*._";
                 saveAndSend(customer, pixMsg, phoneNumber);
                 return;
             }
@@ -616,11 +619,12 @@ public class OrchestratorService {
             // Presencial
             if (msgLower.equals("2") || msgLower.contains("presencial")) {
                 customerStates.remove(phoneNumber);
+                interactionRepository.deleteByCustomerId(customer.getId());
                 if (ag != null) {
                     ag.setPaymentStatus("PRESENCIAL");
                     agendaService.salvarAgendaEmArquivo();
                 }
-                saveAndSend(customer, "Perfeito! Seu agendamento está confirmado para *pagamento presencial* direto no caixa da barbearia. Te esperamos lá! 💈👊", phoneNumber);
+                saveAndSend(customer, "Perfeito! Seu agendamento está confirmado para *pagamento presencial* direto no caixa da barbearia. Te esperamos lá! 💈👊\n\n_Para voltar ao início ou ver outras opções, digite *Menu*._", phoneNumber);
                 return;
             }
             
