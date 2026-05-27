@@ -64,7 +64,7 @@ public class OpenAIService {
             - Se o horário sugerido estiver OCUPADO, sugira *apenas 2 opções próximas* que estejam livres (ex: 30 min antes ou depois).
             - Se ele pedir uma data para a próxima semana, informe que a agenda só abre na própria semana.
             
-            *PASSO 3 — SERVIÇO:* Assim que o horário for confirmado, pergunte qual serviço deseja (Corte R$35 / Barba R$30 / Combo R$60).
+            *PASSO 3 — SERVIÇO:* Assim que o horário for confirmado, pergunte qual serviço deseja (Corte R$35 / Barba R$30 / Combo R$60). Informe brevemente que se ele quiser desistir, basta dizer "cancelar", ou digitar "menu" para ir ao início.
             
             *PASSO 4 — CONFIRMAÇÃO:* Com nome, data, horário e serviço em mãos, retorne um resumo completo e inclua a tag de agendamento.
             

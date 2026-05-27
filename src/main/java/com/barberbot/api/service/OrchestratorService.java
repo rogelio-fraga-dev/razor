@@ -899,7 +899,7 @@ public class OrchestratorService {
                     log.info("[AGENDA] Estado ESPERANDO_PAGAMENTO definido para {}", phoneNumber);
                 } else {
                     log.info("[AGENDA] Ignorando tag duplicada gerada pela IA, pois o cliente já possui este agendamento exato.");
-                    aiResponse = "Tudo certo! Seu agendamento para o dia " + date + " às " + time + " já está garantido no sistema. Te esperamos lá!";
+                    aiResponse = "Tudo certo! Seu agendamento para o dia " + date + " às " + time + " já está garantido no sistema. Te esperamos lá!\n\n_Para voltar ao início ou ver outras opções, digite *Menu*._";
                 }
             } catch (Exception e) { log.error("[IA] Falha ao extrair ou criar agendamento da TAG NOVO_AGENDAMENTO: {}", e.getMessage(), e); }
         } else if (aiResponse.contains("[CANCELAR_AGENDAMENTO]")) {
