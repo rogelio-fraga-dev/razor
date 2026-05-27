@@ -682,4 +682,16 @@ public class AgendaService {
                 pixVal, pixCount, presencialVal, presencialCount, pendenteVal, pendenteCount,
                 faturamentoTotal, ticketMedio);
     }
+    
+    public void agendarNotificacaoRetorno(String phone, int minutesDelay) {
+        ScheduledTask task = ScheduledTask.builder()
+                .customerPhone(phone)
+                .taskType("UNPAUSE_NOTIFY")
+                .executionTime(LocalDateTime.now(ZoneId.of("America/Sao_Paulo")).plusMinutes(minutesDelay))
+                .messageContent("Voltamos! 🤖\n\nMeu atendimento automático foi retomado. Se precisar de algo, é só chamar!")
+                .status(ScheduledTask.TaskStatus.PENDING)
+                .build();
+        taskRepository.save(task);
+        log.info("[AGENDA] Notificação de retorno agendada para {} em {} minutos", phone, minutesDelay);
+    }
 }

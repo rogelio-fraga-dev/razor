@@ -615,6 +615,7 @@ public class OrchestratorService {
                 sendMsg(adm, "🚨 *ATENDIMENTO*\n👤 " + customer.getName() + " (" + phoneNumber + ")\n💬 Motivo: " + contentToSave, "ADMIN");
             }
             saveAndSend(customer, "✅ Entendido! O responsável já foi avisado e vai te responder aqui em breve.\n_(Meu atendimento automático foi pausado por 15 minutos)_", phoneNumber);
+            agendaService.agendarNotificacaoRetorno(phoneNumber, 15);
             return;
         }
 
