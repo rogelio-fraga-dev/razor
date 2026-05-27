@@ -236,9 +236,19 @@ public class AgendaService {
         LocalTime fim = LocalTime.of(19, 0);
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm");
         LocalTime cursor = inicio;
+        
+        // Verifica se a data consultada é hoje
+        LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        String dataHojeStr = hoje.format(DateTimeFormatter.ofPattern("dd/MM"));
+        boolean isHoje = date.equals(dataHojeStr) || date.equalsIgnoreCase("hoje");
+        LocalTime agora = LocalTime.now(ZoneId.of("America/Sao_Paulo"));
+
         while (!cursor.isAfter(fim.minusMinutes(30))) {
             String horario = cursor.format(fmt);
-            if (!ocupadosDoDia.contains(horario)) {
+            
+            boolean isPassado = isHoje && cursor.isBefore(agora);
+            
+            if (!ocupadosDoDia.contains(horario) && !isPassado) {
                 livres.add(horario);
             }
             cursor = cursor.plusMinutes(30);
