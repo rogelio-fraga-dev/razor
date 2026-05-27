@@ -766,7 +766,7 @@ public class OrchestratorService {
             return;
         } else if (msgLower.equals("6") || msgLower.contains("cartao fidelidade") || msgLower.contains("cartão fidelidade") || msgLower.contains("fidelidade")) {
             int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
-            String fidMsg = "💳 *Seu Cartão Fidelidade Digital*\n\nVocê tem *" + points + "* pontos acumulados!\n(Lembre-se: A cada 10 pontos você ganha um serviço grátis!)";
+            String fidMsg = "💳 *Seu Cartão Fidelidade Digital*\n\nVocê tem *" + points + "* pontos acumulados!\n(Lembre-se: A cada 10 pontos você ganha 10% de desconto!)";
             saveAndSend(customer, fidMsg, phoneNumber);
             return;
         } else if (msgLower.equals("7") || msgLower.contains("instagram")) {
