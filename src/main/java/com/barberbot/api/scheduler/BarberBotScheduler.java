@@ -78,36 +78,6 @@ public class BarberBotScheduler {
                 taskRepository.save(task);
 
 
-                // Regra de Cartão Fidelidade ao concluir REVIEW_REQUEST
-                if ("REVIEW_REQUEST".equals(task.getTaskType())) {
-                    try {
-                        com.barberbot.api.model.Customer customer = customerRepository.findByPhoneNumber(phone).orElse(null);
-                        if (customer != null) {
-                            int currentPoints = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
-                            int newPoints = currentPoints + 1;
-                            customer.setFidelityPoints(newPoints);
-                            customer.setLastServiceDate(LocalDateTime.now());
-                            customerRepository.save(customer);
-                            log.info("[FIDELIDADE] Adicionado 1 ponto para {}. Total: {}", phone, newPoints);
-                            
-                            if (newPoints >= 10) {
-                                customer.setFidelityPoints(0);
-                                customerRepository.save(customer);
-                                
-                                String coupon = "FIDELIDADE10-" + java.util.UUID.randomUUID().toString().substring(0, 5).toUpperCase();
-                                String fidelityRewardMsg = "🎉 *PARABÉNS!* Você completou 10 pontos no seu Cartão Fidelidade da Barbearia Ficticia! 🥳✂️\n\n" +
-                                        "Como recompensa, você ganhou *10% de desconto* no seu próximo corte! Apresente o código abaixo no caixa:\n\n" +
-                                        "🎟️ *" + coupon + "*\n\n" +
-                                        "Obrigado pela preferência e por fazer parte da nossa história! 👊💈";
-                                whatsAppService.sendTextMessage(phone, fidelityRewardMsg);
-                                log.info("[FIDELIDADE] Cliente {} atingiu 10 pontos e ganhou cupom: {}", phone, coupon);
-                            }
-                        }
-                    } catch (Exception ex) {
-                        log.error("[FIDELIDADE] Erro ao atualizar pontos para {}: {}", phone, ex.getMessage());
-                    }
-                }
-
             } catch (Exception e) {
                 log.error("Erro na tarefa {}: {}", task.getId(), e.getMessage());
                 task.setStatus(ScheduledTask.TaskStatus.FAILED);
@@ -155,6 +125,36 @@ public class BarberBotScheduler {
             }
         } catch (Exception e) {
             log.error("[RETENÇÃO] Erro no scheduler de retenção: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * SEXTOU (Sexta-feira 09:00)
+     * Lembra clientes ativos de agendar para o final de semana.
+     */
+    @Scheduled(cron = "0 0 9 * * FRI", zone = "America/Sao_Paulo")
+    @Transactional
+    public void processSextouReminders() {
+        log.info("[SEXTOU] Rodando motor de lembrete de fim de semana...");
+        try {
+            List<com.barberbot.api.model.Customer> customers = customerRepository.findAll();
+            for (com.barberbot.api.model.Customer c : customers) {
+                if (c.isPaused() || c.getPhoneNumber().equals(properties.getAdmin().getPhone())) {
+                    continue;
+                }
+                
+                if (agendaService.getAgendamentoCliente(c.getPhoneNumber()) == null) {
+                    String first = c.getName() != null ? c.getName().split(" ")[0] : "amigo";
+                    String msg = "Fala, " + first + "! Sextou! 🍻💈\n\n" +
+                            "O final de semana tá aí, já garantiu seu horário pra dar aquele trato pro rolê? ✂️\n\n" +
+                            "Ainda temos algumas vagas! Digite *Menu* para agendar ou ver os horários.";
+                    
+                    whatsAppService.sendTextMessage(c.getPhoneNumber(), msg);
+                    log.info("[SEXTOU] Mensagem de Sextou enviada para {}.", c.getPhoneNumber());
+                }
+            }
+        } catch (Exception e) {
+            log.error("[SEXTOU] Erro no scheduler de sextou: {}", e.getMessage(), e);
         }
     }
 

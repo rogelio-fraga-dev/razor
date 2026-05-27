@@ -32,6 +32,7 @@ public class AgendaService {
     private final CustomerService customerService;
     private final WhatsAppService whatsAppService;
     private final ScheduledTaskRepository taskRepository;
+    private final com.barberbot.api.repository.CustomerRepository customerRepository;
     private final BarberBotProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper();
     
@@ -173,6 +174,33 @@ public class AgendaService {
         
         salvarAgendaEmArquivo();
         criarTarefasAgendadas(ag);
+        
+        try {
+            com.barberbot.api.model.Customer customer = customerRepository.findByPhoneNumber(phone).orElse(null);
+            if (customer != null) {
+                int currentPoints = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
+                int newPoints = currentPoints + 1;
+                customer.setFidelityPoints(newPoints);
+                customer.setLastServiceDate(LocalDateTime.now());
+                customerRepository.save(customer);
+                log.info("[FIDELIDADE] Adicionado 1 ponto para {}. Total: {}", phone, newPoints);
+                
+                if (newPoints >= 10) {
+                    customer.setFidelityPoints(0);
+                    customerRepository.save(customer);
+                    
+                    String coupon = "FIDELIDADE10-" + java.util.UUID.randomUUID().toString().substring(0, 5).toUpperCase();
+                    String fidelityRewardMsg = "🎉 *PARABÉNS!* Você completou 10 pontos no seu Cartão Fidelidade da Barbearia Ficticia! 🥳✂️\n\n" +
+                            "Como recompensa, você ganhou *10% de desconto* no seu próximo corte! Apresente o código abaixo no caixa:\n\n" +
+                            "🎟️ *" + coupon + "*\n\n" +
+                            "Obrigado pela preferência e por fazer parte da nossa história! 👊💈";
+                    whatsAppService.sendTextMessage(phone, fidelityRewardMsg);
+                    log.info("[FIDELIDADE] Cliente {} atingiu 10 pontos e ganhou cupom: {}", phone, coupon);
+                }
+            }
+        } catch (Exception ex) {
+            log.error("[FIDELIDADE] Erro ao atualizar pontos para {}: {}", phone, ex.getMessage());
+        }
     }
 
     public String getHorariosOcupadosParaIA() {
@@ -237,6 +265,22 @@ public class AgendaService {
             return true;
         }
         return false;
+    }
+
+    public void agendarDisparoMassa(String msg, LocalDateTime execTime) {
+        List<com.barberbot.api.model.Customer> customers = customerRepository.findAll();
+        for (com.barberbot.api.model.Customer c : customers) {
+            if (c.getPhoneNumber().equals(properties.getAdmin().getPhone())) continue;
+            ScheduledTask task = ScheduledTask.builder()
+                    .customerPhone(c.getPhoneNumber())
+                    .executionTime(execTime)
+                    .taskType("BROADCAST_SCHEDULED")
+                    .messageContent(msg)
+                    .status(ScheduledTask.TaskStatus.PENDING)
+                    .build();
+            taskRepository.save(task);
+        }
+        log.info("[AGENDA] Disparo em massa agendado para {} contatos em {}", customers.size() - 1, execTime);
     }
 
     public String getAgendaSalva() {

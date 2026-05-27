@@ -53,6 +53,7 @@ public class OrchestratorService {
     private static final Map<String, List<String>> adminApagarOptions = new ConcurrentHashMap<>();
     private static final Map<String, String> customerStates = new ConcurrentHashMap<>();
     private static final Map<String, WaitlistOffer> waitlistOffers = new ConcurrentHashMap<>();
+    private static final Map<String, String> adminScheduledMsg = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private void sendMsg(String phone, String text, String role) {
@@ -365,6 +366,34 @@ public class OrchestratorService {
                     }
                     return;
                 }
+                if (currentState.equals("AGENDAR_DISPARO_MSG")) {
+                    adminStates.remove(phoneNumber);
+                    adminScheduledMsg.put(phoneNumber, originalCommand);
+                    adminStates.put(phoneNumber, "AGENDAR_DISPARO_DATA");
+                    sendMsg(phoneNumber, "🗓️ *Data e Hora:*\nDigite o horário do disparo no formato numérico: *DD/MM HH:MM* (Ex: 28/05 10:30)", "ADMIN");
+                    return;
+                }
+                if (currentState.equals("AGENDAR_DISPARO_DATA")) {
+                    adminStates.remove(phoneNumber);
+                    String msg = adminScheduledMsg.remove(phoneNumber);
+                    try {
+                        String[] parts = cmdLower.replaceAll("[^0-9/:]", " ").trim().split("\\\\s+");
+                        String datePart = parts[0];
+                        String timePart = parts[1];
+                        int day = Integer.parseInt(datePart.split("/")[0]);
+                        int month = Integer.parseInt(datePart.split("/")[1]);
+                        int hour = Integer.parseInt(timePart.split(":")[0]);
+                        int minute = Integer.parseInt(timePart.split(":")[1]);
+                        LocalDateTime execTime = LocalDateTime.of(LocalDateTime.now().getYear(), month, day, hour, minute);
+                        if (execTime.isBefore(LocalDateTime.now())) execTime = execTime.plusYears(1);
+                        
+                        agendaService.agendarDisparoMassa(msg, execTime);
+                        sendMsg(phoneNumber, "✅ Disparo agendado com sucesso para " + datePart + " às " + timePart + "!", "ADMIN");
+                    } catch (Exception e) {
+                        sendMsg(phoneNumber, "❌ Formato inválido. Use *DD/MM HH:MM* (Ex: 28/05 10:30).", "ADMIN");
+                    }
+                    return;
+                }
             }
 
             if (cmdLower.contains("comando") || cmdLower.contains("menu")) {
@@ -460,15 +489,20 @@ public class OrchestratorService {
                         - *1 Hora Antes* ➡️ Lembrete de agendamento pro cliente.
                         - *1 Hora Depois* ➡️ Pesquisa de satisfação pro cliente.
                         
-                        ⭐ *Fidelidade:*
-                        - Quando o cliente avalia, ganha 1 ponto.
+                        ⭐ *Fidelidade e Retenção:*
+                        - O cliente ganha 1 ponto a cada novo agendamento realizado.
                         - Aos 10 pontos, ganha cupom automático de 10% OFF.
+                        - *Sextou:* Envia lembrete toda sexta-feira às 09h para TODOS os usuários sem agendamento no fim de semana.
                         
                         🛠️ *Disparos e Controle:*
-                        - O botão de 'Avisos/Promoções' dispara mensagem em massa para todos os contatos da base.
-                        - Pausar Robô (4) desliga a IA por 1 hora naquele número caso você queira assumir o WhatsApp.
+                        - O botão de 'Avisos' (2) e 'Promoções' (3) dispara mensagem IMEDIATA para todos.
+                        - O botão 'Agendar Disparo' (12) permite escrever um texto para disparar num dia e hora futuros.
+                        - Pausar Robô (4) desliga a IA por 1 hora naquele número.
                         """;
                 sendMsg(phoneNumber, manual, "ADMIN");
+            } else if (cmdLower.equals("12") || cmdLower.contains("agendar disparo")) {
+                adminStates.put(phoneNumber, "AGENDAR_DISPARO_MSG");
+                sendMsg(phoneNumber, "📝 *Agendar Disparo*\nQual é a mensagem que deseja enviar para a base? (Digite 'cancelar' para abortar)", "ADMIN");
             } else {
                 if (!webhook.hasAudio()) {
                     sendMsg(phoneNumber, "Fala, Chefe! 💈 Digite *menu* para ver as opções.", "ADMIN");
@@ -493,6 +527,7 @@ public class OrchestratorService {
                 *9* - 📋 Listar Clientes
                 *10* - 🗑️ Apagar um Cliente
                 *11* - ℹ️ Ajuda / Manual do Sistema
+                *12* - 📅 Agendar Disparo
                 
                 _Digite o número ou comando desejado._
                 """;

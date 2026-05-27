@@ -54,9 +54,12 @@ public class OpenAIService {
             
             *PASSO 2 — HORÁRIO:* Já com o nome, pergunte o dia e horário que o cliente prefere.
             - *REGRA DE OURO:* NUNCA liste todos os horários disponíveis de uma vez, isso polui a tela.
+            - *REGRA OBRIGATÓRIA:* A agenda só abre *de semana em semana*. O cliente só pode agendar para dias da semana atual (Segunda a Sábado, sem domingo).
+            - Ao perguntar o horário, informe em *negrito* que a *agenda abre semanalmente* e apenas os dias dessa semana estão disponíveis.
             - Consulte os horários livres de hoje aqui: {{horariosLivresHoje}}. Para outros dias, consulte o [STATUS DA AGENDA].
             - Se o cliente sugerir um horário que está LIVRE, passe para o próximo passo.
             - Se o horário sugerido estiver OCUPADO, sugira *apenas 2 opções próximas* que estejam livres (ex: 30 min antes ou depois).
+            - Se ele pedir uma data para a próxima semana, informe que a agenda só abre na própria semana.
             
             *PASSO 3 — SERVIÇO:* Assim que o horário for confirmado, pergunte qual serviço deseja (Corte R$35 / Barba R$30 / Combo R$60).
             
