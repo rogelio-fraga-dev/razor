@@ -281,6 +281,43 @@ public class AgendaService {
         return appointmentRepository.findByCustomerPhone(phone).stream().findFirst().orElse(null);
     }
     
+    public boolean hasAgendamentoFuturo(String phone) {
+        LocalDateTime agora = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
+        LocalDate hoje = agora.toLocalDate();
+        List<Appointment> apps = appointmentRepository.findByCustomerPhone(phone);
+        
+        for (Appointment ag : apps) {
+            try {
+                String dateStr = ag.getAppointmentDate().equalsIgnoreCase("hoje") ? hoje.format(DateTimeFormatter.ofPattern("dd/MM")) : ag.getAppointmentDate();
+                String[] parts = dateStr.split("/");
+                int day = Integer.parseInt(parts[0].trim());
+                int month = Integer.parseInt(parts[1].trim());
+                LocalDate agDate = LocalDate.of(hoje.getYear(), month, day);
+                
+                if (agDate.isAfter(hoje)) {
+                    return true;
+                } else if (agDate.isEqual(hoje)) {
+                    String timeStr = ag.getAppointmentTime();
+                    if (timeStr != null && timeStr.contains(":")) {
+                        String[] tParts = timeStr.split(":");
+                        int hour = Integer.parseInt(tParts[0].trim());
+                        int minute = Integer.parseInt(tParts[1].trim());
+                        LocalTime agTime = LocalTime.of(hour, minute);
+                        
+                        // Se o horário atual for ANTES do (horário agendado + 1 hora), consideramos como futuro/ativo
+                        if (agora.toLocalTime().isBefore(agTime.plusHours(1))) {
+                            return true;
+                        }
+                    } else {
+                        // Sem horário válido, consideramos ativo hoje por segurança
+                        return true;
+                    }
+                }
+            } catch (Exception e) {}
+        }
+        return false;
+    }
+    
     public List<Appointment> getAgendamentosClienteList(String phone) {
         return appointmentRepository.findByCustomerPhone(phone);
     }
@@ -493,22 +530,25 @@ public class AgendaService {
         double ticketMedio = totalCortes > 0 ? faturamentoTotal / totalCortes : 0.0;
         
         return String.format("""
-                💰 *RESUMO FINANCEIRO DETALHADO (%s)*
+                📊 *EXTRATO FINANCEIRO DO DIA*
+                🗓️ Data: *%s*
+                ━━━━━━━━━━━━━━━━━━━━━━
                 
-                ✂️ *Volume de Serviços:*
-                - Total de Atendimentos: %d
-                - Combos (Cabelo + Barba): %d
-                - Apenas Barba: %d
-                - Cortes Simples / Outros: %d
+                ✂️ *VOLUME DE SERVIÇOS*
+                Total Atendidos: *%d*
+                ├ Combos (Cabelo+Barba): %d
+                ├ Apenas Barba: %d
+                └ Simples / Outros: %d
                 
-                💳 *Fluxo de Caixa por Meio de Pagamento:*
-                - ✅ *PIX (Confirmado):* R$ %.2f (%d recebimento(s))
-                - 💵 *Presencial (A Receber):* R$ %.2f (%d recebimento(s))
-                - ⏳ *Pendente / Outros:* R$ %.2f (%d agendamento(s))
+                💳 *FLUXO DE CAIXA*
+                🟢 *PIX:* R$ %.2f (%d)
+                🔵 *Presencial:* R$ %.2f (%d)
+                🟡 *Pendente:* R$ %.2f (%d)
                 
-                📈 *Indicadores de Performance:*
-                - Faturamento Estimado Total: *R$ %.2f*
-                - Ticket Médio por Cliente: *R$ %.2f*
+                ━━━━━━━━━━━━━━━━━━━━━━
+                💰 *Faturamento Total:* R$ %.2f
+                📈 *Ticket Médio:* R$ %.2f
+                ━━━━━━━━━━━━━━━━━━━━━━
                 """, 
                 dataHoje, totalCortes, totalCombo, totalBarba, totalSimples, 
                 pixVal, pixCount, presencialVal, presencialCount, pendenteVal, pendenteCount,
@@ -518,35 +558,50 @@ public class AgendaService {
     public String getPainelAgendamentosDetalhado(long totalBase, long waitlistCount, long pausedCount) {
         String dataHoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM"));
         
-        List<String> list = new ArrayList<>();
-        int countHoje = 0;
         List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        List<Appointment> agendaHoje = new ArrayList<>();
         for (Appointment ag : agendaAtiva) {
             if (ag.getAppointmentDate().equals(dataHoje) || ag.getAppointmentDate().equalsIgnoreCase("hoje")) {
-                countHoje++;
-                String badge = "";
-                if ("PIX".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🟢 [PIX]";
-                else if ("PRESENCIAL".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🔵 [Presencial]";
-                else badge = " 🟡 [Pendente]";
-                
-                list.add(String.format("⏰ *%s* - %s (%s)%s", ag.getAppointmentTime(), ag.getCustomerName(), ag.getService(), badge));
+                agendaHoje.add(ag);
             }
+        }
+        
+        // Ordenação Cronológica (Horário)
+        agendaHoje.sort((a1, a2) -> {
+            try {
+                return LocalTime.parse(a1.getAppointmentTime()).compareTo(LocalTime.parse(a2.getAppointmentTime()));
+            } catch (Exception e) {
+                return 0;
+            }
+        });
+
+        List<String> list = new ArrayList<>();
+        for (Appointment ag : agendaHoje) {
+            String badge = "";
+            if ("PIX".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🟢 [PIX]";
+            else if ("PRESENCIAL".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🔵 [Local]";
+            else badge = " 🟡 [Pend]";
+            
+            list.add(String.format("⏰ *%s* | %s (%s)%s", ag.getAppointmentTime(), ag.getCustomerName(), ag.getService(), badge));
         }
         
         String agendaStr = list.isEmpty() ? "_Nenhum agendamento para hoje até o momento._" : String.join("\n", list);
         
         return String.format("""
-                📅 *PAINEL DE AGENDAMENTOS (%s)*
+                📅 *PAINEL DE AGENDAMENTOS*
+                🗓️ Data: *%s*
+                ━━━━━━━━━━━━━━━━━━━━━━
+                👥 *Métricas da Base*
+                ├ Clientes Cadastrados: *%d*
+                ├ Fila de Espera: *%d*
+                └ Em Atendimento Humano: *%d*
                 
-                👥 *Status dos Clientes & Fila:*
-                - Clientes Cadastrados na Base: %d
-                - Fila de Espera (Lista): %d
-                - Robô Silenciado (Suporte Humano): %d cliente(s)
-                
-                📋 *Agendamentos do Dia (%d total):*
+                📋 *Agendamentos de Hoje (%d)*
+                ━━━━━━━━━━━━━━━━━━━━━━
                 %s
+                ━━━━━━━━━━━━━━━━━━━━━━
                 """, 
-                dataHoje, totalBase, waitlistCount, pausedCount, countHoje, agendaStr);
+                dataHoje, totalBase, waitlistCount, pausedCount, agendaHoje.size(), agendaStr);
     }
 
     public String getAgendaSemanaText() {
@@ -554,7 +609,7 @@ public class AgendaService {
         LocalDate inicioSemana = hoje.with(java.time.DayOfWeek.MONDAY);
         LocalDate fimSemana = hoje.with(java.time.DayOfWeek.SUNDAY);
         
-        java.util.Map<String, List<String>> porDia = new java.util.TreeMap<>();
+        java.util.Map<String, List<Appointment>> porDia = new java.util.TreeMap<>();
         
         List<Appointment> agendaAtiva = appointmentRepository.findAll();
         for (Appointment ag : agendaAtiva) {
@@ -569,27 +624,33 @@ public class AgendaService {
                     String diaSemana = agDate.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
                     String key = String.format("2026-%02d-%02d | %02d/%02d - %s", month, day, day, month, diaSemana.substring(0, 1).toUpperCase() + diaSemana.substring(1));
                     
-                    String badge = "";
-                    if ("PIX".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🟢";
-                    else if ("PRESENCIAL".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🔵";
-                    else badge = " 🟡";
-                    
-                    porDia.computeIfAbsent(key, k -> new ArrayList<>())
-                          .add("⏰ " + ag.getAppointmentTime() + " - " + ag.getCustomerName() + " (" + ag.getService() + ")" + badge);
+                    porDia.computeIfAbsent(key, k -> new ArrayList<>()).add(ag);
                 }
             } catch (Exception e) {}
         }
         
         if (porDia.isEmpty()) {
-            return "Nenhum agendamento para esta semana.";
+            return "_Nenhum agendamento para esta semana._";
         }
         
         StringBuilder sb = new StringBuilder("📆 *AGENDA DA SEMANA*\n\n");
-        for (java.util.Map.Entry<String, List<String>> entry : porDia.entrySet()) {
-            String title = entry.getKey().split("\\|")[1].trim(); // Extrai só "DD/MM - Dia" (o início era pra ordenação)
+        for (java.util.Map.Entry<String, List<Appointment>> entry : porDia.entrySet()) {
+            String title = entry.getKey().split("\\|")[1].trim(); // Extrai só "DD/MM - Dia"
             sb.append("📅 *").append(title).append("*\n");
-            for (String linha : entry.getValue()) {
-                sb.append("  ").append(linha).append("\n");
+            
+            List<Appointment> appsDia = entry.getValue();
+            appsDia.sort((a1, a2) -> {
+                try {
+                    return LocalTime.parse(a1.getAppointmentTime()).compareTo(LocalTime.parse(a2.getAppointmentTime()));
+                } catch (Exception e) { return 0; }
+            });
+            
+            for (Appointment ag : appsDia) {
+                String badge = "";
+                if ("PIX".equalsIgnoreCase(ag.getPaymentStatus())) badge = " [PIX]";
+                else if ("PRESENCIAL".equalsIgnoreCase(ag.getPaymentStatus())) badge = " [Local]";
+                else badge = " [Pend]";
+                sb.append("  ⏰ ").append(ag.getAppointmentTime()).append(" | ").append(ag.getCustomerName()).append(" (").append(ag.getService()).append(")").append(badge).append("\n");
             }
             sb.append("\n");
         }

@@ -121,7 +121,7 @@ public class BarberBotScheduler {
                 
                 // Envia a cada 15 dias de inatividade (15, 30, 45...)
                 if (daysSince > 0 && daysSince % 15 == 0) {
-                    if (agendaService.getAgendamentoCliente(c.getPhoneNumber()) == null) {
+                    if (!agendaService.hasAgendamentoFuturo(c.getPhoneNumber())) {
                         String first = c.getName() != null ? c.getName().split(" ")[0] : "amigo";
                         String reminderMsg = "Fala, " + first + "! 💈\n\n" +
                                 "Já faz " + daysSince + " dias desde o seu último corte na Barbearia Ficticia. O cabelo já está pedindo aquele trato, hein? ✂️\n\n" +
@@ -161,7 +161,7 @@ public class BarberBotScheduler {
                     continue;
                 }
                 
-                if (agendaService.getAgendamentoCliente(c.getPhoneNumber()) == null) {
+                if (!agendaService.hasAgendamentoFuturo(c.getPhoneNumber())) {
                     String first = c.getName() != null ? c.getName().split(" ")[0] : "amigo";
                     String msg = "Fala, " + first + "! Sextou! 🍻💈\n\n" +
                             "O final de semana tá aí, já garantiu seu horário pra dar aquele trato pro rolê? ✂️\n\n" +
@@ -199,7 +199,7 @@ public class BarberBotScheduler {
                     Tenha um excelente dia de trabalho! 💈
                     """, totalCustomers, totalHoje, agendaHoje);
 
-            for (String adminPhone : properties.getAdmin().getPhones()) {
+            for (String adminPhone : new java.util.HashSet<>(properties.getAdmin().getPhones())) {
                 whatsAppService.sendTextMessage(adminPhone, report);
             }
             
@@ -216,7 +216,7 @@ public class BarberBotScheduler {
     public void sendNightlyAgendaRequest() {
         try {
             String resumoDetalhado = agendaService.getResumoDetelhadoDoDia();
-            for (String adminPhone : properties.getAdmin().getPhones()) {
+            for (String adminPhone : new java.util.HashSet<>(properties.getAdmin().getPhones())) {
                 whatsAppService.sendTextMessage(adminPhone, resumoDetalhado);
             }
             log.info("Relatório noturno de serviços enviado para os administradores.");
@@ -231,7 +231,7 @@ public class BarberBotScheduler {
     @Scheduled(cron = "0 0 18 * * SAT", zone = "America/Sao_Paulo")
     public void sendWeeklySummaryReminder() {
         try {
-            for (String adminPhone : properties.getAdmin().getPhones()) {
+            for (String adminPhone : new java.util.HashSet<>(properties.getAdmin().getPhones())) {
                 String msg = "📊 *Fechamento da Semana Disponível!*\n\n" +
                              "A semana está quase acabando! Você já pode conferir o seu *Resumo Financeiro da Semana* completo.\n\n" +
                              "Acesse o painel enviando o comando *menu* (opção Admin) e confira o quanto a barbearia faturou essa semana!";
