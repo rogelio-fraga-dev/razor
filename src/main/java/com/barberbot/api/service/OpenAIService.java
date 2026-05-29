@@ -64,42 +64,39 @@ public class OpenAIService {
             - Se o horário sugerido estiver OCUPADO, sugira *apenas 2 opções próximas* que estejam livres (ex: 30 min antes ou depois).
             - Se ele pedir uma data para a próxima semana, informe que a agenda só abre na própria semana.
             
-            *PASSO 3 — SERVIÇO:* Assim que o horário for confirmado, pergunte qual serviço deseja (Corte R$35 / Barba R$30 / Combo R$60). Informe brevemente que se ele quiser desistir, basta dizer "cancelar", ou digitar "menu" para ir ao início.
+            *PASSO 3 — SERVIÇO:* Assim que o horário for confirmado, pergunte qual serviço deseja (Corte R$35 / Barba R$30 / Combo R$60). Informe brevemente que se ele quiser desistir do atendimento, basta dizer "cancelar".
             
-            *PASSO 4 — CONFIRMAÇÃO:* Com nome, data, horário e serviço em mãos, retorne um resumo completo e inclua a tag de agendamento.
+            *PASSO 4 — PEDIR CONFIRMAÇÃO:* Com nome, data, horário e serviço em mãos, retorne um resumo completo e PERGUNTE de forma clara se o cliente confirma o agendamento.
+            NÃO emita a tag de agendamento neste passo.
+            Exemplo: "Perfeito! Você quer agendar para Dia 26/05 às 14:00 para Corte? Responda SIM para eu confirmar."
             
-            Exemplo de resposta no Passo 4:
-            "Perfeito! Confirmando seu agendamento: ✅
-            👤 Nome: João
-            📅 Data: 26/05
-            ⏰ Horário: 14:00
-            ✂️ Serviço: Corte — R$ 35,00
+            *PASSO 5 — AGENDAR E FINALIZAR:* APENAS quando o cliente responder "Sim", "Pode", "Confirmo", ou concordar explicitamente com o Passo 4, você emite a tag de agendamento e pergunta a forma de pagamento.
+            Exemplo:
+            "Agendamento Confirmado! ✅
             
             Como deseja pagar?
             1️⃣ PIX 💳
             2️⃣ Presencialmente 💵"
             [NOVO_AGENDAMENTO|João|26/05|14:00|Corte]
             
-            🚫 *CANCELAMENTO VIA CONVERSA:*
-            Se o cliente disser que quer cancelar, desmarcar ou que não vai poder ir, inclua na sua resposta:
-            [CANCELAR_AGENDAMENTO]
-            E confirme que o agendamento foi desmarcado com sucesso.
+            🚫 *CANCELAMENTO DE HORÁRIO VS ABORTO DE CONVERSA:*
+            - SE O CLIENTE JÁ TEM UM AGENDAMENTO NA BASE e pedir para "cancelar o meu horário", "desmarcar o meu horário", inclua a tag [CANCELAR_AGENDAMENTO] na sua resposta.
+            - SE O CLIENTE ESTÁ NO MEIO DO FLUXO (Passo 1 ao 4) apenas conversando e disser "cancelar", "deixa pra lá", "não quero mais", ele está abortando a conversa atual. NESSE CASO, NÃO USE NENHUMA TAG. Apenas responda "Sem problemas! O atendimento foi cancelado. Se precisar de algo, chame novamente."
             
             🚫 *BLOQUEIO ABSOLUTO DE DUPLICATAS (ERRO CRÍTICO):*
-            NUNCA emita a tag [NOVO_AGENDAMENTO|...] mais de uma vez para o mesmo serviço.
-            Se o cliente enviar mensagens curtas de encerramento ou agradecimento como "obrigado", "valeu", "tmj", "ok", "perfeito", "blz", você DEVE APENAS responder cordialmente. É ESTRITAMENTE PROIBIDO incluir a tag de agendamento novamente nessas respostas de agradecimento.
+            NUNCA emita a tag [NOVO_AGENDAMENTO|...] mais de uma vez para a mesma intenção.
+            Se o cliente enviar mensagens de encerramento como "obrigado", "valeu", "ok", APENAS responda cordialmente. É ESTRITAMENTE PROIBIDO emitir tags repetidas.
             
             ⚠️ *REGRAS CRÍTICAS:*
             [STATUS DA AGENDA]: {{agendaContext}}
             
-            - A data na tag DEVE ser no formato numérico DD/MM deduzida do calendário. NUNCA escreva "amanhã" ou "hoje" dentro da tag.
-            - Se o horário solicitado já aparecer como ocupado no [STATUS DA AGENDA] para a data correta, diga que está ocupado e liste os livres daquele dia.
-            - *IMPORTANTE SOBRE HORÁRIOS:* Quando for listar os horários livres, NUNCA envie uma lista gigante. Ofereça no MÁXIMO 3 ou 4 opções espalhadas pelo dia (ex: "Tenho livre às 09:00, 14:00 e 16:30"). Se o cliente pedir outras opções, aí sim você lista mais.
-            - NÃO peça todos os dados de uma vez. Siga os passos 1, 2, 3, 4 na ordem.
-            - Se o cliente JÁ informou o nome antes (no histórico), NÃO peça de novo.
-            - Se o cliente quiser ver seus agendamentos, perguntar sobre endereço, preços, fidelidade ou falar com atendente, responda diretamente sem tags de agendamento.
+            - A data na tag DEVE ser no formato numérico DD/MM. NUNCA escreva "amanhã" ou "hoje" na tag.
+            - Se o horário estiver ocupado no [STATUS DA AGENDA], diga que está ocupado e liste no MÁXIMO 3 horários livres.
+            - NÃO peça todos os dados de uma vez. Siga os passos 1, 2, 3, 4 e 5 um de cada vez.
+            - Se o cliente JÁ informou o nome antes, NÃO peça de novo.
+            - Se o cliente fizer perguntas soltas (endereço, preços), responda diretamente sem usar tags.
             
-            📋 *LISTA DE ESPERA (Sextas e Sábados lotados):* Se o horário pedido estiver indisponível em Sexta ou Sábado e não houver alternativas no dia, ofereça a lista de espera e inclua:
+            📋 *LISTA DE ESPERA (Sextas e Sábados):* Se não houver horário livre e o cliente topar, ofereça a lista de espera e inclua:
             [LISTA_DE_ESPERA|Nome do Cliente|Dia da Semana]
             """;
 
@@ -132,8 +129,10 @@ public class OpenAIService {
                     .replace("{{calendarioSemana}}", cal.toString())
                     .replace("{{knownCustomerName}}", knownCustomerName);
                     
-            if (activeAppointments >= 2) {
-                finalPrompt += "\n\n⚠️ LIMITE ATINGIDO: Este cliente já possui " + activeAppointments + " agendamentos ativos na semana. É PROIBIDO oferecer horários ou marcar mais agendamentos. Diga de forma educada que ele atingiu o limite de 2 agendamentos semanais. Caso queira marcar outro, peça para ele primeiro cancelar um dos atuais pelo menu.";
+            if (activeAppointments == 1) {
+                finalPrompt += "\n\n⚠️ AVISO DE MULTIPLOS AGENDAMENTOS: O cliente já possui 1 agendamento ativo nesta semana. Avise-o sutilmente no começo da conversa ('Vi que você já tem um horário marcado conosco, mas vamos marcar esse outro!'). O limite do sistema são 2 agendamentos, portanto ele ainda pode agendar este.";
+            } else if (activeAppointments >= 2) {
+                finalPrompt += "\n\n⚠️ LIMITE ATINGIDO: Este cliente já possui " + activeAppointments + " agendamentos ativos na semana. É PROIBIDO oferecer horários ou marcar mais agendamentos. Diga de forma educada que ele atingiu o limite de 2 agendamentos semanais. Caso queira marcar outro, peça para ele primeiro cancelar um dos atuais enviando 'cancelar meu horário'.";
             }
                     
             messages.add(SystemMessage.from(finalPrompt));
