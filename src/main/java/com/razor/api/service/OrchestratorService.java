@@ -1,6 +1,9 @@
 package com.razor.api.service;
 
+import com.razor.api.ai.AiIntent;
+import com.razor.api.ai.AiTagParser;
 import com.razor.api.config.RazorProperties;
+import com.razor.api.util.PhoneNumbers;
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.model.Appointment;
 import com.razor.api.repository.AppointmentRepository;
@@ -60,6 +63,7 @@ public class OrchestratorService {
     private static final Map<String, WaitlistOffer> waitlistOffers = new ConcurrentHashMap<>();
     private static final Map<String, String> adminScheduledMsg = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final AiTagParser aiTagParser = new AiTagParser();
 
     private void setCustomerState(String phone, String state) {
         customerStates.put(phone, state);
@@ -150,15 +154,7 @@ public class OrchestratorService {
     }
 
     private String normalizeBrazilianNumber(String rawNumber) {
-        if (rawNumber == null) return "";
-        String num = rawNumber.replaceAll("[^0-9]", "");
-        if (num.startsWith("55") && num.length() >= 12) {
-            num = num.substring(2);
-        }
-        if (num.length() == 11 && num.charAt(2) == '9') {
-            num = num.substring(0, 2) + num.substring(3);
-        }
-        return num;
+        return PhoneNumbers.normalizeBrazilian(rawNumber);
     }
 
     private String sanitizeForConsole(String text) {
@@ -844,86 +840,79 @@ public class OrchestratorService {
         String knownName = (customer.getName() != null && !customer.getName().isBlank()) ? customer.getName() : "Desconhecido";
         String aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext, activeAppointments, knownName);
 
-        if (aiResponse.contains("[NOVO_AGENDAMENTO|")) {
-            try {
-                int startIndex = aiResponse.indexOf("[NOVO_AGENDAMENTO|");
-                int endIndex = aiResponse.indexOf("]", startIndex);
-                String tag = aiResponse.substring(startIndex, endIndex + 1);
+        AiIntent intent = aiTagParser.parse(aiResponse);
+        String responseToSend;
 
-                String[] parts = tag.replace("[", "").replace("]", "").split("\\|");
-                String name = parts[1];
-                String date = parts[2];
-                String time = parts[3];
-                String service = parts[4];
-                
-                log.info("[IA] Tag de agendamento identificada! Cliente: {}, Data: {}, Hora: {}, Servico: {}", name, date, time, service);
-                
-                List<Appointment> apps = agendaService.getAgendamentosClienteList(phoneNumber);
-                boolean isDuplicado = apps.stream().anyMatch(a -> a.getAppointmentDate().equals(date) && a.getAppointmentTime().equals(time));
-
-                // Remove a tag técnica da resposta antes de enviar
-                aiResponse = aiResponse.replace(tag, "").trim();
-                
-                if (!isDuplicado) {
-                    // Atualiza o nome do cliente no banco de dados para a IA "lembrar" dele no futuro
-                    if (name != null && !name.isBlank()) {
-                        customer.setName(name);
-                        customerRepository.save(customer);
-                    }
-
-                    agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
-
-                    // Verifica se a IA já incluiu a pergunta de pagamento (novo prompt instrui isso).
-                    // Se não incluiu, adiciona como fallback para garantir o fluxo.
-                    if (!aiResponse.contains("PIX") && !aiResponse.contains("presencial") && !aiResponse.contains("pagamento")) {
-                        aiResponse += "\n\n*Como deseja realizar o pagamento?*\n\n" +
-                                      "1️⃣ Pagar agora via PIX 💳\n" +
-                                      "2️⃣ Pagar presencialmente na barbearia 💵\n\n" +
-                                      "_Responda com 1 ou 2._";
-                    }
-                    setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
-                    log.info("[AGENDA] Estado ESPERANDO_PAGAMENTO definido para {}", phoneNumber);
-                } else {
-                    log.info("[AGENDA] Ignorando tag duplicada gerada pela IA, pois o cliente já possui este agendamento exato.");
-                    aiResponse = "Tudo certo! Seu agendamento para o dia " + date + " às " + time + " já está garantido no sistema. Te esperamos lá!\n\n_Para voltar ao início ou ver outras opções, digite *Menu*._";
-                }
-            } catch (Exception e) { log.error("[IA] Falha ao extrair ou criar agendamento da TAG NOVO_AGENDAMENTO: {}", e.getMessage(), e); }
-        } else if (aiResponse.contains("[CANCELAR_AGENDAMENTO]")) {
-            // IA solicitou cancelamento via conversa natural
-            aiResponse = aiResponse.replace("[CANCELAR_AGENDAMENTO]", "").trim();
+        if (intent instanceof AiIntent.NovoAgendamento novoAgendamento) {
+            responseToSend = tratarNovoAgendamento(customer, phoneNumber, novoAgendamento);
+        } else if (intent instanceof AiIntent.Cancelar cancelar) {
+            responseToSend = cancelar.cleanedResponse();
             boolean cancelled = agendaService.cancelarAgendamentoCliente(phoneNumber);
             if (cancelled) {
                 log.info("[AGENDA] Cancelamento via IA executado para {}", phoneNumber);
             } else {
                 log.info("[AGENDA] IA tentou cancelar mas nao havia agendamento para {}", phoneNumber);
             }
-        } else if (aiResponse.contains("[LISTA_DE_ESPERA|")) {
-            try {
-                int startIndex = aiResponse.indexOf("[LISTA_DE_ESPERA|");
-                int endIndex = aiResponse.indexOf("]", startIndex);
-                String tag = aiResponse.substring(startIndex, endIndex + 1);
-
-                String[] parts = tag.replace("[", "").replace("]", "").split("\\|");
-                String name = parts[1];
-                String preferredDay = parts[2];
-
-                if (!waitlistRepository.existsByCustomerPhone(phoneNumber)) {
-                    WaitlistEntry entry = WaitlistEntry.builder()
-                            .customerPhone(phoneNumber)
-                            .customerName(name)
-                            .preferredDay(preferredDay)
-                            .build();
-                    waitlistRepository.save(entry);
-                    log.info("[LISTA ESPERA] {} adicionado para o dia {}", phoneNumber, preferredDay);
-                } else {
-                    log.info("[LISTA ESPERA] {} ja estava cadastrado na lista", phoneNumber);
-                }
-
-                aiResponse = aiResponse.replace(tag, "").trim();
-            } catch (Exception e) { log.error("[IA] Falha ao ler TAG LISTA_DE_ESPERA: {}", e.getMessage(), e); }
+        } else if (intent instanceof AiIntent.ListaDeEspera listaDeEspera) {
+            responseToSend = tratarListaDeEspera(phoneNumber, listaDeEspera);
+        } else {
+            responseToSend = intent.cleanedResponse();
         }
 
-        saveAndSend(customer, aiResponse, phoneNumber);
+        saveAndSend(customer, responseToSend, phoneNumber);
+    }
+
+    private String tratarNovoAgendamento(Customer customer, String phoneNumber, AiIntent.NovoAgendamento na) {
+        String name = na.name();
+        String date = na.date();
+        String time = na.time();
+        String service = na.service();
+
+        log.info("[IA] Tag de agendamento identificada! Cliente: {}, Data: {}, Hora: {}, Servico: {}", name, date, time, service);
+
+        List<Appointment> apps = agendaService.getAgendamentosClienteList(phoneNumber);
+        boolean isDuplicado = apps.stream().anyMatch(a -> a.getAppointmentDate().equals(date) && a.getAppointmentTime().equals(time));
+
+        if (isDuplicado) {
+            log.info("[AGENDA] Ignorando tag duplicada gerada pela IA, pois o cliente ja possui este agendamento exato.");
+            return "Tudo certo! Seu agendamento para o dia " + date + " às " + time + " já está garantido no sistema. Te esperamos lá!\n\n_Para voltar ao início ou ver outras opções, digite *Menu*._";
+        }
+
+        // Atualiza o nome do cliente no banco de dados para a IA "lembrar" dele no futuro
+        if (name != null && !name.isBlank()) {
+            customer.setName(name);
+            customerRepository.save(customer);
+        }
+
+        agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
+
+        // Verifica se a IA já incluiu a pergunta de pagamento (novo prompt instrui isso).
+        // Se não incluiu, adiciona como fallback para garantir o fluxo.
+        String response = na.cleanedResponse();
+        if (!response.contains("PIX") && !response.contains("presencial") && !response.contains("pagamento")) {
+            response += "\n\n*Como deseja realizar o pagamento?*\n\n" +
+                        "1️⃣ Pagar agora via PIX 💳\n" +
+                        "2️⃣ Pagar presencialmente na barbearia 💵\n\n" +
+                        "_Responda com 1 ou 2._";
+        }
+        setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
+        log.info("[AGENDA] Estado ESPERANDO_PAGAMENTO definido para {}", phoneNumber);
+        return response;
+    }
+
+    private String tratarListaDeEspera(String phoneNumber, AiIntent.ListaDeEspera le) {
+        if (!waitlistRepository.existsByCustomerPhone(phoneNumber)) {
+            WaitlistEntry entry = WaitlistEntry.builder()
+                    .customerPhone(phoneNumber)
+                    .customerName(le.name())
+                    .preferredDay(le.preferredDay())
+                    .build();
+            waitlistRepository.save(entry);
+            log.info("[LISTA ESPERA] {} adicionado para o dia {}", phoneNumber, le.preferredDay());
+        } else {
+            log.info("[LISTA ESPERA] {} ja estava cadastrado na lista", phoneNumber);
+        }
+        return le.cleanedResponse();
     }
 
     private void saveAndSend(Customer customer, String content, String phone) {
