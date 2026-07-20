@@ -71,10 +71,11 @@ existe porque hoje não há testes nem CI, e refatorar/escalar sem essa rede de 
       do `OrchestratorService`; ⏳ pendente a divisão maior (WebhookRouter, AdminCommandService,
       CustomerConversationService) e a quebra do `AgendaService`.
 - [x] **Corrigir erros engolidos** — eliminados os 7 `catch (Exception e) {}` vazios.
-- [ ] **Tipos de domínio fortes** — status de pagamento → `enum`; data/hora → `LocalDate`/`LocalTime`.
-      ⚠️ **Bloqueio de design:** `appointment_date` é `"DD/MM"` **sem ano** — a conversão para
-      `LocalDate` exige decidir a inferência de ano (hoje o código assume "ano atual" na leitura).
-      Requer decisão antes da migração Flyway.
+- [x] **Tipos de domínio fortes** — ✅ `PaymentStatus` como `enum`; ✅ data/hora do agendamento
+      como `LocalDate`/`LocalTime` (Opção A: data completa com ano, inferindo a próxima ocorrência
+      futura de DD/MM — corrige o bug de virada de ano e remove o sentinela `"hoje"`).
+      Migração Flyway `V3` criada. ⚠️ **Validar a `V3` e o fluxo JPA contra um Postgres real
+      (`docker-compose up`) antes de mergear** — não há banco no ambiente de dev atual.
 
 **Pronto quando:** `./mvnw clean verify` roda testes verdes com relatório de cobertura,
 CI verde em PR, e nenhuma das God classes originais existe mais como monólito.
