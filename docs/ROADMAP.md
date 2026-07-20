@@ -60,17 +60,21 @@ existe porque hoje não há testes nem CI, e refatorar/escalar sem essa rede de 
 > **Objetivo:** parar de apagar incêndio. Criar a base técnica que permite evoluir com
 > segurança e velocidade.
 
-- [ ] **Higiene do repo** — remover logs commitados (~900KB), ajustar `.gitignore`.
-- [ ] **Rebrand para Razor** — pacote `com.barberbot` → `com.razor`, config, `pom.xml`.
-- [ ] **CI/CD** — GitHub Actions (build + testes + cobertura JaCoCo), Dependabot.
-- [ ] **Harness de testes** — JUnit 5 + Mockito + AssertJ + JaCoCo.
-- [ ] **Testes das regras críticas** — parsing de tags da IA, normalização de telefone,
-      agenda (agendar/cancelar/lista de espera), máquina de estados do cliente.
-- [ ] **Refatorar as God classes** — `OrchestratorService` (994 linhas) e
-      `AgendaService` (757) divididas por responsabilidade; nenhum arquivo > 800 linhas.
-- [ ] **Corrigir erros engolidos** — eliminar `catch (Exception e) {}` vazios.
-- [ ] **Tipos de domínio fortes** — data/hora do agendamento como `LocalDate`/`LocalTime`,
-      status de pagamento como `enum`.
+- [x] **Higiene do repo** — removidos ~900KB de logs commitados, `.gitignore` reforçado.
+- [x] **Rebrand para Razor** — pacote `com.barberbot` → `com.razor`, config, `pom.xml`. Compila limpo.
+- [x] **CI/CD** — GitHub Actions (build + testes + cobertura JaCoCo) + Dependabot.
+- [x] **Harness de testes** — JUnit 5 + AssertJ + JaCoCo (16 testes verdes).
+- [~] **Testes das regras críticas** — ✅ parsing de tags da IA e normalização de telefone
+      (extraídos e testados); ⏳ pendente: agenda (agendar/cancelar/lista de espera) e
+      máquina de estados do cliente.
+- [~] **Refatorar as God classes** — ✅ extraídos `AiTagParser`/`AiIntent` e `PhoneNumbers`
+      do `OrchestratorService`; ⏳ pendente a divisão maior (WebhookRouter, AdminCommandService,
+      CustomerConversationService) e a quebra do `AgendaService`.
+- [x] **Corrigir erros engolidos** — eliminados os 7 `catch (Exception e) {}` vazios.
+- [ ] **Tipos de domínio fortes** — status de pagamento → `enum`; data/hora → `LocalDate`/`LocalTime`.
+      ⚠️ **Bloqueio de design:** `appointment_date` é `"DD/MM"` **sem ano** — a conversão para
+      `LocalDate` exige decidir a inferência de ano (hoje o código assume "ano atual" na leitura).
+      Requer decisão antes da migração Flyway.
 
 **Pronto quando:** `./mvnw clean verify` roda testes verdes com relatório de cobertura,
 CI verde em PR, e nenhuma das God classes originais existe mais como monólito.
