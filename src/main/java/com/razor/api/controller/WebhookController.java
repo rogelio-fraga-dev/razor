@@ -1,7 +1,7 @@
 package com.razor.api.controller;
 
 import com.razor.api.dto.EvolutionWebhookDTO;
-import com.razor.api.service.OrchestratorService;
+import com.razor.api.service.WebhookRouter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class WebhookController {
 
-    private final OrchestratorService orchestratorService;
+    private final WebhookRouter webhookRouter;
     private final ObjectMapper objectMapper;
 
     /**
@@ -56,7 +56,7 @@ public class WebhookController {
             // Evento de mensagens: delega para o orquestrador
             if ("messages.upsert".equalsIgnoreCase(event) || "MESSAGES_UPSERT".equalsIgnoreCase(event)) {
                 EvolutionWebhookDTO webhook = objectMapper.convertValue(body, EvolutionWebhookDTO.class);
-                orchestratorService.processWebhook(webhook);
+                webhookRouter.processWebhook(webhook);
             }
 
             return ResponseEntity.ok("Webhook recebido com sucesso");

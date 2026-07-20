@@ -3,48 +3,50 @@ package com.razor.api.service;
 import com.razor.api.ai.AiIntent;
 import com.razor.api.ai.AiTagParser;
 import com.razor.api.config.RazorProperties;
-import com.razor.api.util.AppointmentDates;
-import com.razor.api.util.PhoneNumbers;
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.model.Appointment;
-import com.razor.api.model.PaymentStatus;
-import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.model.Customer;
 import com.razor.api.model.Interaction;
+import com.razor.api.model.PaymentStatus;
+import com.razor.api.model.WaitlistEntry;
+import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.InteractionRepository;
+import com.razor.api.repository.WaitlistRepository;
+import com.razor.api.util.AppointmentDates;
 import com.razor.api.util.ConsoleText;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import com.razor.api.model.WaitlistEntry;
-import com.razor.api.repository.WaitlistRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
+/**
+ * Fluxo do CLIENTE: menu numerico, saudacoes, agendamento/cancelamento via IA,
+ * escolha de pagamento (PIX/presencial), lista de espera e a maquina de estados
+ * da conversa. Extraido do {@code OrchestratorService} (Fase 0.5).
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @SuppressWarnings("null")
-public class OrchestratorService {
+public class CustomerConversationService {
 
     private final CustomerService customerService;
     private final CustomerRepository customerRepository;
     private final InteractionRepository interactionRepository;
     private final OpenAIService openAIService;
-    private final WhatsAppMessenger messenger;
-    private final EvolutionMediaService evolutionMediaService;
     private final AgendaService agendaService;
     private final RazorProperties properties;
     private final WaitlistRepository waitlistRepository;
     private final AppointmentRepository appointmentRepository;
+    private final WhatsAppMessenger messenger;
+    private final EvolutionMediaService evolutionMediaService;
 
     @lombok.Data
     @lombok.AllArgsConstructor
@@ -56,16 +58,23 @@ public class OrchestratorService {
         private String service;
     }
 
-    private static final Map<String, LocalDateTime> processedMessageIds = new ConcurrentHashMap<>();
-    private static final Map<String, String> adminStates = new ConcurrentHashMap<>();
-    private static final Map<String, List<String>> adminRetomarOptions = new ConcurrentHashMap<>();
-    private static final Map<String, List<String>> adminApagarOptions = new ConcurrentHashMap<>();
     private static final Map<String, String> customerStates = new ConcurrentHashMap<>();
     private static final Map<String, LocalDateTime> customerStatesTimestamps = new ConcurrentHashMap<>();
     private static final Map<String, List<Appointment>> customerCancelOptions = new ConcurrentHashMap<>();
     private static final Map<String, WaitlistOffer> waitlistOffers = new ConcurrentHashMap<>();
-    private static final Map<String, String> adminScheduledMsg = new ConcurrentHashMap<>();
     private final AiTagParser aiTagParser = new AiTagParser();
+
+    private void sendMsg(String phone, String text, String role) {
+        messenger.send(phone, text, role);
+    }
+
+    private String sanitizeForConsole(String text) {
+        return ConsoleText.sanitize(text);
+    }
+
+    private String fetchBase64FromEvolution(String messageId) {
+        return evolutionMediaService.fetchBase64(messageId);
+    }
 
     private void setCustomerState(String phone, String state) {
         customerStates.put(phone, state);
@@ -77,16 +86,9 @@ public class OrchestratorService {
         customerStatesTimestamps.remove(phone);
     }
 
-    private void sendMsg(String phone, String text, String role) {
-        messenger.send(phone, text, role);
-    }
-
+    /** Limpa estados zumbi abandonados (>30min). Antes vivia no clearProcessedCache do Orchestrator. */
     @Scheduled(fixedRate = 600000)
-    public void clearProcessedCache() {
-        LocalDateTime limit = LocalDateTime.now().minusMinutes(20);
-        processedMessageIds.entrySet().removeIf(entry -> entry.getValue().isBefore(limit));
-        
-        // Limpa estados zumbi abandonados (Bug 3)
+    public void clearZombieCustomerStates() {
         LocalDateTime stateLimit = LocalDateTime.now().minusMinutes(30);
         customerStatesTimestamps.entrySet().removeIf(entry -> {
             if (entry.getValue().isBefore(stateLimit)) {
@@ -97,444 +99,10 @@ public class OrchestratorService {
         });
     }
 
-
-
-    @Async
-    public void processWebhook(EvolutionWebhookDTO webhook) {
-        try {
-            if (shouldIgnoreMessage(webhook)) {
-                log.debug("[IGNORED] Mensagem ignorada (do proprio bot, grupo ou sem numero valido).");
-                return;
-            }
-            if (isDuplicateMessage(webhook)) {
-                log.info("[DUP] Mensagem duplicada ignorada (ID: {}).", webhook.getData().getKey().getId());
-                return;
-            }
-
-            String phoneNumber = webhook.getPhoneNumber();
-            String pushName = webhook.getData() != null ? webhook.getData().getPushName() : "Desconhecido";
-            String msgType = webhook.hasAudio() ? "AUDIO" :
-                             webhook.hasImage() ? "IMAGEM" :
-                             webhook.hasDocument() ? "DOCUMENTO" :
-                             webhook.hasSticker() ? "STICKER" : "TEXTO";
-
-            log.info("=======================================================================");
-            log.info("[RECEBIDO] Nova mensagem de: {} ({}) | Tipo: {}", pushName, phoneNumber, msgType);
-
-            if (isAdminNumber(phoneNumber)) {
-                log.info("[SISTEMA] Remetente identificado como ADMINISTRADOR.");
-                processAdminMessage(webhook, phoneNumber);
-            } else {
-                if (customerService.isCustomerPaused(phoneNumber)) {
-                    log.info("[PAUSADO] O cliente {} esta pausado. Atendimento automatico suspenso.", phoneNumber);
-                    log.info("=======================================================================");
-                    return;
-                }
-                log.info("[CLIENTE] Remetente identificado como CLIENTE.");
-                processCustomerMessage(webhook, phoneNumber);
-            }
-            log.info("=======================================================================");
-        } catch (Exception e) {
-            log.error("[ERRO FATAL ORCHESTRATOR] Falha critica ao processar webhook: {}", e.getMessage(), e);
-        }
-    }
-
-    private boolean shouldIgnoreMessage(EvolutionWebhookDTO webhook) {
-        if (webhook.getData() == null || webhook.getData().getKey() == null) return true;
-        if (Boolean.TRUE.equals(webhook.getData().getKey().getFromMe())) return true;
-        return webhook.isGroupChat() || webhook.getPhoneNumber() == null;
-    }
-
-    private boolean isDuplicateMessage(EvolutionWebhookDTO webhook) {
-        String messageId = webhook.getData().getKey().getId();
-        if (messageId != null) {
-            if (processedMessageIds.putIfAbsent(messageId, LocalDateTime.now()) != null) return true;
-            return interactionRepository.existsByMessageId(messageId);
-        }
-        return false;
-    }
-
-    private String normalizeBrazilianNumber(String rawNumber) {
-        return PhoneNumbers.normalizeBrazilian(rawNumber);
-    }
-
-    private String sanitizeForConsole(String text) {
-        return ConsoleText.sanitize(text);
-    }
-
-    private boolean isAdminNumber(String phoneNumber) {
-        String phoneNormalized = normalizeBrazilianNumber(phoneNumber);
-        for (String adminPhone : properties.getAdmin().getPhones()) {
-            if (normalizeBrazilianNumber(adminPhone).equals(phoneNormalized)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private String fetchBase64FromEvolution(String messageId) {
-        return evolutionMediaService.fetchBase64(messageId);
-    }
-
-    private boolean isSystemCommand(String text) {
-        if (text == null) return false;
-        String t = Normalizer.normalize(text.toLowerCase(), Normalizer.Form.NFD)
-                .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "")
-                .replaceAll("[^a-z0-9 ]", "");
-        return t.contains("comando") || t.contains("menu") || t.contains("ajuda") || 
-               t.contains("resumo") || t.contains("dashboard") || 
-               t.contains("aviso") || t.contains("prospec") || t.contains("promocao") || t.contains("promo") ||
-               t.contains("pausar") || t.contains("pausa") || t.contains("retomar") || t.contains("retoma") ||
-               t.contains("agenda") || t.contains("listar") || t.contains("lista") || 
-               t.contains("apagar") || t.contains("apaga") || t.contains("excluir") || t.contains("exclui");
-    }
-
-    // ==========================================
-    // FLUXO DO ADMINISTRADOR
-    // ==========================================
-    private void processAdminMessage(EvolutionWebhookDTO webhook, String phoneNumber) {
-        String command = null;
-
-        if (webhook.hasDocument()) {
-            adminStates.remove(phoneNumber);
-            String base64 = webhook.getBase64() != null ? webhook.getBase64() : fetchBase64FromEvolution(webhook.getData().getKey().getId());
-            if (base64 != null) {
-                log.info("[ADMIN] CSV de contatos recebido do Admin {}.", phoneNumber);
-                sendMsg(phoneNumber, "⏳ Lendo a base CSV...", "ADMIN");
-                try {
-                    int salvos = customerService.importCustomersFromCsvBase64(base64);
-                    log.info("[ADMIN] CSV processado com sucesso. {} contatos salvos.", salvos);
-                    sendMsg(phoneNumber, "✅ Importação Concluída! *" + salvos + "* clientes na base.", "ADMIN");
-                } catch (Exception e) {
-                    log.error("[ADMIN] Falha ao processar CSV: {}", e.getMessage(), e);
-                    sendMsg(phoneNumber, "❌ Erro no CSV.", "ADMIN");
-                }
-            } else {
-                log.warn("[ADMIN] Recebido CSV corrompido ou sem base64.");
-                sendMsg(phoneNumber, "❌ O arquivo chegou corrompido.", "ADMIN");
-            }
-            return;
-        }
-
-        if (webhook.hasImage()) {
-            adminStates.remove(phoneNumber);
-            String base64 = webhook.getBase64() != null ? webhook.getBase64() : fetchBase64FromEvolution(webhook.getData().getKey().getId());
-            if (base64 != null) {
-                log.info("[ADMIN] Imagem de agenda recebida do Admin {} para processamento via GPT-4o Vision.", phoneNumber);
-                sendMsg(phoneNumber, "⏳ Lendo imagem da agenda com IA...", "ADMIN");
-                try {
-                    String agendaJson = openAIService.extractAgendaFromImage(base64, webhook.getMimeType());
-                    log.info("[ADMIN] JSON extraido da imagem de agenda: {}", sanitizeForConsole(agendaJson));
-                    int salvos = agendaService.processAgenda(agendaJson);
-                    log.info("[ADMIN] Agenda atualizada. {} agendamentos importados.", salvos);
-                    sendMsg(phoneNumber, "✅ " + salvos + " clientes identificados na imagem!", "ADMIN");
-                } catch (Exception e) {
-                    log.error("[ADMIN] Falha ao ler imagem com Vision: {}", e.getMessage(), e);
-                    sendMsg(phoneNumber, "❌ Erro na Visão IA.", "ADMIN");
-                }
-            } else {
-                log.warn("[ADMIN] Recebida imagem da agenda corrompida.");
-                sendMsg(phoneNumber, "❌ A imagem não pôde ser decodificada.", "ADMIN");
-            }
-            return;
-        }
-
-        if (webhook.hasAudio()) {
-            String base64 = webhook.getBase64() != null ? webhook.getBase64() : fetchBase64FromEvolution(webhook.getData().getKey().getId());
-            if (base64 == null) {
-                log.warn("[ADMIN] Audio recebido do Admin, mas sem base64 disponível.");
-                return;
-            }
-            log.info("[ADMIN] Mensagem de voz recebida do Admin {}, transcrevendo com Whisper...", phoneNumber);
-            sendMsg(phoneNumber, "🎧 Ouvindo áudio...", "ADMIN");
-            command = openAIService.transcribeAudio(base64, webhook.getMimeType());
-            log.info("[ADMIN] Audio transcrito: '{}'", sanitizeForConsole(command));
-            
-            if (!adminStates.containsKey(phoneNumber) && command != null && !isSystemCommand(command)) {
-                sendMsg(phoneNumber, "📝 *Transcrição Livre:*\n" + command, "ADMIN");
-                return;
-            }
-        } else {
-            command = webhook.getMessageText();
-            log.info("[ADMIN] Comando de texto recebido do Admin: '{}'", sanitizeForConsole(command));
-        }
-
-        if (command != null) {
-            String originalCommand = command.trim();
-            String normalized = Normalizer.normalize(originalCommand.toLowerCase(), Normalizer.Form.NFD)
-                    .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "");
-            String cmdLower = normalized.replaceAll("[^a-z0-9 ]", "").trim();
-
-            String adminRowId = MenuOptions.resolveAdminMenuOptionId(originalCommand);
-            if (adminRowId != null) {
-                if (MenuOptions.ROW_ID_ADMIN_DASHBOARD.equals(adminRowId)) cmdLower = "1";
-                else if (MenuOptions.ROW_ID_ADMIN_AVISOS.equals(adminRowId)) cmdLower = "2";
-                else if (MenuOptions.ROW_ID_ADMIN_PROMO.equals(adminRowId)) cmdLower = "3";
-                else if (MenuOptions.ROW_ID_ADMIN_PAUSAR.equals(adminRowId)) cmdLower = "4";
-                else if (MenuOptions.ROW_ID_ADMIN_RETOMAR.equals(adminRowId)) cmdLower = "5";
-                else if (MenuOptions.ROW_ID_ADMIN_AGENDA.equals(adminRowId)) cmdLower = "6";
-                else if (MenuOptions.ROW_ID_ADMIN_REL_MATINAL.equals(adminRowId)) cmdLower = "7";
-                else if (MenuOptions.ROW_ID_ADMIN_REL_NOTURNO.equals(adminRowId)) cmdLower = "8";
-                else if (MenuOptions.ROW_ID_ADMIN_LISTAR.equals(adminRowId)) cmdLower = "9";
-                else if (MenuOptions.ROW_ID_ADMIN_APAGAR.equals(adminRowId)) cmdLower = "10";
-                else if (MenuOptions.ROW_ID_ADMIN_RESUMO_SEMANA.equals(adminRowId)) cmdLower = "12";
-                else if (MenuOptions.ROW_ID_ADMIN_AGENDA_SEMANA.equals(adminRowId)) cmdLower = "13";
-            }
-            
-            String currentState = adminStates.get(phoneNumber);
-
-            if (currentState != null) {
-                if (cmdLower.equals("cancelar")) {
-                    adminStates.remove(phoneNumber);
-                    adminRetomarOptions.remove(phoneNumber);
-                    adminApagarOptions.remove(phoneNumber);
-                    adminScheduledMsg.remove(phoneNumber);
-                    sendFullMenu(phoneNumber);
-                    return;
-                }
-                if (currentState.equals("AVISO_BASE")) {
-                    adminStates.remove(phoneNumber);
-                    performBroadcast(phoneNumber, originalCommand, false);
-                    return;
-                }
-                if (currentState.equals("AVISO_PROSPEC")) {
-                    adminStates.remove(phoneNumber);
-                    performBroadcast(phoneNumber, originalCommand, true);
-                    return;
-                }
-                if (currentState.equals("PAUSAR")) {
-                    adminStates.remove(phoneNumber);
-                    String target = cmdLower.replaceAll("[^0-9]", "");
-                    customerService.pauseCustomer(target, 60);
-                    sendMsg(phoneNumber, "⏸️ Robô silenciado com sucesso para esse cliente.", "ADMIN");
-                    return;
-                }
-                if (currentState.equals("RETOMAR")) {
-                    adminStates.remove(phoneNumber);
-                    List<String> options = adminRetomarOptions.remove(phoneNumber);
-                    try {
-                        int index = Integer.parseInt(cmdLower.replaceAll("[^0-9]", "")) - 1;
-                        if (options != null && index >= 0 && index < options.size()) {
-                            String targetPhone = options.get(index);
-                            customerService.resumeCustomer(targetPhone);
-                            sendMsg(phoneNumber, "▶️ Robô religado com sucesso.", "ADMIN");
-                        } else {
-                            sendMsg(phoneNumber, "❌ Opção inválida.", "ADMIN");
-                        }
-                    } catch (Exception e) {
-                        sendMsg(phoneNumber, "❌ Formato inválido.", "ADMIN");
-                    }
-                    return;
-                }
-                if (currentState.equals("APAGAR_CONTATO")) {
-                    adminStates.remove(phoneNumber);
-                    List<String> options = adminApagarOptions.remove(phoneNumber);
-                    try {
-                        int index = Integer.parseInt(cmdLower.replaceAll("[^0-9]", "")) - 1;
-                        if (options != null && index >= 0 && index < options.size()) {
-                            String targetPhone = options.get(index);
-                            Customer c = customerRepository.findByPhoneNumber(targetPhone).orElse(null);
-                            if (c != null) {
-                                interactionRepository.deleteByCustomerId(c.getId());
-                                customerRepository.delete(c);
-                                sendMsg(phoneNumber, "✅ Cliente apagado da base!", "ADMIN");
-                            } else {
-                                sendMsg(phoneNumber, "❌ Cliente não encontrado.", "ADMIN");
-                            }
-                        } else {
-                            sendMsg(phoneNumber, "❌ Opção inválida.", "ADMIN");
-                        }
-                    } catch (Exception e) {
-                        sendMsg(phoneNumber, "❌ Erro ao apagar.", "ADMIN");
-                    }
-                    return;
-                }
-                if (currentState.equals("AGENDAR_DISPARO_MSG")) {
-                    adminStates.remove(phoneNumber);
-                    adminScheduledMsg.put(phoneNumber, originalCommand);
-                    adminStates.put(phoneNumber, "AGENDAR_DISPARO_DATA");
-                    sendMsg(phoneNumber, "🗓️ *Data e Hora:*\nDigite o horário do disparo no formato numérico: *DD/MM HH:MM* (Ex: 28/05 10:30)", "ADMIN");
-                    return;
-                }
-                if (currentState.equals("AGENDAR_DISPARO_DATA")) {
-                    adminStates.remove(phoneNumber);
-                    String msg = adminScheduledMsg.remove(phoneNumber);
-                    try {
-                        String[] parts = cmdLower.replaceAll("[^0-9/:]", " ").trim().split("\\s+");
-                        String datePart = parts[0];
-                        String timePart = parts[1];
-                        int day = Integer.parseInt(datePart.split("/")[0]);
-                        int month = Integer.parseInt(datePart.split("/")[1]);
-                        int hour = Integer.parseInt(timePart.split(":")[0]);
-                        int minute = Integer.parseInt(timePart.split(":")[1]);
-                        LocalDateTime execTime = LocalDateTime.of(LocalDateTime.now().getYear(), month, day, hour, minute);
-                        if (execTime.isBefore(LocalDateTime.now())) execTime = execTime.plusYears(1);
-                        
-                        agendaService.agendarDisparoMassa(msg, execTime);
-                        sendMsg(phoneNumber, "✅ Disparo agendado com sucesso para " + datePart + " às " + timePart + "!", "ADMIN");
-                    } catch (Exception e) {
-                        sendMsg(phoneNumber, "❌ Formato inválido. Use *DD/MM HH:MM* (Ex: 28/05 10:30).", "ADMIN");
-                    }
-                    return;
-                }
-            }
-
-            if (cmdLower.contains("comando") || cmdLower.contains("menu")) {
-                sendFullMenu(phoneNumber);
-            } else if (cmdLower.equals("1") || cmdLower.contains("dashboard") || cmdLower.contains("resumo") || cmdLower.contains("financeiro") || cmdLower.contains("caixa")) {
-                String resumoFinanceiro = agendaService.getResumoFinanceiroDetalhado();
-                sendMsg(phoneNumber, resumoFinanceiro, "ADMIN");
-            } else if (cmdLower.equals("2") || cmdLower.contains("agenda do dia") || cmdLower.contains("painel")) {
-                long total = customerRepository.count();
-                long waitlistCount = waitlistRepository.count();
-                long pausedCount = customerService.getPausedPhones().size();
-                String painelAgendamentos = agendaService.getPainelAgendamentosDetalhado(total, waitlistCount, pausedCount);
-                sendMsg(phoneNumber, painelAgendamentos, "ADMIN");
-            } else if (cmdLower.equals("3") || cmdLower.contains("agenda da semana")) {
-                String agendaSemana = agendaService.getAgendaSemanaText();
-                sendMsg(phoneNumber, agendaSemana, "ADMIN");
-            } else if (cmdLower.equals("4") || cmdLower.contains("resumo da semana")) {
-                String resumo = agendaService.getResumoFinanceiroDaSemana();
-                sendMsg(phoneNumber, resumo, "ADMIN");
-            } else if (cmdLower.equals("5") || (cmdLower.contains("aviso") && !cmdLower.contains("promocao"))) {
-                adminStates.put(phoneNumber, "AVISO_BASE");
-                sendMsg(phoneNumber, "📢 *Disparo de Avisos*\nEnvie a mensagem agora. _(Ou digite 'cancelar')_", "ADMIN");
-            } else if (cmdLower.equals("6") || cmdLower.contains("promocao") || cmdLower.contains("prospec")) {
-                adminStates.put(phoneNumber, "AVISO_PROSPEC");
-                sendMsg(phoneNumber, "🎯 *Promoções do dia*\nEnvie a oferta que deseja disparar para a base toda.", "ADMIN");
-            } else if (cmdLower.equals("7") || cmdLower.contains("agendar disparo")) {
-                adminStates.put(phoneNumber, "AGENDAR_DISPARO_MSG");
-                sendMsg(phoneNumber, "📝 *Agendar Disparo*\nQual é a mensagem que deseja enviar para a base? (Digite 'cancelar' para abortar)", "ADMIN");
-            } else if (cmdLower.equals("8") || cmdLower.contains("pausa")) {
-                adminStates.put(phoneNumber, "PAUSAR");
-                sendMsg(phoneNumber, "⏸️ *Pausar Robô*\nDigite o telefone com DDD do cliente. _(Ou digite 'cancelar')_", "ADMIN");
-            } else if (cmdLower.equals("9") || cmdLower.contains("retoma")) {
-                List<String> pausedPhones = customerService.getPausedPhones();
-                if (pausedPhones.isEmpty()) {
-                    sendMsg(phoneNumber, "▶️ *Retomar*\nNenhum cliente pausado no momento.", "ADMIN");
-                } else {
-                    adminStates.put(phoneNumber, "RETOMAR");
-                    adminRetomarOptions.put(phoneNumber, pausedPhones);
-                    StringBuilder sb = new StringBuilder("▶️ *Retomar Robô - Clientes Pausados*\n\n");
-                    for (int i = 0; i < pausedPhones.size(); i++) {
-                        sb.append("*").append(i + 1).append("* - ").append(pausedPhones.get(i)).append("\n");
-                    }
-                    sb.append("\nDigite o *NÚMERO DA OPÇÃO* _(Ou digite 'cancelar')_.");
-                    sendMsg(phoneNumber, sb.toString(), "ADMIN");
-                }
-            } else if (cmdLower.equals("10") || cmdLower.contains("lista")) {
-                List<Customer> customers = customerRepository.findAll();
-                if (customers.isEmpty()) {
-                    sendMsg(phoneNumber, "📭 Nenhum cliente salvo na base.", "ADMIN");
-                } else {
-                    StringBuilder sb = new StringBuilder("📋 *Base (" + customers.size() + ")*\n\n");
-                    for (Customer c : customers) sb.append("👤 ").append(c.getName()).append(" - ").append(c.getPhoneNumber()).append("\n");
-                    sendMsg(phoneNumber, sb.toString(), "ADMIN");
-                }
-            } else if (cmdLower.equals("11") || cmdLower.contains("apaga") || cmdLower.contains("exclui")) {
-                List<Customer> customers = customerRepository.findAll();
-                if (customers.isEmpty()) {
-                    sendMsg(phoneNumber, "📭 Nenhum cliente salvo.", "ADMIN");
-                } else {
-                    adminStates.put(phoneNumber, "APAGAR_CONTATO");
-                    List<String> phoneList = new ArrayList<>();
-                    StringBuilder sb = new StringBuilder("🗑️ *Apagar Cliente*\n\n");
-                    for (int i = 0; i < customers.size(); i++) {
-                        phoneList.add(customers.get(i).getPhoneNumber());
-                        sb.append("*").append(i + 1).append("* - ").append(customers.get(i).getName()).append("\n");
-                    }
-                    adminApagarOptions.put(phoneNumber, phoneList);
-                    sb.append("\nDigite o *NÚMERO DA OPÇÃO* para apagar _(Ou digite 'cancelar')_.");
-                    sendMsg(phoneNumber, sb.toString(), "ADMIN");
-                }
-            } else if (cmdLower.equals("12") || cmdLower.contains("ajuda") || cmdLower.contains("manual")) {
-                String manual = """
-                        📖 *MANUAL DO ADMINISTRADOR - RAZOR*
-                        
-                        Aqui estão todas as automações que o sistema realiza nos bastidores:
-                        
-                        🤖 *Atendimento e IA:*
-                        - A IA agenda, tira dúvidas e negocia horários sozinha.
-                        - Protege a agenda (não marca 2 clientes na mesma hora).
-                        - Lê fotos de agenda em papel se você enviar para cá.
-                        
-                        ⏰ *Rotinas Automáticas (Horário de Brasília):*
-                        - *08:00* ➡️ Relatório Matinal com os clientes de hoje.
-                        - *11:00* ➡️ Cobra clientes sumidos (mais de 15 dias sem vir).
-                        - *21:00* ➡️ Fechamento de Caixa com faturamento.
-                        - *1 Hora Antes* ➡️ Lembrete de agendamento pro cliente.
-                        - *1 Hora Depois* ➡️ Pesquisa de satisfação pro cliente.
-                        
-                        ⭐ *Fidelidade e Retenção:*
-                        - O cliente ganha 1 ponto a cada novo agendamento realizado.
-                        - Aos 10 pontos, ganha cupom automático de 10% OFF.
-                        - *Sextou:* Envia lembrete toda sexta-feira às 09h para TODOS os usuários sem agendamento no fim de semana.
-                        
-                        🛠️ *Disparos e Controle:*
-                        - O botão de 'Avisos' (5) e 'Promoções' (6) dispara mensagem IMEDIATA para todos.
-                        - O botão 'Agendar Disparo' (7) permite escrever um texto para disparar num dia e hora futuros.
-                        - Pressione 12 ou diga 'manual' para ver esta mensagem novamente.
-                        """;
-                sendMsg(phoneNumber, manual, "ADMIN");
-            } else {
-                if (!webhook.hasAudio()) {
-                    sendMsg(phoneNumber, "Fala, Chefe! 💈 Digite *menu* para ver as opções.", "ADMIN");
-                }
-            }
-        }
-    }
-
-    private void sendFullMenu(String phoneNumber) {
-        log.info("[SISTEMA] Enviando Menu Textual de Gestao para o Administrador: {}", phoneNumber);
-        String fullMenu = """
-                🛠️ *PAINEL DA BARBEARIA*
-                
-                *1* - 💰 Resumo Financeiro do Dia
-                *2* - 📅 Agenda do Dia
-                *3* - 📆 Agenda da Semana
-                *4* - 📊 Resumo Financeiro da Semana
-                *5* - 📢 Avisos (Geral)
-                *6* - 🎯 Promoções do dia
-                *7* - 📅 Agendar Disparo
-                *8* - ⏸️ Pausar bot (Cliente)
-                *9* - ▶️ Retomar bot (Cliente)
-                *10* - 📋 Listar Clientes
-                *11* - 🗑️ Apagar um Cliente
-                *12* - ℹ️ Ajuda / Manual do Sistema
-                
-                _Digite o número ou comando desejado._
-                """;
-        sendMsg(phoneNumber, fullMenu, "ADMIN");
-    }
-
-    @Async
-    public void performBroadcast(String adminPhone, String message, boolean isProspecting) {
-        List<Customer> allCustomers = customerRepository.findAll();
-        sendMsg(adminPhone, "🚀 Iniciando disparo para " + allCustomers.size() + " contatos...", "ADMIN");
-
-        List<String> contatosSucesso = new ArrayList<>();
-        for (Customer customer : allCustomers) {
-            try {
-                if (customer.getPhoneNumber().contains(adminPhone)) continue;
-                String header = isProspecting ? "💈 *Barbearia Ficticia - Promoção* 💈\n\n" : "📢 *Aviso da Barbearia Ficticia*\n\n";
-                sendMsg(customer.getPhoneNumber(), header + message, "DISPARO");
-                contatosSucesso.add("✅ " + customer.getName());
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.warn("[DISPARO] Interrompido durante o envio para {}", customer.getPhoneNumber());
-                break;
-            } catch (Exception e) {
-                log.warn("[DISPARO] Falha ao enviar para {}: {}", customer.getPhoneNumber(), e.getMessage());
-            }
-        }
-        sendMsg(adminPhone, "📊 *Relatório de Disparo*\nTotal alcançado: " + contatosSucesso.size() + "\n\n" + String.join("\n", contatosSucesso), "ADMIN");
-    }
-
     // ==========================================
     // FLUXO DO CLIENTE
     // ==========================================
-    private void processCustomerMessage(EvolutionWebhookDTO webhook, String phoneNumber) {
+    public void processCustomerMessage(EvolutionWebhookDTO webhook, String phoneNumber) {
         if (webhook.hasSticker()) return;
 
         Customer customer = customerService.findOrCreateCustomer(phoneNumber, webhook.getData().getPushName());
@@ -557,14 +125,14 @@ public class OrchestratorService {
         if (waitlistOffers.containsKey(phoneNumber) && (msgLower.equals("sim") || msgLower.equals("s") || msgLower.contains("quero"))) {
             WaitlistOffer offer = waitlistOffers.remove(phoneNumber);
             agendaService.adicionarAgendamentoViaIA(offer.getName(), phoneNumber, offer.getDate(), offer.getTime(), offer.getService());
-            
+
             String successMsg = "Perfeito, " + offer.getName().split(" ")[0] + "! 🥳\n\n" +
                                  "Seu horário foi agendado para *" + offer.getDate() + "* às *" + offer.getTime() + "* para *" + offer.getService() + "*! 🎉\n\n" +
                                  "*Como deseja pagar?*\n\n" +
                                  "1️⃣ PIX 💳\n" +
                                  "2️⃣ Presencialmente 💵\n\n" +
                                  "_Responda 1 ou 2. Ou digite *cancelar* para desistir._";
-                                 
+
             setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
             saveAndSend(customer, successMsg, phoneNumber);
             return;
@@ -590,14 +158,14 @@ public class OrchestratorService {
                 saveAndSend(customer, "Sua sessão de cancelamento expirou. Tente novamente.", phoneNumber);
                 return;
             }
-            
+
             if (msgLower.contains("cancelar") || msgLower.contains("desistir") || msgLower.contains("sair") || msgLower.equals("0")) {
                 clearCustomerState(phoneNumber);
                 customerCancelOptions.remove(phoneNumber);
                 saveAndSend(customer, "Operação cancelada! Nenhum agendamento foi excluído.", phoneNumber);
                 return;
             }
-            
+
             try {
                 int index = Integer.parseInt(msgLower.trim()) - 1;
                 if (index >= 0 && index < apps.size()) {
@@ -609,7 +177,7 @@ public class OrchestratorService {
                     String apptTime = AppointmentDates.formatTime(ag.getAppointmentTime());
                     String apptDate = AppointmentDates.formatDate(ag.getAppointmentDate());
                     String apptService = ag.getService();
-                    
+
                     if (agendaService.cancelarAgendamentoExato(ag)) {
                         saveAndSend(customer, "✅ Seu agendamento de *" + apptDate + " às " + apptTime + "* foi cancelado com sucesso!", phoneNumber);
                         if (diaSemana != null) {
@@ -625,7 +193,7 @@ public class OrchestratorService {
             } catch (NumberFormatException e) {
                 // Ignore and fall through to ask again
             }
-            
+
             if (msgLower.equals("menu") || msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
                 clearCustomerState(phoneNumber);
                 customerCancelOptions.remove(phoneNumber);
@@ -639,7 +207,7 @@ public class OrchestratorService {
         // 3. Estado: Esperando escolha de pagamento (PIX / Presencial)
         if ("ESPERANDO_PAGAMENTO".equals(cState)) {
             Appointment ag = agendaService.getAgendamentoCliente(phoneNumber);
-            
+
             // Escape: cancelar a pré-reserva
             if (msgLower.contains("cancelar") || msgLower.contains("desistir") || msgLower.contains("não quero") || msgLower.contains("nao quero")) {
                 clearCustomerState(phoneNumber);
@@ -648,7 +216,7 @@ public class OrchestratorService {
                 saveAndSend(customer, "❌ Agendamento cancelado! Se mudar de ideia, é só digitar *menu* para recomeçar. 😊", phoneNumber);
                 return;
             }
-            
+
             // PIX
             if (msgLower.equals("1") || msgLower.contains("pix")) {
                 clearCustomerState(phoneNumber);
@@ -665,7 +233,7 @@ public class OrchestratorService {
                 saveAndSend(customer, pixMsg, phoneNumber);
                 return;
             }
-            
+
             // 2. Presencial
             if (msgLower.equals("2") || msgLower.contains("presencial")) {
                 clearCustomerState(phoneNumber);
@@ -676,7 +244,7 @@ public class OrchestratorService {
                 saveAndSend(customer, "Perfeito! Seu agendamento está confirmado para *pagamento presencial* direto no caixa da barbearia. Te esperamos lá! 💈👊\n\n_Para voltar ao início ou ver outras opções, digite *Menu*._", phoneNumber);
                 return;
             }
-            
+
             // Qualquer outra coisa: o cliente ignorou a pergunta (ex: mandou "obrigado").
             // Assumimos Presencial por padrão e removemos a trava para ele não ficar preso!
             clearCustomerState(phoneNumber);
@@ -768,12 +336,12 @@ public class OrchestratorService {
 
     private void trataCancelarAgendamento(Customer customer, String phoneNumber) {
         List<Appointment> apps = agendaService.getAgendamentosClienteList(phoneNumber);
-        
+
         if (apps.isEmpty()) {
             saveAndSend(customer, "❌ Não encontrei nenhum agendamento seu ativo para cancelar.", phoneNumber);
             return;
         }
-        
+
         if (apps.size() == 1) {
             Appointment ag = apps.get(0);
             String diaSemana = ag.getAppointmentDate() != null
@@ -786,7 +354,7 @@ public class OrchestratorService {
 
             if (agendaService.cancelarAgendamentoExato(ag)) {
                 saveAndSend(customer, "✅ Seu agendamento foi cancelado com sucesso!", phoneNumber);
-                
+
                 if (diaSemana != null) {
                     verificarListaEsperaECanalizar(diaSemana, apptDate, apptTime, apptService);
                 }
@@ -928,7 +496,7 @@ public class OrchestratorService {
         try {
             List<WaitlistEntry> allEntries = waitlistRepository.findAll();
             WaitlistEntry matched = null;
-            
+
             String cleanedDia = Normalizer.normalize(diaSemana.toLowerCase(), Normalizer.Form.NFD)
                     .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "")
                     .replaceAll("[^a-z0-9]", "");
@@ -938,23 +506,23 @@ public class OrchestratorService {
                 String cleanedPref = Normalizer.normalize(preferred, Normalizer.Form.NFD)
                         .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "")
                         .replaceAll("[^a-z0-9]", "");
-                
+
                 if (cleanedPref.contains(cleanedDia) || cleanedDia.contains(cleanedPref)) {
                     matched = entry;
                     break;
                 }
             }
-            
+
             if (matched != null) {
                 WaitlistOffer offer = new WaitlistOffer(matched.getCustomerPhone(), matched.getCustomerName(), date, time, service);
                 waitlistOffers.put(matched.getCustomerPhone(), offer);
-                
+
                 String capitalizeDia = diaSemana.substring(0, 1).toUpperCase() + diaSemana.substring(1);
                 String notificationMsg = "Opa, " + matched.getCustomerName().split(" ")[0] + "! 💈\n\n" +
                                          "Um horário acaba de vagar para este *" + capitalizeDia + "* (" + date + ") às *" + time + "* para *" + service + "*! 🎉\n\n" +
                                          "Deseja reservar este horário para você?\n\n" +
                                          "Responda apenas **SIM** para confirmar o agendamento automático!";
-                
+
                 waitlistRepository.delete(matched);
                 sendMsg(matched.getCustomerPhone(), notificationMsg, "SISTEMA");
                 log.info("[LISTA ESPERA] Oferta enviada para {} para o dia {} às {}", matched.getCustomerPhone(), date, time);
