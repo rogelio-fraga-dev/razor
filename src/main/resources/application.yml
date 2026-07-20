@@ -1,6 +1,6 @@
 spring:
   application:
-    name: barberbot-assist
+    name: razor
 
   datasource:
     url: jdbc:postgresql://localhost:5432/barberbot_db
@@ -25,8 +25,8 @@ spring:
 server:
   port: 8081
 
-# Configurações do Bot - Barbearia Vintage
-barberbot:
+# Configurações do Razor (SaaS de barbearias)
+razor:
   admin:
     phones: "${ADMIN_PHONES}"
   evolution:
@@ -100,5 +100,5 @@ barberbot:
 logging:
   level:
     root: WARN
-    com.barberbot: INFO
+    com.razor: INFO
     org.springframework.web: WARN

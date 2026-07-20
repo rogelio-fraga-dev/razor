@@ -12,11 +12,11 @@
         <relativePath/>
     </parent>
     
-    <groupId>com.barberbot</groupId>
-    <artifactId>barberbot-assist</artifactId>
+    <groupId>com.razor</groupId>
+    <artifactId>razor</artifactId>
     <version>1.0.0</version>
-    <name>BarberBot Assist</name>
-    <description>WhatsApp Bot for Barber Shop - Automação de Atendimento e Assistente de Gestão</description>
+    <name>Razor</name>
+    <description>SaaS de gestão e atendimento para barbearias — bot de IA no WhatsApp + painel web</description>
     
     <properties>
         <java.version>17</java.version>

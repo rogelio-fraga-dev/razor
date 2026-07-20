@@ -1,0 +1,67 @@
+package com.razor.api.service;
+
+import com.razor.api.client.EvolutionClient;
+import com.razor.api.dto.MessageDTO;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class WhatsAppService {
+    
+    private final EvolutionClient evolutionClient;
+    
+    public void sendTextMessage(String phone, String message) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                evolutionClient.sendTextMessage(phone, message).block();
+            } catch (Exception e) {
+                log.error("Erro ao enviar mensagem para {}: {}", phone, e.getMessage(), e);
+            }
+        });
+    }
+    
+    public void sendMessage(MessageDTO messageDTO) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                evolutionClient.sendMessage(messageDTO).block();
+            } catch (Exception e) {
+                log.error("Erro ao enviar mensagem: {}", e.getMessage(), e);
+            }
+        });
+    }
+    
+    public void sendImage(String phone, String imageUrl, String caption) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                evolutionClient.sendImageMessage(phone, imageUrl, caption).block();
+            } catch (Exception e) {
+                log.error("Erro ao enviar imagem para {}: {}", phone, e.getMessage(), e);
+            }
+        });
+    }
+
+    public void sendMenuList(String phone, int points) {
+        sendTextMessage(phone, MenuOptions.getMenuAsText(points));
+    }
+
+    /**
+     * Envia lista interativa (Botões)
+     */
+    public void sendListMessage(String phone, String title, String description, 
+                                String buttonText, String footerText, 
+                                List<Map<String, Object>> sections) {
+        try {
+            evolutionClient.sendListMessage(phone, title, description, buttonText, footerText, sections).block();
+        } catch (Exception e) {
+            log.error("Erro ao enviar lista interativa para {}: {}", phone, e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+}       
