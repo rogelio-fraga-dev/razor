@@ -3,6 +3,7 @@ package com.razor.api.service;
 import com.razor.api.ai.AiIntent;
 import com.razor.api.ai.AiTagParser;
 import com.razor.api.config.RazorProperties;
+import com.razor.api.util.AppointmentDates;
 import com.razor.api.util.PhoneNumbers;
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.model.Appointment;
@@ -629,20 +630,12 @@ public class OrchestratorService {
                 int index = Integer.parseInt(msgLower.trim()) - 1;
                 if (index >= 0 && index < apps.size()) {
                     Appointment ag = apps.get(index);
-                    String diaSemana = null;
-                    try {
-                        String[] parts = ag.getAppointmentDate().split("/");
-                        int day = Integer.parseInt(parts[0].trim());
-                        int month = Integer.parseInt(parts[1].trim());
-                        int year = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).getYear();
-                        java.time.LocalDate dateObj = java.time.LocalDate.of(year, month, day);
-                        diaSemana = dateObj.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
-                    } catch (Exception e) {
-                        log.debug("[CANCELAR] Nao foi possivel determinar o dia da semana de '{}': {}", ag.getAppointmentDate(), e.getMessage());
-                    }
-                    
-                    String apptTime = ag.getAppointmentTime();
-                    String apptDate = ag.getAppointmentDate();
+                    String diaSemana = ag.getAppointmentDate() != null
+                            ? ag.getAppointmentDate().getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"))
+                            : null;
+
+                    String apptTime = AppointmentDates.formatTime(ag.getAppointmentTime());
+                    String apptDate = AppointmentDates.formatDate(ag.getAppointmentDate());
                     String apptService = ag.getService();
                     
                     if (agendaService.cancelarAgendamentoExato(ag)) {
@@ -784,7 +777,7 @@ public class OrchestratorService {
         if (!apps.isEmpty()) {
             StringBuilder sb = new StringBuilder("📅 *Seus Agendamentos:*\n\n");
             for (Appointment ag : apps) {
-                sb.append("🔹 ").append(ag.getService()).append("\nDia: ").append(ag.getAppointmentDate()).append(" às ").append(ag.getAppointmentTime()).append("\n\n");
+                sb.append("🔹 ").append(ag.getService()).append("\nDia: ").append(AppointmentDates.formatDate(ag.getAppointmentDate())).append(" às ").append(AppointmentDates.formatTime(ag.getAppointmentTime())).append("\n\n");
             }
             sb.append("❌ Para desmarcar, digite exatamente:\n*cancelar meu horário*");
             saveAndSend(customer, sb.toString(), phoneNumber);
@@ -811,20 +804,12 @@ public class OrchestratorService {
         
         if (apps.size() == 1) {
             Appointment ag = apps.get(0);
-            String diaSemana = null;
-            try {
-                String[] parts = ag.getAppointmentDate().split("/");
-                int day = Integer.parseInt(parts[0].trim());
-                int month = Integer.parseInt(parts[1].trim());
-                int year = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).getYear();
-                java.time.LocalDate dateObj = java.time.LocalDate.of(year, month, day);
-                diaSemana = dateObj.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
-            } catch (Exception e) {
-                log.debug("[CANCELAR] Nao foi possivel determinar o dia da semana de '{}': {}", ag.getAppointmentDate(), e.getMessage());
-            }
+            String diaSemana = ag.getAppointmentDate() != null
+                    ? ag.getAppointmentDate().getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"))
+                    : null;
 
-            String apptTime = ag.getAppointmentTime();
-            String apptDate = ag.getAppointmentDate();
+            String apptTime = AppointmentDates.formatTime(ag.getAppointmentTime());
+            String apptDate = AppointmentDates.formatDate(ag.getAppointmentDate());
             String apptService = ag.getService();
 
             if (agendaService.cancelarAgendamentoExato(ag)) {
@@ -839,7 +824,7 @@ public class OrchestratorService {
             customerCancelOptions.put(phoneNumber, apps);
             StringBuilder sb = new StringBuilder("Você tem mais de um agendamento ativo. Qual deles deseja cancelar?\n\n");
             for (int i = 0; i < apps.size(); i++) {
-                sb.append("*").append(i + 1).append("* - ").append(apps.get(i).getAppointmentDate()).append(" às ").append(apps.get(i).getAppointmentTime()).append("\n");
+                sb.append("*").append(i + 1).append("* - ").append(AppointmentDates.formatDate(apps.get(i).getAppointmentDate())).append(" às ").append(AppointmentDates.formatTime(apps.get(i).getAppointmentTime())).append("\n");
             }
             sb.append("\nDigite o *NÚMERO* do agendamento que deseja cancelar (ou *0* para sair).");
             saveAndSend(customer, sb.toString(), phoneNumber);
@@ -883,8 +868,21 @@ public class OrchestratorService {
 
         log.info("[IA] Tag de agendamento identificada! Cliente: {}, Data: {}, Hora: {}, Servico: {}", name, date, time, service);
 
+        java.time.LocalDate parsedDate;
+        java.time.LocalTime parsedTime;
+        try {
+            parsedDate = AppointmentDates.parseDate(date);
+            parsedTime = AppointmentDates.parseTime(time);
+        } catch (Exception e) {
+            parsedDate = null;
+            parsedTime = null;
+        }
+        final java.time.LocalDate naDate = parsedDate;
+        final java.time.LocalTime naTime = parsedTime;
+
         List<Appointment> apps = agendaService.getAgendamentosClienteList(phoneNumber);
-        boolean isDuplicado = apps.stream().anyMatch(a -> a.getAppointmentDate().equals(date) && a.getAppointmentTime().equals(time));
+        boolean isDuplicado = naDate != null && naTime != null && apps.stream()
+                .anyMatch(a -> naDate.equals(a.getAppointmentDate()) && naTime.equals(a.getAppointmentTime()));
 
         if (isDuplicado) {
             log.info("[AGENDA] Ignorando tag duplicada gerada pela IA, pois o cliente ja possui este agendamento exato.");

@@ -5,7 +5,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "appointments")
@@ -25,11 +27,11 @@ public class Appointment {
     @Column(name = "customer_name")
     private String customerName;
 
-    @Column(name = "appointment_date", nullable = false)
-    private String appointmentDate; // DD/MM
+    @Column(name = "appointment_date")
+    private LocalDate appointmentDate;
 
-    @Column(name = "appointment_time", nullable = false)
-    private String appointmentTime; // HH:mm
+    @Column(name = "appointment_time")
+    private LocalTime appointmentTime;
 
     @Column(name = "service")
     private String service;
