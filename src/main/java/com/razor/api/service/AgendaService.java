@@ -313,7 +313,9 @@ public class AgendaService {
                         return true;
                     }
                 }
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                log.debug("[AGENDA] Falha ao avaliar agendamento ativo: {}", e.getMessage());
+            }
         }
         return false;
     }
@@ -626,7 +628,9 @@ public class AgendaService {
                     
                     porDia.computeIfAbsent(key, k -> new ArrayList<>()).add(ag);
                 }
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                log.debug("[AGENDA SEMANA] Ignorando agendamento com data invalida: {}", e.getMessage());
+            }
         }
         
         if (porDia.isEmpty()) {
@@ -714,7 +718,9 @@ public class AgendaService {
                         pendenteVal += valorServico;
                     }
                 }
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                log.debug("[RESUMO SEMANA] Ignorando agendamento com data invalida: {}", e.getMessage());
+            }
         }
         
         double ticketMedio = totalCortes > 0 ? faturamentoTotal / totalCortes : 0.0;

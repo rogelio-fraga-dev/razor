@@ -196,7 +196,9 @@ public class OrchestratorService {
                 com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(response.body());
                 if (root.has("base64") && !root.get("base64").isNull()) return root.get("base64").asText();
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            log.warn("[MEDIA] Falha ao buscar base64 da midia (messageId={}): {}", messageId, e.getMessage());
+        }
         return null;
     }
 
@@ -544,7 +546,13 @@ public class OrchestratorService {
                 sendMsg(customer.getPhoneNumber(), header + message, "DISPARO");
                 contatosSucesso.add("✅ " + customer.getName());
                 Thread.sleep(3000);
-            } catch (Exception e) {}
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("[DISPARO] Interrompido durante o envio para {}", customer.getPhoneNumber());
+                break;
+            } catch (Exception e) {
+                log.warn("[DISPARO] Falha ao enviar para {}: {}", customer.getPhoneNumber(), e.getMessage());
+            }
         }
         sendMsg(adminPhone, "📊 *Relatório de Disparo*\nTotal alcançado: " + contatosSucesso.size() + "\n\n" + String.join("\n", contatosSucesso), "ADMIN");
     }
@@ -628,7 +636,9 @@ public class OrchestratorService {
                         int year = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).getYear();
                         java.time.LocalDate dateObj = java.time.LocalDate.of(year, month, day);
                         diaSemana = dateObj.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
-                    } catch (Exception e) {}
+                    } catch (Exception e) {
+                        log.debug("[CANCELAR] Nao foi possivel determinar o dia da semana de '{}': {}", ag.getAppointmentDate(), e.getMessage());
+                    }
                     
                     String apptTime = ag.getAppointmentTime();
                     String apptDate = ag.getAppointmentDate();
@@ -808,7 +818,9 @@ public class OrchestratorService {
                 int year = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).getYear();
                 java.time.LocalDate dateObj = java.time.LocalDate.of(year, month, day);
                 diaSemana = dateObj.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                log.debug("[CANCELAR] Nao foi possivel determinar o dia da semana de '{}': {}", ag.getAppointmentDate(), e.getMessage());
+            }
 
             String apptTime = ag.getAppointmentTime();
             String apptDate = ag.getAppointmentDate();
