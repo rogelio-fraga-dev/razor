@@ -33,3 +33,7 @@ ALTER TABLE appointments DROP COLUMN appointment_date;
 ALTER TABLE appointments DROP COLUMN appointment_time;
 ALTER TABLE appointments RENAME COLUMN appointment_date_new TO appointment_date;
 ALTER TABLE appointments RENAME COLUMN appointment_time_new TO appointment_time;
+
+-- (Re)cria o indice de data agora que a coluna e um DATE tipado
+-- (usado por AppointmentRepository.findByAppointmentDate*).
+CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
