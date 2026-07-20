@@ -38,10 +38,12 @@ public class AdminCommandService {
     private final WhatsAppMessenger messenger;
     private final EvolutionMediaService evolutionMediaService;
 
-    private static final Map<String, String> adminStates = new ConcurrentHashMap<>();
-    private static final Map<String, List<String>> adminRetomarOptions = new ConcurrentHashMap<>();
-    private static final Map<String, List<String>> adminApagarOptions = new ConcurrentHashMap<>();
-    private static final Map<String, String> adminScheduledMsg = new ConcurrentHashMap<>();
+    // Estado por-admin (chaveado por telefone). Instancia, nao static: servico singleton
+    // (mesmo comportamento em runtime) e assim cada teste tem estado isolado.
+    private final Map<String, String> adminStates = new ConcurrentHashMap<>();
+    private final Map<String, List<String>> adminRetomarOptions = new ConcurrentHashMap<>();
+    private final Map<String, List<String>> adminApagarOptions = new ConcurrentHashMap<>();
+    private final Map<String, String> adminScheduledMsg = new ConcurrentHashMap<>();
 
     private void sendMsg(String phone, String text, String role) {
         messenger.send(phone, text, role);
