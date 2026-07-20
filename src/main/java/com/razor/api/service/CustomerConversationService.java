@@ -58,10 +58,12 @@ public class CustomerConversationService {
         private String service;
     }
 
-    private static final Map<String, String> customerStates = new ConcurrentHashMap<>();
-    private static final Map<String, LocalDateTime> customerStatesTimestamps = new ConcurrentHashMap<>();
-    private static final Map<String, List<Appointment>> customerCancelOptions = new ConcurrentHashMap<>();
-    private static final Map<String, WaitlistOffer> waitlistOffers = new ConcurrentHashMap<>();
+    // Estado por-cliente (chaveado por telefone). Instancia, nao static: o servico e um
+    // singleton (mesmo comportamento em runtime) e assim cada teste tem estado isolado.
+    private final Map<String, String> customerStates = new ConcurrentHashMap<>();
+    private final Map<String, LocalDateTime> customerStatesTimestamps = new ConcurrentHashMap<>();
+    private final Map<String, List<Appointment>> customerCancelOptions = new ConcurrentHashMap<>();
+    private final Map<String, WaitlistOffer> waitlistOffers = new ConcurrentHashMap<>();
     private final AiTagParser aiTagParser = new AiTagParser();
 
     private void sendMsg(String phone, String text, String role) {
@@ -278,7 +280,10 @@ public class CustomerConversationService {
         // 6. Tratamento das Opções do Menu Numérico e Palavras-chave
         if (msgLower.equals("1") || msgLower.equals("agendar") || msgLower.equals("agendar horario")) {
             contentToSave = "Quero agendar um horário."; // IA assume
-        } else if (msgLower.equals("2") || msgLower.contains("meus agendamentos") || msgLower.contains("meu agendamento") || msgLower.contains("meu horário") || msgLower.contains("meu horario")) {
+        } else if ((msgLower.equals("2") || msgLower.contains("meus agendamentos") || msgLower.contains("meu agendamento") || msgLower.contains("meu horário") || msgLower.contains("meu horario"))
+                && !msgLower.contains("cancelar")) {
+            // Guard: "cancelar meu horário" contem "meu horário"; sem o !contains("cancelar")
+            // a opcao 2 (ver agendamentos) interceptava o comando de cancelamento e ele nunca funcionava.
             trataVisualizarAgendamentos(customer, phoneNumber);
             return;
         } else if (msgLower.equals("3") || msgLower.contains("horarios disponiveis") || msgLower.contains("horários disponíveis")) {
