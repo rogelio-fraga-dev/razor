@@ -13,7 +13,7 @@ import com.razor.api.model.Customer;
 import com.razor.api.model.Interaction;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.InteractionRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.razor.api.util.ConsoleText;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -39,7 +39,8 @@ public class OrchestratorService {
     private final CustomerRepository customerRepository;
     private final InteractionRepository interactionRepository;
     private final OpenAIService openAIService;
-    private final WhatsAppService whatsAppService;
+    private final WhatsAppMessenger messenger;
+    private final EvolutionMediaService evolutionMediaService;
     private final AgendaService agendaService;
     private final RazorProperties properties;
     private final WaitlistRepository waitlistRepository;
@@ -64,7 +65,6 @@ public class OrchestratorService {
     private static final Map<String, List<Appointment>> customerCancelOptions = new ConcurrentHashMap<>();
     private static final Map<String, WaitlistOffer> waitlistOffers = new ConcurrentHashMap<>();
     private static final Map<String, String> adminScheduledMsg = new ConcurrentHashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
     private final AiTagParser aiTagParser = new AiTagParser();
 
     private void setCustomerState(String phone, String state) {
@@ -78,8 +78,7 @@ public class OrchestratorService {
     }
 
     private void sendMsg(String phone, String text, String role) {
-        log.info("[{} OUT] Enviando: '{}'", role, sanitizeForConsole(text.replace("\n", " ")));
-        whatsAppService.sendTextMessage(phone, text);
+        messenger.send(phone, text, role);
     }
 
     @Scheduled(fixedRate = 600000)
@@ -160,11 +159,7 @@ public class OrchestratorService {
     }
 
     private String sanitizeForConsole(String text) {
-        if (text == null) return "";
-        String temp = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD);
-        temp = temp.replaceAll("[\\p{InCombiningDiacriticalMarks}]", "");
-        temp = temp.replaceAll("[^\\p{ASCII}]", "");
-        return temp.trim();
+        return ConsoleText.sanitize(text);
     }
 
     private boolean isAdminNumber(String phoneNumber) {
@@ -178,30 +173,7 @@ public class OrchestratorService {
     }
 
     private String fetchBase64FromEvolution(String messageId) {
-        try {
-            String baseUrl = properties.getEvolution().getBaseUrl();
-            if (baseUrl.endsWith("/")) baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
-            String url = baseUrl + "/chat/getBase64FromMediaMessage/" + properties.getEvolution().getInstanceName();
-            String jsonPayload = String.format("{\"message\":{\"key\":{\"id\":\"%s\"}}}", messageId);
-
-            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                    .uri(java.net.URI.create(url))
-                    .header("Content-Type", "application/json")
-                    .header("apikey", properties.getEvolution().getApiKey())
-                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonPayload))
-                    .build();
-
-            java.net.http.HttpResponse<String> response = java.net.http.HttpClient.newHttpClient()
-                    .send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(response.body());
-                if (root.has("base64") && !root.get("base64").isNull()) return root.get("base64").asText();
-            }
-        } catch (Exception e) {
-            log.warn("[MEDIA] Falha ao buscar base64 da midia (messageId={}): {}", messageId, e.getMessage());
-        }
-        return null;
+        return evolutionMediaService.fetchBase64(messageId);
     }
 
     private boolean isSystemCommand(String text) {
