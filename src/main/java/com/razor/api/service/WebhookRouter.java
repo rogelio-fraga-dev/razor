@@ -3,6 +3,8 @@ package com.razor.api.service;
 import com.razor.api.config.RazorProperties;
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.repository.InteractionRepository;
+import com.razor.api.tenant.TenantContext;
+import com.razor.api.tenant.TenantResolver;
 import com.razor.api.util.PhoneNumbers;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -29,8 +31,10 @@ public class WebhookRouter {
     private final RazorProperties properties;
     private final AdminCommandService adminCommandService;
     private final CustomerConversationService customerConversationService;
+    private final TenantResolver tenantResolver;
 
-    private static final Map<String, LocalDateTime> processedMessageIds = new ConcurrentHashMap<>();
+    // Instancia, nao static: servico singleton (mesmo comportamento) e testes isolados.
+    private final Map<String, LocalDateTime> processedMessageIds = new ConcurrentHashMap<>();
 
     @Scheduled(fixedRate = 600000)
     public void clearProcessedCache() {
@@ -41,6 +45,11 @@ public class WebhookRouter {
     @Async
     public void processWebhook(EvolutionWebhookDTO webhook) {
         try {
+            // Resolve o tenant desta mensagem (por instancia da Evolution) e o mantem
+            // no contexto por toda a thread de processamento. Precisa ser setado AQUI
+            // (thread @Async), nao no controller.
+            TenantContext.set(tenantResolver.resolveByInstance(webhook.getInstance()));
+
             if (shouldIgnoreMessage(webhook)) {
                 log.debug("[IGNORED] Mensagem ignorada (do proprio bot, grupo ou sem numero valido).");
                 return;
@@ -75,6 +84,8 @@ public class WebhookRouter {
             log.info("=======================================================================");
         } catch (Exception e) {
             log.error("[ERRO FATAL ORCHESTRATOR] Falha critica ao processar webhook: {}", e.getMessage(), e);
+        } finally {
+            TenantContext.clear();
         }
     }
 
