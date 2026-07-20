@@ -6,6 +6,7 @@ import com.razor.api.config.RazorProperties;
 import com.razor.api.util.PhoneNumbers;
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.model.Appointment;
+import com.razor.api.model.PaymentStatus;
 import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.model.Customer;
 import com.razor.api.model.Interaction;
@@ -688,7 +689,7 @@ public class OrchestratorService {
                 clearCustomerState(phoneNumber);
                 // Sem apagar o histórico! Correção do Bug 1
                 if (ag != null) {
-                    ag.setPaymentStatus("PIX");
+                    ag.setPaymentStatus(PaymentStatus.PIX);
                     appointmentRepository.save(ag);
                 }
                 String pixMsg = "🔑 *CHAVE PIX (CNPJ):* `12.345.678/0001-90`\n\n" +
@@ -704,7 +705,7 @@ public class OrchestratorService {
             if (msgLower.equals("2") || msgLower.contains("presencial")) {
                 clearCustomerState(phoneNumber);
                 if (ag != null) {
-                    ag.setPaymentStatus("PRESENCIAL");
+                    ag.setPaymentStatus(PaymentStatus.PRESENCIAL);
                     appointmentRepository.save(ag);
                 }
                 saveAndSend(customer, "Perfeito! Seu agendamento está confirmado para *pagamento presencial* direto no caixa da barbearia. Te esperamos lá! 💈👊\n\n_Para voltar ao início ou ver outras opções, digite *Menu*._", phoneNumber);
@@ -715,7 +716,7 @@ public class OrchestratorService {
             // Assumimos Presencial por padrão e removemos a trava para ele não ficar preso!
             clearCustomerState(phoneNumber);
             if (ag != null) {
-                ag.setPaymentStatus("PRESENCIAL");
+                ag.setPaymentStatus(PaymentStatus.PRESENCIAL);
                 appointmentRepository.save(ag);
             }
             saveAndSend(customer, "Tudo certo! Confirmamos seu pagamento como *presencial* direto no caixa. Muito obrigado! 💈👊", phoneNumber);

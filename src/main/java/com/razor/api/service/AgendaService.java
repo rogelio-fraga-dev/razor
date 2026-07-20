@@ -2,6 +2,7 @@ package com.razor.api.service;
 
 import com.razor.api.config.RazorProperties;
 import com.razor.api.model.Appointment;
+import com.razor.api.model.PaymentStatus;
 import com.razor.api.model.ScheduledTask;
 import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.repository.ScheduledTaskRepository;
@@ -73,7 +74,7 @@ public class AgendaService {
                         .appointmentTime(leg.getTime())
                         .appointmentDate(leg.getDate())
                         .service(leg.getService())
-                        .paymentStatus(leg.getPaymentStatus())
+                        .paymentStatus(PaymentStatus.fromString(leg.getPaymentStatus()))
                         .notified(leg.isNotified())
                         .thanked(leg.isThanked())
                         .build();
@@ -177,7 +178,7 @@ public class AgendaService {
             .appointmentDate(date)
             .appointmentTime(time)
             .service(service)
-            .paymentStatus("PENDENTE")
+            .paymentStatus(PaymentStatus.PENDENTE)
             .build();
         appointmentRepository.save(app);
         
@@ -456,7 +457,7 @@ public class AgendaService {
                             .appointmentTime(time)
                             .appointmentDate(date)
                             .service(service)
-                            .paymentStatus("PENDENTE")
+                            .paymentStatus(PaymentStatus.PENDENTE)
                             .build();
                         
                         appointmentRepository.save(app);
@@ -515,11 +516,11 @@ public class AgendaService {
                 
                 faturamentoTotal += valorServico;
                 
-                String status = ag.getPaymentStatus();
-                if ("PIX".equalsIgnoreCase(status)) {
+                PaymentStatus status = ag.getPaymentStatus();
+                if (status == PaymentStatus.PIX) {
                     pixCount++;
                     pixVal += valorServico;
-                } else if ("PRESENCIAL".equalsIgnoreCase(status)) {
+                } else if (status == PaymentStatus.PRESENCIAL) {
                     presencialCount++;
                     presencialVal += valorServico;
                 } else {
@@ -580,8 +581,8 @@ public class AgendaService {
         List<String> list = new ArrayList<>();
         for (Appointment ag : agendaHoje) {
             String badge = "";
-            if ("PIX".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🟢 [PIX]";
-            else if ("PRESENCIAL".equalsIgnoreCase(ag.getPaymentStatus())) badge = " 🔵 [Local]";
+            if (ag.getPaymentStatus() == PaymentStatus.PIX) badge = " 🟢 [PIX]";
+            else if (ag.getPaymentStatus() == PaymentStatus.PRESENCIAL) badge = " 🔵 [Local]";
             else badge = " 🟡 [Pend]";
             
             list.add(String.format("⏰ *%s* | %s (%s)%s", ag.getAppointmentTime(), ag.getCustomerName(), ag.getService(), badge));
@@ -651,8 +652,8 @@ public class AgendaService {
             
             for (Appointment ag : appsDia) {
                 String badge = "";
-                if ("PIX".equalsIgnoreCase(ag.getPaymentStatus())) badge = " [PIX]";
-                else if ("PRESENCIAL".equalsIgnoreCase(ag.getPaymentStatus())) badge = " [Local]";
+                if (ag.getPaymentStatus() == PaymentStatus.PIX) badge = " [PIX]";
+                else if (ag.getPaymentStatus() == PaymentStatus.PRESENCIAL) badge = " [Local]";
                 else badge = " [Pend]";
                 sb.append("  ⏰ ").append(ag.getAppointmentTime()).append(" | ").append(ag.getCustomerName()).append(" (").append(ag.getService()).append(")").append(badge).append("\n");
             }
@@ -706,11 +707,11 @@ public class AgendaService {
                     
                     faturamentoTotal += valorServico;
                     
-                    String status = ag.getPaymentStatus();
-                    if ("PIX".equalsIgnoreCase(status)) {
+                    PaymentStatus status = ag.getPaymentStatus();
+                    if (status == PaymentStatus.PIX) {
                         pixCount++;
                         pixVal += valorServico;
-                    } else if ("PRESENCIAL".equalsIgnoreCase(status)) {
+                    } else if (status == PaymentStatus.PRESENCIAL) {
                         presencialCount++;
                         presencialVal += valorServico;
                     } else {

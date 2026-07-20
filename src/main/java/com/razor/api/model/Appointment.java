@@ -34,9 +34,10 @@ public class Appointment {
     @Column(name = "service")
     private String service;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "payment_status")
     @Builder.Default
-    private String paymentStatus = "PENDENTE";
+    private PaymentStatus paymentStatus = PaymentStatus.PENDENTE;
 
     @Column(name = "notified")
     @Builder.Default
