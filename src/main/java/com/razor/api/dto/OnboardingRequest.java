@@ -1,0 +1,32 @@
+package com.razor.api.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import java.util.List;
+
+/**
+ * Payload de provisionamento de uma nova barbearia (tenant) no onboarding self-service.
+ *
+ * @param name             nome da barbearia (obrigatorio)
+ * @param slug             identificador para URL, unico (minusculas, numeros e hifen)
+ * @param whatsappInstance nome da instancia da Evolution do tenant (opcional; recomendado
+ *                         para o roteamento de saida — sem ele o tenant usa a instancia do config)
+ * @param professionalName nome do barbeiro padrao criado no provisionamento (opcional)
+ * @param adminPhones      telefones administrativos do tenant (ao menos um)
+ */
+public record OnboardingRequest(
+        @NotBlank String name,
+
+        @NotBlank
+        @Pattern(regexp = "^[a-z0-9-]+$", message = "slug deve conter apenas letras minusculas, numeros e hifen")
+        @Size(max = 120)
+        String slug,
+
+        @Size(max = 120) String whatsappInstance,
+
+        @Size(max = 255) String professionalName,
+
+        @NotEmpty List<@NotBlank String> adminPhones) {
+}

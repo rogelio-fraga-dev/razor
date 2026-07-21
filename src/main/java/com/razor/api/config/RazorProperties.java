@@ -14,10 +14,20 @@ public class RazorProperties {
     private Schedule schedule = new Schedule();
     /** Textos e links do menu (opcional; se vazio usamos valores padrão no código) */
     private Menu menu = new Menu();
+    private Onboarding onboarding = new Onboarding();
 
     @Data
     public static class Admin {
         private java.util.List<String> phones = new java.util.ArrayList<>();
+    }
+
+    @Data
+    public static class Onboarding {
+        /**
+         * Chave exigida no header do endpoint de provisionamento de tenants. Vazio (padrao)
+         * desabilita o onboarding (fail-closed): o endpoint rejeita qualquer requisicao.
+         */
+        private String apiKey = "";
     }
 
     @Data

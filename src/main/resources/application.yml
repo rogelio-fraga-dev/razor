@@ -33,6 +33,10 @@ razor:
     base-url: "http://localhost:8080"
     instance-name: "BarberBotOficial"
     api-key: "${EVOLUTION_API_KEY:barberbot}"
+  onboarding:
+    # Vazio por padrão = onboarding desabilitado (fail-closed). Defina ONBOARDING_API_KEY
+    # no ambiente para habilitar o provisionamento de novas barbearias.
+    api-key: "${ONBOARDING_API_KEY:}"
   openai:
     api-key: "${OPENAI_API_KEY}"
     model: "gpt-4o"

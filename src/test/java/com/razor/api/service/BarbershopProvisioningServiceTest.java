@@ -1,0 +1,118 @@
+package com.razor.api.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.razor.api.dto.OnboardingRequest;
+import com.razor.api.model.Barbershop;
+import com.razor.api.repository.BarbershopRepository;
+import com.razor.api.tenant.TenantContext;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
+/**
+ * Testes do {@link BarbershopProvisioningService}: cria o tenant, semeia catalogo/barbeiro/admins
+ * no contexto do tenant recem-criado e rejeita conflitos de unicidade — tudo com mocks.
+ */
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class BarbershopProvisioningServiceTest {
+
+    @Mock private BarbershopRepository barbershopRepository;
+    @Mock private ServiceCatalogService serviceCatalogService;
+    @Mock private ProfessionalService professionalService;
+    @Mock private TenantAdminService tenantAdminService;
+
+    @InjectMocks private BarbershopProvisioningService service;
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
+    }
+
+    private OnboardingRequest request(String slug, String instance, String prof, List<String> admins) {
+        return new OnboardingRequest("Barbearia Nova", slug, instance, prof, admins);
+    }
+
+    private void givenSaveAssignsId() {
+        when(barbershopRepository.save(any())).thenAnswer(inv -> {
+            Barbershop b = inv.getArgument(0);
+            b.setId(UUID.randomUUID());
+            return b;
+        });
+    }
+
+    @Test
+    @DisplayName("provisiona: cria a barbearia, semeia 3 serviços, 1 barbeiro e os admins informados")
+    void provision_createsShopSeedsAndAdmins() {
+        when(barbershopRepository.findBySlug("loja-2")).thenReturn(Optional.empty());
+        when(barbershopRepository.findByWhatsappInstance("loja2-wa")).thenReturn(Optional.empty());
+        givenSaveAssignsId();
+
+        Barbershop shop = service.provision(
+                request("loja-2", "loja2-wa", "Rafael", List.of("5521970001111", "5521970002222")));
+
+        assertThat(shop.getId()).isNotNull();
+        assertThat(shop.getSlug()).isEqualTo("loja-2");
+        assertThat(shop.getWhatsappInstance()).isEqualTo("loja2-wa");
+        verify(serviceCatalogService, times(3)).create(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(professionalService).create(eq("Rafael"), isNull());
+        verify(tenantAdminService).add(eq("5521970001111"), isNull());
+        verify(tenantAdminService).add(eq("5521970002222"), isNull());
+        assertThat(TenantContext.isSet()).isFalse(); // contexto limpo ao final
+    }
+
+    @Test
+    @DisplayName("sem nome de profissional usa 'Barbeiro' como padrão")
+    void provision_defaultProfessionalName() {
+        when(barbershopRepository.findBySlug(any())).thenReturn(Optional.empty());
+        givenSaveAssignsId();
+
+        service.provision(request("loja-3", null, "  ", List.of("5521970003333")));
+
+        verify(professionalService).create(eq("Barbeiro"), isNull());
+    }
+
+    @Test
+    @DisplayName("slug já existente é rejeitado (409) e nada é provisionado")
+    void provision_duplicateSlug_throws() {
+        when(barbershopRepository.findBySlug("loja-2"))
+                .thenReturn(Optional.of(Barbershop.builder().id(UUID.randomUUID()).build()));
+
+        assertThatThrownBy(() -> service.provision(request("loja-2", "x", "Rafael", List.of("5521970001111"))))
+                .isInstanceOf(OnboardingConflictException.class)
+                .hasMessageContaining("slug");
+        verify(barbershopRepository, never()).save(any());
+        verify(serviceCatalogService, never()).create(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("instância de WhatsApp já em uso é rejeitada (409)")
+    void provision_duplicateInstance_throws() {
+        when(barbershopRepository.findBySlug("loja-2")).thenReturn(Optional.empty());
+        when(barbershopRepository.findByWhatsappInstance("loja2-wa"))
+                .thenReturn(Optional.of(Barbershop.builder().id(UUID.randomUUID()).build()));
+
+        assertThatThrownBy(() -> service.provision(request("loja-2", "loja2-wa", "Rafael", List.of("5521970001111"))))
+                .isInstanceOf(OnboardingConflictException.class)
+                .hasMessageContaining("instancia");
+        verify(barbershopRepository, never()).save(any());
+    }
+}
