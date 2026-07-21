@@ -2,18 +2,21 @@ package com.razor.api.scheduler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.razor.api.config.RazorProperties;
+import com.razor.api.model.Barbershop;
 import com.razor.api.model.ScheduledTask;
+import com.razor.api.repository.BarbershopRepository;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.ScheduledTaskRepository;
 import com.razor.api.service.AgendaService;
 import com.razor.api.service.CustomerService;
+import com.razor.api.service.TenantAdminService;
 import com.razor.api.service.WhatsAppService;
 import com.razor.api.tenant.TenantContext;
 import java.time.LocalDateTime;
@@ -46,7 +49,8 @@ class RazorSchedulerTest {
     @Mock private WhatsAppService whatsAppService;
     @Mock private CustomerService customerService;
     @Mock private CustomerRepository customerRepository;
-    @Mock private RazorProperties properties;
+    @Mock private BarbershopRepository barbershopRepository;
+    @Mock private TenantAdminService tenantAdminService;
     @Mock private AgendaService agendaService;
 
     @InjectMocks private RazorScheduler scheduler;
@@ -113,5 +117,32 @@ class RazorSchedulerTest {
 
         verify(whatsAppService, never()).sendTextMessage(eq(PHONE), any());
         assertThat(t.getStatus()).isEqualTo(ScheduledTask.TaskStatus.PENDING);
+    }
+
+    // ---------- relatórios administrativos por tenant ----------
+
+    @Test
+    @DisplayName("relatório matinal roda por tenant ativo, no contexto do tenant, e envia aos admins dele")
+    void dailyReport_perActiveTenant() {
+        UUID shopId = UUID.randomUUID();
+        Barbershop shop = Barbershop.builder().id(shopId).name("Loja X").build();
+        when(barbershopRepository.findByActiveTrue()).thenReturn(List.of(shop));
+        when(customerRepository.countByBarbershopId(shopId)).thenReturn(7L);
+        when(agendaService.getAgendamentosHojeCount()).thenReturn(3);
+        when(agendaService.getAgendaHojeText()).thenReturn("agenda de hoje");
+
+        AtomicReference<UUID> tenantDuring = new AtomicReference<>();
+        when(tenantAdminService.adminPhones()).thenAnswer(inv -> {
+            tenantDuring.set(TenantContext.getCurrent());
+            return List.of("5511000000000");
+        });
+
+        scheduler.sendDailyAdminReport();
+
+        assertThat(tenantDuring.get()).isEqualTo(shopId); // resolvido no contexto do tenant
+        verify(whatsAppService).sendTextMessage(
+                eq("5511000000000"),
+                argThat(m -> m.contains("Loja X") && m.contains("7")));
+        assertThat(TenantContext.isSet()).isFalse(); // limpo ao final
     }
 }

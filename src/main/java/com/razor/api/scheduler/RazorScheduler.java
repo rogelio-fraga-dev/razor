@@ -1,10 +1,12 @@
 package com.razor.api.scheduler;
 
-import com.razor.api.config.RazorProperties;
+import com.razor.api.model.Barbershop;
 import com.razor.api.model.ScheduledTask;
+import com.razor.api.repository.BarbershopRepository;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.ScheduledTaskRepository;
 import com.razor.api.service.CustomerService;
+import com.razor.api.service.TenantAdminService;
 import com.razor.api.service.WhatsAppService;
 import com.razor.api.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
@@ -15,9 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.function.Consumer;
 
 @Slf4j
 @Component
@@ -28,8 +29,27 @@ public class RazorScheduler {
     private final WhatsAppService whatsAppService;
     private final CustomerService customerService;
     private final CustomerRepository customerRepository;
-    private final RazorProperties properties;
+    private final BarbershopRepository barbershopRepository;
+    private final TenantAdminService tenantAdminService;
     private final com.razor.api.service.AgendaService agendaService;
+
+    /**
+     * Executa a acao para cada barbearia ativa com o {@link TenantContext} escopado no tenant e
+     * limpo ao final — base dos relatorios administrativos por tenant. Um erro em um tenant e
+     * logado e nao interrompe os demais.
+     */
+    private void forEachActiveTenant(Consumer<Barbershop> action) {
+        for (Barbershop shop : barbershopRepository.findByActiveTrue()) {
+            try {
+                TenantContext.set(shop.getId());
+                action.accept(shop);
+            } catch (Exception e) {
+                log.error("[SCHEDULER] Erro ao processar o tenant {}: {}", shop.getId(), e.getMessage(), e);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+    }
 
     /**
      * MOTOR DE DISPAROS (Roda a cada 60 segundos)
@@ -106,18 +126,10 @@ public class RazorScheduler {
 
             for (com.razor.api.model.Customer c : customers) {
                 // Cada cliente pertence a uma barbearia: escopa o contexto para que
-                // hasAgendamentoFuturo consulte a agenda do tenant certo.
+                // hasAgendamentoFuturo e o isAdmin consultem o tenant certo.
                 TenantContext.set(c.getBarbershopId());
-                // Ignorar administradores
-                boolean isAdmin = false;
-                for (String admPhone : properties.getAdmin().getPhones()) {
-                    if (c.getPhoneNumber().equals(admPhone)) {
-                        isAdmin = true;
-                        break;
-                    }
-                }
-                
-                if (c.isPaused() || isAdmin) {
+
+                if (c.isPaused() || tenantAdminService.isAdmin(c.getPhoneNumber())) {
                     continue;
                 }
                 
@@ -160,19 +172,12 @@ public class RazorScheduler {
             List<com.razor.api.model.Customer> customers = customerRepository.findAll();
             for (com.razor.api.model.Customer c : customers) {
                 TenantContext.set(c.getBarbershopId());
-                // Ignora pausados, sem interação, ou se for Admin
-                boolean isAdmin = false;
-                for (String admPhone : properties.getAdmin().getPhones()) {
-                    if (c.getPhoneNumber().equals(admPhone)) {
-                        isAdmin = true;
-                        break;
-                    }
-                }
-                
-                if (c.isPaused() || isAdmin) {
+
+                // Ignora pausados ou administradores (do tenant do cliente)
+                if (c.isPaused() || tenantAdminService.isAdmin(c.getPhoneNumber())) {
                     continue;
                 }
-                
+
                 if (!agendaService.hasAgendamentoFuturo(c.getPhoneNumber())) {
                     String first = c.getName() != null ? c.getName().split(" ")[0] : "amigo";
                     String msg = "Fala, " + first + "! Sextou! 🍻💈\n\n" +
@@ -195,31 +200,29 @@ public class RazorScheduler {
      */
     @Scheduled(cron = "0 0 8 * * *", zone = "America/Sao_Paulo")
     public void sendDailyAdminReport() {
-        try {
-            long totalCustomers = customerRepository.count();
+        forEachActiveTenant(shop -> {
+            long totalCustomers = customerRepository.countByBarbershopId(shop.getId());
             int totalHoje = agendaService.getAgendamentosHojeCount();
             String agendaHoje = agendaService.getAgendaHojeText();
-            
+
             String report = String.format("""
                     ☀️ *Bom dia, Administrador!*
-                    
+                    _%s_
+
                     Razor online. 🤖✅
                     Base de Clientes: %d
-                    
-                    📅 *Hoje temos %d agendamento(s):*
-                    
-                    %s
-                    
-                    Tenha um excelente dia de trabalho! 💈
-                    """, totalCustomers, totalHoje, agendaHoje);
 
-            for (String adminPhone : new java.util.HashSet<>(properties.getAdmin().getPhones())) {
+                    📅 *Hoje temos %d agendamento(s):*
+
+                    %s
+
+                    Tenha um excelente dia de trabalho! 💈
+                    """, shop.getName(), totalCustomers, totalHoje, agendaHoje);
+
+            for (String adminPhone : new java.util.HashSet<>(tenantAdminService.adminPhones())) {
                 whatsAppService.sendTextMessage(adminPhone, report);
             }
-            
-        } catch (Exception e) {
-            log.error("Erro ao enviar relatório matinal: {}", e.getMessage());
-        }
+        });
     }
 
     /**
@@ -228,15 +231,13 @@ public class RazorScheduler {
      */
     @Scheduled(cron = "0 0 21 * * *", zone = "America/Sao_Paulo")
     public void sendNightlyAgendaRequest() {
-        try {
+        forEachActiveTenant(shop -> {
             String resumoDetalhado = agendaService.getResumoDetelhadoDoDia();
-            for (String adminPhone : new java.util.HashSet<>(properties.getAdmin().getPhones())) {
+            for (String adminPhone : new java.util.HashSet<>(tenantAdminService.adminPhones())) {
                 whatsAppService.sendTextMessage(adminPhone, resumoDetalhado);
             }
-            log.info("Relatório noturno de serviços enviado para os administradores.");
-        } catch (Exception e) {
-            log.error("Erro ao enviar relatório noturno: {}", e.getMessage());
-        }
+        });
+        log.info("Relatório noturno de serviços enviado para os administradores dos tenants ativos.");
     }
 
     /**
@@ -244,16 +245,14 @@ public class RazorScheduler {
      */
     @Scheduled(cron = "0 0 18 * * SAT", zone = "America/Sao_Paulo")
     public void sendWeeklySummaryReminder() {
-        try {
-            for (String adminPhone : new java.util.HashSet<>(properties.getAdmin().getPhones())) {
-                String msg = "📊 *Fechamento da Semana Disponível!*\n\n" +
-                             "A semana está quase acabando! Você já pode conferir o seu *Resumo Financeiro da Semana* completo.\n\n" +
-                             "Acesse o painel enviando o comando *menu* (opção Admin) e confira o quanto a barbearia faturou essa semana!";
+        String msg = "📊 *Fechamento da Semana Disponível!*\n\n" +
+                     "A semana está quase acabando! Você já pode conferir o seu *Resumo Financeiro da Semana* completo.\n\n" +
+                     "Acesse o painel enviando o comando *menu* (opção Admin) e confira o quanto a barbearia faturou essa semana!";
+        forEachActiveTenant(shop -> {
+            for (String adminPhone : new java.util.HashSet<>(tenantAdminService.adminPhones())) {
                 whatsAppService.sendTextMessage(adminPhone, msg);
             }
-            log.info("Lembrete de Resumo Semanal enviado para os administradores.");
-        } catch (Exception e) {
-            log.error("Erro ao enviar lembrete de Resumo Semanal: {}", e.getMessage());
-        }
+        });
+        log.info("Lembrete de Resumo Semanal enviado para os administradores dos tenants ativos.");
     }
 }
