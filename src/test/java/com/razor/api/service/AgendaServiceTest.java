@@ -53,6 +53,7 @@ class AgendaServiceTest {
     @Mock private RazorProperties properties;
     @Mock private ProfessionalAssignmentService professionalAssignmentService;
     @Mock private com.razor.api.repository.ProfessionalRepository professionalRepository;
+    @Mock private PricingService pricingService;
 
     @InjectMocks private AgendaService service;
 
@@ -232,6 +233,13 @@ class AgendaServiceTest {
                 appt("Combo", PaymentStatus.PIX, hoje, LocalTime.of(9, 0)),
                 appt("Barba", PaymentStatus.PRESENCIAL, hoje, LocalTime.of(10, 0)),
                 appt("Corte", PaymentStatus.PENDENTE, hoje, LocalTime.of(11, 0))));
+        when(pricingService.resolvePrices()).thenReturn(java.util.Map.of(
+                PricingService.ServiceCategory.COMBO, new java.math.BigDecimal("60.00"),
+                PricingService.ServiceCategory.BARBA, new java.math.BigDecimal("30.00"),
+                PricingService.ServiceCategory.SIMPLES, new java.math.BigDecimal("35.00")));
+        when(pricingService.categorize("Combo")).thenReturn(PricingService.ServiceCategory.COMBO);
+        when(pricingService.categorize("Barba")).thenReturn(PricingService.ServiceCategory.BARBA);
+        when(pricingService.categorize("Corte")).thenReturn(PricingService.ServiceCategory.SIMPLES);
 
         String out = service.getResumoFinanceiroDetalhado();
 

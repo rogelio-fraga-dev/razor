@@ -40,6 +40,7 @@ public class AgendaService {
     private final RazorProperties properties;
     private final ProfessionalAssignmentService professionalAssignmentService;
     private final com.razor.api.repository.ProfessionalRepository professionalRepository;
+    private final PricingService pricingService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Classe auxiliar de leitura para manter a migração legada funcionando
@@ -463,14 +464,12 @@ public class AgendaService {
         int totalCortes = 0;
         double faturamentoEstimado = 0.0;
 
+        java.util.Map<PricingService.ServiceCategory, java.math.BigDecimal> precos = pricingService.resolvePrices();
         List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         for (Appointment ag : agendaAtiva) {
             if (hoje.equals(ag.getAppointmentDate())) {
                 totalCortes++;
-                String serv = ag.getService().toLowerCase();
-                if (serv.contains("combo")) faturamentoEstimado += 60.0;
-                else if (serv.contains("barba")) faturamentoEstimado += 30.0;
-                else faturamentoEstimado += 35.0;
+                faturamentoEstimado += precos.get(pricingService.categorize(ag.getService())).doubleValue();
             }
         }
         return String.format("📈 *Fechamento de %s*\n\n✂️ Cortes realizados hoje: %d\n💰 Faturamento estimado: R$ %.2f", dataHoje, totalCortes, faturamentoEstimado);
@@ -572,21 +571,18 @@ public class AgendaService {
         int presencialCount = 0;
         int pendenteCount = 0;
 
+        java.util.Map<PricingService.ServiceCategory, java.math.BigDecimal> precos = pricingService.resolvePrices();
         List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         for (Appointment ag : agendaAtiva) {
             if (hoje.equals(ag.getAppointmentDate())) {
                 totalCortes++;
-                String serv = ag.getService().toLowerCase();
-                double valorServico = 35.0; // Padrão
+                PricingService.ServiceCategory categoria = pricingService.categorize(ag.getService());
+                double valorServico = precos.get(categoria).doubleValue();
 
-                if (serv.contains("combo")) {
-                    valorServico = 60.0;
-                    totalCombo++;
-                } else if (serv.contains("barba")) {
-                    valorServico = 30.0;
-                    totalBarba++;
-                } else {
-                    totalSimples++;
+                switch (categoria) {
+                    case COMBO -> totalCombo++;
+                    case BARBA -> totalBarba++;
+                    case SIMPLES -> totalSimples++;
                 }
 
                 faturamentoTotal += valorServico;
@@ -737,6 +733,7 @@ public class AgendaService {
         int presencialCount = 0;
         int pendenteCount = 0;
 
+        java.util.Map<PricingService.ServiceCategory, java.math.BigDecimal> precos = pricingService.resolvePrices();
         List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         for (Appointment ag : agendaAtiva) {
             LocalDate agDate = ag.getAppointmentDate();
@@ -745,17 +742,13 @@ public class AgendaService {
             // Só conta até "hoje" na semana atual!
             if (!agDate.isBefore(inicioSemana) && !agDate.isAfter(hoje)) {
                 totalCortes++;
-                String serv = ag.getService().toLowerCase();
-                double valorServico = 35.0; // Padrão
+                PricingService.ServiceCategory categoria = pricingService.categorize(ag.getService());
+                double valorServico = precos.get(categoria).doubleValue();
 
-                if (serv.contains("combo")) {
-                    valorServico = 60.0;
-                    totalCombo++;
-                } else if (serv.contains("barba")) {
-                    valorServico = 30.0;
-                    totalBarba++;
-                } else {
-                    totalSimples++;
+                switch (categoria) {
+                    case COMBO -> totalCombo++;
+                    case BARBA -> totalBarba++;
+                    case SIMPLES -> totalSimples++;
                 }
 
                 faturamentoTotal += valorServico;
