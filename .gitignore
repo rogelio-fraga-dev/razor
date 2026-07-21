@@ -3,6 +3,9 @@
 
 # Log files
 *.log
+logs/
+logs_*.txt
+*_log.txt
 
 # Package Files
 *.jar
