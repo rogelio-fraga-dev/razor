@@ -1,11 +1,14 @@
 version: 2
 updates:
   # Dependencias Maven (Java)
+  # open-pull-requests-limit: 0 desliga os bumps de VERSAO de rotina (evita o acumulo de
+  # PRs/branches). Atualizacoes de SEGURANCA nao sao afetadas por esse limite: o GitHub
+  # ainda abre PRs para CVEs. Para retomar os bumps de rotina, suba o limite (ex.: 5).
   - package-ecosystem: maven
     directory: "/"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     labels:
       - dependencies
     commit-message:
@@ -16,6 +19,7 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     labels:
       - dependencies
       - ci
