@@ -153,14 +153,16 @@ assinaturas) sem sair do Razor.
 >   base, ver a agenda do dia, pausar/retomar cliente. Leve e operacional; **não** é onde se
 >   configura.
 
-- [ ] **Autenticação e papéis** — login do admin do tenant, com o `TenantContext` vindo da
-      **sessão web** (não da instância de WhatsApp). Papéis: dono, recepção, barbeiro.
-      _(Pré-requisito de tudo abaixo — hoje o sistema não tem autenticação.)_
-- [ ] **API web (REST)** reutilizando os serviços já existentes (todos tenant-scoped):
-      config de serviços, profissionais/comissões, admins, textos/planos do bot e perfil da
-      barbearia; e relatórios (financeiro, agenda, comissões).
-- [ ] **Painel web de gestão** do tenant: agenda multiprofissional, financeiro, comissões,
-      assinaturas, clientes, e **toda a configuração** da barbearia e do bot.
+- [x] **Autenticação e papéis** — login do admin do tenant (Spring Security + JWT), com o
+      `TenantContext` vindo da **sessão web** (não da instância de WhatsApp). Papéis: OWNER/
+      RECEPTION/BARBER. Onboarding cria o usuário OWNER. `POST /api/auth/login` → JWT.
+- [x] **API web (REST)** reutilizando os serviços tenant-scoped: **config** de serviços
+      (`/api/admin/services`), profissionais/comissões (`/api/admin/professionals`), admins
+      (`/api/admin/admins`) e perfil da barbearia (`/api/admin/barbershop`); **relatórios**
+      (`/api/admin/reports/{commissions,financial,agenda}`, JSON estruturado).
+      _(Falta: textos/planos do bot — hoje ainda em config; migrar para o tenant/DB.)_
+- [ ] **SPA React** (painel web) consumindo a API: agenda, financeiro, comissões, clientes e
+      **toda a configuração** da barbearia e do bot. _(Projeto de frontend separado.)_
 - [ ] Site/landing **white-label** por barbearia (marca, serviços, endereço, avaliações).
 - [ ] Página de **agendamento online** (link próprio) na mesma agenda do bot.
 
