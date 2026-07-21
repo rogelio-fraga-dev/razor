@@ -52,8 +52,13 @@ class AgendaServiceTest {
     @Mock private AppointmentRepository appointmentRepository;
     @Mock private RazorProperties properties;
     @Mock private ProfessionalAssignmentService professionalAssignmentService;
+    @Mock private com.razor.api.repository.ProfessionalRepository professionalRepository;
 
     @InjectMocks private AgendaService service;
+
+    private com.razor.api.model.Professional prof() {
+        return com.razor.api.model.Professional.builder().id(UUID.randomUUID()).active(true).build();
+    }
 
     private Appointment appt(String service, PaymentStatus status, LocalDate date, LocalTime time) {
         return Appointment.builder()
@@ -76,10 +81,11 @@ class AgendaServiceTest {
     }
 
     @Test
-    @DisplayName("horários ocupados são agrupados por data")
+    @DisplayName("com 1 cadeira, cada horário ocupado é indisponível (agrupado por data)")
     void horariosOcupados_groupedByDate() {
         LocalDate d1 = LocalDate.of(2026, 12, 20);
         LocalDate d2 = LocalDate.of(2026, 12, 21);
+        when(professionalRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(prof())); // capacidade 1
         when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
                 appt("Corte", PaymentStatus.PENDENTE, d1, LocalTime.of(10, 0)),
                 appt("Corte", PaymentStatus.PENDENTE, d1, LocalTime.of(11, 0)),
@@ -88,6 +94,23 @@ class AgendaServiceTest {
         String out = service.getHorariosOcupadosParaIA();
 
         assertThat(out).contains("20/12").contains("10:00").contains("11:00").contains("21/12").contains("14:00");
+    }
+
+    @Test
+    @DisplayName("multiprofissional: horário só é indisponível quando TODAS as cadeiras estão ocupadas")
+    void horariosOcupados_onlyFullWhenAllChairsBusy() {
+        LocalDate dia = LocalDate.of(2026, 12, 20);
+        when(professionalRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(prof(), prof())); // capacidade 2
+        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
+                // 10:00 tem 1 agendamento (ainda há cadeira livre) -> disponível
+                appt("Corte", PaymentStatus.PENDENTE, dia, LocalTime.of(10, 0)),
+                // 11:00 tem 2 agendamentos (ambas as cadeiras) -> indisponível
+                appt("Corte", PaymentStatus.PENDENTE, dia, LocalTime.of(11, 0)),
+                appt("Barba", PaymentStatus.PENDENTE, dia, LocalTime.of(11, 0))));
+
+        String out = service.getHorariosOcupadosParaIA();
+
+        assertThat(out).contains("11:00").doesNotContain("10:00");
     }
 
     @Test

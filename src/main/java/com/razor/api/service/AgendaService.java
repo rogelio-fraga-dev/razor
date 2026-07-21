@@ -39,6 +39,7 @@ public class AgendaService {
     private final AppointmentRepository appointmentRepository;
     private final RazorProperties properties;
     private final ProfessionalAssignmentService professionalAssignmentService;
+    private final com.razor.api.repository.ProfessionalRepository professionalRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Classe auxiliar de leitura para manter a migração legada funcionando
@@ -243,19 +244,36 @@ public class AgendaService {
     }
 
     public String getHorariosOcupadosParaIA() {
-        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
+        java.util.UUID shop = TenantContext.getCurrent();
+        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(shop);
         if (agendaAtiva.isEmpty()) return "Agenda totalmente livre. Todos os horários estão disponíveis.";
-        // Agrupa por data para clareza da IA e evitar falsos positivos entre dias diferentes
-        java.util.Map<String, List<String>> porData = new java.util.LinkedHashMap<>();
+
+        // Capacidade = nº de barbeiros ativos (cadeiras). Na agenda multiprofissional um
+        // horário só fica INDISPONÍVEL quando TODAS as cadeiras estão ocupadas nele.
+        int capacidade = Math.max(1, professionalRepository.findByBarbershopIdAndActiveTrue(shop).size());
+
+        // Conta agendamentos por (data, hora); TreeMap ordena os horários (HH:mm).
+        java.util.Map<String, java.util.Map<String, Integer>> porDataHora = new java.util.LinkedHashMap<>();
         for (Appointment ag : agendaAtiva) {
             if (ag.getAppointmentDate() == null || ag.getAppointmentTime() == null) continue;
-            porData.computeIfAbsent(AppointmentDates.formatDate(ag.getAppointmentDate()), k -> new ArrayList<>())
-                    .add(AppointmentDates.formatTime(ag.getAppointmentTime()));
+            String d = AppointmentDates.formatDate(ag.getAppointmentDate());
+            String h = AppointmentDates.formatTime(ag.getAppointmentTime());
+            porDataHora.computeIfAbsent(d, k -> new java.util.TreeMap<>()).merge(h, 1, Integer::sum);
         }
-        StringBuilder sb = new StringBuilder("Horários INDISPONÍVEIS por data:\n");
-        for (java.util.Map.Entry<String, List<String>> entry : porData.entrySet()) {
-            sb.append("  - ").append(entry.getKey()).append(": ").append(String.join(", ", entry.getValue())).append("\n");
+
+        StringBuilder sb = new StringBuilder("Horários INDISPONÍVEIS por data (todas as " + capacidade + " cadeiras ocupadas):\n");
+        boolean algum = false;
+        for (java.util.Map.Entry<String, java.util.Map<String, Integer>> entry : porDataHora.entrySet()) {
+            List<String> cheios = new ArrayList<>();
+            for (java.util.Map.Entry<String, Integer> he : entry.getValue().entrySet()) {
+                if (he.getValue() >= capacidade) cheios.add(he.getKey());
+            }
+            if (!cheios.isEmpty()) {
+                algum = true;
+                sb.append("  - ").append(entry.getKey()).append(": ").append(String.join(", ", cheios)).append("\n");
+            }
         }
+        if (!algum) return "Agenda totalmente livre. Todos os horários estão disponíveis.";
         return sb.toString().trim();
     }
 
