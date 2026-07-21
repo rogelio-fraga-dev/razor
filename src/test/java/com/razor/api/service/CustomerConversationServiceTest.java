@@ -56,6 +56,7 @@ class CustomerConversationServiceTest {
     @Mock private WhatsAppMessenger messenger;
     @Mock private EvolutionMediaService evolutionMediaService;
     @Mock private ProfessionalService professionalService;
+    @Mock private TenantAdminService tenantAdminService;
 
     @InjectMocks private CustomerConversationService service;
 
@@ -207,9 +208,7 @@ class CustomerConversationServiceTest {
     @DisplayName("opcao 8 pede o motivo e, na resposta, pausa o bot e avisa o admin")
     void atendente_setsMotivoState_thenNotifiesAdmin() {
         givenExistingCustomer();
-        RazorProperties.Admin admin = new RazorProperties.Admin();
-        admin.setPhones(List.of("5511000000000"));
-        when(properties.getAdmin()).thenReturn(admin);
+        when(tenantAdminService.adminPhones()).thenReturn(List.of("5511000000000"));
 
         // 1a mensagem: pede o motivo
         service.processCustomerMessage(textWebhook("8"), PHONE);

@@ -41,6 +41,7 @@ public class AgendaService {
     private final ProfessionalAssignmentService professionalAssignmentService;
     private final com.razor.api.repository.ProfessionalRepository professionalRepository;
     private final PricingService pricingService;
+    private final TenantAdminService tenantAdminService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Classe auxiliar de leitura para manter a migração legada funcionando
@@ -437,14 +438,7 @@ public class AgendaService {
     public void agendarDisparoMassa(String msg, LocalDateTime execTime) {
         List<com.razor.api.model.Customer> customers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
         for (com.razor.api.model.Customer c : customers) {
-            boolean isAdmin = false;
-            for (String admPhone : properties.getAdmin().getPhones()) {
-                if (c.getPhoneNumber().equals(admPhone)) {
-                    isAdmin = true;
-                    break;
-                }
-            }
-            if (isAdmin) continue;
+            if (tenantAdminService.isAdmin(c.getPhoneNumber())) continue;
             ScheduledTask task = ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
                     .customerPhone(c.getPhoneNumber())
                     .executionTime(execTime)

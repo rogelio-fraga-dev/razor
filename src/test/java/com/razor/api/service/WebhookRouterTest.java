@@ -8,12 +8,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.razor.api.config.RazorProperties;
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.repository.InteractionRepository;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.tenant.TenantResolver;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -40,10 +38,10 @@ class WebhookRouterTest {
 
     @Mock private CustomerService customerService;
     @Mock private InteractionRepository interactionRepository;
-    @Mock private RazorProperties properties;
     @Mock private AdminCommandService adminCommandService;
     @Mock private CustomerConversationService customerConversationService;
     @Mock private TenantResolver tenantResolver;
+    @Mock private TenantAdminService tenantAdminService;
 
     @InjectMocks private WebhookRouter router;
 
@@ -67,19 +65,13 @@ class WebhookRouterTest {
         return w;
     }
 
-    private void adminPhones(String... phones) {
-        RazorProperties.Admin admin = new RazorProperties.Admin();
-        admin.setPhones(List.of(phones));
-        when(properties.getAdmin()).thenReturn(admin);
-    }
-
     @Test
     @DisplayName("mensagem de cliente vai para o CustomerConversationService com o tenant resolvido")
     void customerMessage_routesWithTenant() {
         UUID shopId = UUID.randomUUID();
         when(tenantResolver.resolveByInstance("inst")).thenReturn(shopId);
         when(interactionRepository.existsByMessageId("m1")).thenReturn(false);
-        adminPhones(); // nenhum admin
+        when(tenantAdminService.isAdmin(CLIENTE)).thenReturn(false); // nao e admin
         when(customerService.isCustomerPaused(CLIENTE)).thenReturn(false);
 
         AtomicReference<UUID> tenantDuring = new AtomicReference<>();
@@ -102,7 +94,7 @@ class WebhookRouterTest {
         String adminPhone = "5511988887777";
         when(tenantResolver.resolveByInstance(any())).thenReturn(TenantContext.DEFAULT_BARBERSHOP_ID);
         when(interactionRepository.existsByMessageId("m2")).thenReturn(false);
-        adminPhones(adminPhone);
+        when(tenantAdminService.isAdmin(adminPhone)).thenReturn(true);
 
         router.processWebhook(webhook("inst", adminPhone, "m2"));
 

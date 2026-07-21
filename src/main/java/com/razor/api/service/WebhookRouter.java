@@ -1,11 +1,9 @@
 package com.razor.api.service;
 
-import com.razor.api.config.RazorProperties;
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.repository.InteractionRepository;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.tenant.TenantResolver;
-import com.razor.api.util.PhoneNumbers;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,10 +26,10 @@ public class WebhookRouter {
 
     private final CustomerService customerService;
     private final InteractionRepository interactionRepository;
-    private final RazorProperties properties;
     private final AdminCommandService adminCommandService;
     private final CustomerConversationService customerConversationService;
     private final TenantResolver tenantResolver;
+    private final TenantAdminService tenantAdminService;
 
     // Instancia, nao static: servico singleton (mesmo comportamento) e testes isolados.
     private final Map<String, LocalDateTime> processedMessageIds = new ConcurrentHashMap<>();
@@ -69,7 +67,7 @@ public class WebhookRouter {
             log.info("=======================================================================");
             log.info("[RECEBIDO] Nova mensagem de: {} ({}) | Tipo: {}", pushName, phoneNumber, msgType);
 
-            if (isAdminNumber(phoneNumber)) {
+            if (tenantAdminService.isAdmin(phoneNumber)) {
                 log.info("[SISTEMA] Remetente identificado como ADMINISTRADOR.");
                 adminCommandService.processAdminMessage(webhook, phoneNumber);
             } else {
@@ -104,17 +102,4 @@ public class WebhookRouter {
         return false;
     }
 
-    private String normalizeBrazilianNumber(String rawNumber) {
-        return PhoneNumbers.normalizeBrazilian(rawNumber);
-    }
-
-    private boolean isAdminNumber(String phoneNumber) {
-        String phoneNormalized = normalizeBrazilianNumber(phoneNumber);
-        for (String adminPhone : properties.getAdmin().getPhones()) {
-            if (normalizeBrazilianNumber(adminPhone).equals(phoneNormalized)) {
-                return true;
-            }
-        }
-        return false;
-    }
 }

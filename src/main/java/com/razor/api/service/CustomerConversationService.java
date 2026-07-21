@@ -49,6 +49,7 @@ public class CustomerConversationService {
     private final WhatsAppMessenger messenger;
     private final EvolutionMediaService evolutionMediaService;
     private final ProfessionalService professionalService;
+    private final TenantAdminService tenantAdminService;
 
     @lombok.Data
     @lombok.AllArgsConstructor
@@ -159,7 +160,7 @@ public class CustomerConversationService {
         if ("ESPERANDO_MOTIVO".equals(cState)) {
             clearCustomerState(phoneNumber);
             customerService.pauseCustomer(phoneNumber, 15);
-            for (String adm : properties.getAdmin().getPhones()) {
+            for (String adm : tenantAdminService.adminPhones()) {
                 sendMsg(adm, "🚨 *ATENDIMENTO*\n👤 " + customer.getName() + " (" + phoneNumber + ")\n💬 Motivo: " + contentToSave, "ADMIN");
             }
             saveAndSend(customer, "✅ Entendido! O responsável já foi avisado e vai te responder aqui em breve.\n_(Meu atendimento automático foi pausado por 15 minutos)_", phoneNumber);

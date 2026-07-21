@@ -54,6 +54,7 @@ class AgendaServiceTest {
     @Mock private ProfessionalAssignmentService professionalAssignmentService;
     @Mock private com.razor.api.repository.ProfessionalRepository professionalRepository;
     @Mock private PricingService pricingService;
+    @Mock private TenantAdminService tenantAdminService;
 
     @InjectMocks private AgendaService service;
 
@@ -302,9 +303,8 @@ class AgendaServiceTest {
         Customer admin = Customer.builder().id(UUID.randomUUID()).phoneNumber(adminPhone).name("Chefe").build();
         Customer cliente = Customer.builder().id(UUID.randomUUID()).phoneNumber(PHONE).name("Cliente").build();
         when(customerRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(admin, cliente));
-        RazorProperties.Admin adminCfg = new RazorProperties.Admin();
-        adminCfg.setPhones(List.of(adminPhone));
-        when(properties.getAdmin()).thenReturn(adminCfg);
+        when(tenantAdminService.isAdmin(adminPhone)).thenReturn(true);
+        when(tenantAdminService.isAdmin(PHONE)).thenReturn(false);
 
         service.agendarDisparoMassa("Promo!", java.time.LocalDateTime.now().plusDays(1));
 
