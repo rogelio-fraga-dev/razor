@@ -1,12 +1,16 @@
 package com.razor.api.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.razor.api.config.RazorProperties;
 import com.razor.api.model.BarbershopAdmin;
 import com.razor.api.repository.BarbershopAdminRepository;
+import com.razor.api.tenant.TenantContext;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -92,5 +96,48 @@ class TenantAdminServiceTest {
 
         assertThat(created.getPhone()).isEqualTo("5511988887777");
         assertThat(created.getName()).isEqualTo("Chefe");
+    }
+
+    @Test
+    @DisplayName("add rejeita telefone que já é admin do tenant")
+    void add_duplicate_throws() {
+        when(barbershopAdminRepository.existsByBarbershopIdAndPhone(any(), org.mockito.ArgumentMatchers.eq("5511988887777")))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> tenantAdminService.add("5511988887777", "Chefe"))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(barbershopAdminRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("listAdmins devolve as linhas do tenant (sem fallback do config)")
+    void listAdmins_returnsRows() {
+        when(barbershopAdminRepository.findByBarbershopId(any())).thenReturn(List.of(admin("5521970001111")));
+        assertThat(tenantAdminService.listAdmins()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("remove exclui o admin do tenant atual")
+    void remove_deletes() {
+        UUID id = UUID.randomUUID();
+        BarbershopAdmin a = BarbershopAdmin.builder()
+                .id(id).barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID).phone("5521970001111").build();
+        when(barbershopAdminRepository.findById(id)).thenReturn(java.util.Optional.of(a));
+
+        tenantAdminService.remove(id);
+
+        verify(barbershopAdminRepository).delete(a);
+    }
+
+    @Test
+    @DisplayName("remove rejeita admin de outro tenant (isolamento)")
+    void remove_otherTenant_throws() {
+        UUID id = UUID.randomUUID();
+        BarbershopAdmin a = BarbershopAdmin.builder()
+                .id(id).barbershopId(UUID.randomUUID()).phone("5521970001111").build();
+        when(barbershopAdminRepository.findById(id)).thenReturn(java.util.Optional.of(a));
+
+        assertThatThrownBy(() -> tenantAdminService.remove(id)).isInstanceOf(NotFoundException.class);
+        verify(barbershopAdminRepository, never()).delete(any());
     }
 }

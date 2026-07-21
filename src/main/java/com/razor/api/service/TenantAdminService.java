@@ -6,6 +6,7 @@ import com.razor.api.repository.BarbershopAdminRepository;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.PhoneNumbers;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,8 +45,11 @@ public class TenantAdminService {
                 .anyMatch(a -> PhoneNumbers.normalizeBrazilian(a).equals(normalized));
     }
 
-    /** Cadastra um telefone administrativo para o tenant atual (usado no onboarding). */
+    /** Cadastra um telefone administrativo para o tenant atual (usado no onboarding e no painel). */
     public BarbershopAdmin add(String phone, String name) {
+        if (barbershopAdminRepository.existsByBarbershopIdAndPhone(TenantContext.getCurrent(), phone)) {
+            throw new IllegalArgumentException("Este telefone ja e administrador.");
+        }
         BarbershopAdmin created = barbershopAdminRepository.save(BarbershopAdmin.builder()
                 .barbershopId(TenantContext.getCurrent())
                 .phone(phone)
@@ -53,5 +57,19 @@ public class TenantAdminService {
                 .build());
         log.info("[ADMIN] Telefone administrativo cadastrado para o tenant {}", TenantContext.getCurrent());
         return created;
+    }
+
+    /** Admins cadastrados no tenant atual (as linhas reais, sem o fallback do config). */
+    public List<BarbershopAdmin> listAdmins() {
+        return barbershopAdminRepository.findByBarbershopId(TenantContext.getCurrent());
+    }
+
+    /** Remove um admin do tenant atual (isolamento: rejeita admin de outro tenant). */
+    public void remove(UUID id) {
+        BarbershopAdmin admin = barbershopAdminRepository.findById(id)
+                .filter(a -> TenantContext.getCurrent().equals(a.getBarbershopId()))
+                .orElseThrow(() -> new NotFoundException("Administrador nao encontrado."));
+        barbershopAdminRepository.delete(admin);
+        log.info("[ADMIN] Administrador removido do tenant {}", TenantContext.getCurrent());
     }
 }
