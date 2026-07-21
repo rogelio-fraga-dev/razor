@@ -55,48 +55,60 @@ O roadmap é sequencial por dependência: cada fase assenta sobre a anterior. A 
 existe porque hoje não há testes nem CI, e refatorar/escalar sem essa rede de segurança
 é o que vinha gerando a sequência de "corrige bug crítico" no histórico.
 
-### Fase 0 — Fundação de Engenharia 🏗️ *(em andamento)*
+### Fase 0 — Fundação de Engenharia 🏗️ *(✅ concluída)*
 
 > **Objetivo:** parar de apagar incêndio. Criar a base técnica que permite evoluir com
 > segurança e velocidade.
 
 - [x] **Higiene do repo** — removidos ~900KB de logs commitados, `.gitignore` reforçado.
 - [x] **Rebrand para Razor** — pacote `com.barberbot` → `com.razor`, config, `pom.xml`. Compila limpo.
-- [x] **CI/CD** — GitHub Actions (build + testes + cobertura JaCoCo) + Dependabot.
-- [x] **Harness de testes** — JUnit 5 + AssertJ + JaCoCo (16 testes verdes).
-- [~] **Testes das regras críticas** — ✅ parsing de tags da IA e normalização de telefone
-      (extraídos e testados); ⏳ pendente: agenda (agendar/cancelar/lista de espera) e
-      máquina de estados do cliente.
-- [~] **Refatorar as God classes** — ✅ extraídos `AiTagParser`/`AiIntent` e `PhoneNumbers`
-      do `OrchestratorService`; ⏳ pendente a divisão maior (WebhookRouter, AdminCommandService,
-      CustomerConversationService) e a quebra do `AgendaService`.
+- [x] **CI/CD** — GitHub Actions (build + testes + cobertura JaCoCo) + Dependabot + Testcontainers.
+- [x] **Harness de testes** — JUnit 5 + AssertJ + Mockito + JaCoCo.
+- [x] **Testes das regras críticas** — parsing de tags da IA, telefone, datas, e os fluxos
+      de **cliente**, **admin** e **agenda** (máquina de estados incluída).
+- [x] **Refatorar as God classes** — `OrchestratorService` (~994 linhas) quebrado em
+      `WebhookRouter` / `AdminCommandService` / `CustomerConversationService` + suporte.
 - [x] **Corrigir erros engolidos** — eliminados os 7 `catch (Exception e) {}` vazios.
-- [x] **Tipos de domínio fortes** — ✅ `PaymentStatus` como `enum`; ✅ data/hora do agendamento
-      como `LocalDate`/`LocalTime` (Opção A: data completa com ano, inferindo a próxima ocorrência
-      futura de DD/MM — corrige o bug de virada de ano e remove o sentinela `"hoje"`).
-      Migração Flyway `V3` criada. ⚠️ **Validar a `V3` e o fluxo JPA contra um Postgres real
-      (`docker-compose up`) antes de mergear** — não há banco no ambiente de dev atual.
+- [x] **Tipos de domínio fortes** — `PaymentStatus` como `enum`; data/hora como
+      `LocalDate`/`LocalTime` (Opção A). Migração `V3` **validada** em Postgres real (ITs
+      Testcontainers no CI).
 
-**Pronto quando:** `./mvnw clean verify` roda testes verdes com relatório de cobertura,
-CI verde em PR, e nenhuma das God classes originais existe mais como monólito.
+**Pronto ✅:** `./mvnw verify` roda verde no CI (unitários + ITs Testcontainers), e o
+monólito `OrchestratorService` não existe mais.
+
+_Observação:_ o `AgendaService` ainda é grande (~800 linhas) — candidato a nova extração
+numa fase futura, mas já com serviços satélites extraídos (`ServiceCatalogService`,
+`ProfessionalService`, `ProfessionalAssignmentService`).
 
 ---
 
-### Fase 1 — Núcleo Multi-Tenant 🏢
+### Fase 1 — Núcleo Multi-Tenant 🏢 *(🟡 fundação concluída)*
 
 > **Objetivo:** deixar de ser "um sistema para uma barbearia" e virar "uma plataforma
 > onde N barbearias operam isoladas". Este é o pré-requisito de qualquer venda SaaS.
 
-- [ ] Entidade `Barbershop` (tenant): nome, CNPJ, endereço, chave PIX, marca, plano.
-- [ ] `tenant_id` em **todas** as tabelas + isolamento de dados garantido no acesso.
-- [ ] Trocar `UNIQUE(phone_number)` global por `UNIQUE(tenant_id, phone_number)`.
-- [ ] Entidade `Professional` (barbeiro): agenda própria, folgas, especialidades.
-- [ ] Catálogo `Service` por tenant: nome, **preço**, **duração**, categoria.
-- [ ] Uma instância da Evolution API / número de WhatsApp por tenant (roteamento).
-- [ ] Onboarding: criar barbearia, primeiro admin e primeiros serviços.
+- [x] Entidade `Barbershop` (tenant): nome, slug, instância de WhatsApp, ativo.
+      _(CNPJ, endereço, PIX, marca e plano ficam para a Fase 2/3.)_
+- [x] `barbershop_id` em **todas** as tabelas + isolamento na camada de dados
+      (`TenantContext` + acesso escopado em clientes, agenda, interações, tarefas, waitlist).
+- [x] Trocar `UNIQUE(phone_number)` global por `UNIQUE(barbershop_id, phone_number)`.
+- [x] Entidade `Professional` (barbeiro) + catálogo `Service` (nome, **preço**, **duração**).
+- [x] **Agenda multiprofissional**: disponibilidade **por barbeiro**, auto-atribuição
+      (menos ocupado) + escolha explícita, e a IA só bloqueia horário quando **todas as
+      cadeiras** estão ocupadas.
+- [~] **WhatsApp por tenant** — o `TenantResolver` já mapeia a instância da Evolution do
+      **webhook de entrada** → tenant. **Falta o roteamento de SAÍDA** (enviar pela instância
+      da barbearia) e **admins por tenant** (hoje o envio usa uma instância única e admins
+      globais). Requer um `WhatsAppGateway`/instância por barbearia.
+- [ ] Onboarding: criar barbearia, primeiro admin e primeiros serviços (self-service).
 
 **Pronto quando:** duas barbearias distintas operam no mesmo deploy sem enxergar dados
-uma da outra, cada uma com seu WhatsApp, serviços e barbeiros.
+uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros.
+
+> **Status.** O isolamento de dados está completo e validado no CI; hoje há um único
+> tenant (padrão), então tudo resolve para ele — o isolamento vira real e
+> correto-por-construção quando a 2ª barbearia entrar. O que trava o "2 tenants de
+> verdade" é o **roteamento de WhatsApp de saída por tenant** + **onboarding**.
 
 ---
 
