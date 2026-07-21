@@ -38,6 +38,7 @@ public class AgendaService {
     private final com.razor.api.repository.CustomerRepository customerRepository;
     private final AppointmentRepository appointmentRepository;
     private final RazorProperties properties;
+    private final ProfessionalAssignmentService professionalAssignmentService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Classe auxiliar de leitura para manter a migração legada funcionando
@@ -172,6 +173,15 @@ public class AgendaService {
     }
 
     public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
+        adicionarAgendamentoViaIA(name, phone, date, time, service, null);
+    }
+
+    /**
+     * Cria um agendamento e atribui um profissional (barbeiro): usa o {@code preferredProfessionalId}
+     * se informado e livre; caso contrario auto-atribui o barbeiro livre menos ocupado no dia.
+     */
+    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
+                                          java.util.UUID preferredProfessionalId) {
         LocalDate parsedDate;
         LocalTime parsedTime;
         try {
@@ -182,6 +192,8 @@ public class AgendaService {
             return;
         }
 
+        java.util.UUID professionalId = professionalAssignmentService.assign(parsedDate, parsedTime, preferredProfessionalId);
+
         Appointment app = Appointment.builder()
             .barbershopId(TenantContext.getCurrent())
             .customerName(name)
@@ -189,9 +201,13 @@ public class AgendaService {
             .appointmentDate(parsedDate)
             .appointmentTime(parsedTime)
             .service(service)
+            .professionalId(professionalId)
             .paymentStatus(PaymentStatus.PENDENTE)
             .build();
         appointmentRepository.save(app);
+        if (professionalId != null) {
+            log.info("[AGENDA] Profissional {} atribuido ao agendamento de {}", professionalId, phone);
+        }
 
         log.info("[AGENDA] Novo agendamento salvo: {} para o dia {} às {}", name, AppointmentDates.formatDate(parsedDate), AppointmentDates.formatTime(parsedTime));
 

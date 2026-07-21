@@ -51,6 +51,7 @@ class AgendaServiceTest {
     @Mock private CustomerRepository customerRepository;
     @Mock private AppointmentRepository appointmentRepository;
     @Mock private RazorProperties properties;
+    @Mock private ProfessionalAssignmentService professionalAssignmentService;
 
     @InjectMocks private AgendaService service;
 
