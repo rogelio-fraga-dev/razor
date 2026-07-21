@@ -140,19 +140,32 @@ assinaturas) sem sair do Razor.
 
 ---
 
-### Fase 3 — Painel Web & Site da Barbearia 🌐
+### Fase 3 — Painel Web & Site da Barbearia 🌐 *(🎯 próxima)*
 
 > **Objetivo:** dar ao dono da barbearia uma gestão web de verdade (paridade com
 > Frizzar/CashBarber) e presença própria além do WhatsApp.
 
+> **Divisão de responsabilidades (definida com o time):**
+> - **Site/console do admin (web):** onde o dono **configura tudo** — bot, serviços, preços,
+>   barbeiros/comissões, textos, planos, perfil da barbearia — e **gera os relatórios**. É a
+>   fonte da verdade da configuração.
+> - **WhatsApp (celular):** **operação** do dia a dia — disparar mensagens/promoções para a
+>   base, ver a agenda do dia, pausar/retomar cliente. Leve e operacional; **não** é onde se
+>   configura.
+
+- [ ] **Autenticação e papéis** — login do admin do tenant, com o `TenantContext` vindo da
+      **sessão web** (não da instância de WhatsApp). Papéis: dono, recepção, barbeiro.
+      _(Pré-requisito de tudo abaixo — hoje o sistema não tem autenticação.)_
+- [ ] **API web (REST)** reutilizando os serviços já existentes (todos tenant-scoped):
+      config de serviços, profissionais/comissões, admins, textos/planos do bot e perfil da
+      barbearia; e relatórios (financeiro, agenda, comissões).
 - [ ] **Painel web de gestão** do tenant: agenda multiprofissional, financeiro, comissões,
-      assinaturas, clientes, configuração da barbearia e do bot. _(O que hoje é comando de WhatsApp.)_
-- [ ] Usuários e papéis do painel (dono, recepção, barbeiro).
+      assinaturas, clientes, e **toda a configuração** da barbearia e do bot.
 - [ ] Site/landing **white-label** por barbearia (marca, serviços, endereço, avaliações).
 - [ ] Página de **agendamento online** (link próprio) na mesma agenda do bot.
 
-**Pronto quando:** o dono gerencia toda a barbearia por um painel web, e tem site + link
-de agendamento próprios — sem depender de comandos no WhatsApp.
+**Pronto quando:** o dono configura e gerencia toda a barbearia por um painel web (config +
+relatórios), usando o WhatsApp apenas para a operação do dia a dia.
 
 ---
 
@@ -201,6 +214,9 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 3. **A IA é o diferencial.** Cada fase preserva e amplia a experiência conversacional.
 4. **Arquivos pequenos e coesos.** Alvo de 200–400 linhas; 800 é o teto.
 5. **Flyway para todo schema.** Migrações versionadas, nunca alteração manual de banco.
+6. **Config no web, operação no WhatsApp.** A configuração do bot/barbearia e os relatórios
+   vivem no painel web; o WhatsApp admin fica para a operação (disparos, agenda do dia,
+   pausar/retomar). Regras de negócio ficam nos *services* (tenant-scoped), reusados por ambos.
 
 ---
 
