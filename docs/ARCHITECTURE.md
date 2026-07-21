@@ -116,10 +116,18 @@ o SaaS (detalhes em [`PLATFORM.md`](./PLATFORM.md)):
 
 | Fase | Mudança |
 |---|---|
-| **1** | Nova tabela `barbershops` (tenant). `tenant_id` em todas as tabelas. `UNIQUE(tenant_id, phone_number)`. Novas: `professionals`, `services`. |
+| **1** ✅ | Tabela `barbershops` (tenant) + tenant padrão semeado. `barbershop_id` em todas as tabelas com `UNIQUE(barbershop_id, phone_number)`. Novas: `professionals`, `services`. `TenantContext` + `TenantResolver` (por instância da Evolution). Acesso a dados escopado por tenant em clientes, agendamentos, interações, tarefas e lista de espera. |
 | **2** | `transactions`/`commands` (comandas), `commissions`, `subscription_plans`, `subscriptions`, `products` (estoque). |
 | **3** | Configuração de site/marca por tenant; usuários do painel web (`users`, papéis). |
 | **5** | Estado de conversa em Redis (sai dos `static Map`). |
+
+> **Fase 1 — status.** Fundação multi-tenant implementada (migrações V4; entidades
+> `Barbershop`/`Professional`/`ServiceOffering`; escopo por `barbershop_id` na camada de
+> serviço/repositório). Enquanto há um único tenant, tudo resolve para o tenant padrão —
+> comportamento inalterado, e correto-por-construção quando surgir a 2ª barbearia.
+> **Pendências:** remover o `DEFAULT`-ponte de `barbershop_id` (V5, após o CI validar as
+> ITs Testcontainers); popular o catálogo de `services`; agendador (`RazorScheduler`)
+> ainda processa todos os tenants juntos — roteá-lo por `barbershop_id` das tarefas.
 
 ---
 
