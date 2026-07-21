@@ -6,6 +6,7 @@ import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.ScheduledTaskRepository;
 import com.razor.api.service.CustomerService;
 import com.razor.api.service.WhatsAppService;
+import com.razor.api.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -54,6 +55,9 @@ public class RazorScheduler {
 
         for (ScheduledTask task : pendingTasks) {
             try {
+                // A tarefa carrega seu tenant; escopamos o contexto para que checagens
+                // (ex.: pausa do cliente) usem a barbearia certa, e nao a padrao.
+                TenantContext.set(task.getBarbershopId());
                 String phone = task.getCustomerPhone();
 
                 // Se a task expirou (está mais de 2 horas no passado), descarta sem disparar
@@ -82,6 +86,8 @@ public class RazorScheduler {
                 log.error("Erro na tarefa {}: {}", task.getId(), e.getMessage());
                 task.setStatus(ScheduledTask.TaskStatus.FAILED);
                 taskRepository.save(task);
+            } finally {
+                TenantContext.clear();
             }
         }
     }
@@ -97,8 +103,11 @@ public class RazorScheduler {
         try {
             List<com.razor.api.model.Customer> customers = customerRepository.findAll();
             LocalDate today = LocalDate.now();
-            
+
             for (com.razor.api.model.Customer c : customers) {
+                // Cada cliente pertence a uma barbearia: escopa o contexto para que
+                // hasAgendamentoFuturo consulte a agenda do tenant certo.
+                TenantContext.set(c.getBarbershopId());
                 // Ignorar administradores
                 boolean isAdmin = false;
                 for (String admPhone : properties.getAdmin().getPhones()) {
@@ -134,6 +143,8 @@ public class RazorScheduler {
             }
         } catch (Exception e) {
             log.error("[RETENÇÃO] Erro no scheduler de retenção: {}", e.getMessage(), e);
+        } finally {
+            TenantContext.clear();
         }
     }
 
@@ -148,6 +159,7 @@ public class RazorScheduler {
         try {
             List<com.razor.api.model.Customer> customers = customerRepository.findAll();
             for (com.razor.api.model.Customer c : customers) {
+                TenantContext.set(c.getBarbershopId());
                 // Ignora pausados, sem interação, ou se for Admin
                 boolean isAdmin = false;
                 for (String admPhone : properties.getAdmin().getPhones()) {
@@ -173,6 +185,8 @@ public class RazorScheduler {
             }
         } catch (Exception e) {
             log.error("[SEXTOU] Erro no scheduler de sextou: {}", e.getMessage(), e);
+        } finally {
+            TenantContext.clear();
         }
     }
 
