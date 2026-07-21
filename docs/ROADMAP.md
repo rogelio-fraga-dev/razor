@@ -82,7 +82,7 @@ numa fase futura, mas já com serviços satélites extraídos (`ServiceCatalogSe
 
 ---
 
-### Fase 1 — Núcleo Multi-Tenant 🏢 *(🟡 fundação concluída)*
+### Fase 1 — Núcleo Multi-Tenant 🏢 *(✅ concluída)*
 
 > **Objetivo:** deixar de ser "um sistema para uma barbearia" e virar "uma plataforma
 > onde N barbearias operam isoladas". Este é o pré-requisito de qualquer venda SaaS.
@@ -96,19 +96,31 @@ numa fase futura, mas já com serviços satélites extraídos (`ServiceCatalogSe
 - [x] **Agenda multiprofissional**: disponibilidade **por barbeiro**, auto-atribuição
       (menos ocupado) + escolha explícita, e a IA só bloqueia horário quando **todas as
       cadeiras** estão ocupadas.
-- [~] **WhatsApp por tenant** — o `TenantResolver` já mapeia a instância da Evolution do
-      **webhook de entrada** → tenant. **Falta o roteamento de SAÍDA** (enviar pela instância
-      da barbearia) e **admins por tenant** (hoje o envio usa uma instância única e admins
-      globais). Requer um `WhatsAppGateway`/instância por barbearia.
-- [ ] Onboarding: criar barbearia, primeiro admin e primeiros serviços (self-service).
+- [x] **Escolha de profissional no fluxo do cliente** — com 2+ barbeiros ativos a IA
+      pergunta com quem o cliente quer se atender (`tanto faz` = auto); 0/1 barbeiro mantém
+      a auto-atribuição imediata (sem regressão).
+- [x] **Precificação e duração data-driven** — preço e duração vêm do catálogo `services`
+      do tenant (fim dos valores fixos no código); a disponibilidade respeita a **duração
+      real** (um combo de 60min ocupa dois slots de 30min).
+- [x] **WhatsApp por tenant** — **entrada** (`TenantResolver` mapeia a instância da Evolution
+      → tenant) **e saída** (`WhatsAppService`/`EvolutionClient` enviam pela `whatsapp_instance`
+      da barbearia; a instância é resolvida **antes** do envio assíncrono, que não propaga o
+      `TenantContext`; fallback na instância do config, sem regressão no tenant padrão).
+- [x] **Admins por tenant** — tabela `barbershop_admins` + `TenantAdminService` (roteamento
+      admin/cliente e notificações por tenant), com fallback nos admins do config global. Os
+      **relatórios do scheduler** (matinal/noturno/semanal) passaram a rodar **por barbearia ativa**.
+- [x] **Onboarding self-service** — `POST /api/onboarding` provisiona um tenant (barbearia +
+      catálogo padrão + barbeiro + admins) numa transação, protegido por chave no header
+      (`razor.onboarding.api-key`), **fail-closed**.
 
 **Pronto quando:** duas barbearias distintas operam no mesmo deploy sem enxergar dados
-uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros.
+uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Implementado.*
 
-> **Status.** O isolamento de dados está completo e validado no CI; hoje há um único
-> tenant (padrão), então tudo resolve para ele — o isolamento vira real e
-> correto-por-construção quando a 2ª barbearia entrar. O que trava o "2 tenants de
-> verdade" é o **roteamento de WhatsApp de saída por tenant** + **onboarding**.
+> **Status.** Todo o núcleo multi-tenant está implementado e verde no CI (unitários + ITs
+> Testcontainers). ⚠️ **Ainda não exercitado com 2 tenants reais** — só build/testes/ITs; hoje
+> o deploy roda com o tenant padrão. Validação end-to-end pendente: provisionar uma 2ª
+> barbearia via `/api/onboarding` (com `ONBOARDING_API_KEY` setado), cadastrar sua
+> `whatsapp_instance` e admins, e trocar mensagens reais pela instância dela.
 
 ---
 
@@ -192,4 +204,4 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-20 · Documento vivo — atualizado a cada fase concluída._
+_Última atualização: 2026-07-21 · Documento vivo — atualizado a cada fase concluída._
