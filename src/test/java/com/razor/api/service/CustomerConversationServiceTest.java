@@ -55,6 +55,7 @@ class CustomerConversationServiceTest {
     @Mock private AppointmentRepository appointmentRepository;
     @Mock private WhatsAppMessenger messenger;
     @Mock private EvolutionMediaService evolutionMediaService;
+    @Mock private ProfessionalService professionalService;
 
     @InjectMocks private CustomerConversationService service;
 
@@ -90,6 +91,13 @@ class CustomerConversationServiceTest {
         ArgumentCaptor<String> cap = ArgumentCaptor.forClass(String.class);
         verify(messenger).send(eq(PHONE), cap.capture(), eq("CLIENTE"));
         return cap.getValue();
+    }
+
+    /** Última mensagem enviada ao cliente (útil em fluxos com múltiplos envios sequenciais). */
+    private String lastClientMessage() {
+        ArgumentCaptor<String> cap = ArgumentCaptor.forClass(String.class);
+        verify(messenger, org.mockito.Mockito.atLeastOnce()).send(eq(PHONE), cap.capture(), eq("CLIENTE"));
+        return cap.getAllValues().get(cap.getAllValues().size() - 1);
     }
 
     // ---------- testes ----------
@@ -237,6 +245,65 @@ class CustomerConversationServiceTest {
 
         verify(appointmentRepository).save(argThat(a -> a.getPaymentStatus() == PaymentStatus.PIX));
         verify(messenger).send(eq(PHONE), argThat(m -> m.contains("CHAVE PIX")), eq("CLIENTE"));
+    }
+
+    // ---------- agenda multiprofissional (escolha explícita) ----------
+
+    private com.razor.api.model.Professional prof(String name) {
+        return com.razor.api.model.Professional.builder()
+                .id(UUID.randomUUID()).name(name).active(true).build();
+    }
+
+    private void givenAiReturnsAgendamentoTag() {
+        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getAgendamentosClienteList(PHONE)).thenReturn(List.of());
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any()))
+                .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
+    }
+
+    @Test
+    @DisplayName("com 2+ barbeiros, o agendamento via IA pergunta com qual profissional e ainda NÃO reserva")
+    void aiNewAppointment_multipleProfessionals_asksChoice() {
+        givenExistingCustomer();
+        givenAiReturnsAgendamentoTag();
+        when(professionalService.listActive()).thenReturn(List.of(prof("Rafael"), prof("Bruno")));
+
+        service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
+
+        assertThat(captureClientMessage()).contains("Rafael").contains("Bruno").contains("profissional");
+        // Nada é reservado até o cliente escolher.
+        verify(agendaService, never()).adicionarAgendamentoViaIA(any(), any(), any(), any(), any());
+        verify(agendaService, never()).adicionarAgendamentoViaIA(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("escolher o número do barbeiro reserva com o profissional preferido e vai ao pagamento")
+    void professionalChoice_number_booksWithPreferred() {
+        givenExistingCustomer();
+        givenAiReturnsAgendamentoTag();
+        com.razor.api.model.Professional rafael = prof("Rafael");
+        com.razor.api.model.Professional bruno = prof("Bruno");
+        when(professionalService.listActive()).thenReturn(List.of(rafael, bruno));
+
+        service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE); // pergunta
+        service.processCustomerMessage(textWebhook("2"), PHONE);                        // escolhe Bruno
+
+        verify(agendaService).adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte", bruno.getId());
+        assertThat(lastClientMessage()).contains("pagamento");
+    }
+
+    @Test
+    @DisplayName("'tanto faz' reserva com auto-atribuição (preferido nulo)")
+    void professionalChoice_tantoFaz_booksAuto() {
+        givenExistingCustomer();
+        givenAiReturnsAgendamentoTag();
+        when(professionalService.listActive()).thenReturn(List.of(prof("Rafael"), prof("Bruno")));
+
+        service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
+        service.processCustomerMessage(textWebhook("tanto faz"), PHONE);
+
+        verify(agendaService).adicionarAgendamentoViaIA(
+                eq("João"), eq(PHONE), eq("20/12"), eq("10:00"), eq("Corte"), org.mockito.ArgumentMatchers.isNull());
     }
 
     @Test

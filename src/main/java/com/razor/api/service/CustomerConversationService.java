@@ -48,6 +48,7 @@ public class CustomerConversationService {
     private final AppointmentRepository appointmentRepository;
     private final WhatsAppMessenger messenger;
     private final EvolutionMediaService evolutionMediaService;
+    private final ProfessionalService professionalService;
 
     @lombok.Data
     @lombok.AllArgsConstructor
@@ -59,12 +60,24 @@ public class CustomerConversationService {
         private String service;
     }
 
+    /** Agendamento aguardando a escolha do profissional (agenda multiprofissional). */
+    @lombok.Data
+    @lombok.AllArgsConstructor
+    private static class PendingBooking {
+        private String name;
+        private String date;
+        private String time;
+        private String service;
+        private List<com.razor.api.model.Professional> options; // alinhado 1:1 com os numeros exibidos
+    }
+
     // Estado por-cliente (chaveado por telefone). Instancia, nao static: o servico e um
     // singleton (mesmo comportamento em runtime) e assim cada teste tem estado isolado.
     private final Map<String, String> customerStates = new ConcurrentHashMap<>();
     private final Map<String, LocalDateTime> customerStatesTimestamps = new ConcurrentHashMap<>();
     private final Map<String, List<Appointment>> customerCancelOptions = new ConcurrentHashMap<>();
     private final Map<String, WaitlistOffer> waitlistOffers = new ConcurrentHashMap<>();
+    private final Map<String, PendingBooking> pendingBookings = new ConcurrentHashMap<>();
     private final AiTagParser aiTagParser = new AiTagParser();
 
     private void sendMsg(String phone, String text, String role) {
@@ -87,6 +100,7 @@ public class CustomerConversationService {
     private void clearCustomerState(String phone) {
         customerStates.remove(phone);
         customerStatesTimestamps.remove(phone);
+        pendingBookings.remove(phone);
     }
 
     /** Limpa estados zumbi abandonados (>30min). Antes vivia no clearProcessedCache do Orchestrator. */
@@ -256,6 +270,12 @@ public class CustomerConversationService {
                 appointmentRepository.save(ag);
             }
             saveAndSend(customer, "Tudo certo! Confirmamos seu pagamento como *presencial* direto no caixa. Muito obrigado! 💈👊", phoneNumber);
+            return;
+        }
+
+        // 3.5. Estado: Esperando escolha do profissional (agenda multiprofissional)
+        if ("ESPERANDO_PROFISSIONAL".equals(cState)) {
+            trataEscolhaProfissional(customer, phoneNumber, msgLower);
             return;
         }
 
@@ -441,20 +461,100 @@ public class CustomerConversationService {
             customerRepository.save(customer);
         }
 
+        // Agenda multiprofissional: com mais de um barbeiro ativo, o cliente escolhe com quem
+        // quer se atender. Com 0 ou 1 barbeiro, mantemos a auto-atribuição imediata (padrão).
+        List<com.razor.api.model.Professional> ativos = professionalService.listActive();
+        if (ativos != null && ativos.size() > 1) {
+            pendingBookings.put(phoneNumber, new PendingBooking(name, date, time, service, ativos));
+            setCustomerState(phoneNumber, "ESPERANDO_PROFISSIONAL");
+            log.info("[AGENDA] Estado ESPERANDO_PROFISSIONAL definido para {} ({} barbeiros)", phoneNumber, ativos.size());
+            return montarPerguntaProfissional(date, time, ativos);
+        }
+
         agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
 
         // Verifica se a IA já incluiu a pergunta de pagamento (novo prompt instrui isso).
         // Se não incluiu, adiciona como fallback para garantir o fluxo.
-        String response = na.cleanedResponse();
-        if (!response.contains("PIX") && !response.contains("presencial") && !response.contains("pagamento")) {
-            response += "\n\n*Como deseja realizar o pagamento?*\n\n" +
-                        "1️⃣ Pagar agora via PIX 💳\n" +
-                        "2️⃣ Pagar presencialmente na barbearia 💵\n\n" +
-                        "_Responda com 1 ou 2._";
-        }
+        String response = anexarPerguntaPagamento(na.cleanedResponse());
         setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
         log.info("[AGENDA] Estado ESPERANDO_PAGAMENTO definido para {}", phoneNumber);
         return response;
+    }
+
+    /** Anexa a pergunta de pagamento ao texto se a IA ainda não a incluiu (fallback do fluxo). */
+    private String anexarPerguntaPagamento(String response) {
+        if (response.contains("PIX") || response.contains("presencial") || response.contains("pagamento")) {
+            return response;
+        }
+        return response + "\n\n*Como deseja realizar o pagamento?*\n\n" +
+                "1️⃣ Pagar agora via PIX 💳\n" +
+                "2️⃣ Pagar presencialmente na barbearia 💵\n\n" +
+                "_Responda com 1 ou 2._";
+    }
+
+    /** Monta a pergunta "com qual barbeiro?" listando os profissionais ativos numerados. */
+    private String montarPerguntaProfissional(String date, String time, List<com.razor.api.model.Professional> ativos) {
+        StringBuilder sb = new StringBuilder("Quase lá! Para *" + date + "* às *" + time + "*, com qual profissional você prefere se atender? 💈\n\n");
+        for (int i = 0; i < ativos.size(); i++) {
+            sb.append("*").append(i + 1).append("* - ").append(ativos.get(i).getName()).append("\n");
+        }
+        sb.append("\n_Responda o *número*, ou digite *tanto faz* para o primeiro disponível._");
+        return sb.toString();
+    }
+
+    /** Trata a resposta do cliente no estado ESPERANDO_PROFISSIONAL e conclui o agendamento. */
+    private void trataEscolhaProfissional(Customer customer, String phoneNumber, String msgLower) {
+        PendingBooking pend = pendingBookings.get(phoneNumber);
+        if (pend == null) {
+            clearCustomerState(phoneNumber);
+            saveAndSend(customer, "Sua sessão de agendamento expirou. Digite *menu* para recomeçar.", phoneNumber);
+            return;
+        }
+
+        // Escape: desistir do agendamento
+        if (msgLower.contains("cancelar") || msgLower.contains("desistir") || msgLower.equals("0")) {
+            clearCustomerState(phoneNumber);
+            saveAndSend(customer, "Sem problemas! Agendamento não concluído. Digite *menu* quando quiser recomeçar. 😊", phoneNumber);
+            return;
+        }
+
+        java.util.UUID escolhido = null;
+        String nomeEscolhido = null;
+
+        boolean tantoFaz = msgLower.contains("tanto faz") || msgLower.contains("qualquer")
+                || msgLower.contains("indiferente") || msgLower.contains("primeiro");
+        if (!tantoFaz) {
+            try {
+                int index = Integer.parseInt(msgLower.trim()) - 1;
+                if (index >= 0 && index < pend.getOptions().size()) {
+                    com.razor.api.model.Professional p = pend.getOptions().get(index);
+                    escolhido = p.getId();
+                    nomeEscolhido = p.getName();
+                } else {
+                    saveAndSend(customer, "Não encontrei essa opção. Digite o *número* de um dos profissionais, ou *tanto faz*.", phoneNumber);
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                saveAndSend(customer, "Não entendi. Digite apenas o *número* do profissional, ou *tanto faz*.", phoneNumber);
+                return;
+            }
+        }
+
+        finalizarAgendamentoMultiprofissional(customer, phoneNumber, pend, escolhido, nomeEscolhido);
+    }
+
+    /** Conclui o agendamento com o profissional escolhido e avança para o pagamento. */
+    private void finalizarAgendamentoMultiprofissional(Customer customer, String phoneNumber, PendingBooking pend,
+                                                       java.util.UUID escolhido, String nomeEscolhido) {
+        agendaService.adicionarAgendamentoViaIA(pend.getName(), phoneNumber, pend.getDate(), pend.getTime(), pend.getService(), escolhido);
+        pendingBookings.remove(phoneNumber);
+
+        String comQuem = nomeEscolhido != null ? "com *" + nomeEscolhido + "* " : "";
+        String confirm = "Fechado! Seu horário " + comQuem + "para *" + pend.getDate() + "* às *" + pend.getTime() + "* está reservado. 🎉";
+        String response = anexarPerguntaPagamento(confirm);
+        setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
+        log.info("[AGENDA] Agendamento multiprofissional concluído para {}; estado ESPERANDO_PAGAMENTO", phoneNumber);
+        saveAndSend(customer, response, phoneNumber);
     }
 
     private String tratarListaDeEspera(String phoneNumber, AiIntent.ListaDeEspera le) {
