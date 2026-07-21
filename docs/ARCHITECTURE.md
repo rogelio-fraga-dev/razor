@@ -125,9 +125,13 @@ o SaaS (detalhes em [`PLATFORM.md`](./PLATFORM.md)):
 > `Barbershop`/`Professional`/`ServiceOffering`; escopo por `barbershop_id` na camada de
 > serviço/repositório). Enquanto há um único tenant, tudo resolve para o tenant padrão —
 > comportamento inalterado, e correto-por-construção quando surgir a 2ª barbearia.
-> **Pendências:** remover o `DEFAULT`-ponte de `barbershop_id` (V5, após o CI validar as
-> ITs Testcontainers); popular o catálogo de `services`; agendador (`RazorScheduler`)
-> ainda processa todos os tenants juntos — roteá-lo por `barbershop_id` das tarefas.
+> **Feito depois:** `DEFAULT`-ponte de `barbershop_id` removido (V6, fail-fast); catálogo
+> de `services` semeado (V5) + `ServiceCatalogService`; agendador **tenant-aware nos dados**
+> (cada tarefa/cliente processado no contexto do seu `barbershop_id`).
+> **Pendências:** roteamento de envio por **instância de WhatsApp por tenant** e **admins por
+> tenant** (relatórios matinal/noturno e o envio ainda usam a instância única e os admins
+> globais) — requer o `WhatsAppGateway`/instância por barbearia; consumir o catálogo de
+> `services` na precificação/menu; agenda **multiprofissional** (usar a tabela `professionals`).
 
 ---
 
