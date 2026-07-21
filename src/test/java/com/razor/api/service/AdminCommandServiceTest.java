@@ -47,6 +47,7 @@ class AdminCommandServiceTest {
     @Mock private WaitlistRepository waitlistRepository;
     @Mock private WhatsAppMessenger messenger;
     @Mock private EvolutionMediaService evolutionMediaService;
+    @Mock private CommissionService commissionService;
 
     @InjectMocks private AdminCommandService service;
 
@@ -118,6 +119,14 @@ class AdminCommandServiceTest {
         verify(interactionRepository).deleteByCustomerId(id);
         verify(customerRepository).delete(c);
         verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("apagado")), eq("ADMIN"));
+    }
+
+    @Test
+    @DisplayName("comando 'comissões' envia o relatório de comissões do dia")
+    void comissoes_sendsCommissionReport() {
+        when(commissionService.getComissoesDoDiaText()).thenReturn("RELATORIO_COMISSOES");
+        service.processAdminMessage(adminText("comissões"), ADMIN);
+        verify(messenger).send(eq(ADMIN), eq("RELATORIO_COMISSOES"), eq("ADMIN"));
     }
 
     @Test

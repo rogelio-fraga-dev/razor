@@ -38,6 +38,7 @@ public class AdminCommandService {
     private final WaitlistRepository waitlistRepository;
     private final WhatsAppMessenger messenger;
     private final EvolutionMediaService evolutionMediaService;
+    private final CommissionService commissionService;
 
     // Estado por-admin (chaveado por telefone). Instancia, nao static: servico singleton
     // (mesmo comportamento em runtime) e assim cada teste tem estado isolado.
@@ -67,7 +68,7 @@ public class AdminCommandService {
                t.contains("resumo") || t.contains("dashboard") ||
                t.contains("aviso") || t.contains("prospec") || t.contains("promocao") || t.contains("promo") ||
                t.contains("pausar") || t.contains("pausa") || t.contains("retomar") || t.contains("retoma") ||
-               t.contains("agenda") || t.contains("listar") || t.contains("lista") ||
+               t.contains("agenda") || t.contains("listar") || t.contains("lista") || t.contains("comiss") ||
                t.contains("apagar") || t.contains("apaga") || t.contains("excluir") || t.contains("exclui");
     }
 
@@ -279,6 +280,9 @@ public class AdminCommandService {
             } else if (cmdLower.equals("4") || cmdLower.contains("resumo da semana")) {
                 String resumo = agendaService.getResumoFinanceiroDaSemana();
                 sendMsg(phoneNumber, resumo, "ADMIN");
+            } else if (cmdLower.contains("comiss")) {
+                String comissoes = commissionService.getComissoesDoDiaText();
+                sendMsg(phoneNumber, comissoes, "ADMIN");
             } else if (cmdLower.equals("5") || (cmdLower.contains("aviso") && !cmdLower.contains("promocao"))) {
                 adminStates.put(phoneNumber, "AVISO_BASE");
                 sendMsg(phoneNumber, "📢 *Disparo de Avisos*\nEnvie a mensagem agora. _(Ou digite 'cancelar')_", "ADMIN");
@@ -384,6 +388,8 @@ public class AdminCommandService {
                 *10* - 📋 Listar Clientes
                 *11* - 🗑️ Apagar um Cliente
                 *12* - ℹ️ Ajuda / Manual do Sistema
+
+                💈 _Comissões do dia: digite *comissões*_
 
                 _Digite o número ou comando desejado._
                 """;

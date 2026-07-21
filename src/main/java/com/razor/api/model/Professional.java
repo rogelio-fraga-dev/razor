@@ -1,6 +1,7 @@
 package com.razor.api.model;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -35,6 +36,11 @@ public class Professional {
     @Builder.Default
     @Column(nullable = false)
     private boolean active = true;
+
+    /** Percentual de comissao do barbeiro sobre o valor dos servicos (0–100). */
+    @Builder.Default
+    @Column(name = "commission_percent", nullable = false, precision = 5, scale = 2)
+    private BigDecimal commissionPercent = BigDecimal.ZERO;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
