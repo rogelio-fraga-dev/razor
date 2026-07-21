@@ -66,6 +66,15 @@ class MultiTenantPersistenceIT {
     }
 
     @Test
+    @DisplayName("a migração V5 semeia o catálogo de serviços do tenant padrão")
+    void defaultTenant_hasSeededServices() {
+        var services = serviceOfferingRepository.findByBarbershopIdAndActiveTrue(TenantContext.DEFAULT_BARBERSHOP_ID);
+
+        assertThat(services).hasSizeGreaterThanOrEqualTo(3);
+        assertThat(services).extracting(ServiceOffering::getName).contains("Corte de Cabelo", "Barba");
+    }
+
+    @Test
     @DisplayName("Professional e ServiceOffering fazem round-trip com o tenant")
     void professionalAndService_roundTrip() {
         UUID shopId = TenantContext.DEFAULT_BARBERSHOP_ID;
