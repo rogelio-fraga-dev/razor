@@ -287,13 +287,10 @@ public class AgendaService {
         }
 
         List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
-        List<String> ocupadosDoDia = new ArrayList<>();
-        for (Appointment ag : agendaAtiva) {
-            if (target.equals(ag.getAppointmentDate()) && ag.getAppointmentTime() != null) {
-                ocupadosDoDia.add(AppointmentDates.formatTime(ag.getAppointmentTime()));
-            }
-        }
-        return montarHorariosLivres(target, ocupadosDoDia);
+        List<Appointment> doDia = agendaAtiva.stream()
+                .filter(a -> target.equals(a.getAppointmentDate()) && a.getAppointmentTime() != null)
+                .collect(Collectors.toList());
+        return montarHorariosLivres(target, expandirSlotsOcupados(doDia));
     }
 
     /**
@@ -311,13 +308,26 @@ public class AgendaService {
 
         List<Appointment> apps = appointmentRepository.findByBarbershopIdAndProfessionalIdAndAppointmentDate(
                 TenantContext.getCurrent(), professionalId, target);
-        List<String> ocupadosDoDia = new ArrayList<>();
+        return montarHorariosLivres(target, expandirSlotsOcupados(apps));
+    }
+
+    /**
+     * Expande cada agendamento nos slots de 30min que ele realmente ocupa, conforme a duracao do
+     * servico (do catalogo): um combo de 60min ocupa dois slots consecutivos, e nao apenas o inicial.
+     */
+    private List<String> expandirSlotsOcupados(List<Appointment> apps) {
+        java.util.Map<PricingService.ServiceCategory, Integer> duracoes = pricingService.resolveDurations();
+        List<String> ocupados = new ArrayList<>();
         for (Appointment ag : apps) {
-            if (ag.getAppointmentTime() != null) {
-                ocupadosDoDia.add(AppointmentDates.formatTime(ag.getAppointmentTime()));
+            LocalTime inicio = ag.getAppointmentTime();
+            if (inicio == null) continue;
+            Integer mins = duracoes.get(pricingService.categorize(ag.getService()));
+            int slots = Math.max(1, (int) Math.ceil((mins != null ? mins : 30) / 30.0));
+            for (int i = 0; i < slots; i++) {
+                ocupados.add(AppointmentDates.formatTime(inicio.plusMinutes(30L * i)));
             }
         }
-        return montarHorariosLivres(target, ocupadosDoDia);
+        return ocupados;
     }
 
     /** Gera ate 4 horarios livres (espacados) das 09:00 as 18:30, excluindo ocupados e passados. */

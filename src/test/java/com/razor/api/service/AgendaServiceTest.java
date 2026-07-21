@@ -121,10 +121,36 @@ class AgendaServiceTest {
         String dateStr = AppointmentDates.formatDate(future);
         when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
                 appt("Corte", PaymentStatus.PENDENTE, future, LocalTime.of(9, 0))));
+        givenDurations();
+        when(pricingService.categorize("Corte")).thenReturn(PricingService.ServiceCategory.SIMPLES);
 
         String out = service.getHorariosDisponiveisDoDia(dateStr);
 
         assertThat(out).doesNotContain("09:00").contains("09:30");
+    }
+
+    /** Duracoes padrao (combo=60, barba=30, corte=30) para os testes de disponibilidade. */
+    private void givenDurations() {
+        when(pricingService.resolveDurations()).thenReturn(java.util.Map.of(
+                PricingService.ServiceCategory.COMBO, 60,
+                PricingService.ServiceCategory.BARBA, 30,
+                PricingService.ServiceCategory.SIMPLES, 30));
+    }
+
+    @Test
+    @DisplayName("serviço de 60min (combo) ocupa dois slots consecutivos na disponibilidade")
+    void horariosDisponiveis_comboBlocksTwoSlots() {
+        LocalDate future = AppointmentDates.today().plusDays(5);
+        String dateStr = AppointmentDates.formatDate(future);
+        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
+                appt("Combo", PaymentStatus.PENDENTE, future, LocalTime.of(9, 0))));
+        givenDurations();
+        when(pricingService.categorize("Combo")).thenReturn(PricingService.ServiceCategory.COMBO);
+
+        String out = service.getHorariosDisponiveisDoDia(dateStr);
+
+        // 09:00 (início) e 09:30 (2º slot do combo) ficam ocupados; 10:00 volta a ficar livre.
+        assertThat(out).doesNotContain("09:00").doesNotContain("09:30").contains("10:00");
     }
 
     @Test
@@ -136,6 +162,8 @@ class AgendaServiceTest {
         when(appointmentRepository.findByBarbershopIdAndProfessionalIdAndAppointmentDate(
                 any(UUID.class), eq(prof), any(LocalDate.class)))
                 .thenReturn(List.of(appt("Corte", PaymentStatus.PENDENTE, future, LocalTime.of(9, 0))));
+        givenDurations();
+        when(pricingService.categorize("Corte")).thenReturn(PricingService.ServiceCategory.SIMPLES);
 
         String out = service.getHorariosDisponiveisDoProfissional(prof, dateStr);
 

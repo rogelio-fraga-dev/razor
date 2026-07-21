@@ -20,6 +20,10 @@ import org.springframework.stereotype.Service;
  * primeiro <b>categorizado</b> por palavra-chave e o preco daquela categoria e resolvido no
  * catalogo. Quando o catalogo nao tem a categoria (ou esta vazio, como nos testes unitarios),
  * caem-se nos padroes historicos (combo=60, barba=30, demais=35), preservando o comportamento.
+ *
+ * <p>Alem do preco, resolve tambem a <b>duracao</b> do servico pela mesma logica de categoria —
+ * base para a disponibilidade de horarios respeitar servicos mais longos (ex.: combo de 60min
+ * ocupa dois slots de 30min).
  */
 @Slf4j
 @Service
@@ -35,6 +39,12 @@ public class PricingService {
             ServiceCategory.COMBO, new BigDecimal("60.00"),
             ServiceCategory.BARBA, new BigDecimal("30.00"),
             ServiceCategory.SIMPLES, new BigDecimal("35.00"));
+
+    /** Duracoes padrao (minutos), alinhadas ao seed V5: combo=60, barba=30, corte=30. */
+    private static final Map<ServiceCategory, Integer> DEFAULT_DURATIONS = Map.of(
+            ServiceCategory.COMBO, 60,
+            ServiceCategory.BARBA, 30,
+            ServiceCategory.SIMPLES, 30);
 
     private final ServiceOfferingRepository serviceOfferingRepository;
 
@@ -73,5 +83,23 @@ public class PricingService {
     /** Preco de um servico (string livre) — conveniencia para uso pontual (uma consulta). */
     public BigDecimal priceFor(String serviceName) {
         return resolvePrices().get(categorize(serviceName));
+    }
+
+    /**
+     * Tabela categoria -> duracao (minutos) resolvida numa unica consulta ao catalogo do tenant.
+     * Sempre contem as tres categorias: o catalogo sobrescreve os padroes onde existir.
+     */
+    public Map<ServiceCategory, Integer> resolveDurations() {
+        Map<ServiceCategory, Integer> durations = new EnumMap<>(ServiceCategory.class);
+        List<ServiceOffering> catalog =
+                serviceOfferingRepository.findByBarbershopIdAndActiveTrue(TenantContext.getCurrent());
+        if (catalog != null) {
+            for (ServiceOffering offering : catalog) {
+                if (offering.getDurationMinutes() == null) continue;
+                durations.putIfAbsent(categorize(offering.getName()), offering.getDurationMinutes());
+            }
+        }
+        DEFAULT_DURATIONS.forEach(durations::putIfAbsent);
+        return durations;
     }
 }

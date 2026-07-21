@@ -31,10 +31,15 @@ class PricingServiceTest {
     @InjectMocks private PricingService pricingService;
 
     private ServiceOffering offering(String name, String price) {
+        return offering(name, price, 30);
+    }
+
+    private ServiceOffering offering(String name, String price, int durationMinutes) {
         return ServiceOffering.builder()
                 .id(UUID.randomUUID())
                 .name(name)
                 .price(new BigDecimal(price))
+                .durationMinutes(durationMinutes)
                 .active(true)
                 .build();
     }
@@ -122,5 +127,33 @@ class PricingServiceTest {
         assertThat(precos.get(ServiceCategory.BARBA)).isEqualByComparingTo("25.00");
         assertThat(precos.get(ServiceCategory.COMBO)).isEqualByComparingTo("60.00");   // padrao
         assertThat(precos.get(ServiceCategory.SIMPLES)).isEqualByComparingTo("35.00"); // padrao
+    }
+
+    // ---------- duracao ----------
+
+    @Test
+    @DisplayName("catalogo vazio: duracoes padrao (combo=60, barba=30, simples=30)")
+    void resolveDurations_emptyCatalog_usesDefaults() {
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of());
+
+        var duracoes = pricingService.resolveDurations();
+
+        assertThat(duracoes.get(ServiceCategory.COMBO)).isEqualTo(60);
+        assertThat(duracoes.get(ServiceCategory.BARBA)).isEqualTo(30);
+        assertThat(duracoes.get(ServiceCategory.SIMPLES)).isEqualTo(30);
+    }
+
+    @Test
+    @DisplayName("catalogo do tenant sobrescreve a duracao por categoria")
+    void resolveDurations_catalogOverrides() {
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(
+                offering("Corte + Barba (Combo)", "65.00", 90),
+                offering("Corte de Cabelo", "45.00", 45)));
+
+        var duracoes = pricingService.resolveDurations();
+
+        assertThat(duracoes.get(ServiceCategory.COMBO)).isEqualTo(90);
+        assertThat(duracoes.get(ServiceCategory.SIMPLES)).isEqualTo(45);
+        assertThat(duracoes.get(ServiceCategory.BARBA)).isEqualTo(30); // padrao (sem oferta)
     }
 }
