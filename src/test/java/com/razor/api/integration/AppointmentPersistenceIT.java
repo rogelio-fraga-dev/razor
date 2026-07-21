@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.razor.api.model.Appointment;
 import com.razor.api.model.PaymentStatus;
 import com.razor.api.repository.AppointmentRepository;
+import com.razor.api.tenant.TenantContext;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -58,6 +59,7 @@ class AppointmentPersistenceIT {
     @DisplayName("ddl-auto=validate passa e a entidade faz round-trip com tipos fortes")
     void schemaValidates_andEntityRoundTrips() {
         Appointment saved = appointmentRepository.save(Appointment.builder()
+                .barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)
                 .customerPhone("5511999998888")
                 .customerName("Cliente Teste")
                 .appointmentDate(LocalDate.of(2030, 3, 15))
@@ -81,13 +83,15 @@ class AppointmentPersistenceIT {
     void findByAppointmentDate_typedColumn() {
         LocalDate day = LocalDate.of(2031, 1, 20);
         appointmentRepository.save(Appointment.builder()
+                .barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)
                 .customerPhone("5511777776666")
                 .appointmentDate(day)
                 .appointmentTime(LocalTime.of(14, 0))
                 .paymentStatus(PaymentStatus.PENDENTE)
                 .build());
 
-        List<Appointment> found = appointmentRepository.findByAppointmentDate(day);
+        List<Appointment> found =
+                appointmentRepository.findByBarbershopIdAndAppointmentDate(TenantContext.DEFAULT_BARBERSHOP_ID, day);
 
         assertThat(found).isNotEmpty();
         assertThat(found).allSatisfy(a -> assertThat(a.getAppointmentDate()).isEqualTo(day));
@@ -97,6 +101,7 @@ class AppointmentPersistenceIT {
     @DisplayName("paymentStatus default e PENDENTE quando nao informado")
     void paymentStatus_defaultsToPendente() {
         Appointment saved = appointmentRepository.save(Appointment.builder()
+                .barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)
                 .customerPhone("5511555554444")
                 .appointmentDate(LocalDate.of(2032, 6, 1))
                 .appointmentTime(LocalTime.of(11, 30))

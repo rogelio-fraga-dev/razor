@@ -70,7 +70,7 @@ class AgendaServiceTest {
     @Test
     @DisplayName("agenda vazia informa que está totalmente livre")
     void horariosOcupados_empty() {
-        when(appointmentRepository.findAll()).thenReturn(List.of());
+        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of());
         assertThat(service.getHorariosOcupadosParaIA()).contains("Agenda totalmente livre");
     }
 
@@ -79,7 +79,7 @@ class AgendaServiceTest {
     void horariosOcupados_groupedByDate() {
         LocalDate d1 = LocalDate.of(2026, 12, 20);
         LocalDate d2 = LocalDate.of(2026, 12, 21);
-        when(appointmentRepository.findAll()).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
                 appt("Corte", PaymentStatus.PENDENTE, d1, LocalTime.of(10, 0)),
                 appt("Corte", PaymentStatus.PENDENTE, d1, LocalTime.of(11, 0)),
                 appt("Corte", PaymentStatus.PENDENTE, d2, LocalTime.of(14, 0))));
@@ -94,7 +94,7 @@ class AgendaServiceTest {
     void horariosDisponiveis_excludesOccupied() {
         LocalDate future = AppointmentDates.today().plusDays(5);
         String dateStr = AppointmentDates.formatDate(future);
-        when(appointmentRepository.findAll()).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
                 appt("Corte", PaymentStatus.PENDENTE, future, LocalTime.of(9, 0))));
 
         String out = service.getHorariosDisponiveisDoDia(dateStr);
@@ -129,7 +129,7 @@ class AgendaServiceTest {
     @Test
     @DisplayName("cancelarAgendamentoCliente sem agendamento retorna false")
     void cancelCliente_none() {
-        when(appointmentRepository.findByCustomerPhone(PHONE)).thenReturn(List.of());
+        when(appointmentRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE))).thenReturn(List.of());
         assertThat(service.cancelarAgendamentoCliente(PHONE)).isFalse();
         verify(appointmentRepository, never()).delete(any());
     }
@@ -138,7 +138,7 @@ class AgendaServiceTest {
     @DisplayName("cancelarAgendamentoCliente com agendamento deleta e retorna true")
     void cancelCliente_deletes() {
         Appointment ag = appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0));
-        when(appointmentRepository.findByCustomerPhone(PHONE)).thenReturn(List.of(ag));
+        when(appointmentRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE))).thenReturn(List.of(ag));
         when(taskRepository.findByCustomerPhone(PHONE)).thenReturn(List.of());
 
         assertThat(service.cancelarAgendamentoCliente(PHONE)).isTrue();
@@ -189,7 +189,7 @@ class AgendaServiceTest {
     @DisplayName("resumo financeiro do dia soma por tipo de serviço e meio de pagamento")
     void resumoFinanceiro_computes() {
         LocalDate hoje = AppointmentDates.today();
-        when(appointmentRepository.findAll()).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
                 appt("Combo", PaymentStatus.PIX, hoje, LocalTime.of(9, 0)),
                 appt("Barba", PaymentStatus.PRESENCIAL, hoje, LocalTime.of(10, 0)),
                 appt("Corte", PaymentStatus.PENDENTE, hoje, LocalTime.of(11, 0))));

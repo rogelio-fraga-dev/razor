@@ -5,15 +5,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
+import java.util.UUID;
 
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
 
-    List<Appointment> findByCustomerPhone(String customerPhone);
+    // Acesso escopado por tenant (Fase 1).
+    List<Appointment> findByBarbershopId(UUID barbershopId);
 
-    List<Appointment> findByAppointmentDate(LocalDate appointmentDate);
+    List<Appointment> findByBarbershopIdAndCustomerPhone(UUID barbershopId, String customerPhone);
 
-    List<Appointment> findByAppointmentDateAndAppointmentTime(LocalDate appointmentDate, LocalTime appointmentTime);
+    List<Appointment> findByBarbershopIdAndAppointmentDate(UUID barbershopId, LocalDate appointmentDate);
 }

@@ -82,6 +82,7 @@ public class AgendaService {
                         continue;
                     }
                     Appointment app = Appointment.builder()
+                        .barbershopId(TenantContext.getCurrent())
                         .customerName(leg.getName())
                         .customerPhone(leg.getPhone() != null ? leg.getPhone() : "N/A")
                         .appointmentTime(time)
@@ -182,6 +183,7 @@ public class AgendaService {
         }
 
         Appointment app = Appointment.builder()
+            .barbershopId(TenantContext.getCurrent())
             .customerName(name)
             .customerPhone(phone)
             .appointmentDate(parsedDate)
@@ -225,7 +227,7 @@ public class AgendaService {
     }
 
     public String getHorariosOcupadosParaIA() {
-        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         if (agendaAtiva.isEmpty()) return "Agenda totalmente livre. Todos os horários estão disponíveis.";
         // Agrupa por data para clareza da IA e evitar falsos positivos entre dias diferentes
         java.util.Map<String, List<String>> porData = new java.util.LinkedHashMap<>();
@@ -249,7 +251,7 @@ public class AgendaService {
             return "Nenhum horário disponível para este dia.";
         }
 
-        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         List<String> ocupadosDoDia = new ArrayList<>();
         for (Appointment ag : agendaAtiva) {
             if (target.equals(ag.getAppointmentDate()) && ag.getAppointmentTime() != null) {
@@ -293,13 +295,13 @@ public class AgendaService {
     }
 
     public Appointment getAgendamentoCliente(String phone) {
-        return appointmentRepository.findByCustomerPhone(phone).stream().findFirst().orElse(null);
+        return appointmentRepository.findByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phone).stream().findFirst().orElse(null);
     }
 
     public boolean hasAgendamentoFuturo(String phone) {
         LocalDateTime agora = LocalDateTime.now(ZONE);
         LocalDate hoje = agora.toLocalDate();
-        List<Appointment> apps = appointmentRepository.findByCustomerPhone(phone);
+        List<Appointment> apps = appointmentRepository.findByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phone);
 
         for (Appointment ag : apps) {
             LocalDate agDate = ag.getAppointmentDate();
@@ -320,7 +322,7 @@ public class AgendaService {
     }
 
     public List<Appointment> getAgendamentosClienteList(String phone) {
-        return appointmentRepository.findByCustomerPhone(phone);
+        return appointmentRepository.findByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phone);
     }
 
     public boolean cancelarAgendamentoExato(Appointment ag) {
@@ -383,7 +385,7 @@ public class AgendaService {
     }
 
     public String getAgendaSalva() {
-        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         if (agendaAtiva.isEmpty()) return "Nenhum agendamento registrado no sistema.";
 
         List<String> display = new ArrayList<>();
@@ -399,7 +401,7 @@ public class AgendaService {
         int totalCortes = 0;
         double faturamentoEstimado = 0.0;
 
-        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         for (Appointment ag : agendaAtiva) {
             if (hoje.equals(ag.getAppointmentDate())) {
                 totalCortes++;
@@ -414,13 +416,13 @@ public class AgendaService {
 
     public int getAgendamentosHojeCount() {
         LocalDate hoje = AppointmentDates.today();
-        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         return (int) agendaAtiva.stream().filter(a -> hoje.equals(a.getAppointmentDate())).count();
     }
 
     public String getAgendaHojeText() {
         LocalDate hoje = AppointmentDates.today();
-        List<Appointment> apps = appointmentRepository.findAll().stream()
+        List<Appointment> apps = appointmentRepository.findByBarbershopId(TenantContext.getCurrent()).stream()
             .filter(a -> hoje.equals(a.getAppointmentDate()))
             .collect(Collectors.toList());
 
@@ -461,6 +463,7 @@ public class AgendaService {
                         String phone = (customer != null) ? customer.getPhoneNumber() : null;
 
                         Appointment app = Appointment.builder()
+                            .barbershopId(TenantContext.getCurrent())
                             .customerName(name)
                             .customerPhone(phone != null ? phone : "N/A")
                             .appointmentTime(parsedTime)
@@ -507,7 +510,7 @@ public class AgendaService {
         int presencialCount = 0;
         int pendenteCount = 0;
 
-        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         for (Appointment ag : agendaAtiva) {
             if (hoje.equals(ag.getAppointmentDate())) {
                 totalCortes++;
@@ -572,7 +575,7 @@ public class AgendaService {
         LocalDate hoje = AppointmentDates.today();
         String dataHoje = AppointmentDates.formatDate(hoje);
 
-        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         List<Appointment> agendaHoje = new ArrayList<>();
         for (Appointment ag : agendaAtiva) {
             if (hoje.equals(ag.getAppointmentDate())) {
@@ -619,7 +622,7 @@ public class AgendaService {
 
         java.util.Map<LocalDate, List<Appointment>> porDia = new java.util.TreeMap<>();
 
-        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         for (Appointment ag : agendaAtiva) {
             LocalDate agDate = ag.getAppointmentDate();
             if (agDate == null) continue;
@@ -672,7 +675,7 @@ public class AgendaService {
         int presencialCount = 0;
         int pendenteCount = 0;
 
-        List<Appointment> agendaAtiva = appointmentRepository.findAll();
+        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
         for (Appointment ag : agendaAtiva) {
             LocalDate agDate = ag.getAppointmentDate();
             if (agDate == null) continue;

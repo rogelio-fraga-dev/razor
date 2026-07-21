@@ -21,6 +21,10 @@ public class Appointment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Tenant dono deste agendamento (Fase 1).
+    @Column(name = "barbershop_id", nullable = false)
+    private java.util.UUID barbershopId;
+
     @Column(name = "customer_phone", nullable = false)
     private String customerPhone;
 
