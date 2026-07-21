@@ -116,7 +116,7 @@ class AgendaServiceTest {
     void cancelExato_deletes() {
         Appointment ag = appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0));
         ScheduledTask pending = ScheduledTask.builder().customerPhone(PHONE).status(ScheduledTask.TaskStatus.PENDING).build();
-        when(taskRepository.findByCustomerPhone(PHONE)).thenReturn(List.of(pending));
+        when(taskRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE))).thenReturn(List.of(pending));
 
         boolean ok = service.cancelarAgendamentoExato(ag);
 
@@ -139,7 +139,7 @@ class AgendaServiceTest {
     void cancelCliente_deletes() {
         Appointment ag = appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0));
         when(appointmentRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE))).thenReturn(List.of(ag));
-        when(taskRepository.findByCustomerPhone(PHONE)).thenReturn(List.of());
+        when(taskRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE))).thenReturn(List.of());
 
         assertThat(service.cancelarAgendamentoCliente(PHONE)).isTrue();
         verify(appointmentRepository).delete(ag);

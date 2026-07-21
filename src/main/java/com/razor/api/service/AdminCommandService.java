@@ -269,7 +269,7 @@ public class AdminCommandService {
                 sendMsg(phoneNumber, resumoFinanceiro, "ADMIN");
             } else if (cmdLower.equals("2") || cmdLower.contains("agenda do dia") || cmdLower.contains("painel")) {
                 long total = customerRepository.countByBarbershopId(TenantContext.getCurrent());
-                long waitlistCount = waitlistRepository.count();
+                long waitlistCount = waitlistRepository.countByBarbershopId(TenantContext.getCurrent());
                 long pausedCount = customerService.getPausedPhones().size();
                 String painelAgendamentos = agendaService.getPainelAgendamentosDetalhado(total, waitlistCount, pausedCount);
                 sendMsg(phoneNumber, painelAgendamentos, "ADMIN");

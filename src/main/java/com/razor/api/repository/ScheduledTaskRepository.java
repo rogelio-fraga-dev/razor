@@ -25,4 +25,7 @@ public interface ScheduledTaskRepository extends JpaRepository<ScheduledTask, UU
     );
     
     List<ScheduledTask> findByCustomerPhone(String customerPhone);
+
+    // Acesso escopado por tenant (Fase 1).
+    List<ScheduledTask> findByBarbershopIdAndCustomerPhone(UUID barbershopId, String customerPhone);
 }

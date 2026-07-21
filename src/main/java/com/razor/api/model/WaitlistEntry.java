@@ -19,6 +19,10 @@ public class WaitlistEntry {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // Tenant desta entrada na lista de espera (Fase 1).
+    @Column(name = "barbershop_id", nullable = false)
+    private UUID barbershopId;
+
     @Column(name = "customer_phone", nullable = false, length = 20)
     private String customerPhone;
 

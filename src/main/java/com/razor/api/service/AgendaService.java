@@ -125,7 +125,7 @@ public class AgendaService {
             LocalDateTime reminderTime = apptDateTime.minusHours(1);
             String reminderMsg = "Olá, " + pNome + "! 💈\nLembramos que você tem um agendamento hoje às *" + AppointmentDates.formatTime(ag.getAppointmentTime()) + "* para *" + ag.getService() + "* na Barbearia Ficticia.";
 
-            ScheduledTask reminderTask = ScheduledTask.builder()
+            ScheduledTask reminderTask = ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
                     .customerPhone(ag.getCustomerPhone())
                     .executionTime(reminderTime)
                     .taskType("REMINDER")
@@ -139,7 +139,7 @@ public class AgendaService {
             LocalDateTime reviewTime = apptDateTime.plusHours(1);
             String reviewMsg = "E aí, " + pNome + ", curtiu o talento? 🧔‍♂️\nSua avaliação ajuda a barbearia a crescer! Leva só 1 minuto:\n⭐ " + properties.getMenu().getAddressMapsUrl() + "\n\nValeu demais! 👊";
 
-            ScheduledTask reviewTask = ScheduledTask.builder()
+            ScheduledTask reviewTask = ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
                     .customerPhone(ag.getCustomerPhone())
                     .executionTime(reviewTime)
                     .taskType("REVIEW_REQUEST")
@@ -156,7 +156,7 @@ public class AgendaService {
 
     private void cancelarTarefasBanco(String phone) {
         try {
-            List<ScheduledTask> tasks = taskRepository.findByCustomerPhone(phone);
+            List<ScheduledTask> tasks = taskRepository.findByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phone);
             List<ScheduledTask> pendingToCancel = tasks.stream()
                     .filter(t -> t.getStatus() == ScheduledTask.TaskStatus.PENDING)
                     .toList();
@@ -336,7 +336,7 @@ public class AgendaService {
 
     public void cancelarTarefasClienteExato(String phone) {
         try {
-            List<ScheduledTask> tasks = taskRepository.findByCustomerPhone(phone);
+            List<ScheduledTask> tasks = taskRepository.findByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phone);
             List<ScheduledTask> pendingToCancel = tasks.stream()
                     .filter(t -> t.getStatus() == ScheduledTask.TaskStatus.PENDING)
                     .toList();
@@ -372,7 +372,7 @@ public class AgendaService {
                 }
             }
             if (isAdmin) continue;
-            ScheduledTask task = ScheduledTask.builder()
+            ScheduledTask task = ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
                     .customerPhone(c.getPhoneNumber())
                     .executionTime(execTime)
                     .taskType("BROADCAST_SCHEDULED")
@@ -740,7 +740,7 @@ public class AgendaService {
     }
 
     public void agendarNotificacaoRetorno(String phone, int minutesDelay) {
-        ScheduledTask task = ScheduledTask.builder()
+        ScheduledTask task = ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
                 .customerPhone(phone)
                 .taskType("UNPAUSE_NOTIFY")
                 .executionTime(LocalDateTime.now(ZONE).plusMinutes(minutesDelay))

@@ -18,7 +18,12 @@ public class Interaction {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    
+
+    // Tenant desta interacao (Fase 1); redundante com o do customer, mas mantem o
+    // padrao "tenant_id em todas as tabelas" para escopo e futuras queries.
+    @Column(name = "barbershop_id", nullable = false)
+    private UUID barbershopId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;

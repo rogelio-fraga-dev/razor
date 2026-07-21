@@ -13,6 +13,7 @@ import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.InteractionRepository;
 import com.razor.api.repository.WaitlistRepository;
+import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
 import com.razor.api.util.ConsoleText;
 import java.text.Normalizer;
@@ -118,7 +119,7 @@ public class CustomerConversationService {
         }
 
         log.info("[CLIENTE IN] Mensagem: '{}'", sanitizeForConsole(contentToSave));
-        interactionRepository.save(Interaction.builder().customer(customer).type(Interaction.InteractionType.USER).content(contentToSave).messageId(webhook.getData().getKey().getId()).build());
+        interactionRepository.save(Interaction.builder().barbershopId(customer.getBarbershopId()).customer(customer).type(Interaction.InteractionType.USER).content(contentToSave).messageId(webhook.getData().getKey().getId()).build());
 
         String msgLower = contentToSave.toLowerCase().trim();
         String cState = customerStates.get(phoneNumber);
@@ -457,8 +458,9 @@ public class CustomerConversationService {
     }
 
     private String tratarListaDeEspera(String phoneNumber, AiIntent.ListaDeEspera le) {
-        if (!waitlistRepository.existsByCustomerPhone(phoneNumber)) {
+        if (!waitlistRepository.existsByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phoneNumber)) {
             WaitlistEntry entry = WaitlistEntry.builder()
+                    .barbershopId(TenantContext.getCurrent())
                     .customerPhone(phoneNumber)
                     .customerName(le.name())
                     .preferredDay(le.preferredDay())
@@ -472,7 +474,7 @@ public class CustomerConversationService {
     }
 
     private void saveAndSend(Customer customer, String content, String phone) {
-        interactionRepository.save(Interaction.builder().customer(customer).type(Interaction.InteractionType.BOT).content(content).build());
+        interactionRepository.save(Interaction.builder().barbershopId(customer.getBarbershopId()).customer(customer).type(Interaction.InteractionType.BOT).content(content).build());
         sendMsg(phone, content, "CLIENTE");
     }
 
@@ -499,7 +501,7 @@ public class CustomerConversationService {
 
     private void verificarListaEsperaECanalizar(String diaSemana, String date, String time, String service) {
         try {
-            List<WaitlistEntry> allEntries = waitlistRepository.findAll();
+            List<WaitlistEntry> allEntries = waitlistRepository.findByBarbershopId(TenantContext.getCurrent());
             WaitlistEntry matched = null;
 
             String cleanedDia = Normalizer.normalize(diaSemana.toLowerCase(), Normalizer.Form.NFD)

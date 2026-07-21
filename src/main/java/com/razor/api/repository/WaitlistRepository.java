@@ -9,6 +9,10 @@ import java.util.UUID;
 @Repository
 public interface WaitlistRepository extends JpaRepository<WaitlistEntry, UUID> {
     List<WaitlistEntry> findByPreferredDayIgnoreCaseOrderByCreatedAtAsc(String preferredDay);
-    boolean existsByCustomerPhone(String customerPhone);
     void deleteByCustomerPhone(String customerPhone);
+
+    // Acesso escopado por tenant (Fase 1).
+    List<WaitlistEntry> findByBarbershopId(UUID barbershopId);
+    boolean existsByBarbershopIdAndCustomerPhone(UUID barbershopId, String customerPhone);
+    long countByBarbershopId(UUID barbershopId);
 }

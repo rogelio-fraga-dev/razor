@@ -19,7 +19,11 @@ public class ScheduledTask {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    
+
+    // Tenant desta tarefa (Fase 1); permite ao motor de disparo rotear por barbearia.
+    @Column(name = "barbershop_id", nullable = false)
+    private UUID barbershopId;
+
     @Column(name = "customer_phone", nullable = false)
     private String customerPhone;
     

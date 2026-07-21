@@ -187,7 +187,7 @@ class CustomerConversationServiceTest {
                 .build();
         when(agendaService.getAgendamentosClienteList(PHONE)).thenReturn(List.of(ag));
         when(agendaService.cancelarAgendamentoExato(ag)).thenReturn(true);
-        when(waitlistRepository.findAll()).thenReturn(List.of());
+        when(waitlistRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of());
 
         service.processCustomerMessage(textWebhook("cancelar meu horario"), PHONE);
 
