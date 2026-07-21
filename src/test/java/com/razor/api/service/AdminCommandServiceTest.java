@@ -11,9 +11,11 @@ import static org.mockito.Mockito.when;
 import com.razor.api.config.RazorProperties;
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.model.Customer;
+import com.razor.api.model.Professional;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.InteractionRepository;
 import com.razor.api.repository.WaitlistRepository;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -48,6 +50,7 @@ class AdminCommandServiceTest {
     @Mock private WhatsAppMessenger messenger;
     @Mock private EvolutionMediaService evolutionMediaService;
     @Mock private CommissionService commissionService;
+    @Mock private ProfessionalService professionalService;
 
     @InjectMocks private AdminCommandService service;
 
@@ -127,6 +130,27 @@ class AdminCommandServiceTest {
         when(commissionService.getComissoesDoDiaText()).thenReturn("RELATORIO_COMISSOES");
         service.processAdminMessage(adminText("comissões"), ADMIN);
         verify(messenger).send(eq(ADMIN), eq("RELATORIO_COMISSOES"), eq("ADMIN"));
+    }
+
+    @Test
+    @DisplayName("fluxo definir comissão: lista barbeiro, pede o %, e salva no profissional escolhido")
+    void configCommission_threeSteps_setsPercent() {
+        UUID id = UUID.randomUUID();
+        Professional rafael = Professional.builder().id(id).name("Rafael").commissionPercent(BigDecimal.ZERO).build();
+        when(professionalService.listActive()).thenReturn(List.of(rafael));
+
+        // passo 1: entra no fluxo e lista os barbeiros
+        service.processAdminMessage(adminText("definir comissão"), ADMIN);
+        verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("Definir Comissão") && m.contains("Rafael")), eq("ADMIN"));
+
+        // passo 2: escolhe o barbeiro 1 -> pede o percentual
+        service.processAdminMessage(adminText("1"), ADMIN);
+        verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("comissão") && m.contains("Rafael")), eq("ADMIN"));
+
+        // passo 3: informa 45 -> updateCommission(id, 45) e confirma
+        service.processAdminMessage(adminText("45"), ADMIN);
+        verify(professionalService).updateCommission(eq(id), argThat(p -> p.compareTo(new BigDecimal("45")) == 0));
+        verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("definida em") && m.contains("45")), eq("ADMIN"));
     }
 
     @Test

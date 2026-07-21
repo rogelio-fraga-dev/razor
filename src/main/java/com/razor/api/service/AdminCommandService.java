@@ -3,16 +3,19 @@ package com.razor.api.service;
 import com.razor.api.config.RazorProperties;
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.model.Customer;
+import com.razor.api.model.Professional;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.InteractionRepository;
 import com.razor.api.repository.WaitlistRepository;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.ConsoleText;
+import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +42,7 @@ public class AdminCommandService {
     private final WhatsAppMessenger messenger;
     private final EvolutionMediaService evolutionMediaService;
     private final CommissionService commissionService;
+    private final ProfessionalService professionalService;
 
     // Estado por-admin (chaveado por telefone). Instancia, nao static: servico singleton
     // (mesmo comportamento em runtime) e assim cada teste tem estado isolado.
@@ -46,9 +50,15 @@ public class AdminCommandService {
     private final Map<String, List<String>> adminRetomarOptions = new ConcurrentHashMap<>();
     private final Map<String, List<String>> adminApagarOptions = new ConcurrentHashMap<>();
     private final Map<String, String> adminScheduledMsg = new ConcurrentHashMap<>();
+    private final Map<String, List<Professional>> adminComissaoProfs = new ConcurrentHashMap<>();
+    private final Map<String, Professional> adminComissaoAlvo = new ConcurrentHashMap<>();
 
     private void sendMsg(String phone, String text, String role) {
         messenger.send(phone, text, role);
+    }
+
+    private String formatPercent(BigDecimal pct) {
+        return (pct == null ? BigDecimal.ZERO : pct).stripTrailingZeros().toPlainString();
     }
 
     private String sanitizeForConsole(String text) {
@@ -172,6 +182,8 @@ public class AdminCommandService {
                     adminRetomarOptions.remove(phoneNumber);
                     adminApagarOptions.remove(phoneNumber);
                     adminScheduledMsg.remove(phoneNumber);
+                    adminComissaoProfs.remove(phoneNumber);
+                    adminComissaoAlvo.remove(phoneNumber);
                     sendFullMenu(phoneNumber);
                     return;
                 }
@@ -261,6 +273,42 @@ public class AdminCommandService {
                     }
                     return;
                 }
+                if (currentState.equals("COMISSAO_ESCOLHER_PROF")) {
+                    adminStates.remove(phoneNumber);
+                    List<Professional> opcoes = adminComissaoProfs.remove(phoneNumber);
+                    try {
+                        int index = Integer.parseInt(cmdLower.replaceAll("[^0-9]", "")) - 1;
+                        if (opcoes != null && index >= 0 && index < opcoes.size()) {
+                            Professional escolhido = opcoes.get(index);
+                            adminComissaoAlvo.put(phoneNumber, escolhido);
+                            adminStates.put(phoneNumber, "COMISSAO_DEFINIR_PCT");
+                            sendMsg(phoneNumber, "Qual a *comissão (%)* de *" + escolhido.getName() + "*? Digite só o número. Ex: *45* _(Ou 'cancelar')_", "ADMIN");
+                        } else {
+                            sendMsg(phoneNumber, "❌ Opção inválida. Digite *comissões* para começar de novo.", "ADMIN");
+                        }
+                    } catch (NumberFormatException e) {
+                        sendMsg(phoneNumber, "❌ Formato inválido. Digite o *número* do barbeiro.", "ADMIN");
+                    }
+                    return;
+                }
+                if (currentState.equals("COMISSAO_DEFINIR_PCT")) {
+                    adminStates.remove(phoneNumber);
+                    Professional alvo = adminComissaoAlvo.remove(phoneNumber);
+                    if (alvo == null) {
+                        sendMsg(phoneNumber, "Sessão expirada. Digite *definir comissão* para recomeçar.", "ADMIN");
+                        return;
+                    }
+                    try {
+                        BigDecimal pct = new BigDecimal(cmdLower.replaceAll("[^0-9,.]", "").replace(",", "."));
+                        professionalService.updateCommission(alvo.getId(), pct);
+                        sendMsg(phoneNumber, "✅ Comissão de *" + alvo.getName() + "* definida em *" + pct.stripTrailingZeros().toPlainString() + "%*.", "ADMIN");
+                    } catch (IllegalArgumentException e) {
+                        sendMsg(phoneNumber, "❌ " + e.getMessage() + " Ex: *45*.", "ADMIN");
+                    } catch (Exception e) {
+                        sendMsg(phoneNumber, "❌ Não entendi o percentual. Digite só o número. Ex: *45*.", "ADMIN");
+                    }
+                    return;
+                }
             }
 
             if (cmdLower.contains("comando") || cmdLower.contains("menu")) {
@@ -280,6 +328,22 @@ public class AdminCommandService {
             } else if (cmdLower.equals("4") || cmdLower.contains("resumo da semana")) {
                 String resumo = agendaService.getResumoFinanceiroDaSemana();
                 sendMsg(phoneNumber, resumo, "ADMIN");
+            } else if (cmdLower.contains("comiss") && (cmdLower.contains("defin") || cmdLower.contains("config")
+                    || cmdLower.contains("ajust") || cmdLower.contains("edit") || cmdLower.contains("taxa"))) {
+                List<Professional> ativos = professionalService.listActive();
+                if (ativos.isEmpty()) {
+                    sendMsg(phoneNumber, "Nenhum barbeiro ativo para configurar comissão.", "ADMIN");
+                } else {
+                    adminComissaoProfs.put(phoneNumber, ativos);
+                    adminStates.put(phoneNumber, "COMISSAO_ESCOLHER_PROF");
+                    StringBuilder sb = new StringBuilder("💈 *Definir Comissão*\nDe qual barbeiro?\n\n");
+                    for (int i = 0; i < ativos.size(); i++) {
+                        sb.append("*").append(i + 1).append("* - ").append(ativos.get(i).getName())
+                                .append(" (").append(formatPercent(ativos.get(i).getCommissionPercent())).append("%)\n");
+                    }
+                    sb.append("\nDigite o *número* _(Ou 'cancelar')_.");
+                    sendMsg(phoneNumber, sb.toString(), "ADMIN");
+                }
             } else if (cmdLower.contains("comiss")) {
                 String comissoes = commissionService.getComissoesDoDiaText();
                 sendMsg(phoneNumber, comissoes, "ADMIN");
@@ -390,6 +454,7 @@ public class AdminCommandService {
                 *12* - ℹ️ Ajuda / Manual do Sistema
 
                 💈 _Comissões do dia: digite *comissões*_
+                ⚙️ _Definir comissão de um barbeiro: digite *definir comissão*_
 
                 _Digite o número ou comando desejado._
                 """;
