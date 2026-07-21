@@ -12,11 +12,16 @@ import static org.mockito.Mockito.when;
 
 import com.razor.api.dto.OnboardingRequest;
 import com.razor.api.model.Barbershop;
+import com.razor.api.model.TenantUser;
+import com.razor.api.model.UserRole;
 import com.razor.api.repository.BarbershopRepository;
+import com.razor.api.repository.TenantUserRepository;
 import com.razor.api.tenant.TenantContext;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.mockito.ArgumentCaptor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,6 +44,8 @@ class BarbershopProvisioningServiceTest {
     @Mock private ServiceCatalogService serviceCatalogService;
     @Mock private ProfessionalService professionalService;
     @Mock private TenantAdminService tenantAdminService;
+    @Mock private TenantUserRepository tenantUserRepository;
+    @Mock private PasswordEncoder passwordEncoder;
 
     @InjectMocks private BarbershopProvisioningService service;
 
@@ -48,7 +55,7 @@ class BarbershopProvisioningServiceTest {
     }
 
     private OnboardingRequest request(String slug, String instance, String prof, List<String> admins) {
-        return new OnboardingRequest("Barbearia Nova", slug, instance, prof, admins);
+        return new OnboardingRequest("Barbearia Nova", slug, instance, prof, admins, "dono@loja.com", "senha1234");
     }
 
     private void givenSaveAssignsId() {
@@ -66,6 +73,8 @@ class BarbershopProvisioningServiceTest {
         when(barbershopRepository.findByWhatsappInstance("loja2-wa")).thenReturn(Optional.empty());
         givenSaveAssignsId();
 
+        when(passwordEncoder.encode("senha1234")).thenReturn("hash-bcrypt");
+
         Barbershop shop = service.provision(
                 request("loja-2", "loja2-wa", "Rafael", List.of("5521970001111", "5521970002222")));
 
@@ -76,7 +85,27 @@ class BarbershopProvisioningServiceTest {
         verify(professionalService).create(eq("Rafael"), isNull());
         verify(tenantAdminService).add(eq("5521970001111"), isNull());
         verify(tenantAdminService).add(eq("5521970002222"), isNull());
+
+        // usuario OWNER criado com senha em hash e vinculado ao tenant
+        ArgumentCaptor<TenantUser> userCap = ArgumentCaptor.forClass(TenantUser.class);
+        verify(tenantUserRepository).save(userCap.capture());
+        assertThat(userCap.getValue().getEmail()).isEqualTo("dono@loja.com");
+        assertThat(userCap.getValue().getPasswordHash()).isEqualTo("hash-bcrypt");
+        assertThat(userCap.getValue().getRole()).isEqualTo(UserRole.OWNER);
+        assertThat(userCap.getValue().getBarbershopId()).isEqualTo(shop.getId());
         assertThat(TenantContext.isSet()).isFalse(); // contexto limpo ao final
+    }
+
+    @Test
+    @DisplayName("email de dono já em uso é rejeitado (409)")
+    void provision_duplicateEmail_throws() {
+        when(barbershopRepository.findBySlug("loja-2")).thenReturn(Optional.empty());
+        when(tenantUserRepository.existsByEmail("dono@loja.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.provision(request("loja-2", null, "Rafael", List.of("5521970001111"))))
+                .isInstanceOf(OnboardingConflictException.class)
+                .hasMessageContaining("email");
+        verify(barbershopRepository, never()).save(any());
     }
 
     @Test

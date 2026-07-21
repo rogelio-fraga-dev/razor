@@ -1,0 +1,65 @@
+package com.razor.api.security;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.razor.api.config.RazorProperties;
+import com.razor.api.model.TenantUser;
+import com.razor.api.model.UserRole;
+import io.jsonwebtoken.JwtException;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+/** Testes do {@link JwtService}: round-trip emitir/validar e rejeicao de token adulterado. */
+class JwtServiceTest {
+
+    private JwtService jwtService;
+
+    @BeforeEach
+    void setUp() {
+        RazorProperties props = new RazorProperties();
+        props.getSecurity().setJwtSecret("um-segredo-de-teste-bem-longo-0123456789");
+        props.getSecurity().setJwtExpirationMinutes(60);
+        jwtService = new JwtService(props);
+    }
+
+    private TenantUser user() {
+        return TenantUser.builder()
+                .id(UUID.randomUUID())
+                .email("dono@loja.com")
+                .barbershopId(UUID.randomUUID())
+                .role(UserRole.OWNER)
+                .build();
+    }
+
+    @Test
+    @DisplayName("token emitido é validado e devolve o principal com tenant e papel")
+    void issueThenParse_roundTrip() {
+        TenantUser u = user();
+
+        TenantUserPrincipal principal = jwtService.parse(jwtService.issue(u));
+
+        assertThat(principal.userId()).isEqualTo(u.getId());
+        assertThat(principal.email()).isEqualTo("dono@loja.com");
+        assertThat(principal.barbershopId()).isEqualTo(u.getBarbershopId());
+        assertThat(principal.role()).isEqualTo(UserRole.OWNER);
+    }
+
+    @Test
+    @DisplayName("token adulterado/garbage é rejeitado")
+    void parse_invalidToken_throws() {
+        assertThatThrownBy(() -> jwtService.parse("nao-e-um-jwt")).isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    @DisplayName("token assinado com outra chave é rejeitado")
+    void parse_tokenFromAnotherKey_throws() {
+        RazorProperties other = new RazorProperties();
+        other.getSecurity().setJwtSecret("outro-segredo-completamente-diferente-99");
+        String foreignToken = new JwtService(other).issue(user());
+
+        assertThatThrownBy(() -> jwtService.parse(foreignToken)).isInstanceOf(JwtException.class);
+    }
+}

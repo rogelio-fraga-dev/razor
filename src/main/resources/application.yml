@@ -37,6 +37,12 @@ razor:
     # Vazio por padrão = onboarding desabilitado (fail-closed). Defina ONBOARDING_API_KEY
     # no ambiente para habilitar o provisionamento de novas barbearias.
     api-key: "${ONBOARDING_API_KEY:}"
+  security:
+    # Segredo dos JWT do painel web. Vazio = chave aleatória no boot (dev). Em produção defina
+    # RAZOR_JWT_SECRET com uma string longa e secreta (>= 32 caracteres).
+    jwt-secret: "${RAZOR_JWT_SECRET:}"
+    jwt-expiration-minutes: 720
+    cors-allowed-origins: "${RAZOR_CORS_ORIGINS:http://localhost:5173,http://localhost:3000}"
   openai:
     api-key: "${OPENAI_API_KEY}"
     model: "gpt-4o"

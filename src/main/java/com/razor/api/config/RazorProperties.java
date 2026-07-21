@@ -15,6 +15,7 @@ public class RazorProperties {
     /** Textos e links do menu (opcional; se vazio usamos valores padrão no código) */
     private Menu menu = new Menu();
     private Onboarding onboarding = new Onboarding();
+    private Security security = new Security();
 
     @Data
     public static class Admin {
@@ -28,6 +29,20 @@ public class RazorProperties {
          * desabilita o onboarding (fail-closed): o endpoint rejeita qualquer requisicao.
          */
         private String apiKey = "";
+    }
+
+    @Data
+    public static class Security {
+        /**
+         * Segredo HMAC para assinar os JWT do painel web. Vazio/curto (&lt;32 chars) faz o
+         * JwtService gerar uma chave aleatoria no boot (tokens invalidam ao reiniciar) — defina
+         * RAZOR_JWT_SECRET em producao.
+         */
+        private String jwtSecret = "";
+        private long jwtExpirationMinutes = 720; // 12h
+        /** Origens permitidas no CORS do painel (SPA). */
+        private java.util.List<String> corsAllowedOrigins =
+                new java.util.ArrayList<>(java.util.List.of("http://localhost:5173", "http://localhost:3000"));
     }
 
     @Data

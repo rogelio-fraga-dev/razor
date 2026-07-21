@@ -1,5 +1,6 @@
 package com.razor.api.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
@@ -15,6 +16,8 @@ import java.util.List;
  *                         para o roteamento de saida — sem ele o tenant usa a instancia do config)
  * @param professionalName nome do barbeiro padrao criado no provisionamento (opcional)
  * @param adminPhones      telefones administrativos do tenant (ao menos um)
+ * @param ownerEmail       email de login do dono (usuario OWNER do painel web)
+ * @param ownerPassword    senha inicial do dono (min. 8 caracteres)
  */
 public record OnboardingRequest(
         @NotBlank String name,
@@ -28,5 +31,9 @@ public record OnboardingRequest(
 
         @Size(max = 255) String professionalName,
 
-        @NotEmpty List<@NotBlank String> adminPhones) {
+        @NotEmpty List<@NotBlank String> adminPhones,
+
+        @NotBlank @Email @Size(max = 255) String ownerEmail,
+
+        @NotBlank @Size(min = 8, max = 100) String ownerPassword) {
 }

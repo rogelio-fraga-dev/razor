@@ -44,7 +44,8 @@ class OnboardingControllerTest {
     }
 
     private OnboardingRequest request() {
-        return new OnboardingRequest("Barbearia Nova", "loja-2", "loja2-wa", "Rafael", List.of("5521970001111"));
+        return new OnboardingRequest("Barbearia Nova", "loja-2", "loja2-wa", "Rafael",
+                List.of("5521970001111"), "dono@loja.com", "senha1234");
     }
 
     @Test

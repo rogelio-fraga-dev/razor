@@ -2,11 +2,15 @@ package com.razor.api.service;
 
 import com.razor.api.dto.OnboardingRequest;
 import com.razor.api.model.Barbershop;
+import com.razor.api.model.TenantUser;
+import com.razor.api.model.UserRole;
 import com.razor.api.repository.BarbershopRepository;
+import com.razor.api.repository.TenantUserRepository;
 import com.razor.api.tenant.TenantContext;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,17 +31,23 @@ public class BarbershopProvisioningService {
     private final ServiceCatalogService serviceCatalogService;
     private final ProfessionalService professionalService;
     private final TenantAdminService tenantAdminService;
+    private final TenantUserRepository tenantUserRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public Barbershop provision(OnboardingRequest request) {
         String slug = request.slug();
         String instance = normalizeBlankToNull(request.whatsappInstance());
+        String ownerEmail = AuthService.normalizeEmail(request.ownerEmail());
 
         if (barbershopRepository.findBySlug(slug).isPresent()) {
             throw new OnboardingConflictException("Ja existe uma barbearia com o slug '" + slug + "'.");
         }
         if (instance != null && barbershopRepository.findByWhatsappInstance(instance).isPresent()) {
             throw new OnboardingConflictException("A instancia de WhatsApp '" + instance + "' ja esta em uso.");
+        }
+        if (tenantUserRepository.existsByEmail(ownerEmail)) {
+            throw new OnboardingConflictException("O email '" + ownerEmail + "' ja esta em uso.");
         }
 
         Barbershop shop = barbershopRepository.save(Barbershop.builder()
@@ -60,7 +70,18 @@ public class BarbershopProvisioningService {
             TenantContext.clear();
         }
 
-        log.info("[ONBOARDING] Barbearia '{}' (slug '{}') provisionada: id {}", shop.getName(), slug, shop.getId());
+        // Usuario dono (login do painel web) — fora do TenantContext: o vinculo e o barbershopId.
+        tenantUserRepository.save(TenantUser.builder()
+                .barbershopId(shop.getId())
+                .email(ownerEmail)
+                .passwordHash(passwordEncoder.encode(request.ownerPassword()))
+                .name(request.name())
+                .role(UserRole.OWNER)
+                .active(true)
+                .build());
+
+        log.info("[ONBOARDING] Barbearia '{}' (slug '{}') provisionada: id {} (owner {})",
+                shop.getName(), slug, shop.getId(), ownerEmail);
         return shop;
     }
 
