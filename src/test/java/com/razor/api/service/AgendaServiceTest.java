@@ -102,6 +102,21 @@ class AgendaServiceTest {
         assertThat(out).doesNotContain("09:00").contains("09:30");
     }
 
+    @Test
+    @DisplayName("disponibilidade por profissional considera só os agendamentos daquele barbeiro")
+    void horariosDisponiveisProfissional_excludesThatProfessionalOccupied() {
+        UUID prof = UUID.randomUUID();
+        LocalDate future = AppointmentDates.today().plusDays(5);
+        String dateStr = AppointmentDates.formatDate(future);
+        when(appointmentRepository.findByBarbershopIdAndProfessionalIdAndAppointmentDate(
+                any(UUID.class), eq(prof), any(LocalDate.class)))
+                .thenReturn(List.of(appt("Corte", PaymentStatus.PENDENTE, future, LocalTime.of(9, 0))));
+
+        String out = service.getHorariosDisponiveisDoProfissional(prof, dateStr);
+
+        assertThat(out).doesNotContain("09:00").contains("09:30");
+    }
+
     // ---------- cancelamento ----------
 
     @Test

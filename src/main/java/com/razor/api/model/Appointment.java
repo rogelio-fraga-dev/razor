@@ -28,6 +28,10 @@ public class Appointment {
     @Column(name = "customer_phone", nullable = false)
     private String customerPhone;
 
+    // Profissional (barbeiro) responsavel — nullable ate ser atribuido (Fase 1 multiprofissional).
+    @Column(name = "professional_id")
+    private java.util.UUID professionalId;
+
     @Column(name = "customer_name")
     private String customerName;
 
