@@ -18,8 +18,13 @@ public class Customer {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    
-    @Column(name = "phone_number", unique = true, nullable = false, length = 20)
+
+    // Tenant dono deste cliente (Fase 1). O telefone e unico POR barbearia,
+    // nao mais globalmente (ver constraint uq_customers_shop_phone na V4).
+    @Column(name = "barbershop_id", nullable = false)
+    private UUID barbershopId;
+
+    @Column(name = "phone_number", nullable = false, length = 20)
     private String phoneNumber;
     
     @Column(name = "name", length = 255)

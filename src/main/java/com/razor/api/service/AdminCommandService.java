@@ -6,6 +6,7 @@ import com.razor.api.model.Customer;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.InteractionRepository;
 import com.razor.api.repository.WaitlistRepository;
+import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.ConsoleText;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
@@ -214,7 +215,8 @@ public class AdminCommandService {
                         int index = Integer.parseInt(cmdLower.replaceAll("[^0-9]", "")) - 1;
                         if (options != null && index >= 0 && index < options.size()) {
                             String targetPhone = options.get(index);
-                            Customer c = customerRepository.findByPhoneNumber(targetPhone).orElse(null);
+                            Customer c = customerRepository
+                                    .findByBarbershopIdAndPhoneNumber(TenantContext.getCurrent(), targetPhone).orElse(null);
                             if (c != null) {
                                 interactionRepository.deleteByCustomerId(c.getId());
                                 customerRepository.delete(c);
@@ -266,7 +268,7 @@ public class AdminCommandService {
                 String resumoFinanceiro = agendaService.getResumoFinanceiroDetalhado();
                 sendMsg(phoneNumber, resumoFinanceiro, "ADMIN");
             } else if (cmdLower.equals("2") || cmdLower.contains("agenda do dia") || cmdLower.contains("painel")) {
-                long total = customerRepository.count();
+                long total = customerRepository.countByBarbershopId(TenantContext.getCurrent());
                 long waitlistCount = waitlistRepository.count();
                 long pausedCount = customerService.getPausedPhones().size();
                 String painelAgendamentos = agendaService.getPainelAgendamentosDetalhado(total, waitlistCount, pausedCount);
@@ -304,7 +306,7 @@ public class AdminCommandService {
                     sendMsg(phoneNumber, sb.toString(), "ADMIN");
                 }
             } else if (cmdLower.equals("10") || cmdLower.contains("lista")) {
-                List<Customer> customers = customerRepository.findAll();
+                List<Customer> customers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
                 if (customers.isEmpty()) {
                     sendMsg(phoneNumber, "📭 Nenhum cliente salvo na base.", "ADMIN");
                 } else {
@@ -313,7 +315,7 @@ public class AdminCommandService {
                     sendMsg(phoneNumber, sb.toString(), "ADMIN");
                 }
             } else if (cmdLower.equals("11") || cmdLower.contains("apaga") || cmdLower.contains("exclui")) {
-                List<Customer> customers = customerRepository.findAll();
+                List<Customer> customers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
                 if (customers.isEmpty()) {
                     sendMsg(phoneNumber, "📭 Nenhum cliente salvo.", "ADMIN");
                 } else {
@@ -390,7 +392,7 @@ public class AdminCommandService {
 
     @Async
     public void performBroadcast(String adminPhone, String message, boolean isProspecting) {
-        List<Customer> allCustomers = customerRepository.findAll();
+        List<Customer> allCustomers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
         sendMsg(adminPhone, "🚀 Iniciando disparo para " + allCustomers.size() + " contatos...", "ADMIN");
 
         List<String> contatosSucesso = new ArrayList<>();

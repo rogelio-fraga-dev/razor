@@ -6,6 +6,7 @@ import com.razor.api.model.PaymentStatus;
 import com.razor.api.model.ScheduledTask;
 import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.repository.ScheduledTaskRepository;
+import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -195,7 +196,8 @@ public class AgendaService {
         criarTarefasAgendadas(app);
 
         try {
-            com.razor.api.model.Customer customer = customerRepository.findByPhoneNumber(phone).orElse(null);
+            com.razor.api.model.Customer customer = customerRepository
+                    .findByBarbershopIdAndPhoneNumber(TenantContext.getCurrent(), phone).orElse(null);
             if (customer != null) {
                 int currentPoints = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
                 int newPoints = currentPoints + 1;
@@ -358,7 +360,7 @@ public class AgendaService {
     }
 
     public void agendarDisparoMassa(String msg, LocalDateTime execTime) {
-        List<com.razor.api.model.Customer> customers = customerRepository.findAll();
+        List<com.razor.api.model.Customer> customers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
         for (com.razor.api.model.Customer c : customers) {
             boolean isAdmin = false;
             for (String admPhone : properties.getAdmin().getPhones()) {

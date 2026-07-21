@@ -74,7 +74,7 @@ class AdminCommandServiceTest {
     @Test
     @DisplayName("listar clientes com base vazia informa que não há ninguém salvo")
     void listClients_empty() {
-        when(customerRepository.findAll()).thenReturn(List.of());
+        when(customerRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of());
         service.processAdminMessage(adminText("10"), ADMIN);
         verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("Nenhum cliente salvo")), eq("ADMIN"));
     }
@@ -105,8 +105,9 @@ class AdminCommandServiceTest {
     void deleteFlow_twoSteps() {
         UUID id = UUID.randomUUID();
         Customer c = Customer.builder().id(id).phoneNumber("5511777776666").name("Zé").build();
-        when(customerRepository.findAll()).thenReturn(List.of(c));
-        when(customerRepository.findByPhoneNumber("5511777776666")).thenReturn(Optional.of(c));
+        when(customerRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(c));
+        when(customerRepository.findByBarbershopIdAndPhoneNumber(any(UUID.class), eq("5511777776666")))
+                .thenReturn(Optional.of(c));
 
         // passo 1: entra no estado APAGAR_CONTATO e lista
         service.processAdminMessage(adminText("11"), ADMIN);

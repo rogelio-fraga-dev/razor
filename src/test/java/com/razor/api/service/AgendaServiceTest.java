@@ -152,7 +152,7 @@ class AgendaServiceTest {
     void adicionar_savesAndAddsPoint() {
         when(properties.getMenu()).thenReturn(new RazorProperties.Menu());
         Customer c = Customer.builder().id(UUID.randomUUID()).phoneNumber(PHONE).name("João").fidelityPoints(3).build();
-        when(customerRepository.findByPhoneNumber(PHONE)).thenReturn(Optional.of(c));
+        when(customerRepository.findByBarbershopIdAndPhoneNumber(any(UUID.class), eq(PHONE))).thenReturn(Optional.of(c));
 
         service.adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte");
 
@@ -166,7 +166,7 @@ class AgendaServiceTest {
     void adicionar_tenthPoint_sendsCoupon() {
         when(properties.getMenu()).thenReturn(new RazorProperties.Menu());
         Customer c = Customer.builder().id(UUID.randomUUID()).phoneNumber(PHONE).name("João").fidelityPoints(9).build();
-        when(customerRepository.findByPhoneNumber(PHONE)).thenReturn(Optional.of(c));
+        when(customerRepository.findByBarbershopIdAndPhoneNumber(any(UUID.class), eq(PHONE))).thenReturn(Optional.of(c));
 
         service.adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte");
 
@@ -226,7 +226,7 @@ class AgendaServiceTest {
         String adminPhone = "5511000000000";
         Customer admin = Customer.builder().id(UUID.randomUUID()).phoneNumber(adminPhone).name("Chefe").build();
         Customer cliente = Customer.builder().id(UUID.randomUUID()).phoneNumber(PHONE).name("Cliente").build();
-        when(customerRepository.findAll()).thenReturn(List.of(admin, cliente));
+        when(customerRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(admin, cliente));
         RazorProperties.Admin adminCfg = new RazorProperties.Admin();
         adminCfg.setPhones(List.of(adminPhone));
         when(properties.getAdmin()).thenReturn(adminCfg);
