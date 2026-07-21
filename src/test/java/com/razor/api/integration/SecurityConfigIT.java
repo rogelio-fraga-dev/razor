@@ -97,6 +97,18 @@ class SecurityConfigIT {
 
         mockMvc.perform(get("/api/admin/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+
+        // endpoint real de config (catalogo do tenant) tambem responde com o token
+        mockMvc.perform(get("/api/admin/services").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$").isArray());
+    }
+
+    @Test
+    @DisplayName("config sem token responde 401 (protegida)")
+    void adminServices_withoutToken_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/admin/services")).andExpect(status().isUnauthorized());
     }
 
     @Test

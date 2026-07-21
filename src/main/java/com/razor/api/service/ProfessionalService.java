@@ -49,15 +49,34 @@ public class ProfessionalService {
      * Rejeita valores fora do intervalo e profissional de outro tenant (isolamento).
      */
     public Professional updateCommission(UUID professionalId, BigDecimal percent) {
-        if (percent == null || percent.compareTo(BigDecimal.ZERO) < 0 || percent.compareTo(CEM) > 0) {
-            throw new IllegalArgumentException("Comissao deve estar entre 0 e 100.");
-        }
-        Professional professional = professionalRepository.findById(professionalId)
-                .filter(p -> TenantContext.getCurrent().equals(p.getBarbershopId()))
-                .orElseThrow(() -> new IllegalArgumentException("Profissional nao encontrado no tenant atual."));
+        validateCommission(percent);
+        Professional professional = findOwned(professionalId);
         professional.setCommissionPercent(percent);
         Professional saved = professionalRepository.save(professional);
         log.info("[PROFISSIONAL] Comissao de '{}' definida em {}%", professional.getName(), percent);
         return saved;
+    }
+
+    /** Atualiza nome, telefone, status e comissao de um profissional do tenant atual. */
+    public Professional update(UUID id, String name, String phone, boolean active, BigDecimal commissionPercent) {
+        validateCommission(commissionPercent);
+        Professional professional = findOwned(id);
+        professional.setName(name);
+        professional.setPhone(phone);
+        professional.setActive(active);
+        professional.setCommissionPercent(commissionPercent);
+        return professionalRepository.save(professional);
+    }
+
+    private void validateCommission(BigDecimal percent) {
+        if (percent == null || percent.compareTo(BigDecimal.ZERO) < 0 || percent.compareTo(CEM) > 0) {
+            throw new IllegalArgumentException("Comissao deve estar entre 0 e 100.");
+        }
+    }
+
+    private Professional findOwned(UUID id) {
+        return professionalRepository.findById(id)
+                .filter(p -> TenantContext.getCurrent().equals(p.getBarbershopId()))
+                .orElseThrow(() -> new NotFoundException("Profissional nao encontrado."));
     }
 }

@@ -5,6 +5,7 @@ import com.razor.api.repository.ServiceOfferingRepository;
 import com.razor.api.tenant.TenantContext;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,5 +41,17 @@ public class ServiceCatalogService {
                 .build());
         log.info("[CATALOGO] Servico '{}' criado para o tenant {}", name, TenantContext.getCurrent());
         return created;
+    }
+
+    /** Atualiza um servico do tenant atual (isolamento: rejeita servico de outro tenant). */
+    public ServiceOffering update(UUID id, String name, BigDecimal price, int durationMinutes, boolean active) {
+        ServiceOffering svc = serviceOfferingRepository.findById(id)
+                .filter(s -> TenantContext.getCurrent().equals(s.getBarbershopId()))
+                .orElseThrow(() -> new NotFoundException("Servico nao encontrado."));
+        svc.setName(name);
+        svc.setPrice(price);
+        svc.setDurationMinutes(durationMinutes);
+        svc.setActive(active);
+        return serviceOfferingRepository.save(svc);
     }
 }

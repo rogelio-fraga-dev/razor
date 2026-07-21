@@ -92,7 +92,42 @@ class ProfessionalServiceTest {
         when(professionalRepository.findById(id)).thenReturn(Optional.of(deOutroTenant));
 
         assertThatThrownBy(() -> service.updateCommission(id, new BigDecimal("30")))
+                .isInstanceOf(NotFoundException.class);
+        verify(professionalRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("update altera nome, telefone, status e comissão do profissional do tenant atual")
+    void update_setsAllFields() {
+        UUID id = UUID.randomUUID();
+        Professional p = Professional.builder()
+                .id(id).barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID).name("Antigo").active(true).build();
+        when(professionalRepository.findById(id)).thenReturn(Optional.of(p));
+        when(professionalRepository.save(any(Professional.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Professional saved = service.update(id, "Novo", "5511999998888", false, new BigDecimal("40"));
+
+        assertThat(saved.getName()).isEqualTo("Novo");
+        assertThat(saved.getPhone()).isEqualTo("5511999998888");
+        assertThat(saved.isActive()).isFalse();
+        assertThat(saved.getCommissionPercent()).isEqualByComparingTo("40");
+    }
+
+    @Test
+    @DisplayName("update rejeita comissão fora de 0–100")
+    void update_invalidCommission_throws() {
+        assertThatThrownBy(() -> service.update(UUID.randomUUID(), "X", null, true, new BigDecimal("150")))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(professionalRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("update em profissional inexistente lança NotFound")
+    void update_notFound_throws() {
+        UUID id = UUID.randomUUID();
+        when(professionalRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.update(id, "X", null, true, new BigDecimal("10")))
+                .isInstanceOf(NotFoundException.class);
     }
 }
