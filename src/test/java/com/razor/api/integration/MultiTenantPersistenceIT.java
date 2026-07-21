@@ -75,6 +75,13 @@ class MultiTenantPersistenceIT {
     }
 
     @Test
+    @DisplayName("a migração V7 semeia o profissional padrão do tenant padrão")
+    void defaultTenant_hasSeededProfessional() {
+        var pros = professionalRepository.findByBarbershopIdAndActiveTrue(TenantContext.DEFAULT_BARBERSHOP_ID);
+        assertThat(pros).extracting(Professional::getName).contains("Barbeiro");
+    }
+
+    @Test
     @DisplayName("Professional e ServiceOffering fazem round-trip com o tenant")
     void professionalAndService_roundTrip() {
         UUID shopId = TenantContext.DEFAULT_BARBERSHOP_ID;

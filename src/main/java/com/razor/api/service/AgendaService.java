@@ -258,7 +258,35 @@ public class AgendaService {
                 ocupadosDoDia.add(AppointmentDates.formatTime(ag.getAppointmentTime()));
             }
         }
+        return montarHorariosLivres(target, ocupadosDoDia);
+    }
 
+    /**
+     * Horarios disponiveis de UM profissional (agenda multiprofissional): a ocupacao
+     * considera apenas os agendamentos daquele barbeiro, entao dois profissionais podem
+     * ter o mesmo horario livre de forma independente.
+     */
+    public String getHorariosDisponiveisDoProfissional(java.util.UUID professionalId, String date) {
+        LocalDate target;
+        try {
+            target = AppointmentDates.parseDate(date);
+        } catch (Exception e) {
+            return "Nenhum horário disponível para este dia.";
+        }
+
+        List<Appointment> apps = appointmentRepository.findByBarbershopIdAndProfessionalIdAndAppointmentDate(
+                TenantContext.getCurrent(), professionalId, target);
+        List<String> ocupadosDoDia = new ArrayList<>();
+        for (Appointment ag : apps) {
+            if (ag.getAppointmentTime() != null) {
+                ocupadosDoDia.add(AppointmentDates.formatTime(ag.getAppointmentTime()));
+            }
+        }
+        return montarHorariosLivres(target, ocupadosDoDia);
+    }
+
+    /** Gera ate 4 horarios livres (espacados) das 09:00 as 18:30, excluindo ocupados e passados. */
+    private String montarHorariosLivres(LocalDate target, List<String> ocupadosDoDia) {
         List<String> livres = new ArrayList<>();
         LocalTime inicio = LocalTime.of(9, 0);
         LocalTime fim = LocalTime.of(19, 0);
