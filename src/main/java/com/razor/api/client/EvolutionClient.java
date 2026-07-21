@@ -23,9 +23,9 @@ public class EvolutionClient {
     private final RazorProperties properties;
 
     /**
-     * Envia mensagem de texto simples
+     * Envia mensagem de texto simples pela {@code instance} do tenant (roteamento multi-tenant).
      */
-    public Mono<String> sendTextMessage(String phone, String text) {
+    public Mono<String> sendTextMessage(String instance, String phone, String text) {
         Map<String, Object> body = new HashMap<>();
         body.put("number", formatPhone(phone));
         body.put("text", text);
@@ -35,7 +35,7 @@ public class EvolutionClient {
         return webClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/message/sendText/{instance}")
-                        .build(properties.getEvolution().getInstanceName()))
+                        .build(instance))
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("apikey", properties.getEvolution().getApiKey())
                 .bodyValue(body)
@@ -45,9 +45,9 @@ public class EvolutionClient {
     }
 
     /**
-     * Envia imagem com legenda
+     * Envia imagem com legenda pela {@code instance} do tenant.
      */
-    public Mono<String> sendImageMessage(String phone, String imageUrl, String caption) {
+    public Mono<String> sendImageMessage(String instance, String phone, String imageUrl, String caption) {
         Map<String, Object> body = new HashMap<>();
         body.put("number", formatPhone(phone));
         body.put("media", imageUrl);
@@ -58,7 +58,7 @@ public class EvolutionClient {
         return webClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/message/sendMedia/{instance}")
-                        .build(properties.getEvolution().getInstanceName()))
+                        .build(instance))
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("apikey", properties.getEvolution().getApiKey())
                 .bodyValue(body)
@@ -68,20 +68,19 @@ public class EvolutionClient {
     }
 
     /**
-     * Envia DTO genérico (usado internamente se necessário)
+     * Envia DTO genérico pela {@code instance} do tenant (usado internamente se necessário)
      */
-    public Mono<String> sendMessage(MessageDTO messageDTO) {
-        return sendTextMessage(messageDTO.getNumber(), messageDTO.getText());
+    public Mono<String> sendMessage(String instance, MessageDTO messageDTO) {
+        return sendTextMessage(instance, messageDTO.getNumber(), messageDTO.getText());
     }
 
     /**
-     * Envia LISTA INTERATIVA (Botões de Menu)
-     * Este é o método novo que o WhatsAppService está chamando.
+     * Envia LISTA INTERATIVA (Botões de Menu) pela {@code instance} do tenant.
      */
-    public Mono<String> sendListMessage(String phone, String title, String description, 
-                                        String buttonText, String footerText, 
+    public Mono<String> sendListMessage(String instance, String phone, String title, String description,
+                                        String buttonText, String footerText,
                                         List<Map<String, Object>> sections) {
-        
+
         Map<String, Object> body = new HashMap<>();
         body.put("number", formatPhone(phone));
         body.put("title", title);
@@ -94,7 +93,7 @@ public class EvolutionClient {
         return webClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/message/sendList/{instance}")
-                        .build(properties.getEvolution().getInstanceName()))
+                        .build(instance))
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("apikey", properties.getEvolution().getApiKey())
                 .bodyValue(body)
