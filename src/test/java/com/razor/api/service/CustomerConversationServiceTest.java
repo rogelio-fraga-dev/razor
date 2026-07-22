@@ -57,8 +57,14 @@ class CustomerConversationServiceTest {
     @Mock private EvolutionMediaService evolutionMediaService;
     @Mock private ProfessionalService professionalService;
     @Mock private TenantAdminService tenantAdminService;
+    @Mock private BarbershopSettingsService barbershopSettingsService;
 
     @InjectMocks private CustomerConversationService service;
+
+    private void givenBotSettings(String address, String mapsUrl, String servicesText, String instagram) {
+        when(barbershopSettingsService.resolve()).thenReturn(
+                new BarbershopSettingsService.BotSettings(address, mapsUrl, servicesText, null, instagram));
+    }
 
     // ---------- helpers ----------
 
@@ -129,10 +135,7 @@ class CustomerConversationServiceTest {
     @DisplayName("opcao 4 envia endereco e link do mapa")
     void option4_sendsAddress() {
         givenExistingCustomer();
-        RazorProperties.Menu menu = new RazorProperties.Menu();
-        menu.setAddressText("Rua dos Testes, 123");
-        menu.setAddressMapsUrl("http://maps.example/xyz");
-        when(properties.getMenu()).thenReturn(menu);
+        givenBotSettings("Rua dos Testes, 123", "http://maps.example/xyz", "", "");
 
         service.processCustomerMessage(textWebhook("4"), PHONE);
 
@@ -145,9 +148,7 @@ class CustomerConversationServiceTest {
     @DisplayName("opcao 5 envia a tabela de servicos")
     void option5_sendsServices() {
         givenExistingCustomer();
-        RazorProperties.Menu menu = new RazorProperties.Menu();
-        menu.setServicesText("TABELA DE PRECOS");
-        when(properties.getMenu()).thenReturn(menu);
+        givenBotSettings("", "", "TABELA DE PRECOS", "");
 
         service.processCustomerMessage(textWebhook("5"), PHONE);
 

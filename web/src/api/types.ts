@@ -63,6 +63,14 @@ export interface Customer {
   createdAt: string | null;
 }
 
+export interface BotSettings {
+  addressText: string | null;
+  addressMapsUrl: string | null;
+  servicesText: string | null;
+  scheduleUrl: string | null;
+  instagramUrl: string | null;
+}
+
 export type PaymentStatus = "PIX" | "PRESENCIAL" | "PENDENTE";
 
 export interface AppointmentView {

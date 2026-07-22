@@ -50,6 +50,7 @@ public class CustomerConversationService {
     private final EvolutionMediaService evolutionMediaService;
     private final ProfessionalService professionalService;
     private final TenantAdminService tenantAdminService;
+    private final BarbershopSettingsService barbershopSettingsService;
 
     @lombok.Data
     @lombok.AllArgsConstructor
@@ -311,11 +312,12 @@ public class CustomerConversationService {
         } else if (msgLower.equals("3") || msgLower.contains("horarios disponiveis") || msgLower.contains("horários disponíveis")) {
             contentToSave = "Quais os horários disponíveis?"; // IA assume
         } else if (msgLower.equals("4") || msgLower.contains("endereco") || msgLower.contains("endereço") || msgLower.contains("localizacao") || msgLower.contains("localização")) {
-            String endMsg = properties.getMenu().getAddressText() + "\n\n📍 Mapa: " + properties.getMenu().getAddressMapsUrl();
+            BarbershopSettingsService.BotSettings bot = barbershopSettingsService.resolve();
+            String endMsg = bot.addressText() + "\n\n📍 Mapa: " + bot.addressMapsUrl();
             saveAndSend(customer, endMsg, phoneNumber);
             return;
         } else if (msgLower.equals("5") || msgLower.contains("servicos") || msgLower.contains("serviços") || msgLower.contains("precos") || msgLower.contains("preços") || msgLower.contains("planos vip")) {
-            saveAndSend(customer, properties.getMenu().getServicesText(), phoneNumber);
+            saveAndSend(customer, barbershopSettingsService.resolve().servicesText(), phoneNumber);
             return;
         } else if (msgLower.equals("6") || msgLower.contains("cartao fidelidade") || msgLower.contains("cartão fidelidade") || msgLower.contains("fidelidade")) {
             int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
@@ -323,7 +325,7 @@ public class CustomerConversationService {
             saveAndSend(customer, fidMsg, phoneNumber);
             return;
         } else if (msgLower.equals("7") || msgLower.contains("instagram")) {
-            saveAndSend(customer, "📸 Siga a gente no Instagram para acompanhar nosso trabalho!\n\n" + properties.getMenu().getInstagramUrl(), phoneNumber);
+            saveAndSend(customer, "📸 Siga a gente no Instagram para acompanhar nosso trabalho!\n\n" + barbershopSettingsService.resolve().instagramUrl(), phoneNumber);
             return;
         } else if (msgLower.equals("cancelar meu horário") || msgLower.equals("cancelar meu horario")) {
             trataCancelarAgendamento(customer, phoneNumber);

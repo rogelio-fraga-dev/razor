@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Layout } from "../components/Layout";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
-import type { AdminContact, Barbershop } from "../api/types";
+import type { AdminContact, Barbershop, BotSettings } from "../api/types";
 
 function ProfileCard() {
   const { data, loading, error, reload } = useApi<Barbershop>(() => api.get("/api/admin/barbershop"), []);
@@ -140,10 +140,103 @@ function AdminsCard() {
   );
 }
 
+const EMPTY_BOT: BotSettings = {
+  addressText: "",
+  addressMapsUrl: "",
+  servicesText: "",
+  scheduleUrl: "",
+  instagramUrl: "",
+};
+
+function BotCard() {
+  const { data, loading, error, reload } = useApi<BotSettings>(() => api.get("/api/admin/settings/bot"), []);
+  const [form, setForm] = useState<BotSettings>(EMPTY_BOT);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    if (data) {
+      setForm({
+        addressText: data.addressText ?? "",
+        addressMapsUrl: data.addressMapsUrl ?? "",
+        servicesText: data.servicesText ?? "",
+        scheduleUrl: data.scheduleUrl ?? "",
+        instagramUrl: data.instagramUrl ?? "",
+      });
+    }
+  }, [data]);
+
+  const set = (k: keyof BotSettings, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const save = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await api.put("/api/admin/settings/bot", form);
+      setMsg({ ok: true, text: "Configurações do bot salvas." });
+      reload();
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof ApiError ? e.message : "Erro ao salvar." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3>Textos do bot (WhatsApp)</h3>
+      </div>
+      <div className="card-pad">
+        <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+          O que o cliente recebe no WhatsApp. Campos vazios usam o texto padrão do sistema.
+        </p>
+        {loading ? (
+          <div className="muted">Carregando…</div>
+        ) : error ? (
+          <div className="error">{error}</div>
+        ) : (
+          <div className="stack" style={{ maxWidth: 560 }}>
+            <div className="field">
+              <label>Endereço (texto)</label>
+              <input className="input" value={form.addressText ?? ""} onChange={(e) => set("addressText", e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Link do mapa</label>
+              <input className="input" value={form.addressMapsUrl ?? ""} onChange={(e) => set("addressMapsUrl", e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Tabela de serviços / preços</label>
+              <textarea
+                className="input"
+                rows={5}
+                value={form.servicesText ?? ""}
+                onChange={(e) => set("servicesText", e.target.value)}
+                style={{ resize: "vertical", fontFamily: "inherit" }}
+              />
+            </div>
+            <div className="field">
+              <label>Instagram (link)</label>
+              <input className="input" value={form.instagramUrl ?? ""} onChange={(e) => set("instagramUrl", e.target.value)} />
+            </div>
+            <div className="row">
+              <button className="btn btn-primary" onClick={save} disabled={saving}>
+                {saving ? "Salvando…" : "Salvar"}
+              </button>
+              {msg && <span className={msg.ok ? "badge badge-green" : "error"}>{msg.text}</span>}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Settings() {
   return (
     <Layout title="Configurações">
       <ProfileCard />
+      <BotCard />
       <AdminsCard />
     </Layout>
   );
