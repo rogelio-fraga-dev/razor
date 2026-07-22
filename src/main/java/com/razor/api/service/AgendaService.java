@@ -1,6 +1,5 @@
 package com.razor.api.service;
 
-import com.razor.api.config.RazorProperties;
 import com.razor.api.model.Appointment;
 import com.razor.api.model.PaymentStatus;
 import com.razor.api.model.ScheduledTask;
@@ -37,11 +36,11 @@ public class AgendaService {
     private final ScheduledTaskRepository taskRepository;
     private final com.razor.api.repository.CustomerRepository customerRepository;
     private final AppointmentRepository appointmentRepository;
-    private final RazorProperties properties;
     private final ProfessionalAssignmentService professionalAssignmentService;
     private final com.razor.api.repository.ProfessionalRepository professionalRepository;
     private final PricingService pricingService;
     private final TenantAdminService tenantAdminService;
+    private final BarbershopSettingsService barbershopSettingsService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Classe auxiliar de leitura para manter a migração legada funcionando
@@ -141,7 +140,7 @@ public class AgendaService {
 
             // 2. Tarefa de AVALIAÇÃO (1 hora depois do horário)
             LocalDateTime reviewTime = apptDateTime.plusHours(1);
-            String reviewMsg = "E aí, " + pNome + ", curtiu o talento? 🧔‍♂️\nSua avaliação ajuda a barbearia a crescer! Leva só 1 minuto:\n⭐ " + properties.getMenu().getAddressMapsUrl() + "\n\nValeu demais! 👊";
+            String reviewMsg = "E aí, " + pNome + ", curtiu o talento? 🧔‍♂️\nSua avaliação ajuda a barbearia a crescer! Leva só 1 minuto:\n⭐ " + barbershopSettingsService.resolve().addressMapsUrl() + "\n\nValeu demais! 👊";
 
             ScheduledTask reviewTask = ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
                     .customerPhone(ag.getCustomerPhone())

@@ -10,7 +10,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.razor.api.config.RazorProperties;
 import com.razor.api.model.Appointment;
 import com.razor.api.model.Customer;
 import com.razor.api.model.PaymentStatus;
@@ -50,7 +49,7 @@ class AgendaServiceTest {
     @Mock private ScheduledTaskRepository taskRepository;
     @Mock private CustomerRepository customerRepository;
     @Mock private AppointmentRepository appointmentRepository;
-    @Mock private RazorProperties properties;
+    @Mock private BarbershopSettingsService barbershopSettingsService;
     @Mock private ProfessionalAssignmentService professionalAssignmentService;
     @Mock private com.razor.api.repository.ProfessionalRepository professionalRepository;
     @Mock private PricingService pricingService;
@@ -219,7 +218,8 @@ class AgendaServiceTest {
     @Test
     @DisplayName("adicionarAgendamentoViaIA salva o agendamento e soma 1 ponto de fidelidade")
     void adicionar_savesAndAddsPoint() {
-        when(properties.getMenu()).thenReturn(new RazorProperties.Menu());
+        when(barbershopSettingsService.resolve()).thenReturn(
+                new BarbershopSettingsService.BotSettings("", "http://maps", "", null, ""));
         Customer c = Customer.builder().id(UUID.randomUUID()).phoneNumber(PHONE).name("João").fidelityPoints(3).build();
         when(customerRepository.findByBarbershopIdAndPhoneNumber(any(UUID.class), eq(PHONE))).thenReturn(Optional.of(c));
 
@@ -233,7 +233,8 @@ class AgendaServiceTest {
     @Test
     @DisplayName("ao completar 10 pontos, zera e envia cupom de fidelidade")
     void adicionar_tenthPoint_sendsCoupon() {
-        when(properties.getMenu()).thenReturn(new RazorProperties.Menu());
+        when(barbershopSettingsService.resolve()).thenReturn(
+                new BarbershopSettingsService.BotSettings("", "http://maps", "", null, ""));
         Customer c = Customer.builder().id(UUID.randomUUID()).phoneNumber(PHONE).name("João").fidelityPoints(9).build();
         when(customerRepository.findByBarbershopIdAndPhoneNumber(any(UUID.class), eq(PHONE))).thenReturn(Optional.of(c));
 
@@ -319,7 +320,8 @@ class AgendaServiceTest {
     @Test
     @DisplayName("processAgenda salva itens e conta apenas os clientes conhecidos")
     void processAgenda_countsKnownCustomers() {
-        when(properties.getMenu()).thenReturn(new RazorProperties.Menu());
+        when(barbershopSettingsService.resolve()).thenReturn(
+                new BarbershopSettingsService.BotSettings("", "http://maps", "", null, ""));
         Customer ana = Customer.builder().id(UUID.randomUUID()).phoneNumber(PHONE).name("Ana").build();
         when(customerService.findByName("Ana")).thenReturn(ana);
         when(customerService.findByName("Bob")).thenReturn(null);
