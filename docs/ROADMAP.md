@@ -124,15 +124,18 @@ uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Impleme
 
 ---
 
-### Fase 2 — Paridade de Gestão 💰
+### Fase 2 — Paridade de Gestão 💰 *(🟡 em andamento)*
 
 > **Objetivo:** cobrir o que faz um barbeiro pagar Frizzar/CashBarber hoje.
 
-- [ ] **Financeiro**: caixa/comandas, formas de pagamento, fechamento diário.
-- [ ] **Comissões** automáticas por profissional (por serviço e por produto).
-- [ ] **Clube de assinatura** (recorrência): planos configuráveis (VIP/Silver/Bronze),
-      identificação automática de assinante x avulso no agendamento, cobrança recorrente.
-- [ ] **Relatórios/DRE** e **dashboard de retenção** ("quem some", ticket médio, frequência).
+- [~] **Financeiro**: resumo do dia/semana e fluxo por meio de pagamento (relatórios prontos,
+      no WhatsApp e no painel). _(Falta: caixa/comandas transacional e fechamento formal.)_
+- [x] **Comissões** por profissional: percentual por barbeiro (`commission_percent`), relatório
+      por dia e configuração no WhatsApp e no painel. _(Falta: comissão por produto.)_
+- [~] **Clube de assinatura**: catálogo de **planos configuráveis** pronto (`subscription_plans`,
+      painel). _(Falta: identificação assinante x avulso no agendamento e cobrança recorrente — Fase 4.)_
+- [~] **Relatórios/DRE**: financeiro estruturado e comissões prontos no painel.
+      _(Falta: DRE e dashboard de retenção — "quem some", frequência.)_
 - [ ] **Estoque** (opcional): produtos, reposição, saídas.
 
 **Pronto quando:** um barbeiro consegue fechar o mês (faturamento, comissões,
@@ -161,10 +164,10 @@ assinaturas) sem sair do Razor.
       (`/api/admin/admins`) e perfil da barbearia (`/api/admin/barbershop`); **relatórios**
       (`/api/admin/reports/{commissions,financial,agenda}`, JSON estruturado).
       _(Falta: textos/planos do bot — hoje ainda em config; migrar para o tenant/DB.)_
-- [~] **SPA React** (painel web em `/web`, Vite+TS) consumindo a API: **MVP pronto** —
-      login, Painel (financeiro do dia + agenda), Serviços (CRUD), Profissionais (CRUD +
-      comissão), Comissões e Configurações (perfil + admins), com tema claro/escuro.
-      _(Falta: clientes, agenda multiprofissional interativa, e config dos textos/planos do bot.)_
+- [~] **SPA React** (painel web em `/web`, Vite+TS) consumindo a API: **MVP amplo** —
+      login, Painel (financeiro do dia + agenda), Serviços, Profissionais (+comissão),
+      Clientes, Planos, Comissões e Configurações (perfil + **textos do bot** + admins),
+      com tema claro/escuro. _(Falta: agenda multiprofissional interativa e assinantes/subscrição.)_
 - [ ] Site/landing **white-label** por barbearia (marca, serviços, endereço, avaliações).
 - [ ] Página de **agendamento online** (link próprio) na mesma agenda do bot.
 
@@ -224,4 +227,4 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-21 · Documento vivo — atualizado a cada fase concluída._
+_Última atualização: 2026-07-22 · Documento vivo — atualizado a cada fase concluída._
