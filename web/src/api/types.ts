@@ -71,6 +71,14 @@ export interface BotSettings {
   instagramUrl: string | null;
 }
 
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price: number;
+  description: string | null;
+  active: boolean;
+}
+
 export type PaymentStatus = "PIX" | "PRESENCIAL" | "PENDENTE";
 
 export interface AppointmentView {

@@ -5,6 +5,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Services } from "./pages/Services";
 import { Professionals } from "./pages/Professionals";
 import { Customers } from "./pages/Customers";
+import { Plans } from "./pages/Plans";
 import { Commissions } from "./pages/Commissions";
 import { Settings } from "./pages/Settings";
 
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/services" element={<Services />} />
         <Route path="/professionals" element={<Professionals />} />
         <Route path="/customers" element={<Customers />} />
+        <Route path="/plans" element={<Plans />} />
         <Route path="/commissions" element={<Commissions />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

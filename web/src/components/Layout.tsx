@@ -8,6 +8,7 @@ const NAV = [
   { to: "/services", label: "Serviços", icon: "✂" },
   { to: "/professionals", label: "Profissionais", icon: "👤" },
   { to: "/customers", label: "Clientes", icon: "👥" },
+  { to: "/plans", label: "Planos", icon: "★" },
   { to: "/commissions", label: "Comissões", icon: "％" },
   { to: "/settings", label: "Configurações", icon: "⚙" },
 ];
