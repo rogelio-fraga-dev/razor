@@ -54,6 +54,15 @@ export interface AdminContact {
   name: string | null;
 }
 
+export interface Customer {
+  id: string;
+  name: string | null;
+  phone: string;
+  fidelityPoints: number;
+  lastServiceDate: string | null;
+  createdAt: string | null;
+}
+
 export type PaymentStatus = "PIX" | "PRESENCIAL" | "PENDENTE";
 
 export interface AppointmentView {

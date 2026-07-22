@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.razor.api.model.Customer;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.tenant.TenantContext;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -94,5 +95,14 @@ class CustomerServiceTest {
         // de volta ao tenant padrão, a pausa continua valendo
         TenantContext.clear();
         assertThat(service.isCustomerPaused("555")).isTrue();
+    }
+
+    @Test
+    @DisplayName("listCustomers consulta a base do tenant atual")
+    void listCustomers_scopedToTenant() {
+        Customer c = Customer.builder().id(UUID.randomUUID()).phoneNumber("555").name("Ana").build();
+        when(customerRepository.findByBarbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)).thenReturn(List.of(c));
+
+        assertThat(service.listCustomers()).containsExactly(c);
     }
 }

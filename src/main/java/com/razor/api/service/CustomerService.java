@@ -46,6 +46,11 @@ public class CustomerService {
                 .orElse(null);
     }
 
+    /** Todos os clientes do tenant atual (base para o painel web). */
+    public List<Customer> listCustomers() {
+        return customerRepository.findByBarbershopId(TenantContext.getCurrent());
+    }
+
     public void pauseCustomer(String phoneNumber, int minutes) {
         pausedCustomers.put(pauseKey(phoneNumber), LocalDateTime.now().plusMinutes(minutes));
         log.info("Pausando cliente {} por {} minutos", phoneNumber, minutes);
