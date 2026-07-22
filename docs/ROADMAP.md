@@ -161,8 +161,10 @@ assinaturas) sem sair do Razor.
       (`/api/admin/admins`) e perfil da barbearia (`/api/admin/barbershop`); **relatórios**
       (`/api/admin/reports/{commissions,financial,agenda}`, JSON estruturado).
       _(Falta: textos/planos do bot — hoje ainda em config; migrar para o tenant/DB.)_
-- [ ] **SPA React** (painel web) consumindo a API: agenda, financeiro, comissões, clientes e
-      **toda a configuração** da barbearia e do bot. _(Projeto de frontend separado.)_
+- [~] **SPA React** (painel web em `/web`, Vite+TS) consumindo a API: **MVP pronto** —
+      login, Painel (financeiro do dia + agenda), Serviços (CRUD), Profissionais (CRUD +
+      comissão), Comissões e Configurações (perfil + admins), com tema claro/escuro.
+      _(Falta: clientes, agenda multiprofissional interativa, e config dos textos/planos do bot.)_
 - [ ] Site/landing **white-label** por barbearia (marca, serviços, endereço, avaliações).
 - [ ] Página de **agendamento online** (link próprio) na mesma agenda do bot.
 
