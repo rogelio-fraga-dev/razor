@@ -30,10 +30,15 @@
     <nav class="nav-links" aria-label="Navegação principal">
       <a href="#modulos">Produto</a>
       <a href="#como-funciona">Como funciona</a>
+      <a href="#site-pronto">Seu site</a>
       <a href="#planos">Planos</a>
       <a href="#faq">FAQ</a>
     </nav>
-    <a class="btn btn-primary btn-sm" href="#planos">Começar agora</a>
+    <div class="nav-cta">
+      <!-- PROD: trocar para https://app.razor.com.br -->
+      <a class="btn btn-ghost btn-sm" href="http://localhost:5173">Entrar</a>
+      <a class="btn btn-primary btn-sm" href="#planos">Começar agora</a>
+    </div>
   </div>
 </header>
 
@@ -173,6 +178,46 @@
   </div>
 </section>
 
+<!-- ============ SITE WHITE-LABEL ============ -->
+<section class="sitepronto" id="site-pronto">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">SEU SITE, INCLUSO</span>
+      <h2>Sua barbearia com site próprio.<br /><em>Sem contratar ninguém.</em></h2>
+      <p class="lead">Todo plano inclui um site profissional no seu endereço —
+      <span class="mono">suabarbearia.razor.com.br</span> — com agendamento online ligado à mesma
+      agenda do bot. Você só escolhe o template e sobe suas fotos. A gente cuida do resto.</p>
+    </div>
+    <div class="tpl-grid">
+      <article class="tpl rv">
+        <div class="tpl-thumb tpl-a" aria-hidden="true"><span>Aa</span></div>
+        <h3>Clássico</h3>
+        <p>Elegante e direto: serviços, equipe, avaliações e o botão de agendar.</p>
+        <span class="badge-inc mono">INCLUSO</span>
+      </article>
+      <article class="tpl rv">
+        <div class="tpl-thumb tpl-b" aria-hidden="true"><span>Aa</span></div>
+        <h3>Dark Premium</h3>
+        <p>Visual escuro sofisticado para barbearias com pegada de estúdio.</p>
+        <span class="badge-inc mono">INCLUSO</span>
+      </article>
+      <article class="tpl rv">
+        <div class="tpl-thumb tpl-c" aria-hidden="true"><span>Aa</span></div>
+        <h3>Vitrine</h3>
+        <p>Foco em fotos dos cortes: galeria grande, prova social, Instagram integrado.</p>
+        <span class="badge-inc mono">INCLUSO</span>
+      </article>
+      <article class="tpl custom rv">
+        <div class="tpl-thumb tpl-d" aria-hidden="true"><span>★</span></div>
+        <h3>Personalizado</h3>
+        <p>Site exclusivo desenhado para a sua marca, do zero, pelo nosso time.</p>
+        <span class="badge-inc mono gold">AVULSO · SOB CONSULTA</span>
+      </article>
+    </div>
+    <p class="pricing-note rv">Você só envia logo, fotos e textos — publicamos e mantemos tudo por você.</p>
+  </div>
+</section>
+
 <!-- ============ DEMO ============ -->
 <section class="demo" id="demo">
   <div class="demo-glow" aria-hidden="true"></div>
@@ -268,10 +313,11 @@
       <article class="plan rv">
         <h3 class="p-name mono">SOLO</h3>
         <p class="p-for">1 barbeiro</p>
-        <p class="p-price"><span class="mono val" data-m="97" data-a="80">R$ 97</span><small>/mês</small></p>
+        <p class="p-price"><span class="mono val" data-m="69,90" data-a="58,25">R$ 69,90</span><small>/mês</small></p>
         <ul>
           <li>IA de atendimento no WhatsApp</li>
           <li>Agenda + lembretes automáticos</li>
+          <li>Site próprio (3 templates inclusos)</li>
           <li>Fidelidade e lista de espera</li>
           <li>Painel web com financeiro do dia</li>
         </ul>
@@ -281,7 +327,7 @@
         <span class="selo">Mais escolhido</span>
         <h3 class="p-name mono">EQUIPE</h3>
         <p class="p-for">até 5 barbeiros</p>
-        <p class="p-price"><span class="mono val" data-m="197" data-a="164">R$ 197</span><small>/mês</small></p>
+        <p class="p-price"><span class="mono val" data-m="139,90" data-a="116,58">R$ 139,90</span><small>/mês</small></p>
         <ul>
           <li>Tudo do Solo</li>
           <li>Agenda multiprofissional</li>
@@ -293,7 +339,7 @@
       <article class="plan rv">
         <h3 class="p-name mono">PRO</h3>
         <p class="p-for">rede · ilimitado</p>
-        <p class="p-price"><span class="mono val" data-m="347" data-a="289">R$ 347</span><small>/mês</small></p>
+        <p class="p-price"><span class="mono val" data-m="229,90" data-a="191,58">R$ 229,90</span><small>/mês</small></p>
         <ul>
           <li>Tudo do Equipe</li>
           <li>Clube de assinatura (recorrência)</li>
@@ -303,7 +349,8 @@
         <a class="btn btn-ghost" href="#" data-cta="pro">Falar sobre o Pro</a>
       </article>
     </div>
-    <p class="pricing-note rv">Onboarding self-service gratuito · sem taxa de setup · cancele quando quiser.</p>
+    <p class="pricing-note rv">Preço de lançamento · onboarding gratuito · sem taxa de setup · cancele quando quiser.<br />
+    Site <b>personalizado</b> (fora dos templates): serviço avulso, sob consulta.</p>
   </div>
 </section>
 

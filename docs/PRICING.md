@@ -90,19 +90,36 @@ diluído em poucas barbearias.** Por isso o foco em conquistar as primeiras deze
 
 ---
 
-## 3. Preços (planos do Razor)
+## 3. Preços (planos do Razor) — v2, lançamento
 
 Referência de mercado: Frizzar R$ 57–249 · Booksy R$ 99,90 + R$ 20/prof · CashBarber a partir de R$ 300.
 
-| Plano | Público | Preço/mês | Inclui |
-|---|---|---|---|
-| **Solo** | 1 barbeiro | **R$ 97** | IA WhatsApp, agenda, fidelidade, PIX, lembretes, painel web |
-| **Equipe** | até 5 barbeiros | **R$ 197** | Tudo do Solo + multiprofissional, comissões, financeiro |
-| **Pro** | rede / ilimitado | **R$ 347** | Tudo + clube de assinatura, relatórios avançados, multi-unidade |
+> **v2 (2026-07-23).** Preços reduzidos para estratégia de **penetração no lançamento**
+> (decisão do dono: "os planos estão caros"). A tabela v1 (97/197/347) fica como alvo
+> pós-tração — subir preço com prova social é mais fácil que baixar sem.
+
+| Plano | Público | Preço/mês (lançamento) | Anual (2 meses grátis) | Inclui |
+|---|---|---|---|---|
+| **Solo** | 1 barbeiro | **R$ 69,90** | R$ 58,25/mês | IA WhatsApp, agenda, **site próprio (3 templates)**, fidelidade, PIX, lembretes, painel |
+| **Equipe** | até 5 barbeiros | **R$ 139,90** | R$ 116,58/mês | Tudo do Solo + multiprofissional, comissões, financeiro |
+| **Pro** | rede / ilimitado | **R$ 229,90** | R$ 191,58/mês | Tudo + clube de assinatura, relatórios avançados, multi-unidade |
+
+**Margem (escala, custo variável §2):** Solo ~R$ 30 (43%) · Equipe ~R$ 85 (61%) · Pro ~R$ 160 (70%).
+Break-even da plataforma sobe para ~**12–18 barbearias** (vs. 8–14 na v1) — aceitável pelo
+ganho de conversão na entrada.
+
+### Receitas avulsas (fora da mensalidade)
+
+| Serviço | Modelo | Preço sugerido |
+|---|---|---|
+| **Site personalizado** (fora dos 3 templates: design exclusivo feito por nós) | one-time, sob consulta | a partir de **R$ 497** |
+| Migração assistida de outro sistema (feita por nós, além do CSV self-service) | one-time | R$ 97 |
 
 - **Onboarding self-service gratuito** (sem taxa de setup) — argumento de conquista.
 - **Fair-use:** cada plano inclui uma cota de conversas de IA/mês; excedente em faixas,
   para proteger a margem contra um tenant muito pesado (ver §5).
+- **O custo de IA é da PLATAFORMA** (chave OpenAI global, do Razor — nunca do tenant),
+  embutido na mensalidade e monitorado por tenant no console do dono (§5).
 
 ---
 

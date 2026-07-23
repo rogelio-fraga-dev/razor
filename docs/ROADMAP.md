@@ -177,6 +177,12 @@ assinaturas) sem sair do Razor.
       O tenant é resolvido pelo `Host` header → `slug` → `barbershop_id` (mesmo padrão do
       `TenantResolver` de WhatsApp). Exige DNS/TLS **wildcard** `*.razor.com.br` e lista de
       slugs reservados. Detalhes em [`PLATFORM.md §6`](./PLATFORM.md).
+- [ ] **Sistema de templates do site** (modelo de negócio — [`PLATFORM.md §templates`](./PLATFORM.md)):
+      **3 templates prontos** inclusos (Clássico, Dark Premium, Vitrine) — o tenant escolhe 1
+      no painel e sobe apenas **conteúdo** (logo, fotos, textos, cores); **código é nosso e
+      centralizado** (tema versionado no repo; atualização propaga p/ todos). **Template
+      personalizado = serviço avulso** (one-time, sob consulta) feito pelo nosso time.
+      Modelo: tabela `barbershop_site` (template_id + conteúdo).
 - [ ] Página de **agendamento online** (link próprio) na mesma agenda do bot.
 
 **Pronto quando:** o dono configura e gerencia toda a barbearia por um painel web (config +
@@ -193,8 +199,11 @@ relatórios), usando o WhatsApp apenas para a operação do dia a dia.
       barbearia, com **bloqueio de features no servidor** por tier (não só na UI). É o que dá
       sentido aos 3 planos do [`PRICING`](./PRICING.md). ⚠️ **Não** confundir com
       `subscription_plans` (o clube da barbearia p/ os clientes dela) — ver [`PLATFORM.md §7`](./PLATFORM.md).
-- [ ] **Console do Dono (super-admin):** todas as barbearias, MRR, churn, custo por tenant, suporte
-      (papel `PLATFORM_OWNER` que enxerga através dos tenants).
+- [ ] **Console do Dono (super-admin):** papel `PLATFORM_OWNER` + API `/api/platform/**` +
+      área própria no painel — **todas as barbearias e instâncias de WhatsApp** (status da
+      conexão, plano, uso), MRR, churn, **custo de IA por tenant** (a chave OpenAI é global,
+      da plataforma — o custo é nosso e precisa ser visível/alertável), suspender/reativar
+      tenant, impersonar com auditoria. _É onde o dono "configura tudo e vê tudo"._
 - [ ] **Site institucional** `razor.com.br`: proposta, planos, demonstração, prova social, CTA.
       _(Distinto do site white-label de cada barbearia em `<slug>.razor.com.br` — ver [`PLATFORM.md §6`](./PLATFORM.md).)_
 - [ ] **Cadastro self-service** + **billing do SaaS** (gateway BR: Asaas / Mercado Pago / Stripe; cartão/PIX; recorrência).

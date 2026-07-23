@@ -32,6 +32,16 @@ Relacionado: [ROADMAP](./ROADMAP.md) · [ARCHITECTURE](./ARCHITECTURE.md) · [PR
 > Tecnicamente é o mesmo backend multi-tenant, com um **papel `PLATFORM_OWNER`** que
 > enxerga através dos tenants (os demais papéis ficam presos ao próprio `tenant_id`).
 
+### Custos de IA e WhatsApp são da PLATAFORMA (não do tenant)
+
+- A **chave da OpenAI é global e do Razor** (`OPENAI_API_KEY` no ambiente do deploy) —
+  o barbeiro **nunca** configura/paga IA diretamente; o custo está embutido na mensalidade.
+- Hoje isso já é assim no código (config global). O que o console do dono adiciona é a
+  **visibilidade e o controle**: consumo de IA por tenant, alerta de custo, cota fair-use
+  por plano e suspensão de tenant abusivo. Idem para o canal de WhatsApp (Evolution/Cloud API).
+- Console do dono = onde você vê **todas as barbearias e instâncias** (status da conexão,
+  plano, uso, custo) — hoje isso só é visível no banco/Evolution manager.
+
 ---
 
 ## 3. Venda e entrega self-service (sem ir na cidade)
@@ -124,6 +134,24 @@ Não confundir os dois endereços web da plataforma:
   (validar no cadastro; o slug já é `UNIQUE` no banco).
 - **Domínio próprio** (`barbeariaficticia.com.br`, sem o `razor`) fica para depois — exige
   automação de TLS por domínio (Let's Encrypt). Começar só com subdomínio.
+
+### Templates do site white-label (modelo de negócio)
+
+O site da barbearia **não é um site builder livre** — é um sistema de templates controlado
+pela plataforma:
+
+- **3 templates prontos** inclusos em todo plano (direções distintas: *Clássico*,
+  *Dark Premium*, *Vitrine/fotos*). O tenant **escolhe 1** no painel e preenche só
+  **conteúdo**: logo, fotos, textos, cores de destaque — nunca código.
+- **Template personalizado** = serviço **avulso** (one-time, sob consulta — [PRICING §3](./PRICING.md)):
+  nosso time desenha um tema exclusivo para aquela barbearia.
+- **O código dos templates é 100% nosso e centralizado**: um template é um *tema versionado
+  no repositório* que renderiza os dados do tenant (serviços, equipe, fotos, avaliações).
+  Corrigiu/melhorou o template → **todas** as barbearias que o usam recebem a atualização.
+  O tenant não injeta HTML/JS (sem XSS, sem site quebrado, sem suporte de "meu site sumiu").
+- Modelo de dados (Fase 3): `barbershop_site` (template_id, logo, fotos, textos, cores,
+  redes) + os dados que já existem (serviços, equipe). Página de agendamento usa a mesma
+  agenda do bot.
 
 ---
 
