@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { applyTheme, currentTheme, type Theme } from "../lib/theme";
+import { RazorLogo } from "./Logo";
 
 const NAV = [
   { to: "/", label: "Painel", icon: "▚", end: true },
@@ -29,8 +30,7 @@ export function Layout({ title, actions, children }: { title: string; actions?: 
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <span className="mark">R</span>
-          <span>Razor</span>
+          <RazorLogo size={24} />
         </div>
         <nav className="nav">
           {NAV.map((n) => (

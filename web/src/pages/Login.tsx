@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError } from "../api/client";
+import { RazorLogo } from "../components/Logo";
 
 export function Login() {
   const { login } = useAuth();
@@ -26,12 +27,12 @@ export function Login() {
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="brand">
-          <span className="mark">R</span>
-          <span>Razor</span>
+          <RazorLogo size={24} />
         </div>
+        <span className="auth-tagline">O sistema operacional da sua barbearia</span>
         <h2 style={{ marginBottom: 4 }}>Entrar no painel</h2>
         <p className="muted" style={{ margin: "0 0 22px", fontSize: 14 }}>
-          Gerencie sua barbearia: serviços, comissões e relatórios.
+          Configure o bot, acompanhe o caixa e opere no automático.
         </p>
         <form className="stack" onSubmit={submit}>
           <div className="field">
