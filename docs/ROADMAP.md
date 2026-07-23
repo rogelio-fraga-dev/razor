@@ -170,8 +170,16 @@ assinaturas) sem sair do Razor.
       _(Falta: textos/planos do bot — hoje ainda em config; migrar para o tenant/DB.)_
 - [~] **SPA React** (painel web em `/web`, Vite+TS) consumindo a API: **MVP amplo** —
       login, Painel (financeiro do dia + agenda), Serviços, Profissionais (+comissão),
-      Clientes, Planos, Comissões e Configurações (perfil + **textos do bot** + admins),
-      com tema claro/escuro. _(Falta: agenda multiprofissional interativa e assinantes/subscrição.)_
+      Clientes, Planos, Comissões, Configurações (status do bot + WhatsApp por QR +
+      textos + admins) e Perfil, com a identidade RAZOR aplicada.
+      _(Falta: agenda multiprofissional interativa.)_
+- [ ] **Overhaul de UX** conforme [`UX_BLUEPRINT.md`](./UX_BLUEPRINT.md): infra de feedback
+      (toasts/skeletons/empty states), **tutorial de primeiro acesso + checklist de ativação**,
+      Configurações em abas, Clientes com drawer + cards mobile, chips de período em
+      Comissões, regra dos 2 cliques.
+- [ ] **Módulo "Site" no painel** (editor white-label): escolha do template, upload de
+      fotos/logo, textos, cor de destaque, **preview ao vivo** e publicar. Spec no
+      [`UX_BLUEPRINT §3.2`](./UX_BLUEPRINT.md).
 - [ ] Site/landing **white-label** por barbearia (marca, serviços, endereço, avaliações),
       servido em **subdomínio próprio**: `<slug>.razor.com.br` (ex.: `barbeariaficticia.razor.com.br`).
       O tenant é resolvido pelo `Host` header → `slug` → `barbershop_id` (mesmo padrão do
@@ -190,6 +198,27 @@ relatórios), usando o WhatsApp apenas para a operação do dia a dia.
 
 ---
 
+### 🧪 Programa Beta (go-to-market do piloto) — *entre as Fases 3 e 4*
+
+> **Contexto de validação:** o bot (era single-tenant) **já foi validado com ~15 pessoas
+> reais**, rodando por vários dias — a cunha funciona. O beta valida agora o *pacote
+> completo* (painel + multi-tenant + site) com barbearias de verdade.
+
+- [ ] **Piloto âncora:** oferecer o sistema completo a **1 barbearia amiga**, acompanhar de
+      perto (grupo direto de suporte), medir: agendamentos pela IA, no-show, tempo de resposta.
+- [ ] **Chamada pública de beta** no **LinkedIn e Instagram**: post com demo em vídeo do bot
+      agendando (padrões de social do [`BRANDING §12`](./BRANDING.md)) — vagas limitadas
+      (ex.: 10 barbearias), **1º mês grátis**, sem cartão.
+- [ ] **Cupom de beta** no onboarding (ex.: `BETA30`) que pula o pagamento no wizard de
+      compra — vira o gatilho de provisionamento enquanto o billing não existe.
+- [ ] **Canal**: beta roda na **Evolution (grátis, ilimitada, self-host)** com aviso de
+      risco ao tenant; migração p/ Cloud API oficial conforme
+      [`WHATSAPP_CHANNEL.md`](./WHATSAPP_CHANNEL.md).
+- [ ] **Critério de saída do beta:** ≥ 3 barbearias ativas 30 dias, NPS informal positivo,
+      custo de IA/tenant medido → liga o billing (Fase 4) e converte os betas em pagantes.
+
+---
+
 ### Fase 4 — Plataforma Comercial (venda & entrega via web) 🛰️
 
 > **Objetivo:** vender e entregar o Razor 100% pela web, sem visita presencial, e dar a
@@ -204,6 +233,12 @@ relatórios), usando o WhatsApp apenas para a operação do dia a dia.
       conexão, plano, uso), MRR, churn, **custo de IA por tenant** (a chave OpenAI é global,
       da plataforma — o custo é nosso e precisa ser visível/alertável), suspender/reativar
       tenant, impersonar com auditoria. _É onde o dono "configura tudo e vê tudo"._
+      Telas especificadas em [`UX_BLUEPRINT §6`](./UX_BLUEPRINT.md).
+- [ ] **Observabilidade no console:** tela **"Logs ao vivo"** (stream com filtro por
+      tenant/nível — v1: tail via SSE; v2: Loki/Grafana) e **"Saúde do sistema"**
+      (uptime, fila de webhooks, erros/min, latência OpenAI/Evolution).
+- [ ] **Backups gerenciados:** `pg_dump` diário automatizado → storage externo, status no
+      console (último ok/falhou), botão "backup agora" e rotina mensal de teste de restauração.
 - [ ] **Site institucional** `razor.com.br`: proposta, planos, demonstração, prova social, CTA.
       _(Distinto do site white-label de cada barbearia em `<slug>.razor.com.br` — ver [`PLATFORM.md §6`](./PLATFORM.md).)_
 - [ ] **Cadastro self-service** + **billing do SaaS** (gateway BR: Asaas / Mercado Pago / Stripe; cartão/PIX; recorrência).
@@ -214,7 +249,12 @@ relatórios), usando o WhatsApp apenas para a operação do dia a dia.
       no painel: `/api/admin/whatsapp` (status/connect/disconnect) + card em Configurações.
 - [ ] **Infra de subdomínio:** DNS + TLS **wildcard** `*.razor.com.br` e resolução de tenant
       por `Host` header (habilita os sites white-label da Fase 3).
-- [ ] Interface `WhatsAppGateway` para trocar Evolution ↔ Cloud API oficial sem reescrever o núcleo.
+- [ ] Interface `WhatsAppGateway` para trocar Evolution ↔ Cloud API oficial sem reescrever o
+      núcleo. **Análise completa do canal (limites grátis/pago, tiers, estratégia por fase)
+      em [`WHATSAPP_CHANNEL.md`](./WHATSAPP_CHANNEL.md)** — resumo: Evolution é grátis e
+      ilimitada (self-host, risco de ban); oficial tem respostas grátis na janela de 24h,
+      templates ~US$0,007 (utility) e limites de 250→1.000+ envios/dia por portfólio
+      verificado; em escala, modelo Tech Provider (WABA por barbearia).
 
 **Pronto quando:** um barbeiro de outra cidade assina, paga, conecta o WhatsApp por QR e
 começa a operar — tudo sozinho, e você acompanha pelo console do dono.
@@ -255,4 +295,4 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-23 · Documento vivo — atualizado a cada fase concluída._
+_Última atualização: 2026-07-23 (beta + UX blueprint + canal WhatsApp) · Documento vivo._

@@ -27,7 +27,11 @@ Relacionado: [ROADMAP](./ROADMAP.md) · [ARCHITECTURE](./ARCHITECTURE.md) · [PR
 - **Custo por tenant:** consumo de IA/WhatsApp de cada barbearia → detectar quem dá prejuízo (ver [PRICING §5](./PRICING.md#5-alavancas-para-nunca-ter-prejuízo)).
 - **Provisionamento:** criar/suspender/reativar barbearia; reconectar WhatsApp.
 - **Suporte:** entrar no contexto de um tenant (impersonar com trilha de auditoria) para ajudar.
-- **Planos e cupons:** criar planos, promoções, períodos de teste.
+- **Planos e cupons:** criar planos, promoções, períodos de teste (ex.: cupom `BETA30`).
+- **Logs ao vivo:** stream dos logs da aplicação com filtro por tenant/nível — "ver o
+  sistema rodando" e agir quando algo quebrar (spec em [`UX_BLUEPRINT §6`](./UX_BLUEPRINT.md)).
+- **Saúde & backups:** semáforo de uptime/fila/erros e status do backup diário do banco
+  (com "backup agora" e teste de restauração periódico).
 
 > Tecnicamente é o mesmo backend multi-tenant, com um **papel `PLATFORM_OWNER`** que
 > enxerga através dos tenants (os demais papéis ficam presos ao próprio `tenant_id`).
