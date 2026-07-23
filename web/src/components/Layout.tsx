@@ -41,6 +41,7 @@ export function Layout({ title, actions, children }: { title: string; actions?: 
               to={n.to}
               end={n.end}
               title={n.label}
+              data-tour={`nav-${n.to.replace("/", "") || "home"}`}
               className={({ isActive }) => (isActive ? "active" : "")}
             >
               <span className="ico">{n.icon}</span>
@@ -49,7 +50,7 @@ export function Layout({ title, actions, children }: { title: string; actions?: 
           ))}
         </nav>
         <div className="sidebar-foot">
-          <NavLink to="/profile" className="user-chip" title="Meu perfil">
+          <NavLink to="/profile" className="user-chip" title="Meu perfil" data-tour="profile">
             <span className="avatar">{initial}</span>
             <div className="grow user-meta">
               <div className="user-name">{session?.name || "Admin"}</div>

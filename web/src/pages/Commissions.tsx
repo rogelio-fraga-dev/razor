@@ -1,28 +1,65 @@
 import { useState } from "react";
 import { Layout } from "../components/Layout";
+import { EmptyState } from "../components/EmptyState";
+import { SkeletonRows } from "../components/Skeleton";
 import { useApi } from "../lib/useApi";
 import { api } from "../api/client";
 import type { CommissionReport } from "../api/types";
 import { money, percent, todayIso } from "../lib/format";
 
+function isoDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
 export function Commissions() {
   const [date, setDate] = useState(todayIso());
+  const [showPicker, setShowPicker] = useState(false);
   const { data, loading, error } = useApi<CommissionReport>(
     () => api.get(`/api/admin/reports/commissions?date=${date}`),
     [date],
   );
 
+  const chips = [
+    { label: "Hoje", value: todayIso() },
+    { label: "Ontem", value: isoDaysAgo(1) },
+    { label: "Anteontem", value: isoDaysAgo(2) },
+  ];
+  const isCustom = !chips.some((c) => c.value === date);
+
   return (
     <Layout
       title="Comissões"
       actions={
-        <input
-          className="input"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          style={{ width: 168 }}
-        />
+        <div className="chip-row">
+          {chips.map((c) => (
+            <button
+              key={c.label}
+              className={`chip-btn ${date === c.value ? "active" : ""}`}
+              onClick={() => {
+                setDate(c.value);
+                setShowPicker(false);
+              }}
+            >
+              {c.label}
+            </button>
+          ))}
+          {showPicker || isCustom ? (
+            <input
+              className="input"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              style={{ width: 160, padding: "6px 10px" }}
+              autoFocus
+            />
+          ) : (
+            <button className="chip-btn" onClick={() => setShowPicker(true)}>
+              Outra data…
+            </button>
+          )}
+        </div>
       }
     >
       <div className="stat-grid">
@@ -38,11 +75,15 @@ export function Commissions() {
           <h3>Por profissional</h3>
         </div>
         {loading ? (
-          <div className="empty">Carregando…</div>
+          <SkeletonRows rows={3} />
         ) : error ? (
           <div className="empty error">{error}</div>
         ) : !data || data.items.length === 0 ? (
-          <div className="empty">Nenhum atendimento com barbeiro atribuído nesse dia.</div>
+          <EmptyState
+            icon="％"
+            title="Nenhum atendimento com barbeiro nesse dia."
+            hint="Comissões aparecem quando um agendamento tem barbeiro atribuído — a IA atribui sozinha quando o cliente escolhe."
+          />
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table className="table">

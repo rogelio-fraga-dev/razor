@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Layout } from "../components/Layout";
+import { EmptyState } from "../components/EmptyState";
+import { SkeletonRows } from "../components/Skeleton";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { Customer, SubscriptionPlan } from "../api/types";
@@ -67,11 +70,25 @@ export function Customers() {
         </div>
         {assignError && <div className="error" style={{ marginBottom: 12 }}>{assignError}</div>}
         {loading ? (
-          <div className="empty">Carregando…</div>
+          <SkeletonRows rows={5} />
         ) : error ? (
           <div className="empty error">{error}</div>
         ) : filtered.length === 0 ? (
-          <div className="empty">{data && data.length > 0 ? "Nenhum cliente encontrado." : "Nenhum cliente na base ainda."}</div>
+          data && data.length > 0 ? (
+            <EmptyState icon="🔎" title="Nenhum cliente encontrado." hint="Tente outro nome ou telefone." />
+          ) : (
+            <EmptyState
+              icon="👥"
+              title="Sua base ainda está vazia."
+              hint={
+                <>
+                  Quem falar com o bot no WhatsApp entra aqui sozinho — ou importe sua base atual
+                  em CSV pelo WhatsApp do admin.
+                </>
+              }
+              action={<Link className="btn btn-ghost" to="/settings">Conectar o WhatsApp</Link>}
+            />
+          )
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table className="table">

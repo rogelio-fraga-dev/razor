@@ -602,6 +602,260 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .switch input:checked + .track { background: var(--accent); }
 .switch input:checked + .track::after { transform: translateX(16px); }
 
+/* ---------- Toasts (feedback assíncrono único) ---------- */
+.toast-wrap {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(380px, calc(100vw - 40px));
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  font-size: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.toast-ico {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.toast-success { border-left: 3px solid var(--green); }
+.toast-success .toast-ico { background: var(--green-soft); color: var(--green); }
+.toast-error { border-left: 3px solid var(--red); }
+.toast-error .toast-ico { background: rgba(220, 38, 38, 0.15); color: var(--red); }
+
+/* ---------- Skeleton (shimmer) ---------- */
+.skeleton {
+  display: inline-block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border-hi) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; background: var(--surface-2); }
+}
+
+/* ---------- Empty state (que guia) ---------- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 48px 24px;
+}
+.es-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  color: var(--text-faint);
+  background: var(--surface-2);
+  border: 1px dashed var(--border-hi);
+  margin-bottom: 4px;
+}
+.es-title { margin: 0; font-weight: 600; font-size: 15px; }
+.es-hint { margin: 0; color: var(--text-muted); font-size: 13.5px; max-width: 44ch; }
+.es-action { margin-top: 12px; }
+
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.tab:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 6px; }
+
+/* ---------- Chips de período ---------- */
+.chip-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.chip-btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-hi);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.chip-btn:hover { color: var(--text); border-color: var(--text-faint); }
+.chip-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ---------- Agenda como timeline ---------- */
+.timeline { padding: 8px 20px 20px; display: flex; flex-direction: column; }
+.tl-item { display: flex; gap: 14px; position: relative; padding: 9px 0; }
+.tl-time {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  width: 48px;
+  text-align: right;
+  padding-top: 12px;
+  flex-shrink: 0;
+}
+.tl-rail { position: relative; width: 12px; flex-shrink: 0; }
+.tl-rail::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+.tl-item:first-child .tl-rail::before { top: 16px; }
+.tl-item:last-child .tl-rail::before { bottom: auto; height: 16px; }
+.tl-dot {
+  position: absolute;
+  left: 1.5px;
+  top: 16px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(62, 99, 255, 0.5);
+}
+.tl-card {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  transition: border-color 0.2s;
+}
+.tl-card:hover { border-color: var(--border-hi); }
+.tl-client { font-weight: 600; font-size: 14.5px; }
+.tl-service { color: var(--text-muted); font-size: 13.5px; }
+.tl-barber { color: var(--text-faint); font-size: 12.5px; margin-left: auto; }
+@media (max-width: 640px) {
+  .tl-time { width: 40px; font-size: 12px; }
+  .tl-barber { margin-left: 0; width: 100%; }
+}
+
+/* ---------- Checklist de ativação ---------- */
+.checklist { position: relative; overflow: hidden; }
+.checklist::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--edge-gradient);
+}
+.cl-progress { height: 4px; background: var(--surface-2); }
+.cl-progress span {
+  display: block;
+  height: 100%;
+  background: var(--edge-gradient);
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cl-items { padding: 10px; display: flex; flex-direction: column; gap: 2px; }
+.cl-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+.cl-item:hover { background: var(--surface-2); }
+.cl-item.done { opacity: 0.55; pointer-events: none; }
+.cl-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-hi);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: #051020;
+}
+.cl-item.done .cl-check { background: var(--green); border-color: var(--green); }
+.cl-label { display: block; font-weight: 550; font-size: 14px; }
+.cl-hint { display: block; color: var(--text-faint); font-size: 12.5px; margin-top: 1px; }
+.cl-go { color: var(--text-faint); font-size: 15px; }
+.cl-item:hover .cl-go { color: var(--accent); }
+
+/* ---------- Tour (spotlight) ---------- */
+.tour-root { position: fixed; inset: 0; z-index: 300; }
+.tour-spot {
+  position: fixed;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(5, 6, 9, 0.72), 0 0 0 2px rgba(62, 99, 255, 0.7), 0 0 24px rgba(62, 99, 255, 0.4);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.tour-tip {
+  position: fixed;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tour-count { font-size: 11px; color: var(--text-faint); letter-spacing: 0.1em; }
+.tour-tip h4 { margin: 6px 0 4px; font-family: var(--font-display); font-size: 16px; }
+.tour-tip p { margin: 0; color: var(--text-muted); font-size: 13.5px; line-height: 1.5; }
+
 /* ============================== RESPONSIVO ============================== */
 
 /* Notebook estreito */

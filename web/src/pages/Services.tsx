@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Layout } from "../components/Layout";
 import { Modal, Switch } from "../components/Modal";
+import { EmptyState } from "../components/EmptyState";
+import { SkeletonRows } from "../components/Skeleton";
+import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { ServiceOffering } from "../api/types";
@@ -18,6 +21,7 @@ const EMPTY: Draft = { id: null, name: "", price: "", durationMinutes: "30", act
 
 export function Services() {
   const { data, loading, error, reload } = useApi<ServiceOffering[]>(() => api.get("/api/admin/services"), []);
+  const toast = useToast();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -44,6 +48,7 @@ export function Services() {
     try {
       if (draft.id) await api.put(`/api/admin/services/${draft.id}`, payload);
       else await api.post("/api/admin/services", payload);
+      toast.success(draft.id ? "Serviço atualizado ✓" : `Serviço "${payload.name}" criado ✓`);
       setDraft(null);
       reload();
     } catch (e) {
@@ -61,11 +66,16 @@ export function Services() {
           {data && <span className="badge badge-muted">{data.length} serviços</span>}
         </div>
         {loading ? (
-          <div className="empty">Carregando…</div>
+          <SkeletonRows rows={4} />
         ) : error ? (
           <div className="empty error">{error}</div>
         ) : !data || data.length === 0 ? (
-          <div className="empty">Nenhum serviço cadastrado. Crie o primeiro.</div>
+          <EmptyState
+            icon="✂"
+            title="Nenhum serviço no catálogo."
+            hint="A IA usa esses preços e durações para agendar — cadastre o primeiro."
+            action={<button className="btn btn-primary" onClick={openNew}>+ Criar serviço</button>}
+          />
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table className="table">

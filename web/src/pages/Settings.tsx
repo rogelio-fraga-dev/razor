@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Layout } from "../components/Layout";
 import { Switch } from "../components/Modal";
+import { Tabs } from "../components/Tabs";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type {
@@ -89,8 +90,8 @@ function BotStatusCard() {
                   {data.whatsappConnected
                     ? "conectado — o bot recebe e envia mensagens"
                     : data.whatsappState === "connecting"
-                      ? "aguardando pareamento (escaneie o QR abaixo)"
-                      : "desconectado — conecte no card abaixo"}
+                      ? "aguardando pareamento — escaneie o QR na aba WhatsApp"
+                      : "desconectado — conecte na aba WhatsApp"}
                 </span>
               </div>
               <span className="mono faint" style={{ fontSize: 11 }}>{data.instanceName}</span>
@@ -499,13 +500,26 @@ function BotCard() {
 }
 
 export function Settings() {
+  const [tab, setTab] = useState("status");
+
   return (
     <Layout title="Configurações">
-      <BotStatusCard />
-      <WhatsAppCard />
-      <ProfileCard />
-      <BotCard />
-      <AdminsCard />
+      <Tabs
+        tabs={[
+          { id: "status", label: "Status" },
+          { id: "whatsapp", label: "WhatsApp" },
+          { id: "bot", label: "Bot & IA" },
+          { id: "equipe", label: "Equipe & acesso" },
+          { id: "barbearia", label: "Barbearia" },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+      {tab === "status" && <BotStatusCard />}
+      {tab === "whatsapp" && <WhatsAppCard />}
+      {tab === "bot" && <BotCard />}
+      {tab === "equipe" && <AdminsCard />}
+      {tab === "barbearia" && <ProfileCard />}
     </Layout>
   );
 }

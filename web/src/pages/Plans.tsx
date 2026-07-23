@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Layout } from "../components/Layout";
 import { Modal, Switch } from "../components/Modal";
+import { EmptyState } from "../components/EmptyState";
+import { SkeletonRows } from "../components/Skeleton";
+import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { SubscriptionPlan } from "../api/types";
@@ -18,6 +21,7 @@ const EMPTY: Draft = { id: null, name: "", price: "", description: "", active: t
 
 export function Plans() {
   const { data, loading, error, reload } = useApi<SubscriptionPlan[]>(() => api.get("/api/admin/plans"), []);
+  const toast = useToast();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -44,6 +48,7 @@ export function Plans() {
     try {
       if (draft.id) await api.put(`/api/admin/plans/${draft.id}`, payload);
       else await api.post("/api/admin/plans", payload);
+      toast.success(draft.id ? "Plano atualizado ✓" : `Plano "${payload.name}" criado ✓`);
       setDraft(null);
       reload();
     } catch (e) {
@@ -61,11 +66,16 @@ export function Plans() {
           {data && <span className="badge badge-muted">{data.length} planos</span>}
         </div>
         {loading ? (
-          <div className="empty">Carregando…</div>
+          <SkeletonRows rows={3} />
         ) : error ? (
           <div className="empty error">{error}</div>
         ) : !data || data.length === 0 ? (
-          <div className="empty">Nenhum plano de assinatura ainda. Crie o primeiro (ex.: VIP mensal).</div>
+          <EmptyState
+            icon="💎"
+            title="Nenhum plano de assinatura ainda."
+            hint="Crie o clube da sua barbearia (ex.: VIP mensal) e vincule clientes na tela Clientes — receita recorrente todo mês."
+            action={<button className="btn btn-primary" onClick={openNew}>+ Criar plano</button>}
+          />
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table className="table">
