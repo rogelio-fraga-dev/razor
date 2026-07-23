@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0A0A0C" />
+  <title>RAZOR — Sua barbearia, no piloto automático</title>
+  <meta name="description" content="A RAZOR atende, agenda e cobra pelo WhatsApp — com IA de verdade — enquanto você corta. O sistema operacional inteligente da sua barbearia." />
+  <meta property="og:title" content="RAZOR — Sua barbearia, no piloto automático" />
+  <meta property="og:description" content="A IA que atende, agenda e cobra pelo WhatsApp. Sem app para o cliente baixar." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============ NAVBAR ============ -->
+<header class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a class="logo" href="#" aria-label="RAZOR — início">
+      <svg viewBox="0 0 100 100" width="24" height="24" aria-hidden="true">
+        <defs><linearGradient id="gl-nav" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3E63FF"/><stop offset="1" stop-color="#37E2FF"/></linearGradient></defs>
+        <polygon points="30,92 52,92 84,8 62,8" fill="#E9EBEF"/><polygon points="62,8 84,8 81,16 59,16" fill="url(#gl-nav)"/>
+      </svg>
+      <span class="logo-word">RAZOR</span>
+    </a>
+    <nav class="nav-links" aria-label="Navegação principal">
+      <a href="#modulos">Produto</a>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#planos">Planos</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="#planos">Começar agora</a>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <span class="chip rv">⚡ IA NATIVA · WHATSAPP · SEM APP</span>
+      <h1 class="rv d1">Sua barbearia,<br />no <em>piloto automático</em>.</h1>
+      <p class="sub rv d2">A RAZOR atende, agenda e cobra pelo WhatsApp — com IA de verdade —
+      enquanto você corta. Sem app para o cliente baixar. Sem atendente preso no celular.</p>
+      <div class="cta-row rv d3">
+        <a class="btn btn-primary" href="#planos">Automatizar minha operação</a>
+        <a class="btn btn-ghost" href="#demo">Ver demonstração</a>
+      </div>
+      <div class="hero-stats rv d4">
+        <div class="s"><b class="mono">24/7</b><span>atendimento sem pausa</span></div>
+        <div class="s"><b class="mono">2,3s</b><span>tempo médio de resposta</span></div>
+        <div class="s"><b class="mono">0</b><span>apps para o cliente baixar</span></div>
+      </div>
+    </div>
+
+    <!-- Telefone com a conversa da IA (demo animada) -->
+    <div class="phone rv d3" id="hero-phone" aria-label="Demonstração: a IA da RAZOR agendando um cliente pelo WhatsApp">
+      <div class="phone-head">
+        <span class="av" aria-hidden="true">R</span>
+        <div><b>Barbearia do Diego</b><span class="status">● online · IA ativa</span></div>
+      </div>
+      <div class="wa" id="chat"></div>
+      <div class="typing" id="typing" hidden><i></i><i></i><i></i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ A DOR ============ -->
+<section class="pain">
+  <div class="wrap">
+    <h2 class="rv">Você não precisa de mais um app de agenda.<br />
+    <em>Precisa de um funcionário que nunca dorme.</em></h2>
+    <div class="pain-grid">
+      <div class="pain-card rv">
+        <span class="x">✕</span>
+        <p><b>Cliente chama, ninguém responde.</b> Cada mensagem sem resposta no WhatsApp é um corte na barbearia do concorrente.</p>
+      </div>
+      <div class="pain-card rv">
+        <span class="x">✕</span>
+        <p><b>Barbeiro parado, agenda com buraco.</b> Cancelou em cima da hora? O horário morre — ninguém liga pra lista de espera.</p>
+      </div>
+      <div class="pain-card rv">
+        <span class="x">✕</span>
+        <p><b>Fechamento no caderninho.</b> Comissão, PIX, assinatura do clube… tudo de cabeça, nada medido.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMO FUNCIONA ============ -->
+<section class="how" id="como-funciona">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">COMO FUNCIONA</span>
+      <h2>No ar em três passos. Hoje.</h2>
+    </div>
+    <ol class="steps">
+      <li class="step rv">
+        <span class="n mono">01</span>
+        <h3>Conecte o WhatsApp</h3>
+        <p>Escaneie um QR code na tela — como no WhatsApp Web. Dois minutos, sem técnico, sem visita.</p>
+      </li>
+      <li class="step rv">
+        <span class="n mono">02</span>
+        <h3>A IA assume o atendimento</h3>
+        <p>Ela responde, agenda, negocia horário, entende áudio e preenche buracos com a lista de espera. Em linguagem natural — não é robô de botões.</p>
+      </li>
+      <li class="step rv">
+        <span class="n mono">03</span>
+        <h3>Você acompanha o caixa</h3>
+        <p>Painel com faturamento do dia, comissões por barbeiro, clube de assinatura e a agenda de todo mundo.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ BENTO DE MÓDULOS ============ -->
+<section class="modules" id="modulos">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">A PLATAFORMA</span>
+      <h2>Um sistema operacional. Todos os módulos.</h2>
+      <p class="lead">Atendimento e gestão no mesmo lugar — o que hoje você resolve com três ferramentas e um caderno.</p>
+    </div>
+    <div class="bento">
+      <article class="b-card b-wide rv">
+        <span class="b-tag plasma">IA CONVERSACIONAL</span>
+        <h3>Atende como gente. Agenda como máquina.</h3>
+        <p>GPT + Whisper: o cliente escreve ou manda áudio, a IA entende, oferece horários reais e confirma — em segundos, no tom da sua barbearia.</p>
+        <div class="mini-chat" aria-hidden="true">
+          <span class="m c">tem horário sábado de manhã?</span>
+          <span class="m b">Tenho! Sábado: <b>9h30</b> ou <b>11h</b> com o Diego. Qual prefere?</span>
+        </div>
+      </article>
+      <article class="b-card rv">
+        <span class="b-tag">AGENDA INTELIGENTE</span>
+        <h3>Multiprofissional</h3>
+        <p>Cada barbeiro com sua agenda. A IA só bloqueia horário quando todas as cadeiras estão ocupadas.</p>
+      </article>
+      <article class="b-card rv">
+        <span class="b-tag">FINANCEIRO</span>
+        <h3>Caixa em tempo real</h3>
+        <p class="kpi mono">R$ 12.480 <small>▲ +38%</small></p>
+        <p>Faturamento do dia, PIX × presencial × pendente, ticket médio.</p>
+      </article>
+      <article class="b-card rv">
+        <span class="b-tag">COMISSÕES</span>
+        <h3>Sem conta de cabeça</h3>
+        <p>Percentual por barbeiro, relatório por dia — fechamento sem discussão.</p>
+      </article>
+      <article class="b-card rv">
+        <span class="b-tag">CLUBE DE ASSINATURA</span>
+        <h3>Receita recorrente</h3>
+        <p>Planos VIP configuráveis. Assinante identificado na agenda com 💎.</p>
+      </article>
+      <article class="b-card rv">
+        <span class="b-tag">LISTA DE ESPERA</span>
+        <h3>Buraco na agenda? A IA preenche.</h3>
+        <p>Cancelou, ela chama o próximo da fila sozinha. Horário vago vira corte pago.</p>
+      </article>
+      <article class="b-card rv">
+        <span class="b-tag">FIDELIDADE + MARKETING</span>
+        <h3>Cliente que volta</h3>
+        <p>Pontos, cupons automáticos, lembretes e disparos em massa direto do WhatsApp.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DEMO ============ -->
+<section class="demo" id="demo">
+  <div class="demo-glow" aria-hidden="true"></div>
+  <div class="wrap demo-grid">
+    <div class="rv">
+      <span class="eyebrow">DEMONSTRAÇÃO</span>
+      <h2>Transforme conversas<br />em faturamento.</h2>
+      <p class="lead">Isto não é um chatbot de botões. É uma IA que conversa, entende áudio e
+      fecha o agendamento sozinha — cada mensagem respondida é um horário vendido.</p>
+      <ul class="checks">
+        <li>Entende texto livre e <b>áudio</b> (transcrição automática)</li>
+        <li>Oferece só horários <b>realmente livres</b> — por barbeiro</li>
+        <li>Confirma, lembra 1h antes e pede avaliação depois</li>
+        <li>Cancelou? Reagenda ou chama a <b>lista de espera</b></li>
+      </ul>
+      <a class="btn btn-primary" href="#planos">Quero isso na minha barbearia</a>
+    </div>
+    <div class="term rv" role="img" aria-label="Linha do tempo de um agendamento automático">
+      <div class="term-bar"><span></span><span></span><span></span><em class="mono">razor · fluxo real</em></div>
+      <div class="term-body mono">
+        <p><span class="t">19:42:07</span> <span class="ok">▸</span> áudio recebido (0:07) — transcrevendo…</p>
+        <p><span class="t">19:42:09</span> <span class="ok">▸</span> intenção: agendar · serviço: corte + barba</p>
+        <p><span class="t">19:42:09</span> <span class="ok">▸</span> agenda consultada: Diego · qui 19h livre</p>
+        <p><span class="t">19:42:10</span> <span class="ok">✓</span> proposta enviada ao cliente</p>
+        <p><span class="t">19:43:02</span> <span class="ok">✓</span> <b>confirmado</b> · qui 19h · R$ 60</p>
+        <p><span class="t">18:00:00</span> <span class="dim">⏰ lembrete automático programado</span></p>
+        <p class="sum">agendamento fechado sem intervenção humana · 55s</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INTEGRAÇÕES ============ -->
+<section class="integ">
+  <div class="wrap">
+    <div class="sec-head center rv">
+      <span class="eyebrow">MOTOR</span>
+      <h2>Tecnologia de ponta, invisível para você.</h2>
+    </div>
+    <div class="orbit-wrap rv" aria-label="Integrações: WhatsApp, GPT, Whisper e PIX orbitando o núcleo RAZOR">
+      <div class="orbit-core">
+        <svg viewBox="0 0 100 100" width="44" height="44" aria-hidden="true">
+          <defs><linearGradient id="gl-core" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3E63FF"/><stop offset="1" stop-color="#37E2FF"/></linearGradient></defs>
+          <polygon points="30,92 52,92 84,8 62,8" fill="#E9EBEF"/><polygon points="62,8 84,8 81,16 59,16" fill="url(#gl-core)"/>
+        </svg>
+      </div>
+      <div class="orbit ring-1"><span class="sat" style="--a:0deg">WhatsApp</span><span class="sat" style="--a:180deg">PIX</span></div>
+      <div class="orbit ring-2"><span class="sat" style="--a:90deg">GPT</span><span class="sat" style="--a:270deg">Whisper</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DEPOIMENTOS ============ -->
+<!-- ⚠️ PLACEHOLDERS — substituir por depoimentos reais (nome, foto, métrica) antes do deploy público. -->
+<section class="proof">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">RESULTADO</span>
+      <h2>Medido, não prometido.</h2>
+    </div>
+    <div class="proof-grid">
+      <figure class="quote rv">
+        <p class="metric mono">−72% <small>de no-show</small></p>
+        <blockquote>"O lembrete automático acabou com o furo. Cliente que não vem avisa, e a IA já chama outro da fila."</blockquote>
+        <figcaption>Dono de barbearia · 4 cadeiras</figcaption>
+      </figure>
+      <figure class="quote rv">
+        <p class="metric mono">+38% <small>de faturamento</small></p>
+        <blockquote>"Eu perdia agendamento todo dia por demorar a responder. Agora fecho horário até de madrugada."</blockquote>
+        <figcaption>Barbeiro solo</figcaption>
+      </figure>
+      <figure class="quote rv">
+        <p class="metric mono">6h <small>por semana de volta</small></p>
+        <blockquote>"O tempo que eu gastava no WhatsApp virou tempo de tesoura. O painel fecha o caixa por mim."</blockquote>
+        <figcaption>Dona de estúdio · 2 unidades</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PLANOS ============ -->
+<section class="pricing" id="planos">
+  <div class="wrap">
+    <div class="sec-head center rv">
+      <span class="eyebrow">PLANOS</span>
+      <h2>Escolha o tamanho da sua operação.</h2>
+      <div class="toggle mono rv" role="group" aria-label="Período de cobrança">
+        <button class="tg active" id="tg-m" type="button">Mensal</button>
+        <button class="tg" id="tg-a" type="button">Anual <span class="save">2 meses grátis</span></button>
+      </div>
+    </div>
+    <div class="plans">
+      <article class="plan rv">
+        <h3 class="p-name mono">SOLO</h3>
+        <p class="p-for">1 barbeiro</p>
+        <p class="p-price"><span class="mono val" data-m="97" data-a="80">R$ 97</span><small>/mês</small></p>
+        <ul>
+          <li>IA de atendimento no WhatsApp</li>
+          <li>Agenda + lembretes automáticos</li>
+          <li>Fidelidade e lista de espera</li>
+          <li>Painel web com financeiro do dia</li>
+        </ul>
+        <a class="btn btn-ghost" href="#" data-cta="solo">Começar com o Solo</a>
+      </article>
+      <article class="plan featured rv">
+        <span class="selo">Mais escolhido</span>
+        <h3 class="p-name mono">EQUIPE</h3>
+        <p class="p-for">até 5 barbeiros</p>
+        <p class="p-price"><span class="mono val" data-m="197" data-a="164">R$ 197</span><small>/mês</small></p>
+        <ul>
+          <li>Tudo do Solo</li>
+          <li>Agenda multiprofissional</li>
+          <li>Comissões automáticas</li>
+          <li>Relatórios financeiros completos</li>
+        </ul>
+        <a class="btn btn-primary" href="#" data-cta="equipe">Automatizar minha equipe</a>
+      </article>
+      <article class="plan rv">
+        <h3 class="p-name mono">PRO</h3>
+        <p class="p-for">rede · ilimitado</p>
+        <p class="p-price"><span class="mono val" data-m="347" data-a="289">R$ 347</span><small>/mês</small></p>
+        <ul>
+          <li>Tudo do Equipe</li>
+          <li>Clube de assinatura (recorrência)</li>
+          <li>Relatórios avançados e retenção</li>
+          <li>Multi-unidade</li>
+        </ul>
+        <a class="btn btn-ghost" href="#" data-cta="pro">Falar sobre o Pro</a>
+      </article>
+    </div>
+    <p class="pricing-note rv">Onboarding self-service gratuito · sem taxa de setup · cancele quando quiser.</p>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="faq" id="faq">
+  <div class="wrap narrow">
+    <div class="sec-head rv">
+      <span class="eyebrow">FAQ</span>
+      <h2>Perguntas diretas, respostas diretas.</h2>
+    </div>
+    <div class="faq-list rv">
+      <details>
+        <summary>Meu cliente precisa baixar alguma coisa?</summary>
+        <p>Não. Ele conversa no WhatsApp que já usa. A mágica acontece do seu lado: a RAZOR responde por você.</p>
+      </details>
+      <details>
+        <summary>É um robô de botões ("digite 1 para…")?</summary>
+        <p>Não. É IA de linguagem natural — o cliente escreve ou manda áudio como falaria com uma pessoa, e a RAZOR entende, negocia horário e confirma.</p>
+      </details>
+      <details>
+        <summary>Como conecto o meu número?</summary>
+        <p>Pelo painel, escaneando um QR code — igual ao WhatsApp Web. Leva cerca de dois minutos e você pode desconectar quando quiser.</p>
+      </details>
+      <details>
+        <summary>E se eu já uso outro sistema?</summary>
+        <p>Você importa sua base de clientes (CSV) e cadastra serviços e barbeiros em minutos. A migração é gratuita e você não perde histórico de fidelidade.</p>
+      </details>
+      <details>
+        <summary>Tem fidelidade de contrato?</summary>
+        <p>Não. Plano mensal, cancela quando quiser. No anual, você paga 10 meses e leva 12.</p>
+      </details>
+      <details>
+        <summary>A IA pode responder algo errado?</summary>
+        <p>Ela só oferece horários reais da sua agenda e preços do seu catálogo. Assuntos fora do script vão para você — com um toque, o atendimento vira humano.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA FINAL ============ -->
+<section class="final">
+  <div class="final-glow" aria-hidden="true"></div>
+  <div class="wrap center rv">
+    <h2>Pronto para operar<br /><em>no automático?</em></h2>
+    <p class="lead">Conecte o WhatsApp hoje. Amanhã sua agenda acorda preenchida.</p>
+    <a class="btn btn-primary btn-lg" href="#planos">Começar agora</a>
+    <p class="mono tiny">SETUP EM MINUTOS · SEM CARTÃO NO TESTE · SEM FIDELIDADE</p>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="foot">
+  <div class="wrap foot-in">
+    <a class="logo" href="#" aria-label="RAZOR">
+      <svg viewBox="0 0 100 100" width="20" height="20" aria-hidden="true">
+        <polygon points="30,92 52,92 84,8 62,8" fill="#E9EBEF"/><polygon points="62,8 84,8 81,16 59,16" fill="#37E2FF"/>
+      </svg>
+      <span class="logo-word">RAZOR</span>
+    </a>
+    <nav class="foot-links" aria-label="Rodapé">
+      <a href="#modulos">Produto</a>
+      <a href="#planos">Planos</a>
+      <a href="#faq">FAQ</a>
+      <a href="mailto:contato@razor.com.br">Contato</a>
+    </nav>
+    <span class="mono tiny">© 2026 RAZOR · feito no Brasil</span>
+  </div>
+</footer>
+
+<script src="script.js" defer></script>
+</body>
+</html>
