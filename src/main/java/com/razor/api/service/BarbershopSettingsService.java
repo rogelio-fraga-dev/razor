@@ -57,6 +57,23 @@ public class BarbershopSettingsService {
         return saved;
     }
 
+    /** O bot atende clientes neste tenant? Sem linha (tenant novo) = ligado. */
+    public boolean isBotEnabled() {
+        return repository.findById(TenantContext.getCurrent())
+                .map(s -> !Boolean.FALSE.equals(s.getBotEnabled()))
+                .orElse(true);
+    }
+
+    /** Liga/desliga o atendimento automatico de clientes (controle do dono no painel). */
+    public boolean setBotEnabled(boolean enabled) {
+        BarbershopSettings s = repository.findById(TenantContext.getCurrent())
+                .orElseGet(() -> BarbershopSettings.builder().barbershopId(TenantContext.getCurrent()).build());
+        s.setBotEnabled(enabled);
+        repository.save(s);
+        log.info("[BOT] Bot {} para o tenant {}", enabled ? "ATIVADO" : "DESATIVADO", TenantContext.getCurrent());
+        return enabled;
+    }
+
     private String pick(String value, String fallback) {
         return (value == null || value.isBlank()) ? fallback : value;
     }

@@ -1,6 +1,5 @@
 package com.razor.api.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -11,11 +10,9 @@ import static org.mockito.Mockito.when;
 import com.razor.api.config.RazorProperties;
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.model.Customer;
-import com.razor.api.model.Professional;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.InteractionRepository;
 import com.razor.api.repository.WaitlistRepository;
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,9 +27,9 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /**
- * Testes do {@link AdminCommandService} (Fase 0.4): roteamento do menu de gestao
- * e a maquina de estados do admin (pausar/apagar/cancelar), dirigida por chamadas
- * sequenciais na mesma instancia. Sem depender de banco/WhatsApp.
+ * Testes do {@link AdminCommandService}: menu de OPERACAO rapida do WhatsApp
+ * (agenda, disparos, pausar/retomar/apagar) e a maquina de estados do admin.
+ * Financeiro/comissoes redirecionam para o painel web (principio 6 do roadmap).
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -49,8 +46,6 @@ class AdminCommandServiceTest {
     @Mock private WaitlistRepository waitlistRepository;
     @Mock private WhatsAppMessenger messenger;
     @Mock private EvolutionMediaService evolutionMediaService;
-    @Mock private CommissionService commissionService;
-    @Mock private ProfessionalService professionalService;
 
     @InjectMocks private AdminCommandService service;
 
@@ -61,33 +56,50 @@ class AdminCommandServiceTest {
     }
 
     @Test
-    @DisplayName("'menu' envia o painel de gestão do admin")
+    @DisplayName("'menu' envia o painel de operação rápida do admin")
     void menu_sendsFullMenu() {
         service.processAdminMessage(adminText("menu"), ADMIN);
         verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("PAINEL DA BARBEARIA")), eq("ADMIN"));
     }
 
     @Test
-    @DisplayName("opção 1 envia o resumo financeiro do dia")
-    void option1_sendsFinancialSummary() {
-        when(agendaService.getResumoFinanceiroDetalhado()).thenReturn("RESUMO_FINANCEIRO");
+    @DisplayName("opção 1 envia a agenda do dia (operação, não financeiro)")
+    void option1_sendsDailyAgenda() {
+        when(agendaService.getPainelAgendamentosDetalhado(0, 0, 0)).thenReturn("AGENDA_DO_DIA");
+        when(customerService.getPausedPhones()).thenReturn(List.of());
         service.processAdminMessage(adminText("1"), ADMIN);
-        verify(messenger).send(eq(ADMIN), eq("RESUMO_FINANCEIRO"), eq("ADMIN"));
+        verify(messenger).send(eq(ADMIN), eq("AGENDA_DO_DIA"), eq("ADMIN"));
     }
 
     @Test
-    @DisplayName("listar clientes com base vazia informa que não há ninguém salvo")
+    @DisplayName("'financeiro' redireciona para o painel web (sem relatório no WhatsApp)")
+    void financeiro_redirectsToPanel() {
+        service.processAdminMessage(adminText("resumo financeiro"), ADMIN);
+        verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("painel")), eq("ADMIN"));
+        verify(agendaService, never()).getResumoFinanceiroDetalhado();
+        verify(agendaService, never()).getResumoFinanceiroDaSemana();
+    }
+
+    @Test
+    @DisplayName("'comissões' redireciona para o painel web")
+    void comissoes_redirectsToPanel() {
+        service.processAdminMessage(adminText("comissões"), ADMIN);
+        verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("painel")), eq("ADMIN"));
+    }
+
+    @Test
+    @DisplayName("listar clientes (8) com base vazia informa que não há ninguém salvo")
     void listClients_empty() {
         when(customerRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of());
-        service.processAdminMessage(adminText("10"), ADMIN);
+        service.processAdminMessage(adminText("8"), ADMIN);
         verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("Nenhum cliente salvo")), eq("ADMIN"));
     }
 
     @Test
-    @DisplayName("fluxo pausar: pede o telefone e, no 2º passo, pausa o cliente por 60min")
+    @DisplayName("fluxo pausar (6): pede o telefone e, no 2º passo, pausa o cliente por 60min")
     void pauseFlow_twoSteps() {
         // passo 1: entra no estado PAUSAR
-        service.processAdminMessage(adminText("8"), ADMIN);
+        service.processAdminMessage(adminText("6"), ADMIN);
         verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("Pausar Robô")), eq("ADMIN"));
 
         // passo 2: informa o telefone (com formatação) -> pausa só os dígitos
@@ -99,13 +111,13 @@ class AdminCommandServiceTest {
     @Test
     @DisplayName("'cancelar' dentro de um estado volta ao menu principal")
     void cancelDuringState_returnsToMenu() {
-        service.processAdminMessage(adminText("8"), ADMIN); // entra em PAUSAR
+        service.processAdminMessage(adminText("6"), ADMIN); // entra em PAUSAR
         service.processAdminMessage(adminText("cancelar"), ADMIN);
         verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("PAINEL DA BARBEARIA")), eq("ADMIN"));
     }
 
     @Test
-    @DisplayName("fluxo apagar: lista clientes e, no 2º passo, remove o escolhido")
+    @DisplayName("fluxo apagar (9): lista clientes e, no 2º passo, remove o escolhido")
     void deleteFlow_twoSteps() {
         UUID id = UUID.randomUUID();
         Customer c = Customer.builder().id(id).phoneNumber("5511777776666").name("Zé").build();
@@ -114,7 +126,7 @@ class AdminCommandServiceTest {
                 .thenReturn(Optional.of(c));
 
         // passo 1: entra no estado APAGAR_CONTATO e lista
-        service.processAdminMessage(adminText("11"), ADMIN);
+        service.processAdminMessage(adminText("9"), ADMIN);
         verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("Apagar Cliente")), eq("ADMIN"));
 
         // passo 2: escolhe a opção 1 -> apaga interações e cliente
@@ -122,35 +134,6 @@ class AdminCommandServiceTest {
         verify(interactionRepository).deleteByCustomerId(id);
         verify(customerRepository).delete(c);
         verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("apagado")), eq("ADMIN"));
-    }
-
-    @Test
-    @DisplayName("comando 'comissões' envia o relatório de comissões do dia")
-    void comissoes_sendsCommissionReport() {
-        when(commissionService.getComissoesDoDiaText()).thenReturn("RELATORIO_COMISSOES");
-        service.processAdminMessage(adminText("comissões"), ADMIN);
-        verify(messenger).send(eq(ADMIN), eq("RELATORIO_COMISSOES"), eq("ADMIN"));
-    }
-
-    @Test
-    @DisplayName("fluxo definir comissão: lista barbeiro, pede o %, e salva no profissional escolhido")
-    void configCommission_threeSteps_setsPercent() {
-        UUID id = UUID.randomUUID();
-        Professional rafael = Professional.builder().id(id).name("Rafael").commissionPercent(BigDecimal.ZERO).build();
-        when(professionalService.listActive()).thenReturn(List.of(rafael));
-
-        // passo 1: entra no fluxo e lista os barbeiros
-        service.processAdminMessage(adminText("definir comissão"), ADMIN);
-        verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("Definir Comissão") && m.contains("Rafael")), eq("ADMIN"));
-
-        // passo 2: escolhe o barbeiro 1 -> pede o percentual
-        service.processAdminMessage(adminText("1"), ADMIN);
-        verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("comissão") && m.contains("Rafael")), eq("ADMIN"));
-
-        // passo 3: informa 45 -> updateCommission(id, 45) e confirma
-        service.processAdminMessage(adminText("45"), ADMIN);
-        verify(professionalService).updateCommission(eq(id), argThat(p -> p.compareTo(new BigDecimal("45")) == 0));
-        verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("definida em") && m.contains("45")), eq("ADMIN"));
     }
 
     @Test

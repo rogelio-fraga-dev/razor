@@ -49,13 +49,13 @@ export function Layout({ title, actions, children }: { title: string; actions?: 
           ))}
         </nav>
         <div className="sidebar-foot">
-          <div className="user-chip">
+          <NavLink to="/profile" className="user-chip" title="Meu perfil">
             <span className="avatar">{initial}</span>
             <div className="grow user-meta">
               <div className="user-name">{session?.name || "Admin"}</div>
               <div className="faint user-mail">{session?.email}</div>
             </div>
-          </div>
+          </NavLink>
         </div>
       </aside>
 

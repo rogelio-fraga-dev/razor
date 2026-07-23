@@ -62,3 +62,6 @@ agenda.json
 postgres_data/
 evolution_store/
 *.tsbuildinfo
+
+# segredos de dev local
+.env.local

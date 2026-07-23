@@ -8,6 +8,7 @@ import { Customers } from "./pages/Customers";
 import { Plans } from "./pages/Plans";
 import { Commissions } from "./pages/Commissions";
 import { Settings } from "./pages/Settings";
+import { Profile } from "./pages/Profile";
 
 function Protected() {
   const { session } = useAuth();
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/plans" element={<Plans />} />
         <Route path="/commissions" element={<Commissions />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/profile" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

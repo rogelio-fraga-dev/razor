@@ -32,6 +32,16 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AdminCommandService {
 
+    // Principio 6 do roadmap: o WhatsApp do admin e OPERACAO rapida (agenda, disparos,
+    // pausar/retomar). Financeiro, comissoes e fechamento vivem no PAINEL WEB.
+    private static final String PAINEL_REDIRECT = """
+            📊 *Isso agora vive no painel!*
+
+            Financeiro, comissões e fechamento de caixa ficaram no painel web — completos e sempre atualizados.
+
+            Aqui no WhatsApp ficam as ações rápidas do dia a dia. Digite *menu* para vê-las.
+            """;
+
     private final CustomerService customerService;
     private final CustomerRepository customerRepository;
     private final InteractionRepository interactionRepository;
@@ -41,8 +51,6 @@ public class AdminCommandService {
     private final WaitlistRepository waitlistRepository;
     private final WhatsAppMessenger messenger;
     private final EvolutionMediaService evolutionMediaService;
-    private final CommissionService commissionService;
-    private final ProfessionalService professionalService;
 
     // Estado por-admin (chaveado por telefone). Instancia, nao static: servico singleton
     // (mesmo comportamento em runtime) e assim cada teste tem estado isolado.
@@ -50,15 +58,9 @@ public class AdminCommandService {
     private final Map<String, List<String>> adminRetomarOptions = new ConcurrentHashMap<>();
     private final Map<String, List<String>> adminApagarOptions = new ConcurrentHashMap<>();
     private final Map<String, String> adminScheduledMsg = new ConcurrentHashMap<>();
-    private final Map<String, List<Professional>> adminComissaoProfs = new ConcurrentHashMap<>();
-    private final Map<String, Professional> adminComissaoAlvo = new ConcurrentHashMap<>();
 
     private void sendMsg(String phone, String text, String role) {
         messenger.send(phone, text, role);
-    }
-
-    private String formatPercent(BigDecimal pct) {
-        return (pct == null ? BigDecimal.ZERO : pct).stripTrailingZeros().toPlainString();
     }
 
     private String sanitizeForConsole(String text) {
@@ -182,8 +184,6 @@ public class AdminCommandService {
                     adminRetomarOptions.remove(phoneNumber);
                     adminApagarOptions.remove(phoneNumber);
                     adminScheduledMsg.remove(phoneNumber);
-                    adminComissaoProfs.remove(phoneNumber);
-                    adminComissaoAlvo.remove(phoneNumber);
                     sendFullMenu(phoneNumber);
                     return;
                 }
@@ -273,93 +273,36 @@ public class AdminCommandService {
                     }
                     return;
                 }
-                if (currentState.equals("COMISSAO_ESCOLHER_PROF")) {
-                    adminStates.remove(phoneNumber);
-                    List<Professional> opcoes = adminComissaoProfs.remove(phoneNumber);
-                    try {
-                        int index = Integer.parseInt(cmdLower.replaceAll("[^0-9]", "")) - 1;
-                        if (opcoes != null && index >= 0 && index < opcoes.size()) {
-                            Professional escolhido = opcoes.get(index);
-                            adminComissaoAlvo.put(phoneNumber, escolhido);
-                            adminStates.put(phoneNumber, "COMISSAO_DEFINIR_PCT");
-                            sendMsg(phoneNumber, "Qual a *comissão (%)* de *" + escolhido.getName() + "*? Digite só o número. Ex: *45* _(Ou 'cancelar')_", "ADMIN");
-                        } else {
-                            sendMsg(phoneNumber, "❌ Opção inválida. Digite *comissões* para começar de novo.", "ADMIN");
-                        }
-                    } catch (NumberFormatException e) {
-                        sendMsg(phoneNumber, "❌ Formato inválido. Digite o *número* do barbeiro.", "ADMIN");
-                    }
-                    return;
-                }
-                if (currentState.equals("COMISSAO_DEFINIR_PCT")) {
-                    adminStates.remove(phoneNumber);
-                    Professional alvo = adminComissaoAlvo.remove(phoneNumber);
-                    if (alvo == null) {
-                        sendMsg(phoneNumber, "Sessão expirada. Digite *definir comissão* para recomeçar.", "ADMIN");
-                        return;
-                    }
-                    try {
-                        BigDecimal pct = new BigDecimal(cmdLower.replaceAll("[^0-9,.]", "").replace(",", "."));
-                        professionalService.updateCommission(alvo.getId(), pct);
-                        sendMsg(phoneNumber, "✅ Comissão de *" + alvo.getName() + "* definida em *" + pct.stripTrailingZeros().toPlainString() + "%*.", "ADMIN");
-                    } catch (IllegalArgumentException e) {
-                        sendMsg(phoneNumber, "❌ " + e.getMessage() + " Ex: *45*.", "ADMIN");
-                    } catch (Exception e) {
-                        sendMsg(phoneNumber, "❌ Não entendi o percentual. Digite só o número. Ex: *45*.", "ADMIN");
-                    }
-                    return;
-                }
             }
 
             if (cmdLower.contains("comando") || cmdLower.contains("menu")) {
                 sendFullMenu(phoneNumber);
-            } else if (cmdLower.equals("1") || cmdLower.contains("dashboard") || cmdLower.contains("resumo") || cmdLower.contains("financeiro") || cmdLower.contains("caixa")) {
-                String resumoFinanceiro = agendaService.getResumoFinanceiroDetalhado();
-                sendMsg(phoneNumber, resumoFinanceiro, "ADMIN");
-            } else if (cmdLower.equals("2") || cmdLower.contains("agenda do dia") || cmdLower.contains("painel")) {
+            } else if (cmdLower.contains("dashboard") || cmdLower.contains("resumo") || cmdLower.contains("financeiro")
+                    || cmdLower.contains("caixa") || cmdLower.contains("fechamento") || cmdLower.contains("comiss")) {
+                // Relatorios e configuracao financeira vivem no painel web (principio 6 do roadmap).
+                sendMsg(phoneNumber, PAINEL_REDIRECT, "ADMIN");
+            } else if (cmdLower.equals("1") || cmdLower.contains("agenda do dia") || cmdLower.contains("painel")) {
                 long total = customerRepository.countByBarbershopId(TenantContext.getCurrent());
                 long waitlistCount = waitlistRepository.countByBarbershopId(TenantContext.getCurrent());
                 long pausedCount = customerService.getPausedPhones().size();
                 String painelAgendamentos = agendaService.getPainelAgendamentosDetalhado(total, waitlistCount, pausedCount);
                 sendMsg(phoneNumber, painelAgendamentos, "ADMIN");
-            } else if (cmdLower.equals("3") || cmdLower.contains("agenda da semana")) {
+            } else if (cmdLower.equals("2") || cmdLower.contains("agenda da semana")) {
                 String agendaSemana = agendaService.getAgendaSemanaText();
                 sendMsg(phoneNumber, agendaSemana, "ADMIN");
-            } else if (cmdLower.equals("4") || cmdLower.contains("resumo da semana")) {
-                String resumo = agendaService.getResumoFinanceiroDaSemana();
-                sendMsg(phoneNumber, resumo, "ADMIN");
-            } else if (cmdLower.contains("comiss") && (cmdLower.contains("defin") || cmdLower.contains("config")
-                    || cmdLower.contains("ajust") || cmdLower.contains("edit") || cmdLower.contains("taxa"))) {
-                List<Professional> ativos = professionalService.listActive();
-                if (ativos.isEmpty()) {
-                    sendMsg(phoneNumber, "Nenhum barbeiro ativo para configurar comissão.", "ADMIN");
-                } else {
-                    adminComissaoProfs.put(phoneNumber, ativos);
-                    adminStates.put(phoneNumber, "COMISSAO_ESCOLHER_PROF");
-                    StringBuilder sb = new StringBuilder("💈 *Definir Comissão*\nDe qual barbeiro?\n\n");
-                    for (int i = 0; i < ativos.size(); i++) {
-                        sb.append("*").append(i + 1).append("* - ").append(ativos.get(i).getName())
-                                .append(" (").append(formatPercent(ativos.get(i).getCommissionPercent())).append("%)\n");
-                    }
-                    sb.append("\nDigite o *número* _(Ou 'cancelar')_.");
-                    sendMsg(phoneNumber, sb.toString(), "ADMIN");
-                }
-            } else if (cmdLower.contains("comiss")) {
-                String comissoes = commissionService.getComissoesDoDiaText();
-                sendMsg(phoneNumber, comissoes, "ADMIN");
-            } else if (cmdLower.equals("5") || (cmdLower.contains("aviso") && !cmdLower.contains("promocao"))) {
+            } else if (cmdLower.equals("3") || (cmdLower.contains("aviso") && !cmdLower.contains("promocao"))) {
                 adminStates.put(phoneNumber, "AVISO_BASE");
                 sendMsg(phoneNumber, "📢 *Disparo de Avisos*\nEnvie a mensagem agora. _(Ou digite 'cancelar')_", "ADMIN");
-            } else if (cmdLower.equals("6") || cmdLower.contains("promocao") || cmdLower.contains("prospec")) {
+            } else if (cmdLower.equals("4") || cmdLower.contains("promocao") || cmdLower.contains("prospec")) {
                 adminStates.put(phoneNumber, "AVISO_PROSPEC");
                 sendMsg(phoneNumber, "🎯 *Promoções do dia*\nEnvie a oferta que deseja disparar para a base toda.", "ADMIN");
-            } else if (cmdLower.equals("7") || cmdLower.contains("agendar disparo")) {
+            } else if (cmdLower.equals("5") || cmdLower.contains("agendar disparo")) {
                 adminStates.put(phoneNumber, "AGENDAR_DISPARO_MSG");
                 sendMsg(phoneNumber, "📝 *Agendar Disparo*\nQual é a mensagem que deseja enviar para a base? (Digite 'cancelar' para abortar)", "ADMIN");
-            } else if (cmdLower.equals("8") || cmdLower.contains("pausa")) {
+            } else if (cmdLower.equals("6") || cmdLower.contains("pausa")) {
                 adminStates.put(phoneNumber, "PAUSAR");
                 sendMsg(phoneNumber, "⏸️ *Pausar Robô*\nDigite o telefone com DDD do cliente. _(Ou digite 'cancelar')_", "ADMIN");
-            } else if (cmdLower.equals("9") || cmdLower.contains("retoma")) {
+            } else if (cmdLower.equals("7") || cmdLower.contains("retoma")) {
                 List<String> pausedPhones = customerService.getPausedPhones();
                 if (pausedPhones.isEmpty()) {
                     sendMsg(phoneNumber, "▶️ *Retomar*\nNenhum cliente pausado no momento.", "ADMIN");
@@ -373,7 +316,7 @@ public class AdminCommandService {
                     sb.append("\nDigite o *NÚMERO DA OPÇÃO* _(Ou digite 'cancelar')_.");
                     sendMsg(phoneNumber, sb.toString(), "ADMIN");
                 }
-            } else if (cmdLower.equals("10") || cmdLower.contains("lista")) {
+            } else if (cmdLower.equals("8") || cmdLower.contains("lista")) {
                 List<Customer> customers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
                 if (customers.isEmpty()) {
                     sendMsg(phoneNumber, "📭 Nenhum cliente salvo na base.", "ADMIN");
@@ -382,7 +325,7 @@ public class AdminCommandService {
                     for (Customer c : customers) sb.append("👤 ").append(c.getName()).append(" - ").append(c.getPhoneNumber()).append("\n");
                     sendMsg(phoneNumber, sb.toString(), "ADMIN");
                 }
-            } else if (cmdLower.equals("11") || cmdLower.contains("apaga") || cmdLower.contains("exclui")) {
+            } else if (cmdLower.equals("9") || cmdLower.contains("apaga") || cmdLower.contains("exclui")) {
                 List<Customer> customers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
                 if (customers.isEmpty()) {
                     sendMsg(phoneNumber, "📭 Nenhum cliente salvo.", "ADMIN");
@@ -398,7 +341,7 @@ public class AdminCommandService {
                     sb.append("\nDigite o *NÚMERO DA OPÇÃO* para apagar _(Ou digite 'cancelar')_.");
                     sendMsg(phoneNumber, sb.toString(), "ADMIN");
                 }
-            } else if (cmdLower.equals("12") || cmdLower.contains("ajuda") || cmdLower.contains("manual")) {
+            } else if (cmdLower.equals("10") || cmdLower.contains("ajuda") || cmdLower.contains("manual")) {
                 String manual = """
                         📖 *MANUAL DO ADMINISTRADOR - RAZOR*
 
@@ -422,9 +365,12 @@ public class AdminCommandService {
                         - *Sextou:* Envia lembrete toda sexta-feira às 09h para TODOS os usuários sem agendamento no fim de semana.
 
                         🛠️ *Disparos e Controle:*
-                        - O botão de 'Avisos' (5) e 'Promoções' (6) dispara mensagem IMEDIATA para todos.
-                        - O botão 'Agendar Disparo' (7) permite escrever um texto para disparar num dia e hora futuros.
-                        - Pressione 12 ou diga 'manual' para ver esta mensagem novamente.
+                        - O botão de 'Avisos' (3) e 'Promoções' (4) dispara mensagem IMEDIATA para todos.
+                        - O botão 'Agendar Disparo' (5) permite escrever um texto para disparar num dia e hora futuros.
+                        - Pressione 10 ou diga 'manual' para ver esta mensagem novamente.
+
+                        📊 *Gestão (painel web):*
+                        - Financeiro, comissões, fechamento, clube de assinatura e configurações do bot ficam no painel — acesse pelo navegador.
                         """;
                 sendMsg(phoneNumber, manual, "ADMIN");
             } else {
@@ -438,23 +384,20 @@ public class AdminCommandService {
     private void sendFullMenu(String phoneNumber) {
         log.info("[SISTEMA] Enviando Menu Textual de Gestao para o Administrador: {}", phoneNumber);
         String fullMenu = """
-                🛠️ *PAINEL DA BARBEARIA*
+                🛠️ *PAINEL DA BARBEARIA* — ações rápidas
 
-                *1* - 💰 Resumo Financeiro do Dia
-                *2* - 📅 Agenda do Dia
-                *3* - 📆 Agenda da Semana
-                *4* - 📊 Resumo Financeiro da Semana
-                *5* - 📢 Avisos (Geral)
-                *6* - 🎯 Promoções do dia
-                *7* - 📅 Agendar Disparo
-                *8* - ⏸️ Pausar bot (Cliente)
-                *9* - ▶️ Retomar bot (Cliente)
-                *10* - 📋 Listar Clientes
-                *11* - 🗑️ Apagar um Cliente
-                *12* - ℹ️ Ajuda / Manual do Sistema
+                *1* - 📅 Agenda do Dia
+                *2* - 📆 Agenda da Semana
+                *3* - 📢 Avisos (Geral)
+                *4* - 🎯 Promoções do dia
+                *5* - 📝 Agendar Disparo
+                *6* - ⏸️ Pausar bot (Cliente)
+                *7* - ▶️ Retomar bot (Cliente)
+                *8* - 📋 Listar Clientes
+                *9* - 🗑️ Apagar um Cliente
+                *10* - ℹ️ Ajuda / Manual
 
-                💈 _Comissões do dia: digite *comissões*_
-                ⚙️ _Definir comissão de um barbeiro: digite *definir comissão*_
+                📊 _Financeiro, comissões e fechamento: no *painel web*._
 
                 _Digite o número ou comando desejado._
                 """;

@@ -67,6 +67,22 @@ export interface Customer {
 
 export type WhatsAppState = "open" | "connecting" | "close" | "unknown";
 
+export interface BotStatus {
+  instanceName: string;
+  whatsappState: WhatsAppState;
+  whatsappConnected: boolean;
+  aiConfigured: boolean;
+  botEnabled: boolean;
+}
+
+export interface Me {
+  userId: string;
+  email: string;
+  name: string | null;
+  barbershopId: string;
+  role: UserRole;
+}
+
 export interface WhatsAppStatus {
   instanceName: string;
   state: WhatsAppState;

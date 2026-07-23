@@ -42,6 +42,7 @@ class WebhookRouterTest {
     @Mock private CustomerConversationService customerConversationService;
     @Mock private TenantResolver tenantResolver;
     @Mock private TenantAdminService tenantAdminService;
+    @Mock private BarbershopSettingsService barbershopSettingsService;
 
     @InjectMocks private WebhookRouter router;
 
@@ -73,6 +74,7 @@ class WebhookRouterTest {
         when(interactionRepository.existsByMessageId("m1")).thenReturn(false);
         when(tenantAdminService.isAdmin(CLIENTE)).thenReturn(false); // nao e admin
         when(customerService.isCustomerPaused(CLIENTE)).thenReturn(false);
+        when(barbershopSettingsService.isBotEnabled()).thenReturn(true);
 
         AtomicReference<UUID> tenantDuring = new AtomicReference<>();
         doAnswer(inv -> {
@@ -100,6 +102,43 @@ class WebhookRouterTest {
 
         verify(adminCommandService).processAdminMessage(any(), eq(adminPhone));
         verify(customerConversationService, never()).processCustomerMessage(any(), any());
+    }
+
+    @Test
+    @DisplayName("bot desativado no tenant: mensagem de CLIENTE é ignorada (admin continua)")
+    void botDisabled_ignoresCustomerOnly() {
+        when(tenantResolver.resolveByInstance(any())).thenReturn(TenantContext.DEFAULT_BARBERSHOP_ID);
+        when(interactionRepository.existsByMessageId(any())).thenReturn(false);
+        when(tenantAdminService.isAdmin(CLIENTE)).thenReturn(false);
+        when(barbershopSettingsService.isBotEnabled()).thenReturn(false); // dono desligou o bot
+
+        router.processWebhook(webhook("inst", CLIENTE, "m10"));
+
+        verify(customerConversationService, never()).processCustomerMessage(any(), any());
+
+        // admin nao e afetado pelo liga/desliga
+        String adminPhone = "5511988887777";
+        when(tenantAdminService.isAdmin(adminPhone)).thenReturn(true);
+        router.processWebhook(webhook("inst", adminPhone, "m11"));
+        verify(adminCommandService).processAdminMessage(any(), eq(adminPhone));
+    }
+
+    @Test
+    @DisplayName("mensagem antiga (histórico sincronizado ao conectar) é ignorada")
+    void historicalMessage_ignored() {
+        when(tenantResolver.resolveByInstance(any())).thenReturn(TenantContext.DEFAULT_BARBERSHOP_ID);
+        when(tenantAdminService.isAdmin(CLIENTE)).thenReturn(false);
+        when(barbershopSettingsService.isBotEnabled()).thenReturn(true);
+
+        EvolutionWebhookDTO old = webhook("inst", CLIENTE, "m12");
+        // 1h atras -> historico, nao deve ser respondida
+        when(old.getData().getMessageTimestamp())
+                .thenReturn(java.time.Instant.now().getEpochSecond() - 3600);
+
+        router.processWebhook(old);
+
+        verify(customerConversationService, never()).processCustomerMessage(any(), any());
+        assertThat(TenantContext.isSet()).isFalse();
     }
 
     @Test

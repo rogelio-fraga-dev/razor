@@ -72,6 +72,8 @@ public class EvolutionWebhookDTO {
         @JsonProperty("key") private KeyDTO key;
         @JsonProperty("pushName") private String pushName;
         @JsonProperty("message") private MessageDTO message;
+        /** Epoch (segundos) da mensagem — usado para ignorar o histórico sincronizado ao conectar. */
+        @JsonProperty("messageTimestamp") private Long messageTimestamp;
     }
 
     @Data @JsonIgnoreProperties(ignoreUnknown = true)

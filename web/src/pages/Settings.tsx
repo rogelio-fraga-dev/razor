@@ -1,14 +1,135 @@
 import { useCallback, useEffect, useState } from "react";
 import { Layout } from "../components/Layout";
+import { Switch } from "../components/Modal";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type {
   AdminContact,
   Barbershop,
   BotSettings,
+  BotStatus,
   WhatsAppConnect,
   WhatsAppStatus,
 } from "../api/types";
+
+function StatusDot({ ok, warn }: { ok: boolean; warn?: boolean }) {
+  const color = ok ? "var(--green)" : warn ? "var(--amber)" : "var(--red)";
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: 9,
+        height: 9,
+        borderRadius: "50%",
+        background: color,
+        boxShadow: `0 0 10px ${color}`,
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+/** Saúde do bot: a resposta imediata de "está tudo funcionando?" + o liga/desliga geral. */
+function BotStatusCard() {
+  const { data, loading, error, reload } = useApi<BotStatus>(
+    () => api.get("/api/admin/settings/bot/status"),
+    [],
+  );
+  const [toggling, setToggling] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+
+  const setEnabled = async (enabled: boolean) => {
+    setToggling(true);
+    setToggleError(null);
+    try {
+      await api.put("/api/admin/settings/bot/enabled", { enabled });
+      reload();
+    } catch (e) {
+      setToggleError(e instanceof ApiError ? e.message : "Erro ao alterar.");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const allOk = !!data && data.whatsappConnected && data.aiConfigured && data.botEnabled;
+
+  const rowStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "12px 14px",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
+    fontSize: 14,
+  };
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3>Status do bot</h3>
+        {data &&
+          (allOk ? (
+            <span className="badge badge-green">● Operacional</span>
+          ) : (
+            <span className="badge badge-amber">● Atenção</span>
+          ))}
+      </div>
+      <div className="card-pad">
+        {loading ? (
+          <div className="muted">Verificando…</div>
+        ) : error ? (
+          <div className="error">{error}</div>
+        ) : data ? (
+          <div className="stack" style={{ gap: 10 }}>
+            <div style={rowStyle}>
+              <StatusDot ok={data.whatsappConnected} warn={data.whatsappState === "connecting"} />
+              <div className="grow">
+                <b>WhatsApp</b>{" "}
+                <span className="muted">
+                  {data.whatsappConnected
+                    ? "conectado — o bot recebe e envia mensagens"
+                    : data.whatsappState === "connecting"
+                      ? "aguardando pareamento (escaneie o QR abaixo)"
+                      : "desconectado — conecte no card abaixo"}
+                </span>
+              </div>
+              <span className="mono faint" style={{ fontSize: 11 }}>{data.instanceName}</span>
+            </div>
+
+            <div style={rowStyle}>
+              <StatusDot ok={data.aiConfigured} />
+              <div className="grow">
+                <b>Inteligência artificial</b>{" "}
+                <span className="muted">
+                  {data.aiConfigured
+                    ? "chave configurada — a IA responde os clientes"
+                    : "chave da OpenAI ausente — o bot NÃO consegue responder"}
+                </span>
+              </div>
+            </div>
+
+            <div style={rowStyle}>
+              <StatusDot ok={data.botEnabled} />
+              <div className="grow">
+                <b>Atendimento automático</b>{" "}
+                <span className="muted">
+                  {data.botEnabled ? "ligado — clientes são atendidos pela IA" : "desligado — mensagens de clientes são ignoradas"}
+                </span>
+              </div>
+              <Switch
+                checked={data.botEnabled}
+                onChange={(v) => setEnabled(v)}
+                label={toggling ? "…" : data.botEnabled ? "Ligado" : "Desligado"}
+              />
+            </div>
+
+            {toggleError && <div className="error">{toggleError}</div>}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function WhatsAppCard() {
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
@@ -380,6 +501,7 @@ function BotCard() {
 export function Settings() {
   return (
     <Layout title="Configurações">
+      <BotStatusCard />
       <WhatsAppCard />
       <ProfileCard />
       <BotCard />

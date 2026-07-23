@@ -131,12 +131,16 @@ uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Impleme
 - [~] **Financeiro**: resumo do dia/semana e fluxo por meio de pagamento (relatórios prontos,
       no WhatsApp e no painel). _(Falta: caixa/comandas transacional e fechamento formal.)_
 - [x] **Comissões** por profissional: percentual por barbeiro (`commission_percent`), relatório
-      por dia e configuração no WhatsApp e no painel. _(Falta: comissão por produto.)_
+      por dia e configuração no painel. _(Config por WhatsApp removida — princípio 6.)_
+- [ ] **Vendas de balcão (produtos)** 🎯 *próximo*: catálogo de produtos (nome, preço, ativo) +
+      registro de venda no painel (produto, qtde, barbeiro opcional — ex.: bebida/pomada vendida
+      na hora do corte). Venda entra no **financeiro do dia** e gera **comissão de produto** para
+      o barbeiro no relatório de comissões. _(Estoque/reposição fica para depois.)_
 - [~] **Clube de assinatura**: catálogo de **planos configuráveis** pronto (`subscription_plans`,
       painel). _(Falta: identificação assinante x avulso no agendamento e cobrança recorrente — Fase 4.)_
 - [~] **Relatórios/DRE**: financeiro estruturado e comissões prontos no painel.
       _(Falta: DRE e dashboard de retenção — "quem some", frequência.)_
-- [ ] **Estoque** (opcional): produtos, reposição, saídas.
+- [ ] **Estoque** (opcional): reposição e saídas dos produtos do balcão.
 
 **Pronto quando:** um barbeiro consegue fechar o mês (faturamento, comissões,
 assinaturas) sem sair do Razor.

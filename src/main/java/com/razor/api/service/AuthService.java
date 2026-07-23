@@ -41,6 +41,37 @@ public class AuthService {
                 user.getName(), user.getEmail());
     }
 
+    /** Usuario logado (para o /me do painel). */
+    public TenantUser getUser(UUID userId) {
+        return tenantUserRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Usuario nao encontrado."));
+    }
+
+    /**
+     * Atualiza o perfil do usuario logado: nome e, opcionalmente, a senha (exige a senha atual).
+     * Regras: nome em branco mantem o atual; nova senha exige minimo de 8 caracteres.
+     */
+    public TenantUser updateProfile(UUID userId, String name, String currentPassword, String newPassword) {
+        TenantUser user = getUser(userId);
+
+        if (name != null && !name.isBlank()) {
+            user.setName(name.trim());
+        }
+
+        if (newPassword != null && !newPassword.isBlank()) {
+            if (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+                throw new IllegalArgumentException("Senha atual incorreta.");
+            }
+            if (newPassword.length() < 8) {
+                throw new IllegalArgumentException("A nova senha precisa de pelo menos 8 caracteres.");
+            }
+            user.setPasswordHash(passwordEncoder.encode(newPassword));
+            log.info("[AUTH] Senha alterada pelo usuario {} (tenant {})", user.getEmail(), user.getBarbershopId());
+        }
+
+        return tenantUserRepository.save(user);
+    }
+
     public static String normalizeEmail(String email) {
         return email == null ? "" : email.trim().toLowerCase();
     }

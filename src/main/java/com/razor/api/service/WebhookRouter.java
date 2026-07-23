@@ -24,12 +24,17 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class WebhookRouter {
 
+    // Mensagens mais antigas que isso sao historico sincronizado pela Evolution ao (re)conectar
+    // — nao devem ser respondidas (evita o bot "acordar" respondendo conversas velhas).
+    private static final long MAX_MESSAGE_AGE_SECONDS = 300;
+
     private final CustomerService customerService;
     private final InteractionRepository interactionRepository;
     private final AdminCommandService adminCommandService;
     private final CustomerConversationService customerConversationService;
     private final TenantResolver tenantResolver;
     private final TenantAdminService tenantAdminService;
+    private final BarbershopSettingsService barbershopSettingsService;
 
     // Instancia, nao static: servico singleton (mesmo comportamento) e testes isolados.
     private final Map<String, LocalDateTime> processedMessageIds = new ConcurrentHashMap<>();
@@ -52,6 +57,10 @@ public class WebhookRouter {
                 log.debug("[IGNORED] Mensagem ignorada (do proprio bot, grupo ou sem numero valido).");
                 return;
             }
+            if (isHistoricalMessage(webhook)) {
+                log.info("[HISTORICO] Mensagem antiga ignorada (sync da Evolution ao conectar).");
+                return;
+            }
             if (isDuplicateMessage(webhook)) {
                 log.info("[DUP] Mensagem duplicada ignorada (ID: {}).", webhook.getData().getKey().getId());
                 return;
@@ -71,6 +80,11 @@ public class WebhookRouter {
                 log.info("[SISTEMA] Remetente identificado como ADMINISTRADOR.");
                 adminCommandService.processAdminMessage(webhook, phoneNumber);
             } else {
+                if (!barbershopSettingsService.isBotEnabled()) {
+                    log.info("[BOT OFF] Bot desativado pelo dono neste tenant — mensagem de cliente ignorada.");
+                    log.info("=======================================================================");
+                    return;
+                }
                 if (customerService.isCustomerPaused(phoneNumber)) {
                     log.info("[PAUSADO] O cliente {} esta pausado. Atendimento automatico suspenso.", phoneNumber);
                     log.info("=======================================================================");
@@ -91,6 +105,13 @@ public class WebhookRouter {
         if (webhook.getData() == null || webhook.getData().getKey() == null) return true;
         if (Boolean.TRUE.equals(webhook.getData().getKey().getFromMe())) return true;
         return webhook.isGroupChat() || webhook.getPhoneNumber() == null;
+    }
+
+    /** Historico sincronizado ao conectar: timestamp valido e mais velho que o limite. */
+    private boolean isHistoricalMessage(EvolutionWebhookDTO webhook) {
+        Long ts = webhook.getData() != null ? webhook.getData().getMessageTimestamp() : null;
+        if (ts == null || ts <= 0) return false; // sem timestamp confiavel = processa normalmente
+        return java.time.Instant.now().getEpochSecond() - ts > MAX_MESSAGE_AGE_SECONDS;
     }
 
     private boolean isDuplicateMessage(EvolutionWebhookDTO webhook) {

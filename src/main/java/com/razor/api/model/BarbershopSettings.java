@@ -39,6 +39,11 @@ public class BarbershopSettings {
     @Column(name = "instagram_url", columnDefinition = "text")
     private String instagramUrl;
 
+    /** Liga/desliga o atendimento automatico de CLIENTES neste tenant (admins nao sao afetados). */
+    @Builder.Default
+    @Column(name = "bot_enabled", nullable = false)
+    private Boolean botEnabled = Boolean.TRUE;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
