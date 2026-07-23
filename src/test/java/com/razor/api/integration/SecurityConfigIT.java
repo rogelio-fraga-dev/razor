@@ -112,6 +112,33 @@ class SecurityConfigIT {
     }
 
     @Test
+    @DisplayName("relatórios serializam java.time (LocalDate/LocalTime) — 200, não 500")
+    void reports_serializeJavaTime() throws Exception {
+        String token = login();
+
+        // /financial devolve LocalDate (from/to): sem o JavaTimeModule isso quebrava com 500.
+        mockMvc.perform(get("/api/admin/reports/financial").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.from").isString());
+
+        // /agenda devolve LocalTime nos itens: idem — precisa serializar sem estourar.
+        mockMvc.perform(get("/api/admin/reports/agenda").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$").isArray());
+    }
+
+    private String login() throws Exception {
+        String body = "{\"email\":\"it@loja.com\",\"password\":\"senha1234\"}";
+        MvcResult login = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(login.getResponse().getContentAsString()).get("token").asText();
+    }
+
+    @Test
     @DisplayName("senha errada no login responde 401")
     void login_wrongPassword_unauthorized() throws Exception {
         String body = "{\"email\":\"it@loja.com\",\"password\":\"errada\"}";
