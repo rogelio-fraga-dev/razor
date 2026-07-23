@@ -258,6 +258,10 @@ h3 {
   background: var(--surface-2);
   color: var(--text-muted);
 }
+.badge-plan {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 
 /* ---------- Layout ---------- */
 .app {

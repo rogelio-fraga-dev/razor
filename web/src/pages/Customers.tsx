@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { Layout } from "../components/Layout";
 import { useApi } from "../lib/useApi";
-import { api } from "../api/client";
-import type { Customer } from "../api/types";
+import { api, ApiError } from "../api/client";
+import type { Customer, SubscriptionPlan } from "../api/types";
 
 function dateShort(iso: string | null): string {
   if (!iso) return "—";
@@ -10,8 +10,14 @@ function dateShort(iso: string | null): string {
 }
 
 export function Customers() {
-  const { data, loading, error } = useApi<Customer[]>(() => api.get("/api/admin/customers"), []);
+  const { data, loading, error, reload } = useApi<Customer[]>(() => api.get("/api/admin/customers"), []);
+  const plans = useApi<SubscriptionPlan[]>(() => api.get("/api/admin/plans"), []);
   const [q, setQ] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [assignError, setAssignError] = useState<string | null>(null);
+
+  // Só planos ativos podem ser atribuídos; um plano inativo já vinculado ainda aparece como badge.
+  const activePlans = useMemo(() => (plans.data ?? []).filter((p) => p.active), [plans.data]);
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -21,6 +27,21 @@ export function Customers() {
       (c) => (c.name ?? "").toLowerCase().includes(term) || c.phone.includes(term),
     );
   }, [data, q]);
+
+  const assignPlan = async (customer: Customer, planId: string) => {
+    setSavingId(customer.id);
+    setAssignError(null);
+    try {
+      await api.put(`/api/admin/customers/${customer.id}/plan`, { planId: planId || null });
+      reload();
+    } catch (e) {
+      setAssignError(e instanceof ApiError ? e.message : "Erro ao atualizar o plano.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const subscribers = data?.filter((c) => c.planId).length ?? 0;
 
   return (
     <Layout
@@ -38,8 +59,13 @@ export function Customers() {
       <div className="card">
         <div className="card-head">
           <h3>Base de clientes</h3>
-          {data && <span className="badge badge-muted">{data.length} clientes</span>}
+          {data && (
+            <span className="badge badge-muted">
+              {data.length} clientes · {subscribers} assinantes
+            </span>
+          )}
         </div>
+        {assignError && <div className="error" style={{ marginBottom: 12 }}>{assignError}</div>}
         {loading ? (
           <div className="empty">Carregando…</div>
         ) : error ? (
@@ -53,6 +79,7 @@ export function Customers() {
                 <tr>
                   <th>Nome</th>
                   <th>Telefone</th>
+                  <th>Plano</th>
                   <th>Fidelidade</th>
                   <th>Último atendimento</th>
                   <th>Cadastro</th>
@@ -61,8 +88,31 @@ export function Customers() {
               <tbody>
                 {filtered.map((c) => (
                   <tr key={c.id}>
-                    <td style={{ fontWeight: 550 }}>{c.name || "—"}</td>
+                    <td style={{ fontWeight: 550 }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        {c.name || "—"}
+                        {c.planName && <span className="badge badge-plan">💎 {c.planName}</span>}
+                      </span>
+                    </td>
                     <td className="muted">{c.phone}</td>
+                    <td>
+                      <select
+                        className="input"
+                        style={{ maxWidth: 180 }}
+                        value={c.planId ?? ""}
+                        disabled={savingId === c.id || plans.loading}
+                        onChange={(e) => assignPlan(c, e.target.value)}
+                      >
+                        <option value="">Avulso (sem plano)</option>
+                        {/* Mantém o plano atual visível mesmo se inativo. */}
+                        {c.planId && !activePlans.some((p) => p.id === c.planId) && c.planName && (
+                          <option value={c.planId}>{c.planName} (inativo)</option>
+                        )}
+                        {activePlans.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </td>
                     <td>
                       <span className="badge badge-muted">{c.fidelityPoints} / 10 pts</span>
                     </td>

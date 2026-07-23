@@ -40,7 +40,11 @@ public class Customer {
     
     @Column(name = "last_service_date")
     private LocalDateTime lastServiceDate;
-    
+
+    // Plano de assinatura (clube) do cliente, quando assinante (Fase 2). Nulo = cliente avulso.
+    @Column(name = "subscription_plan_id")
+    private UUID subscriptionPlanId;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
     

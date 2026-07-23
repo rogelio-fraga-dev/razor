@@ -7,8 +7,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.razor.api.model.Customer;
+import com.razor.api.model.SubscriptionPlan;
 import com.razor.api.repository.CustomerRepository;
+import com.razor.api.repository.SubscriptionPlanRepository;
 import com.razor.api.tenant.TenantContext;
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +35,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class CustomerServiceTest {
 
     @Mock private CustomerRepository customerRepository;
+    @Mock private SubscriptionPlanRepository subscriptionPlanRepository;
     @InjectMocks private CustomerService service;
 
     @AfterEach
@@ -104,5 +109,62 @@ class CustomerServiceTest {
         when(customerRepository.findByBarbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)).thenReturn(List.of(c));
 
         assertThat(service.listCustomers()).containsExactly(c);
+    }
+
+    @Test
+    @DisplayName("assignPlan vincula o cliente ao plano do tenant")
+    void assignPlan_setsPlan() {
+        UUID shop = TenantContext.getCurrent();
+        UUID planId = UUID.randomUUID();
+        Customer c = Customer.builder().id(UUID.randomUUID()).barbershopId(shop).phoneNumber("555").build();
+        SubscriptionPlan plan = SubscriptionPlan.builder().id(planId).barbershopId(shop).name("VIP").build();
+        when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
+        when(subscriptionPlanRepository.findById(planId)).thenReturn(Optional.of(plan));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Customer saved = service.assignPlan(c.getId(), planId);
+
+        assertThat(saved.getSubscriptionPlanId()).isEqualTo(planId);
+    }
+
+    @Test
+    @DisplayName("assignPlan com planId nulo desvincula (cliente volta a avulso)")
+    void assignPlan_nullRemoves() {
+        UUID shop = TenantContext.getCurrent();
+        Customer c = Customer.builder().id(UUID.randomUUID()).barbershopId(shop).phoneNumber("555")
+                .subscriptionPlanId(UUID.randomUUID()).build();
+        when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Customer saved = service.assignPlan(c.getId(), null);
+
+        assertThat(saved.getSubscriptionPlanId()).isNull();
+        verify(subscriptionPlanRepository, never()).findById(any());
+    }
+
+    @Test
+    @DisplayName("assignPlan rejeita cliente de outro tenant com NotFound")
+    void assignPlan_otherTenantCustomer_throws() {
+        Customer deOutro = Customer.builder().id(UUID.randomUUID()).barbershopId(UUID.randomUUID()).phoneNumber("555").build();
+        when(customerRepository.findById(deOutro.getId())).thenReturn(Optional.of(deOutro));
+
+        assertThatThrownBy(() -> service.assignPlan(deOutro.getId(), null))
+                .isInstanceOf(NotFoundException.class);
+        verify(customerRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("assignPlan rejeita plano de outro tenant com NotFound")
+    void assignPlan_otherTenantPlan_throws() {
+        UUID shop = TenantContext.getCurrent();
+        UUID planId = UUID.randomUUID();
+        Customer c = Customer.builder().id(UUID.randomUUID()).barbershopId(shop).phoneNumber("555").build();
+        SubscriptionPlan deOutro = SubscriptionPlan.builder().id(planId).barbershopId(UUID.randomUUID()).name("X").build();
+        when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
+        when(subscriptionPlanRepository.findById(planId)).thenReturn(Optional.of(deOutro));
+
+        assertThatThrownBy(() -> service.assignPlan(c.getId(), planId))
+                .isInstanceOf(NotFoundException.class);
+        verify(customerRepository, never()).save(any());
     }
 }

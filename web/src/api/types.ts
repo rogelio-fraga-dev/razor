@@ -61,6 +61,8 @@ export interface Customer {
   fidelityPoints: number;
   lastServiceDate: string | null;
   createdAt: string | null;
+  planId: string | null;
+  planName: string | null;
 }
 
 export interface BotSettings {
@@ -87,6 +89,7 @@ export interface AppointmentView {
   service: string | null;
   paymentStatus: PaymentStatus | null;
   professionalName: string | null;
+  subscriber: boolean;
 }
 
 export interface Bucket {

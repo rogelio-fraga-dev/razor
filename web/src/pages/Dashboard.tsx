@@ -71,7 +71,12 @@ export function Dashboard() {
                   return (
                     <tr key={i}>
                       <td style={{ fontWeight: 600 }}>{timeShort(a.time)}</td>
-                      <td>{a.customerName || "—"}</td>
+                      <td>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          {a.customerName || "—"}
+                          {a.subscriber && <span className="badge badge-plan">💎 Assinante</span>}
+                        </span>
+                      </td>
                       <td>{a.service || "—"}</td>
                       <td className="muted">{a.professionalName || "—"}</td>
                       <td>{b ? <span className={`badge ${b.cls}`}>{b.label}</span> : "—"}</td>

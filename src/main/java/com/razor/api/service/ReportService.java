@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class ReportService {
     private final AppointmentRepository appointmentRepository;
     private final ProfessionalRepository professionalRepository;
     private final PricingService pricingService;
+    private final CustomerService customerService;
 
     /** Resumo financeiro do intervalo [from, to] (inclusive) do tenant atual. */
     public FinancialSummaryResponse financialSummary(LocalDate from, LocalDate to) {
@@ -94,6 +96,7 @@ public class ReportService {
         UUID shop = TenantContext.getCurrent();
         Map<UUID, String> nomePorProfissional = professionalRepository.findByBarbershopId(shop).stream()
                 .collect(Collectors.toMap(Professional::getId, Professional::getName, (a, b) -> a));
+        Set<String> assinantes = customerService.subscriberPhones();
 
         return appointmentRepository.findByBarbershopId(shop).stream()
                 .filter(a -> date.equals(a.getAppointmentDate()))
@@ -104,7 +107,8 @@ public class ReportService {
                         a.getCustomerName(),
                         a.getService(),
                         a.getPaymentStatus(),
-                        a.getProfessionalId() == null ? null : nomePorProfissional.get(a.getProfessionalId())))
+                        a.getProfessionalId() == null ? null : nomePorProfissional.get(a.getProfessionalId()),
+                        a.getCustomerPhone() != null && assinantes.contains(a.getCustomerPhone())))
                 .toList();
     }
 

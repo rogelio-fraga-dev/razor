@@ -84,7 +84,7 @@ class AdminReportControllerTest {
     void agenda_defaultsToday() {
         LocalDate hoje = AppointmentDates.today();
         List<AppointmentView> agenda = List.of(
-                new AppointmentView(LocalTime.of(10, 0), "Ana", "Corte", PaymentStatus.PIX, "Rafael"));
+                new AppointmentView(LocalTime.of(10, 0), "Ana", "Corte", PaymentStatus.PIX, "Rafael", true));
         when(reportService.dailyAgenda(hoje)).thenReturn(agenda);
 
         assertThat(controller.agenda(null)).isEqualTo(agenda);

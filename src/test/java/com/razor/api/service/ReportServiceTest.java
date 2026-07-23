@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,12 +37,17 @@ class ReportServiceTest {
     @Mock private AppointmentRepository appointmentRepository;
     @Mock private ProfessionalRepository professionalRepository;
     @Mock private PricingService pricingService;
+    @Mock private CustomerService customerService;
 
     @InjectMocks private ReportService service;
 
     private Appointment appt(String svc, PaymentStatus status, LocalDate date, LocalTime time, UUID profId) {
+        return appt(svc, status, date, time, profId, "5511999");
+    }
+
+    private Appointment appt(String svc, PaymentStatus status, LocalDate date, LocalTime time, UUID profId, String phone) {
         return Appointment.builder()
-                .customerName("Cliente").service(svc).paymentStatus(status)
+                .customerName("Cliente").service(svc).paymentStatus(status).customerPhone(phone)
                 .appointmentDate(date).appointmentTime(time).professionalId(profId).build();
     }
 
@@ -100,16 +106,19 @@ class ReportServiceTest {
         UUID rafael = UUID.randomUUID();
         when(professionalRepository.findByBarbershopId(any()))
                 .thenReturn(List.of(Professional.builder().id(rafael).name("Rafael").build()));
+        when(customerService.subscriberPhones()).thenReturn(Set.of("5511888"));
         when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
-                appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(10, 0), rafael),
-                appt("Barba", PaymentStatus.PENDENTE, hoje, LocalTime.of(9, 0), null)));
+                appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(10, 0), rafael, "5511888"),  // assinante
+                appt("Barba", PaymentStatus.PENDENTE, hoje, LocalTime.of(9, 0), null, "5511777"))); // avulso
 
         List<AppointmentView> agenda = service.dailyAgenda(hoje);
 
         assertThat(agenda).hasSize(2);
         assertThat(agenda.get(0).time()).isEqualTo(LocalTime.of(9, 0)); // ordenado
         assertThat(agenda.get(0).professionalName()).isNull();           // sem barbeiro
+        assertThat(agenda.get(0).subscriber()).isFalse();                // avulso
         assertThat(agenda.get(1).time()).isEqualTo(LocalTime.of(10, 0));
         assertThat(agenda.get(1).professionalName()).isEqualTo("Rafael");
+        assertThat(agenda.get(1).subscriber()).isTrue();                 // assinante
     }
 }

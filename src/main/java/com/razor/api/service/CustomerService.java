@@ -1,7 +1,9 @@
 package com.razor.api.service;
 
 import com.razor.api.model.Customer;
+import com.razor.api.model.SubscriptionPlan;
 import com.razor.api.repository.CustomerRepository;
+import com.razor.api.repository.SubscriptionPlanRepository;
 import com.razor.api.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,7 @@ import java.util.stream.Collectors;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final SubscriptionPlanRepository subscriptionPlanRepository;
 
     // Memória viva: Guarda a pausa de cada cliente, chaveada por tenant+telefone
     // (o mesmo telefone pode existir em barbearias diferentes).
@@ -49,6 +52,43 @@ public class CustomerService {
     /** Todos os clientes do tenant atual (base para o painel web). */
     public List<Customer> listCustomers() {
         return customerRepository.findByBarbershopId(TenantContext.getCurrent());
+    }
+
+    /**
+     * Liga (ou desliga) um cliente a um plano de assinatura — assim identificamos assinante x avulso.
+     * {@code planId} nulo remove o vinculo. Cliente e plano devem pertencer ao tenant atual, senao
+     * {@link NotFoundException} (nao vaza dados de outra barbearia).
+     */
+    public Customer assignPlan(UUID customerId, UUID planId) {
+        UUID shop = TenantContext.getCurrent();
+        Customer customer = customerRepository.findById(customerId)
+                .filter(c -> shop.equals(c.getBarbershopId()))
+                .orElseThrow(() -> new NotFoundException("Cliente nao encontrado."));
+
+        if (planId != null) {
+            subscriptionPlanRepository.findById(planId)
+                    .filter(p -> shop.equals(p.getBarbershopId()))
+                    .orElseThrow(() -> new NotFoundException("Plano nao encontrado."));
+        }
+
+        customer.setSubscriptionPlanId(planId);
+        Customer saved = customerRepository.save(customer);
+        log.info("[ASSINANTE] Cliente {} -> plano {} (tenant {})", customerId, planId, shop);
+        return saved;
+    }
+
+    /** Mapa planId -> nome dos planos do tenant atual, para o painel exibir o nome do plano do cliente. */
+    public Map<UUID, String> planNamesByTenant() {
+        return subscriptionPlanRepository.findByBarbershopId(TenantContext.getCurrent()).stream()
+                .collect(Collectors.toMap(SubscriptionPlan::getId, SubscriptionPlan::getName, (a, b) -> a));
+    }
+
+    /** Telefones dos clientes assinantes (com plano) do tenant atual — usado para marcar a agenda. */
+    public java.util.Set<String> subscriberPhones() {
+        return customerRepository.findByBarbershopId(TenantContext.getCurrent()).stream()
+                .filter(c -> c.getSubscriptionPlanId() != null)
+                .map(Customer::getPhoneNumber)
+                .collect(Collectors.toSet());
     }
 
     public void pauseCustomer(String phoneNumber, int minutes) {
