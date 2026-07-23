@@ -44,6 +44,51 @@ public class BarbershopSettings {
     @Column(name = "bot_enabled", nullable = false)
     private Boolean botEnabled = Boolean.TRUE;
 
+    // --- V15: identidade, pagamento, funcionamento e textos do bot (todos opcionais) ---
+
+    /** Nome da barbearia como o bot fala com o cliente. */
+    @Column(name = "display_name")
+    private String displayName;
+
+    @Column(name = "pix_key")
+    private String pixKey;
+
+    @Column(name = "pix_copy_paste", columnDefinition = "text")
+    private String pixCopyPaste;
+
+    @Column(name = "payment_info", columnDefinition = "text")
+    private String paymentInfo;
+
+    /** "HH:mm" — inicio/fim do expediente usado na oferta de horarios. */
+    @Column(name = "opening_time", length = 5)
+    private String openingTime;
+
+    @Column(name = "closing_time", length = 5)
+    private String closingTime;
+
+    /** Texto livre com os dias de funcionamento (ex.: "Seg a Sáb"). */
+    @Column(name = "working_days", length = 120)
+    private String workingDays;
+
+    @Column(name = "welcome_text", columnDefinition = "text")
+    private String welcomeText;
+
+    @Column(name = "reminder_text", columnDefinition = "text")
+    private String reminderText;
+
+    @Column(name = "review_text", columnDefinition = "text")
+    private String reviewText;
+
+    @Column(name = "fidelity_reward_text", columnDefinition = "text")
+    private String fidelityRewardText;
+
+    @Column(name = "cancellation_policy", columnDefinition = "text")
+    private String cancellationPolicy;
+
+    /** Tom de voz/persona injetado no system prompt da IA. */
+    @Column(name = "bot_persona", columnDefinition = "text")
+    private String botPersona;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

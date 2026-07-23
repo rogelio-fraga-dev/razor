@@ -36,13 +36,14 @@ class AdminBotSettingsControllerTest {
     }
 
     @Test
-    @DisplayName("update repassa os campos para o serviço")
+    @DisplayName("update repassa o payload completo para o serviço")
     void update_delegates() {
-        when(barbershopSettingsService.update(eq("End"), eq("maps"), eq("Serv"), eq("sched"), eq("insta")))
+        BotSettingsPayload payload = BotSettingsPayload.ofTexts("End", "maps", "Serv", "sched", "insta");
+        when(barbershopSettingsService.update(eq(payload)))
                 .thenReturn(BarbershopSettings.builder().addressText("End").build());
 
-        controller.update(new BotSettingsPayload("End", "maps", "Serv", "sched", "insta"));
+        controller.update(payload);
 
-        verify(barbershopSettingsService).update("End", "maps", "Serv", "sched", "insta");
+        verify(barbershopSettingsService).update(payload);
     }
 }

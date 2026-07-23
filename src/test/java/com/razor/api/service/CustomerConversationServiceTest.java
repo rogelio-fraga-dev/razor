@@ -61,6 +61,16 @@ class CustomerConversationServiceTest {
 
     @InjectMocks private CustomerConversationService service;
 
+    /** Config do tenant com a chave PIX preenchida (caso normal de uma barbearia configurada). */
+    private void givenPixConfigured(String pixKey) {
+        when(barbershopSettingsService.resolve()).thenReturn(
+                new BarbershopSettingsService.BotSettings(
+                        "", "", "", null, "",
+                        "Barbearia Teste", pixKey, null, null,
+                        "09:00", "19:00", "Seg a Sáb",
+                        null, null, null, null, null, null));
+    }
+
     private void givenBotSettings(String address, String mapsUrl, String servicesText, String instagram) {
         when(barbershopSettingsService.resolve()).thenReturn(
                 new BarbershopSettingsService.BotSettings(address, mapsUrl, servicesText, null, instagram));
@@ -237,14 +247,40 @@ class CustomerConversationServiceTest {
 
         verify(agendaService).adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte");
 
-        // 2a mensagem: cliente escolhe PIX -> status PIX salvo e chave enviada
+        // 2a mensagem: cliente escolhe PIX -> status PIX salvo e a chave DO TENANT enviada
         Appointment ag = Appointment.builder().customerPhone(PHONE).build();
         when(agendaService.getAgendamentoCliente(PHONE)).thenReturn(ag);
+        givenPixConfigured("pix@barbeariateste.com.br");
 
         service.processCustomerMessage(textWebhook("1"), PHONE);
 
         verify(appointmentRepository).save(argThat(a -> a.getPaymentStatus() == PaymentStatus.PIX));
-        verify(messenger).send(eq(PHONE), argThat(m -> m.contains("CHAVE PIX")), eq("CLIENTE"));
+        verify(messenger).send(eq(PHONE),
+                argThat(m -> m.contains("CHAVE PIX") && m.contains("pix@barbeariateste.com.br")), eq("CLIENTE"));
+    }
+
+    @Test
+    @DisplayName("sem PIX configurado, o bot NÃO inventa chave — orienta pagamento presencial")
+    void pixPayment_withoutConfiguredKey_doesNotInventKey() {
+        givenExistingCustomer();
+        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getAgendamentosClienteList(PHONE)).thenReturn(List.of());
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any()))
+                .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
+
+        // entra em ESPERANDO_PAGAMENTO pelo fluxo real
+        service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
+
+        Appointment ag = Appointment.builder().customerPhone(PHONE).build();
+        when(agendaService.getAgendamentoCliente(PHONE)).thenReturn(ag);
+        givenBotSettings("", "", "", ""); // tenant sem pixKey
+
+        service.processCustomerMessage(textWebhook("1"), PHONE);
+
+        verify(messenger).send(eq(PHONE),
+                argThat(m -> m.contains("PIX ainda não está disponível")), eq("CLIENTE"));
+        // e em nenhuma mensagem aparece a antiga chave falsa hardcoded
+        verify(messenger, never()).send(eq(PHONE), argThat(m -> m.contains("12.345.678")), any());
     }
 
     // ---------- agenda multiprofissional (escolha explícita) ----------

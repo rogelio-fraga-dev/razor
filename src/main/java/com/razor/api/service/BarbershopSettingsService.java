@@ -21,9 +21,36 @@ public class BarbershopSettingsService {
     private final BarbershopSettingsRepository repository;
     private final RazorProperties properties;
 
-    /** Textos efetivos usados no fluxo do cliente. */
+    /** Nome usado quando o tenant nao definiu um (mantem o comportamento historico). */
+    public static final String DEFAULT_DISPLAY_NAME = "Barbearia Ficticia";
+    private static final String DEFAULT_OPENING = "09:00";
+    private static final String DEFAULT_CLOSING = "19:00";
+    private static final String DEFAULT_WORKING_DAYS = "Seg a Sáb";
+
+    /** Textos efetivos usados no fluxo do cliente (linha do tenant com fallback por campo). */
     public record BotSettings(
-            String addressText, String addressMapsUrl, String servicesText, String scheduleUrl, String instagramUrl) {
+            String addressText, String addressMapsUrl, String servicesText, String scheduleUrl, String instagramUrl,
+            String displayName, String pixKey, String pixCopyPaste, String paymentInfo,
+            String openingTime, String closingTime, String workingDays,
+            String welcomeText, String reminderText, String reviewText,
+            String fidelityRewardText, String cancellationPolicy, String botPersona) {
+
+        /**
+         * Atalho para os 5 textos historicos, com o restante nos padroes do sistema —
+         * evita que cada novo campo quebre quem so precisa dos textos basicos.
+         */
+        public BotSettings(String addressText, String addressMapsUrl, String servicesText,
+                           String scheduleUrl, String instagramUrl) {
+            this(addressText, addressMapsUrl, servicesText, scheduleUrl, instagramUrl,
+                    DEFAULT_DISPLAY_NAME, null, null, null,
+                    DEFAULT_OPENING, DEFAULT_CLOSING, DEFAULT_WORKING_DAYS,
+                    null, null, null, null, null, null);
+        }
+
+        /** True quando o tenant configurou a propria chave PIX (senao nao devemos enviar PIX). */
+        public boolean hasPix() {
+            return pixKey != null && !pixKey.isBlank();
+        }
     }
 
     public BotSettings resolve() {
@@ -34,7 +61,20 @@ public class BarbershopSettingsService {
                 pick(s == null ? null : s.getAddressMapsUrl(), menu.getAddressMapsUrl()),
                 pick(s == null ? null : s.getServicesText(), menu.getServicesText()),
                 pick(s == null ? null : s.getScheduleUrl(), menu.getScheduleUrl()),
-                pick(s == null ? null : s.getInstagramUrl(), menu.getInstagramUrl()));
+                pick(s == null ? null : s.getInstagramUrl(), menu.getInstagramUrl()),
+                pick(s == null ? null : s.getDisplayName(), DEFAULT_DISPLAY_NAME),
+                s == null ? null : s.getPixKey(),
+                s == null ? null : s.getPixCopyPaste(),
+                s == null ? null : s.getPaymentInfo(),
+                pick(s == null ? null : s.getOpeningTime(), DEFAULT_OPENING),
+                pick(s == null ? null : s.getClosingTime(), DEFAULT_CLOSING),
+                pick(s == null ? null : s.getWorkingDays(), DEFAULT_WORKING_DAYS),
+                s == null ? null : s.getWelcomeText(),
+                s == null ? null : s.getReminderText(),
+                s == null ? null : s.getReviewText(),
+                s == null ? null : s.getFidelityRewardText(),
+                s == null ? null : s.getCancellationPolicy(),
+                s == null ? null : s.getBotPersona());
     }
 
     /** Linha do tenant para edicao (ou uma vazia, sem persistir, quando ainda nao existe). */
@@ -43,15 +83,28 @@ public class BarbershopSettingsService {
                 .orElseGet(() -> BarbershopSettings.builder().barbershopId(TenantContext.getCurrent()).build());
     }
 
-    public BarbershopSettings update(String addressText, String addressMapsUrl, String servicesText,
-                                     String scheduleUrl, String instagramUrl) {
+    /** Salva o pacote completo de configuracoes do bot (payload do painel). */
+    public BarbershopSettings update(com.razor.api.dto.BotSettingsPayload p) {
         BarbershopSettings s = repository.findById(TenantContext.getCurrent())
                 .orElseGet(() -> BarbershopSettings.builder().barbershopId(TenantContext.getCurrent()).build());
-        s.setAddressText(addressText);
-        s.setAddressMapsUrl(addressMapsUrl);
-        s.setServicesText(servicesText);
-        s.setScheduleUrl(scheduleUrl);
-        s.setInstagramUrl(instagramUrl);
+        s.setDisplayName(p.displayName());
+        s.setAddressText(p.addressText());
+        s.setAddressMapsUrl(p.addressMapsUrl());
+        s.setServicesText(p.servicesText());
+        s.setScheduleUrl(p.scheduleUrl());
+        s.setInstagramUrl(p.instagramUrl());
+        s.setPixKey(p.pixKey());
+        s.setPixCopyPaste(p.pixCopyPaste());
+        s.setPaymentInfo(p.paymentInfo());
+        s.setOpeningTime(p.openingTime());
+        s.setClosingTime(p.closingTime());
+        s.setWorkingDays(p.workingDays());
+        s.setWelcomeText(p.welcomeText());
+        s.setReminderText(p.reminderText());
+        s.setReviewText(p.reviewText());
+        s.setFidelityRewardText(p.fidelityRewardText());
+        s.setCancellationPolicy(p.cancellationPolicy());
+        s.setBotPersona(p.botPersona());
         BarbershopSettings saved = repository.save(s);
         log.info("[BOT] Configuracoes do bot atualizadas para o tenant {}", TenantContext.getCurrent());
         return saved;

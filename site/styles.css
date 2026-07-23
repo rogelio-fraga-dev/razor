@@ -22,6 +22,57 @@
   --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
 }
 
+/* ---- Tema claro (mesma marca, ground invertido) ---- */
+:root[data-theme="light"] {
+  --obsidian: #f7f8fa;
+  --graphite: #ffffff;
+  --graphite-2: #f1f3f6;
+  --steel: #5d6572;
+  --chrome: #16181d;
+  --voltage: #2f51e6;
+  --voltage-hover: #2543c4;
+  --edge: #0aa2c0;
+  --plasma: #7c5cff;
+  --border: rgba(22, 24, 29, 0.1);
+  --border-strong: rgba(22, 24, 29, 0.16);
+}
+:root[data-theme="light"] body {
+  background-image:
+    linear-gradient(rgba(22, 24, 29, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22, 24, 29, 0.035) 1px, transparent 1px);
+}
+:root[data-theme="light"] .nav.solid { background: rgba(247, 248, 250, 0.82); }
+:root[data-theme="light"] .chip,
+:root[data-theme="light"] .quote,
+:root[data-theme="light"] .toggle { background: #fff; }
+:root[data-theme="light"] .phone,
+:root[data-theme="light"] .term,
+:root[data-theme="light"] .step,
+:root[data-theme="light"] .b-card,
+:root[data-theme="light"] .pain-card,
+:root[data-theme="light"] .tpl,
+:root[data-theme="light"] .plan { box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 24px rgba(16, 24, 40, 0.06); }
+:root[data-theme="light"] .term { background: #0d0e11; } /* terminal continua escuro (é um terminal) */
+:root[data-theme="light"] .term .term-body b { color: #e9ebef; }
+:root[data-theme="light"] .tpl-b { color: #37e2ff; }
+:root[data-theme="light"] .foot { background: rgba(255, 255, 255, 0.6); }
+:root[data-theme="light"] .orbit-core { background: linear-gradient(180deg, #fff, #eef0f4); }
+:root[data-theme="light"] .selo,
+:root[data-theme="light"] .grad-bar span { color: #fff; }
+
+.theme-btn {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--steel);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.theme-btn:hover { color: var(--chrome); border-color: var(--chrome); }
+
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
@@ -547,7 +598,15 @@ h1 { font-size: clamp(40px, 6.4vw, 72px); font-weight: 800; letter-spacing: -0.0
 .plan li::before { content: "✓"; position: absolute; left: 0; color: var(--voltage); font-weight: 700; }
 .plan.featured li::before { color: var(--edge); }
 .plan .btn { width: 100%; margin-top: 8px; }
+.p-total {
+  font-size: 12.5px;
+  color: var(--edge);
+  margin-top: -6px;
+}
 .pricing-note { text-align: center; margin-top: 28px; font-size: 13px; color: var(--steel); }
+
+/* transição suave do hover 3D dos cards */
+.b-card, .tpl, .plan { transition: border-color 0.3s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease; }
 
 /* ============ FAQ ============ */
 .faq { border-top: 1px solid var(--border); }

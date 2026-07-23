@@ -35,6 +35,7 @@
       <a href="#faq">FAQ</a>
     </nav>
     <div class="nav-cta">
+      <button id="theme-toggle" class="theme-btn" type="button" aria-label="Alternar tema">☀</button>
       <!-- PROD: trocar para https://app.razor.com.br -->
       <a class="btn btn-ghost btn-sm" href="http://localhost:5173">Entrar</a>
       <a class="btn btn-primary btn-sm" href="#planos">Começar agora</a>
@@ -59,8 +60,8 @@
       </div>
       <div class="hero-stats rv d4">
         <div class="s"><b class="mono">24/7</b><span>atendimento sem pausa</span></div>
-        <div class="s"><b class="mono">2,3s</b><span>tempo médio de resposta</span></div>
-        <div class="s"><b class="mono">0</b><span>apps para o cliente baixar</span></div>
+        <div class="s"><b class="mono" data-count="2" data-suffix="s" data-prefix="~">~2s</b><span>tempo médio de resposta</span></div>
+        <div class="s"><b class="mono" data-count="0">0</b><span>apps para o cliente baixar</span></div>
       </div>
     </div>
 
@@ -313,7 +314,8 @@
       <article class="plan rv">
         <h3 class="p-name mono">SOLO</h3>
         <p class="p-for">1 barbeiro</p>
-        <p class="p-price"><span class="mono val" data-m="69,90" data-a="58,25">R$ 69,90</span><small>/mês</small></p>
+        <p class="p-price"><span class="mono val" data-m="69,90" data-a="58,25" data-total="699,00">R$ 69,90</span><small>/mês</small></p>
+        <p class="p-total mono" hidden></p>
         <ul>
           <li>IA de atendimento no WhatsApp</li>
           <li>Agenda + lembretes automáticos</li>
@@ -327,7 +329,8 @@
         <span class="selo">Mais escolhido</span>
         <h3 class="p-name mono">EQUIPE</h3>
         <p class="p-for">até 5 barbeiros</p>
-        <p class="p-price"><span class="mono val" data-m="139,90" data-a="116,58">R$ 139,90</span><small>/mês</small></p>
+        <p class="p-price"><span class="mono val" data-m="139,90" data-a="116,58" data-total="1.399,00">R$ 139,90</span><small>/mês</small></p>
+        <p class="p-total mono" hidden></p>
         <ul>
           <li>Tudo do Solo</li>
           <li>Agenda multiprofissional</li>
@@ -339,7 +342,8 @@
       <article class="plan rv">
         <h3 class="p-name mono">PRO</h3>
         <p class="p-for">rede · ilimitado</p>
-        <p class="p-price"><span class="mono val" data-m="229,90" data-a="191,58">R$ 229,90</span><small>/mês</small></p>
+        <p class="p-price"><span class="mono val" data-m="229,90" data-a="191,58" data-total="2.299,00">R$ 229,90</span><small>/mês</small></p>
+        <p class="p-total mono" hidden></p>
         <ul>
           <li>Tudo do Equipe</li>
           <li>Clube de assinatura (recorrência)</li>

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Layout } from "../components/Layout";
 import { Switch } from "../components/Modal";
-import { Tabs } from "../components/Tabs";
+import { Skeleton } from "../components/Skeleton";
+import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type {
@@ -90,8 +91,8 @@ function BotStatusCard() {
                   {data.whatsappConnected
                     ? "conectado — o bot recebe e envia mensagens"
                     : data.whatsappState === "connecting"
-                      ? "aguardando pareamento — escaneie o QR na aba WhatsApp"
-                      : "desconectado — conecte na aba WhatsApp"}
+                      ? "aguardando pareamento — escaneie o QR ao lado"
+                      : "desconectado — use o card “Conexão do WhatsApp”"}
                 </span>
               </div>
               <span className="mono faint" style={{ fontSize: 11 }}>{data.instanceName}</span>
@@ -102,9 +103,7 @@ function BotStatusCard() {
               <div className="grow">
                 <b>Inteligência artificial</b>{" "}
                 <span className="muted">
-                  {data.aiConfigured
-                    ? "chave configurada — a IA responde os clientes"
-                    : "chave da OpenAI ausente — o bot NÃO consegue responder"}
+                  {data.aiConfigured ? "funcionando" : "indisponível no momento"}
                 </span>
               </div>
             </div>
@@ -223,7 +222,7 @@ function WhatsAppCard() {
         {loading ? (
           <div className="muted">Carregando…</div>
         ) : (
-          <div className="stack" style={{ maxWidth: 460 }}>
+          <div className="stack">
             <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
               Conecte o número de WhatsApp da barbearia escaneando o QR code pelo app — sem sair daqui.
             </p>
@@ -311,7 +310,7 @@ function ProfileCard() {
         ) : error ? (
           <div className="error">{error}</div>
         ) : (
-          <div className="stack" style={{ maxWidth: 460 }}>
+          <div className="stack">
             <div className="field">
               <label>Nome da barbearia</label>
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
@@ -408,28 +407,62 @@ function AdminsCard() {
 }
 
 const EMPTY_BOT: BotSettings = {
+  displayName: "",
   addressText: "",
   addressMapsUrl: "",
   servicesText: "",
   scheduleUrl: "",
   instagramUrl: "",
+  pixKey: "",
+  pixCopyPaste: "",
+  paymentInfo: "",
+  openingTime: "",
+  closingTime: "",
+  workingDays: "",
+  welcomeText: "",
+  reminderText: "",
+  reviewText: "",
+  fidelityRewardText: "",
+  cancellationPolicy: "",
+  botPersona: "",
 };
+
+/** Bloco colapsável — progressive disclosure: só "Identidade" e "Pagamento" abrem por padrão. */
+function Section({
+  title,
+  hint,
+  open,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  open?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="cfg-section" open={open}>
+      <summary>
+        <span>{title}</span>
+        {hint && <span className="faint">{hint}</span>}
+      </summary>
+      <div className="stack" style={{ paddingTop: 14 }}>{children}</div>
+    </details>
+  );
+}
 
 function BotCard() {
   const { data, loading, error, reload } = useApi<BotSettings>(() => api.get("/api/admin/settings/bot"), []);
+  const toast = useToast();
   const [form, setForm] = useState<BotSettings>(EMPTY_BOT);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (data) {
-      setForm({
-        addressText: data.addressText ?? "",
-        addressMapsUrl: data.addressMapsUrl ?? "",
-        servicesText: data.servicesText ?? "",
-        scheduleUrl: data.scheduleUrl ?? "",
-        instagramUrl: data.instagramUrl ?? "",
+      const filled = { ...EMPTY_BOT };
+      (Object.keys(EMPTY_BOT) as (keyof BotSettings)[]).forEach((k) => {
+        filled[k] = data[k] ?? "";
       });
+      setForm(filled);
     }
   }, [data]);
 
@@ -437,60 +470,98 @@ function BotCard() {
 
   const save = async () => {
     setSaving(true);
-    setMsg(null);
     try {
       await api.put("/api/admin/settings/bot", form);
-      setMsg({ ok: true, text: "Configurações do bot salvas." });
+      toast.success("Configurações do bot salvas ✓");
       reload();
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof ApiError ? e.message : "Erro ao salvar." });
+      toast.error(e instanceof ApiError ? e.message : "Erro ao salvar.");
     } finally {
       setSaving(false);
     }
   };
 
+  const field = (k: keyof BotSettings, label: string, placeholder?: string) => (
+    <div className="field">
+      <label>{label}</label>
+      <input className="input" value={form[k] ?? ""} placeholder={placeholder} onChange={(e) => set(k, e.target.value)} />
+    </div>
+  );
+
+  const area = (k: keyof BotSettings, label: string, rows = 4, placeholder?: string) => (
+    <div className="field">
+      <label>{label}</label>
+      <textarea
+        className="input"
+        rows={rows}
+        value={form[k] ?? ""}
+        placeholder={placeholder}
+        onChange={(e) => set(k, e.target.value)}
+        style={{ resize: "vertical", fontFamily: "inherit" }}
+      />
+    </div>
+  );
+
   return (
     <div className="card">
       <div className="card-head">
-        <h3>Textos do bot (WhatsApp)</h3>
+        <h3>O que o bot fala</h3>
+        <span className="badge badge-muted">WhatsApp</span>
       </div>
       <div className="card-pad">
-        <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
-          O que o cliente recebe no WhatsApp. Campos vazios usam o texto padrão do sistema.
+        <p className="muted" style={{ margin: "0 0 14px", fontSize: 14 }}>
+          Tudo o que o cliente recebe. Campo vazio usa o padrão do sistema.
         </p>
         {loading ? (
-          <div className="muted">Carregando…</div>
+          <div className="stack" style={{ gap: 10 }}>
+            {[0, 1, 2].map((i) => <Skeleton key={i} h={38} />)}
+          </div>
         ) : error ? (
           <div className="error">{error}</div>
         ) : (
-          <div className="stack" style={{ maxWidth: 560 }}>
-            <div className="field">
-              <label>Endereço (texto)</label>
-              <input className="input" value={form.addressText ?? ""} onChange={(e) => set("addressText", e.target.value)} />
-            </div>
-            <div className="field">
-              <label>Link do mapa</label>
-              <input className="input" value={form.addressMapsUrl ?? ""} onChange={(e) => set("addressMapsUrl", e.target.value)} />
-            </div>
-            <div className="field">
-              <label>Tabela de serviços / preços</label>
-              <textarea
-                className="input"
-                rows={5}
-                value={form.servicesText ?? ""}
-                onChange={(e) => set("servicesText", e.target.value)}
-                style={{ resize: "vertical", fontFamily: "inherit" }}
-              />
-            </div>
-            <div className="field">
-              <label>Instagram (link)</label>
-              <input className="input" value={form.instagramUrl ?? ""} onChange={(e) => set("instagramUrl", e.target.value)} />
-            </div>
-            <div className="row">
+          <div className="stack" style={{ gap: 10 }}>
+            <Section title="Identidade" hint="como a barbearia se apresenta" open>
+              {field("displayName", "Nome da barbearia", "Como o bot chama sua barbearia")}
+              {field("addressText", "Endereço")}
+              {field("addressMapsUrl", "Link do mapa")}
+              {field("instagramUrl", "Instagram")}
+            </Section>
+
+            <Section title="Pagamento" hint="PIX enviado ao cliente" open>
+              {field("pixKey", "Chave PIX", "CNPJ, e-mail, telefone ou aleatória")}
+              {area("pixCopyPaste", "PIX copia-e-cola (opcional)", 3, "Cole aqui o código do seu banco")}
+              {area("paymentInfo", "Formas de pagamento", 2, "Ex.: PIX, dinheiro, débito e crédito")}
+            </Section>
+
+            <Section title="Funcionamento" hint="horários que a IA oferece">
+              <div className="form-grid">
+                {field("openingTime", "Abre às", "09:00")}
+                {field("closingTime", "Fecha às", "19:00")}
+              </div>
+              {field("workingDays", "Dias de funcionamento", "Seg a Sáb")}
+              {area("cancellationPolicy", "Política de cancelamento/atraso", 2, "Ex.: cancele com 2h de antecedência")}
+            </Section>
+
+            <Section title="Serviços e preços" hint="tabela enviada no menu">
+              {area("servicesText", "Tabela de serviços / preços", 5)}
+              {field("scheduleUrl", "Link de agendamento (opcional)")}
+            </Section>
+
+            <Section title="Mensagens automáticas" hint="saudação, lembrete, avaliação">
+              {area("welcomeText", "Saudação inicial", 2, "Primeira mensagem ao cliente novo")}
+              {area("reminderText", "Lembrete (1h antes)", 2)}
+              {area("reviewText", "Pedido de avaliação (após o corte)", 2)}
+              {area("fidelityRewardText", "Recompensa de fidelidade (10 pontos)", 2)}
+            </Section>
+
+            <Section title="Personalidade da IA" hint="tom de voz">
+              {area("botPersona", "Como a IA deve falar", 3, "Ex.: simpática e objetiva, trata o cliente por você, usa poucos emojis")}
+            </Section>
+
+            <div className="row" style={{ marginTop: 4 }}>
               <button className="btn btn-primary" onClick={save} disabled={saving}>
                 {saving ? "Salvando…" : "Salvar"}
               </button>
-              {msg && <span className={msg.ok ? "badge badge-green" : "error"}>{msg.text}</span>}
             </div>
           </div>
         )}
@@ -500,26 +571,20 @@ function BotCard() {
 }
 
 export function Settings() {
-  const [tab, setTab] = useState("status");
-
+  // Página única em 2 colunas: tudo à vista, sem corredor de scroll nem vazio à direita.
   return (
     <Layout title="Configurações">
-      <Tabs
-        tabs={[
-          { id: "status", label: "Status" },
-          { id: "whatsapp", label: "WhatsApp" },
-          { id: "bot", label: "Bot & IA" },
-          { id: "equipe", label: "Equipe & acesso" },
-          { id: "barbearia", label: "Barbearia" },
-        ]}
-        active={tab}
-        onChange={setTab}
-      />
-      {tab === "status" && <BotStatusCard />}
-      {tab === "whatsapp" && <WhatsAppCard />}
-      {tab === "bot" && <BotCard />}
-      {tab === "equipe" && <AdminsCard />}
-      {tab === "barbearia" && <ProfileCard />}
+      <div className="settings-grid">
+        <div className="settings-col">
+          <BotStatusCard />
+          <BotCard />
+        </div>
+        <div className="settings-col">
+          <WhatsAppCard />
+          <ProfileCard />
+          <AdminsCard />
+        </div>
+      </div>
     </Layout>
   );
 }

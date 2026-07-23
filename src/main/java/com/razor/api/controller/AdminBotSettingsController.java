@@ -28,8 +28,7 @@ public class AdminBotSettingsController {
 
     @PutMapping
     public BotSettingsPayload update(@Valid @RequestBody BotSettingsPayload req) {
-        return BotSettingsPayload.from(barbershopSettingsService.update(
-                req.addressText(), req.addressMapsUrl(), req.servicesText(), req.scheduleUrl(), req.instagramUrl()));
+        return BotSettingsPayload.from(barbershopSettingsService.update(req));
     }
 
     /** Saude do bot: WhatsApp conectado? IA configurada? Bot ligado? — a confirmacao de "esta ok". */

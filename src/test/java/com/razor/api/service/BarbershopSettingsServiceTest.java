@@ -75,7 +75,8 @@ class BarbershopSettingsServiceTest {
         when(repository.findById(any())).thenReturn(Optional.empty());
         when(repository.save(any(BarbershopSettings.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        BarbershopSettings saved = service.update("End", "maps", "Serv", "sched", "insta");
+        BarbershopSettings saved = service.update(
+                com.razor.api.dto.BotSettingsPayload.ofTexts("End", "maps", "Serv", "sched", "insta"));
 
         assertThat(saved.getAddressText()).isEqualTo("End");
         assertThat(saved.getInstagramUrl()).isEqualTo("insta");

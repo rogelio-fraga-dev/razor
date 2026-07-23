@@ -97,11 +97,24 @@ export interface WhatsAppConnect {
 }
 
 export interface BotSettings {
+  displayName: string | null;
   addressText: string | null;
   addressMapsUrl: string | null;
   servicesText: string | null;
   scheduleUrl: string | null;
   instagramUrl: string | null;
+  pixKey: string | null;
+  pixCopyPaste: string | null;
+  paymentInfo: string | null;
+  openingTime: string | null;
+  closingTime: string | null;
+  workingDays: string | null;
+  welcomeText: string | null;
+  reminderText: string | null;
+  reviewText: string | null;
+  fidelityRewardText: string | null;
+  cancellationPolicy: string | null;
+  botPersona: string | null;
 }
 
 export interface SubscriptionPlan {

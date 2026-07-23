@@ -685,6 +685,54 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .es-hint { margin: 0; color: var(--text-muted); font-size: 13.5px; max-width: 44ch; }
 .es-action { margin-top: 12px; }
 
+/* ---------- Configurações em 2 colunas (tudo numa página, sem vazio) ---------- */
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.settings-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+@media (max-width: 1000px) {
+  .settings-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- Seções colapsáveis (progressive disclosure) ---------- */
+.cfg-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  transition: border-color 0.2s;
+}
+.cfg-section[open] { border-color: var(--border-hi); }
+.cfg-section > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  user-select: none;
+}
+.cfg-section > summary::-webkit-details-marker { display: none; }
+.cfg-section > summary::after {
+  content: "+";
+  margin-left: auto;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+  font-size: 16px;
+  transition: transform 0.2s;
+}
+.cfg-section[open] > summary::after { transform: rotate(45deg); color: var(--accent); }
+.cfg-section > summary .faint { font-size: 12.5px; font-weight: 400; }
+.cfg-section > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 6px; }
+
 /* ---------- Tabs ---------- */
 .tabs {
   display: flex;

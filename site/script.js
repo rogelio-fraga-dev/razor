@@ -60,16 +60,78 @@ async function playChat() {
 }
 if (chat) playChat();
 
-// ---- Toggle mensal/anual ----
+// ---- Toggle mensal/anual (mostra o equivalente mensal E o total do ano) ----
 const tgM = document.getElementById("tg-m");
 const tgA = document.getElementById("tg-a");
-const vals = document.querySelectorAll(".p-price .val");
+const plans = document.querySelectorAll(".plan");
 function setPeriod(annual) {
   tgM.classList.toggle("active", !annual);
   tgA.classList.toggle("active", annual);
-  vals.forEach((v) => {
-    v.textContent = "R$ " + v.dataset[annual ? "a" : "m"];
+  plans.forEach((plan) => {
+    const val = plan.querySelector(".val");
+    const note = plan.querySelector(".p-total");
+    if (!val) return;
+    val.textContent = "R$ " + val.dataset[annual ? "a" : "m"];
+    if (note) {
+      if (annual) {
+        const total = val.dataset.total;
+        note.textContent = `R$ ${total} à vista no ano · economize 2 meses`;
+        note.hidden = false;
+      } else {
+        note.hidden = true;
+      }
+    }
   });
 }
 tgM?.addEventListener("click", () => setPeriod(false));
 tgA?.addEventListener("click", () => setPeriod(true));
+
+// ---- Tema claro/escuro da landing ----
+const THEME_KEY = "razor.site.theme";
+const themeBtn = document.getElementById("theme-toggle");
+function applySiteTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  localStorage.setItem(THEME_KEY, t);
+  if (themeBtn) themeBtn.textContent = t === "light" ? "☾" : "☀";
+}
+applySiteTheme(localStorage.getItem(THEME_KEY) || "dark");
+themeBtn?.addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  applySiteTheme(cur === "light" ? "dark" : "light");
+});
+
+// ---- Contadores animados (números do hero) ----
+const counters = document.querySelectorAll("[data-count]");
+const cio = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue;
+    const el = e.target;
+    cio.unobserve(el);
+    const target = parseFloat(el.dataset.count);
+    const suffix = el.dataset.suffix || "";
+    const prefix = el.dataset.prefix || "";
+    if (reduced) { el.textContent = prefix + target.toLocaleString("pt-BR") + suffix; continue; }
+    const t0 = performance.now();
+    const tick = (t) => {
+      const p = Math.min((t - t0) / 1100, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = prefix + Math.round(target * eased).toLocaleString("pt-BR") + suffix;
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+}, { threshold: 0.5 });
+counters.forEach((c) => cio.observe(c));
+
+// ---- Hover 3D sutil nos cards do bento ----
+if (!reduced && matchMedia("(hover: hover)").matches) {
+  document.querySelectorAll(".b-card, .tpl, .plan").forEach((card) => {
+    card.addEventListener("mousemove", (e) => {
+      const r = card.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5;
+      const py = (e.clientY - r.top) / r.height - 0.5;
+      card.style.transform = `perspective(900px) rotateX(${-py * 3}deg) rotateY(${px * 3}deg) translateY(-3px)`;
+    });
+    card.addEventListener("mouseleave", () => { card.style.transform = ""; });
+  });
+}

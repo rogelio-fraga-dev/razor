@@ -244,11 +244,24 @@ public class CustomerConversationService {
                     ag.setPaymentStatus(PaymentStatus.PIX);
                     appointmentRepository.save(ag);
                 }
-                String pixMsg = "🔑 *CHAVE PIX (CNPJ):* `12.345.678/0001-90`\n\n" +
-                                "📌 *PIX Copia e Cola:*\n" +
-                                "`00020101021126580014br.gov.bcb.pix013612345678000190520400005303986540535.005802BR5918Barbearia Ficticia6009Sao Paulo62070503***63041A2B`\n\n" +
-                                "💡 _Realize o pagamento e traga o comprovante no dia do atendimento. Seu horário está 100% garantido! Te esperamos lá!_ 💈👊\n\n" +
-                                "_Para voltar ao início ou ver outras opções, digite *Menu*._";
+                var cfg = barbershopSettingsService.resolve();
+                String pixMsg;
+                if (cfg.hasPix()) {
+                    StringBuilder sb = new StringBuilder("🔑 *CHAVE PIX:* `").append(cfg.pixKey()).append("`\n\n");
+                    if (cfg.pixCopyPaste() != null && !cfg.pixCopyPaste().isBlank()) {
+                        sb.append("📌 *PIX Copia e Cola:*\n`").append(cfg.pixCopyPaste()).append("`\n\n");
+                    }
+                    sb.append("💡 _Realize o pagamento e traga o comprovante no dia do atendimento. ")
+                      .append("Seu horário está 100% garantido! Te esperamos lá!_ 💈👊\n\n")
+                      .append("_Para voltar ao início ou ver outras opções, digite *Menu*._");
+                    pixMsg = sb.toString();
+                } else {
+                    // Sem PIX configurado pelo dono: NUNCA inventar uma chave — orienta o cliente.
+                    pixMsg = "😕 O PIX ainda não está disponível por aqui.\n\n" +
+                             "Sem problema: você pode pagar *presencialmente* no dia do atendimento. " +
+                             "Seu horário está garantido! 💈👊\n\n" +
+                             "_Para voltar ao início, digite *Menu*._";
+                }
                 saveAndSend(customer, pixMsg, phoneNumber);
                 return;
             }

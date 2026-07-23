@@ -141,6 +141,14 @@ uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Impleme
 - [~] **Relatórios/DRE**: financeiro estruturado e comissões prontos no painel.
       _(Falta: DRE e dashboard de retenção — "quem some", frequência.)_
 - [ ] **Estoque** (opcional): reposição e saídas dos produtos do balcão.
+- [ ] **Textos e dados do bot por tenant (ampliar)** 🎯 *em andamento*: hoje só há 5 campos
+      (endereço, mapa, serviços, agendamento, Instagram) e **muita coisa continua hardcoded**
+      — nome "Barbearia Ficticia" em 6 pontos, **chave PIX falsa**, horário 09–19h e a
+      **tabela de preços dentro do system prompt da IA**. Campos a tornar configuráveis:
+      nome de exibição, **chave PIX + PIX copia-e-cola**, horário de funcionamento (dias/horas),
+      saudação, texto do lembrete, texto do pedido de avaliação, recompensa de fidelidade
+      (+ meta de pontos), política de cancelamento/atraso, formas de pagamento, persona/tom
+      de voz da IA. _Prioridade: PIX e nome (hoje o bot envia dados errados)._
 
 **Pronto quando:** um barbeiro consegue fechar o mês (faturamento, comissões,
 assinaturas) sem sair do Razor.
@@ -192,6 +200,38 @@ assinaturas) sem sair do Razor.
       personalizado = serviço avulso** (one-time, sob consulta) feito pelo nosso time.
       Modelo: tabela `barbershop_site` (template_id + conteúdo).
 - [ ] Página de **agendamento online** (link próprio) na mesma agenda do bot.
+- [ ] **Tema claro no painel e na landing** — o painel já alterna (dark-first); a landing
+      institucional precisa da variante clara com o mesmo brand (tokens do
+      [`BRANDING §5.4`](./BRANDING.md)) e toggle persistido.
+- [ ] **Landing mais persuasiva**: mais efeitos/motion (parallax sutil, contadores animados,
+      hover 3D nos cards, reveal encadeado), **preço anual exibido em valor cheio** (hoje só
+      mostra o equivalente mensal) e prova social acima da dobra.
+
+---
+
+### 👤 Contas do CLIENTE FINAL (nível 3) — *nova frente, Fase 3/4*
+
+> Hoje o cliente final só existe como telefone no WhatsApp. Para **assinar planos, salvar
+> cartão e se identificar no site**, ele precisa de conta própria — sem nunca virar
+> obrigação para quem só quer marcar um corte.
+
+- [ ] **Conta opcional do cliente** na barbearia (`customer_accounts`): quem quiser continua
+      agendando **sem cadastro** pelo WhatsApp (fluxo atual intacto); a conta destrava
+      assinatura do clube, histórico e cartão salvo.
+- [ ] **Login social + tradicional:** Google e Apple (OAuth2/OIDC) e e-mail+senha. Vínculo
+      da conta ao telefone do WhatsApp (mesma pessoa nos dois canais).
+- [ ] **Assinatura do clube pelo próprio cliente:** escolhe o plano no site da barbearia,
+      paga recorrente, e o bot **passa a reconhecê-lo como assinante** (usa o `subscriber`
+      que já existe na agenda) — ex.: "seu plano VIP cobre este corte".
+- [ ] **Cartão salvo:** **tokenizado no gateway** — o número do cartão **nunca** toca nosso
+      banco (fora de escopo PCI). Guardamos só o token e os 4 últimos dígitos.
+- [ ] **Visão do barbeiro:** na tela Clientes, distinguir *cadastrado no site* × *só WhatsApp*,
+      com status da assinatura e forma de pagamento.
+- [ ] **Segurança robusta (requisito explícito):** contexto de auth **separado** do painel
+      admin (outro `audience` no JWT — cliente jamais acessa `/api/admin/**`); senhas em
+      bcrypt; rate limiting e lockout no login; verificação de e-mail; refresh tokens com
+      rotação; **LGPD** (consentimento, exportar/excluir meus dados); auditoria de acesso.
+      Escopo de tenant obrigatório: um cliente pertence a **uma** barbearia.
 
 **Pronto quando:** o dono configura e gerencia toda a barbearia por um painel web (config +
 relatórios), usando o WhatsApp apenas para a operação do dia a dia.
@@ -211,6 +251,8 @@ relatórios), usando o WhatsApp apenas para a operação do dia a dia.
       (ex.: 10 barbearias), **1º mês grátis**, sem cartão.
 - [ ] **Cupom de beta** no onboarding (ex.: `BETA30`) que pula o pagamento no wizard de
       compra — vira o gatilho de provisionamento enquanto o billing não existe.
+      **Limite de 10 usos**: esgotou, o código expira sozinho e o cadastro volta a exigir
+      cartão/PIX. Novos códigos só pelo console do dono (ver Fase 4).
 - [ ] **Canal**: beta roda na **Evolution (grátis, ilimitada, self-host)** com aviso de
       risco ao tenant; migração p/ Cloud API oficial conforme
       [`WHATSAPP_CHANNEL.md`](./WHATSAPP_CHANNEL.md).
@@ -241,7 +283,18 @@ relatórios), usando o WhatsApp apenas para a operação do dia a dia.
       console (último ok/falhou), botão "backup agora" e rotina mensal de teste de restauração.
 - [ ] **Site institucional** `razor.com.br`: proposta, planos, demonstração, prova social, CTA.
       _(Distinto do site white-label de cada barbearia em `<slug>.razor.com.br` — ver [`PLATFORM.md §6`](./PLATFORM.md).)_
-- [ ] **Cadastro self-service** + **billing do SaaS** (gateway BR: Asaas / Mercado Pago / Stripe; cartão/PIX; recorrência).
+- [ ] **Cadastro self-service** + **billing do SaaS** (gateway BR: Asaas / Mercado Pago / Stripe; cartão/PIX; recorrência), com as regras:
+      - **Trial exige meio de pagamento**: cartão **ou PIX recorrente** cadastrado para
+        liberar os dias grátis (evita conta-fantasma e vira assinatura sozinha ao fim).
+      - **Aviso 1 dia antes do fim do trial** (WhatsApp + e-mail): "continua ou cancela?",
+        com link de cancelamento em 1 clique — sem pegadinha.
+      - **Cobrança automática** ao término, se não cancelou. Inadimplência: aviso → suspensão
+        (dados preservados) → cancelamento.
+- [ ] **Códigos beta com controle no super admin** (única exceção que **pula o cartão**):
+      entidade `beta_codes` (código, **limite de usos — padrão 10**, usos atuais, validade,
+      ativo). Ao atingir o limite **expira automaticamente** e ninguém mais entra sem cartão;
+      só volta a existir beta se **você criar outro código no console**. Console mostra
+      quantos restam e quem usou cada código.
 - [ ] **Provisionamento automático** do tenant ao confirmar pagamento — o motor já existe
       (`BarbershopProvisioningService`); falta trocar o gatilho de "chave de admin" para
       "webhook de pagamento confirmado".
