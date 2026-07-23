@@ -5,14 +5,31 @@ import { applyTheme, currentTheme, type Theme } from "../lib/theme";
 import { RazorLogo } from "./Logo";
 import { IconGem, IconGrid, IconPercent, IconSliders, IconTag, IconUser, IconUsers } from "./Icons";
 
-const NAV = [
-  { to: "/", label: "Painel", icon: <IconGrid />, end: true },
-  { to: "/services", label: "Serviços", icon: <IconTag /> },
-  { to: "/professionals", label: "Profissionais", icon: <IconUser /> },
-  { to: "/customers", label: "Clientes", icon: <IconUsers /> },
-  { to: "/plans", label: "Planos", icon: <IconGem /> },
-  { to: "/commissions", label: "Comissões", icon: <IconPercent /> },
-  { to: "/settings", label: "Configurações", icon: <IconSliders /> },
+// Navegação agrupada pelo que o dono faz — não por "telas do sistema".
+const NAV_GROUPS = [
+  {
+    label: "Operação",
+    items: [
+      { to: "/", label: "Painel", icon: <IconGrid />, end: true },
+      { to: "/customers", label: "Clientes", icon: <IconUsers /> },
+    ],
+  },
+  {
+    label: "Sua barbearia",
+    items: [
+      { to: "/services", label: "Serviços", icon: <IconTag /> },
+      { to: "/professionals", label: "Profissionais", icon: <IconUser /> },
+      { to: "/plans", label: "Planos", icon: <IconGem /> },
+    ],
+  },
+  {
+    label: "Dinheiro",
+    items: [{ to: "/commissions", label: "Comissões", icon: <IconPercent /> }],
+  },
+  {
+    label: "Sistema",
+    items: [{ to: "/settings", label: "Configurações", icon: <IconSliders /> }],
+  },
 ];
 
 export function Layout({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
@@ -33,20 +50,25 @@ export function Layout({ title, actions, children }: { title: string; actions?: 
         <div className="brand">
           <RazorLogo size={24} />
         </div>
-        <span className="nav-label">Menu</span>
+        <span className="brand-tag mono">SISTEMA OPERACIONAL</span>
         <nav className="nav">
-          {NAV.map((n) => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              end={n.end}
-              title={n.label}
-              data-tour={`nav-${n.to.replace("/", "") || "home"}`}
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
-              <span className="ico">{n.icon}</span>
-              <span className="lbl">{n.label}</span>
-            </NavLink>
+          {NAV_GROUPS.map((g) => (
+            <div className="nav-group" key={g.label}>
+              <span className="nav-label">{g.label}</span>
+              {g.items.map((n) => (
+                <NavLink
+                  key={n.to}
+                  to={n.to}
+                  end={n.end}
+                  title={n.label}
+                  data-tour={`nav-${n.to.replace("/", "") || "home"}`}
+                  className={({ isActive }) => (isActive ? "active" : "")}
+                >
+                  <span className="ico">{n.icon}</span>
+                  <span className="lbl">{n.label}</span>
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar-foot">

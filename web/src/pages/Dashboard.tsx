@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Layout } from "../components/Layout";
+import { Cockpit } from "../components/Cockpit";
 import { ActivationChecklist } from "../components/ActivationChecklist";
+import { useAuth } from "../auth/AuthContext";
 import { EmptyState } from "../components/EmptyState";
 import { SkeletonStats, Skeleton } from "../components/Skeleton";
 import { Tour, isTourDone, type TourStep } from "../components/Tour";
@@ -44,6 +46,7 @@ const TOUR: TourStep[] = [
 ];
 
 export function Dashboard() {
+  const { session } = useAuth();
   const fin = useApi<FinancialSummary>(() => api.get("/api/admin/reports/financial"), []);
   const agenda = useApi<AppointmentView[]>(() => api.get("/api/admin/reports/agenda"), []);
   const s = fin.data;
@@ -59,6 +62,8 @@ export function Dashboard() {
 
   return (
     <Layout title="Painel">
+      <Cockpit name={session?.name ?? ""} />
+
       <ActivationChecklist />
 
       <div className="stat-grid" data-tour="kpis">
@@ -66,7 +71,7 @@ export function Dashboard() {
           <SkeletonStats count={4} />
         ) : (
           <>
-            <div className="stat">
+            <div className="stat stat-hero">
               <div className="label">Faturamento de hoje</div>
               <div className="value">{s ? money(s.totalRevenue) : "—"}</div>
               <div className="sub">Ticket médio {s ? money(s.averageTicket) : "—"}</div>
@@ -79,9 +84,9 @@ export function Dashboard() {
               </div>
             </div>
             <div className="stat">
-              <div className="label">Recebido (PIX + presencial)</div>
+              <div className="label">Recebido</div>
               <div className="value">{s ? money(s.payments.pix.value + s.payments.presencial.value) : "—"}</div>
-              <div className="sub">{s ? `${s.payments.pix.count + s.payments.presencial.count} pagamentos` : ""}</div>
+              <div className="sub">{s ? `${s.payments.pix.count + s.payments.presencial.count} pagamentos · PIX + presencial` : ""}</div>
             </div>
             <div className="stat">
               <div className="label">Pendente</div>

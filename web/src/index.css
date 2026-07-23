@@ -223,7 +223,23 @@ select.input { cursor: pointer; }
   padding: 16px var(--space);
   border-bottom: 1px solid var(--border);
 }
-.card-head h3 { font-size: 15px; }
+.card-head h3 {
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* marca diagonal 68° antes do título — assinatura repetida em toda superfície */
+.card-head h3::before {
+  content: "";
+  width: 2px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--border-hi);
+  transform: skewX(-22deg);
+  transition: background 0.3s;
+}
+.card:hover .card-head h3::before { background: var(--edge-gradient); }
 
 /* ---------- Table ---------- */
 .table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 14px; }
@@ -602,6 +618,291 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .switch input:checked + .track { background: var(--accent); }
 .switch input:checked + .track::after { transform: translateX(16px); }
 
+/* ============================================================================
+   ASSINATURA VISUAL (brand book §3 e §9) — o que diferencia o RAZOR de um
+   dashboard genérico: o ângulo de 68°, o glint do gume e movimento "de corte".
+   Princípio: curto, decidido, easing agressivo. Nada de flutuar.
+   ========================================================================== */
+
+/* --- Entrada da página: os blocos entram cortando, em cascata --- */
+@keyframes rz-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.content > * {
+  animation: rz-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.content > *:nth-child(1) { animation-delay: 0.02s; }
+.content > *:nth-child(2) { animation-delay: 0.08s; }
+.content > *:nth-child(3) { animation-delay: 0.14s; }
+.content > *:nth-child(4) { animation-delay: 0.2s; }
+.content > *:nth-child(n + 5) { animation-delay: 0.26s; }
+
+/* --- Glint: a luz que corre no gume da lâmina, a 68°, no hover --- */
+.card,
+.stat {
+  position: relative;
+  overflow: hidden;
+}
+.card::after,
+.stat::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(68deg, transparent 42%, rgba(55, 226, 255, 0.07) 50%, transparent 58%);
+  transform: translateX(-130%);
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card:hover::after,
+.stat:hover::after { transform: translateX(130%); }
+:root[data-theme="light"] .card::after,
+:root[data-theme="light"] .stat::after {
+  background: linear-gradient(68deg, transparent 42%, rgba(47, 81, 230, 0.05) 50%, transparent 58%);
+}
+
+/* --- Título da página com a marca do ângulo --- */
+.topbar h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.topbar h1::before {
+  content: "";
+  width: 3px;
+  height: 20px;
+  border-radius: 2px;
+  background: var(--edge-gradient);
+  transform: skewX(-22deg); /* 68° a partir da horizontal */
+  box-shadow: 0 0 12px rgba(62, 99, 255, 0.45);
+}
+
+/* --- KPIs: o dado é o herói --- */
+.stat .value {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.stat::before { transform-origin: left; animation: rz-draw 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards 0.25s; }
+@keyframes rz-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.stat .label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* --- Sidebar: marca com glint na entrada, nav com indicador vivo --- */
+.brand .brand-word {
+  background: linear-gradient(180deg, #ffffff 40%, #a7adb8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.nav a {
+  transition: background 0.18s, color 0.18s, padding-left 0.18s;
+}
+.nav a:hover { padding-left: 15px; }
+.nav a.active::before { animation: rz-draw-y 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes rz-draw-y {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.nav .ico { transition: color 0.18s, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+.nav a:hover .ico { transform: translateX(1px) scale(1.08); }
+
+/* --- Linhas de tabela e timeline entram em cascata --- */
+.table tbody tr {
+  animation: rz-rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.table tbody tr:nth-child(1) { animation-delay: 0.03s; }
+.table tbody tr:nth-child(2) { animation-delay: 0.06s; }
+.table tbody tr:nth-child(3) { animation-delay: 0.09s; }
+.table tbody tr:nth-child(4) { animation-delay: 0.12s; }
+.table tbody tr:nth-child(n + 5) { animation-delay: 0.15s; }
+/* barra de acento à esquerda no hover da linha */
+.table tbody tr td:first-child { position: relative; }
+.table tbody tr:hover td:first-child::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--edge-gradient);
+}
+.tl-item { animation: rz-rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.tl-item:nth-child(1) { animation-delay: 0.05s; }
+.tl-item:nth-child(2) { animation-delay: 0.1s; }
+.tl-item:nth-child(3) { animation-delay: 0.15s; }
+.tl-item:nth-child(n + 4) { animation-delay: 0.2s; }
+.tl-card { transition: border-color 0.2s, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+.tl-card:hover { transform: translateX(3px); border-color: rgba(62, 99, 255, 0.4); }
+/* o dot pulsa de leve — sinal de "sistema vivo" */
+.tl-item:first-child .tl-dot { animation: rz-pulse 2.6s ease-in-out infinite; }
+@keyframes rz-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(62, 99, 255, 0.5); }
+  50% { box-shadow: 0 0 16px rgba(62, 99, 255, 0.85); }
+}
+
+/* --- Badges com leve presença --- */
+.badge { transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1); }
+.card:hover .badge-plan { transform: scale(1.04); }
+
+@media (prefers-reduced-motion: reduce) {
+  .content > *,
+  .table tbody tr,
+  .tl-item,
+  .stat::before { animation: none; }
+  .card::after,
+  .stat::after { display: none; }
+  .tl-item:first-child .tl-dot { animation: none; }
+}
+
+/* ---------- Cockpit: cabeçalho do Painel ---------- */
+.cockpit {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background:
+    radial-gradient(520px 200px at 0% 0%, rgba(62, 99, 255, 0.1), transparent 70%),
+    linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 90%, #000) 100%);
+}
+:root[data-theme="light"] .cockpit {
+  background:
+    radial-gradient(520px 200px at 0% 0%, rgba(47, 81, 230, 0.08), transparent 70%),
+    var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+/* faixa diagonal 68° — a assinatura estrutural da marca */
+.cockpit::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: 8%;
+  width: 2px;
+  height: 180%;
+  background: var(--edge-gradient);
+  opacity: 0.5;
+  transform: rotate(22deg);
+}
+.cockpit::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: 12%;
+  width: 1px;
+  height: 180%;
+  background: var(--border-hi);
+  transform: rotate(22deg);
+}
+.ck-main { position: relative; z-index: 1; min-width: 0; }
+.ck-date {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
+}
+.ck-title {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 6px 0 6px;
+}
+.ck-title em {
+  font-style: normal;
+  background: var(--edge-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ck-sub { color: var(--text-muted); font-size: 14px; max-width: 52ch; }
+
+.ck-pulse {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.ck-ring {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid var(--border-hi);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+.ck-ring::after {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+.ck-pulse.on .ck-ring { border-color: rgba(37, 211, 102, 0.45); }
+.ck-pulse.on .ck-ring::after {
+  background: var(--green);
+  box-shadow: 0 0 14px var(--green);
+  animation: ck-beat 2.4s ease-in-out infinite;
+}
+.ck-pulse.off .ck-ring { border-color: rgba(245, 166, 35, 0.45); }
+.ck-pulse.off .ck-ring::after { background: var(--amber); box-shadow: 0 0 12px var(--amber); }
+@keyframes ck-beat {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.18); opacity: 0.85; }
+}
+.ck-label { font-size: 9.5px; letter-spacing: 0.14em; color: var(--text-faint); }
+@media (max-width: 700px) {
+  .cockpit { flex-direction: row; align-items: flex-start; padding: 20px; }
+  .cockpit::before, .cockpit::after { display: none; }
+  .ck-sub { display: none; }
+}
+
+/* KPI principal com mais peso que os demais */
+.stat-hero { grid-column: span 1; }
+.stat-hero .value {
+  font-size: 32px;
+  background: linear-gradient(180deg, var(--text) 55%, var(--text-muted) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.stat-hero::before { opacity: 1; }
+
+/* ---------- Sidebar: grupos e tagline ---------- */
+.brand-tag {
+  display: block;
+  font-size: 8.5px;
+  letter-spacing: 0.22em;
+  color: #4a5160;
+  padding: 0 12px 18px;
+  margin-top: -16px;
+}
+.nav-group { display: flex; flex-direction: column; gap: 2px; margin-bottom: 14px; }
+.nav-group .nav-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #444b5a;
+  padding: 0 12px 6px;
+}
+
 /* ---------- Toasts (feedback assíncrono único) ---------- */
 .toast-wrap {
   position: fixed;
@@ -924,6 +1225,10 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   .nav a { justify-content: center; padding: 11px 0; }
   .nav a .lbl { display: none; }
   .nav a.active::before { top: 6px; bottom: 6px; }
+  .brand-tag { display: none; }
+  .nav { flex-direction: row; }
+  .nav-group { flex-direction: row; margin-bottom: 0; }
+  .nav-group .nav-label { display: none; }
   .sidebar-foot { width: 100%; display: flex; justify-content: center; }
   .user-chip { padding: 6px 0; }
   .user-meta { display: none; }
