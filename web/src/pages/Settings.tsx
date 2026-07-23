@@ -1,8 +1,153 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Layout } from "../components/Layout";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
-import type { AdminContact, Barbershop, BotSettings } from "../api/types";
+import type {
+  AdminContact,
+  Barbershop,
+  BotSettings,
+  WhatsAppConnect,
+  WhatsAppStatus,
+} from "../api/types";
+
+function WhatsAppCard() {
+  const [status, setStatus] = useState<WhatsAppStatus | null>(null);
+  const [qr, setQr] = useState<string | null>(null);
+  const [pairing, setPairing] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshStatus = useCallback(async (): Promise<WhatsAppStatus | null> => {
+    try {
+      const s = await api.get<WhatsAppStatus>("/api/admin/whatsapp/status");
+      setStatus(s);
+      if (s.connected) {
+        setQr(null);
+        setPairing(null);
+      }
+      return s;
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Erro ao consultar o WhatsApp.");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshStatus();
+  }, [refreshStatus]);
+
+  // Enquanto o QR está na tela, verifica a conexão a cada 3s até o WhatsApp parear.
+  useEffect(() => {
+    if (!qr) return;
+    const id = setInterval(async () => {
+      const s = await refreshStatus();
+      if (s?.connected) clearInterval(id);
+    }, 3000);
+    return () => clearInterval(id);
+  }, [qr, refreshStatus]);
+
+  const connect = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.post<WhatsAppConnect>("/api/admin/whatsapp/connect");
+      setStatus({ instanceName: r.instanceName, state: r.state, connected: r.state === "open" });
+      if (r.state === "open") {
+        setQr(null);
+        setPairing(null);
+      } else {
+        setQr(r.qrCodeBase64);
+        setPairing(r.pairingCode);
+      }
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Erro ao conectar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disconnect = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post("/api/admin/whatsapp/disconnect");
+      setQr(null);
+      setPairing(null);
+      await refreshStatus();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Erro ao desconectar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const connected = status?.connected ?? false;
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3>Conexão do WhatsApp</h3>
+        {status &&
+          (connected ? (
+            <span className="badge badge-green">● Conectado</span>
+          ) : (
+            <span className="badge badge-amber">● Desconectado</span>
+          ))}
+      </div>
+      <div className="card-pad">
+        {loading ? (
+          <div className="muted">Carregando…</div>
+        ) : (
+          <div className="stack" style={{ maxWidth: 460 }}>
+            <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+              Conecte o número de WhatsApp da barbearia escaneando o QR code pelo app — sem sair daqui.
+            </p>
+
+            {connected ? (
+              <div className="row" style={{ gap: 12 }}>
+                <span className="badge badge-green">WhatsApp conectado ✓</span>
+                <button className="btn btn-danger btn-sm" onClick={disconnect} disabled={busy}>
+                  {busy ? "…" : "Desconectar"}
+                </button>
+              </div>
+            ) : qr ? (
+              <>
+                <img
+                  src={qr}
+                  alt="QR code do WhatsApp"
+                  width={260}
+                  height={260}
+                  style={{ borderRadius: 12, border: "1px solid var(--border)", background: "#fff", padding: 8 }}
+                />
+                <span className="faint" style={{ fontSize: 13 }}>
+                  No celular: WhatsApp → <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> → aponte para o QR.
+                  Ele expira em ~40s; gere um novo se precisar.
+                </span>
+                {pairing && (
+                  <div className="faint" style={{ fontSize: 13 }}>
+                    Código de pareamento: <b>{pairing}</b>
+                  </div>
+                )}
+                <button className="btn btn-ghost btn-sm" onClick={connect} disabled={busy} style={{ alignSelf: "flex-start" }}>
+                  {busy ? "Gerando…" : "Gerar novo QR"}
+                </button>
+              </>
+            ) : (
+              <button className="btn btn-primary" onClick={connect} disabled={busy} style={{ alignSelf: "flex-start" }}>
+                {busy ? "Conectando…" : "Conectar WhatsApp"}
+              </button>
+            )}
+
+            {error && <div className="error">{error}</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function ProfileCard() {
   const { data, loading, error, reload } = useApi<Barbershop>(() => api.get("/api/admin/barbershop"), []);
@@ -235,6 +380,7 @@ function BotCard() {
 export function Settings() {
   return (
     <Layout title="Configurações">
+      <WhatsAppCard />
       <ProfileCard />
       <BotCard />
       <AdminsCard />

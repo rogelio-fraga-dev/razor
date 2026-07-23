@@ -65,6 +65,21 @@ export interface Customer {
   planName: string | null;
 }
 
+export type WhatsAppState = "open" | "connecting" | "close" | "unknown";
+
+export interface WhatsAppStatus {
+  instanceName: string;
+  state: WhatsAppState;
+  connected: boolean;
+}
+
+export interface WhatsAppConnect {
+  instanceName: string;
+  state: WhatsAppState;
+  qrCodeBase64: string | null;
+  pairingCode: string | null;
+}
+
 export interface BotSettings {
   addressText: string | null;
   addressMapsUrl: string | null;
