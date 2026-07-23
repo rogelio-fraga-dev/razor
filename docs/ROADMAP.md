@@ -168,7 +168,11 @@ assinaturas) sem sair do Razor.
       login, Painel (financeiro do dia + agenda), Serviços, Profissionais (+comissão),
       Clientes, Planos, Comissões e Configurações (perfil + **textos do bot** + admins),
       com tema claro/escuro. _(Falta: agenda multiprofissional interativa e assinantes/subscrição.)_
-- [ ] Site/landing **white-label** por barbearia (marca, serviços, endereço, avaliações).
+- [ ] Site/landing **white-label** por barbearia (marca, serviços, endereço, avaliações),
+      servido em **subdomínio próprio**: `<slug>.razor.com.br` (ex.: `barbeariaficticia.razor.com.br`).
+      O tenant é resolvido pelo `Host` header → `slug` → `barbershop_id` (mesmo padrão do
+      `TenantResolver` de WhatsApp). Exige DNS/TLS **wildcard** `*.razor.com.br` e lista de
+      slugs reservados. Detalhes em [`PLATFORM.md §6`](./PLATFORM.md).
 - [ ] Página de **agendamento online** (link próprio) na mesma agenda do bot.
 
 **Pronto quando:** o dono configura e gerencia toda a barbearia por um painel web (config +
@@ -181,11 +185,22 @@ relatórios), usando o WhatsApp apenas para a operação do dia a dia.
 > **Objetivo:** vender e entregar o Razor 100% pela web, sem visita presencial, e dar a
 > você controle total como dono da plataforma. Detalhes em [`PLATFORM.md`](./PLATFORM.md).
 
-- [ ] **Console do Dono (super-admin):** todas as barbearias, MRR, churn, custo por tenant, suporte.
+- [ ] **Planos do SaaS (tiers) + feature gating:** `plan_tier` (Solo/Equipe/Pro) na conta da
+      barbearia, com **bloqueio de features no servidor** por tier (não só na UI). É o que dá
+      sentido aos 3 planos do [`PRICING`](./PRICING.md). ⚠️ **Não** confundir com
+      `subscription_plans` (o clube da barbearia p/ os clientes dela) — ver [`PLATFORM.md §7`](./PLATFORM.md).
+- [ ] **Console do Dono (super-admin):** todas as barbearias, MRR, churn, custo por tenant, suporte
+      (papel `PLATFORM_OWNER` que enxerga através dos tenants).
 - [ ] **Site institucional** `razor.com.br`: proposta, planos, demonstração, prova social, CTA.
+      _(Distinto do site white-label de cada barbearia em `<slug>.razor.com.br` — ver [`PLATFORM.md §6`](./PLATFORM.md).)_
 - [ ] **Cadastro self-service** + **billing do SaaS** (gateway BR: Asaas / Mercado Pago / Stripe; cartão/PIX; recorrência).
-- [ ] **Provisionamento automático** do tenant ao confirmar pagamento.
-- [ ] **Conexão de WhatsApp por QR code remoto** (o que substitui a visita presencial).
+- [ ] **Provisionamento automático** do tenant ao confirmar pagamento — o motor já existe
+      (`BarbershopProvisioningService`); falta trocar o gatilho de "chave de admin" para
+      "webhook de pagamento confirmado".
+- [x] **Conexão de WhatsApp por QR code remoto** (o que substitui a visita presencial) — feito
+      no painel: `/api/admin/whatsapp` (status/connect/disconnect) + card em Configurações.
+- [ ] **Infra de subdomínio:** DNS + TLS **wildcard** `*.razor.com.br` e resolução de tenant
+      por `Host` header (habilita os sites white-label da Fase 3).
 - [ ] Interface `WhatsAppGateway` para trocar Evolution ↔ Cloud API oficial sem reescrever o núcleo.
 
 **Pronto quando:** um barbeiro de outra cidade assina, paga, conecta o WhatsApp por QR e
@@ -227,4 +242,4 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-22 · Documento vivo — atualizado a cada fase concluída._
+_Última atualização: 2026-07-23 · Documento vivo — atualizado a cada fase concluída._

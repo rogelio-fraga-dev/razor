@@ -54,8 +54,13 @@ Cada etapa é **100% remota**:
 1. **Site institucional** (`razor.com.br`) — apresenta o produto, planos, prova social, CTA.
 2. **Cadastro** — cria o tenant (barbearia) e o primeiro usuário admin.
 3. **Pagamento** — gateway brasileiro (Asaas / Mercado Pago / Stripe) com cartão ou PIX; assinatura recorrente.
-4. **Provisionamento automático** — ao confirmar pagamento, o sistema cria o tenant, o banco isolado por `tenant_id`, e a instância de WhatsApp.
-5. **Conexão do WhatsApp por QR code** — o barbeiro **escaneia um QR na própria tela** com o celular da barbearia. É isso que substitui a visita presencial.
+4. **Provisionamento automático** — ao confirmar pagamento, o sistema cria o tenant e a
+   instância de WhatsApp. O isolamento entre barbearias é **por linha** (`barbershop_id`) em
+   **schema compartilhado** — um único banco atende todas as barbearias; **não** há um banco
+   físico por tenant. É o padrão que dilui o custo de infra (ver [PRICING §2.3](./PRICING.md)).
+5. **Conexão do WhatsApp por QR code** — o barbeiro **escaneia um QR na própria tela** com o
+   celular da barbearia. É isso que substitui a visita presencial. ✅ *Já implementado no
+   painel* (`/api/admin/whatsapp` + card "Conexão do WhatsApp" em Configurações).
 6. **Onboarding guiado** — cadastra serviços (preço/duração), barbeiros e horários.
 7. **No ar** — a IA começa a atender no WhatsApp da barbearia.
 
@@ -97,7 +102,47 @@ A **identidade visual** (logo, paleta, tom) para este site está em [BRANDING](.
 
 ---
 
-## 6. O que isso adiciona ao roadmap
+## 6. Domínios: são dois sites diferentes
+
+Não confundir os dois endereços web da plataforma:
+
+| Endereço | Dono | Função | Fase |
+|---|---|---|---|
+| **`razor.com.br`** | Razor (você) | Site **institucional** que vende o SaaS (funil de assinatura) | 4 |
+| **`<slug>.razor.com.br`** (ex.: `barbeariaficticia.razor.com.br`) | cada barbearia | Site **white-label** da barbearia (marca + agendamento online) | 3 |
+
+**Como o subdomínio se resolve (encaixa na arquitetura atual):**
+
+- Cada barbearia já tem um **`slug` único** (`barbershops.slug`) — foi criado justamente para
+  ser identidade de URL. O subdomínio é o próprio slug: `barbeariaficticia.razor.com.br`.
+- O tenant é resolvido pelo **`Host` header** → `slug` → `barbershop_id`, exatamente como o
+  `TenantResolver` já faz hoje para a **instância de WhatsApp** de entrada. É o mesmo padrão,
+  outra chave de entrada.
+- **Infra necessária (nova):** DNS **wildcard** `*.razor.com.br` + certificado **TLS wildcard**,
+  para novos tenants funcionarem sem provisionar DNS/cert um a um.
+- **Slugs reservados:** `www`, `app`, `api`, `admin`, `console` etc. não podem virar barbearia
+  (validar no cadastro; o slug já é `UNIQUE` no banco).
+- **Domínio próprio** (`barbeariaficticia.com.br`, sem o `razor`) fica para depois — exige
+  automação de TLS por domínio (Let's Encrypt). Começar só com subdomínio.
+
+---
+
+## 7. Os dois níveis de "plano" (não confundir)
+
+A palavra *plano* aparece em dois lugares que **não** têm relação:
+
+| | Quem assina | De quem | O que controla | Status |
+|---|---|---|---|---|
+| **Plano do Razor** (Solo/Equipe/Pro) | o **barbeiro** | do Razor | libera **features** do sistema (entitlement/tier) | ⬜ a construir (Fase 4) |
+| **`subscription_plans`** (VIP/Silver) | o **cliente final** | da barbearia | clube de assinatura da barbearia | ✅ existe (catálogo + assinantes) |
+
+O tier do Razor (o que o barbeiro paga) precisa ser um conceito **novo** — provavelmente um
+`plan_tier` em `barbershops` com **feature-gating no servidor**. **Não** reaproveitar a tabela
+`subscription_plans`, que é o clube da barbearia para os clientes dela.
+
+---
+
+## 8. O que isso adiciona ao roadmap
 
 Esta camada vira a **Fase 4 — Plataforma Comercial** no [ROADMAP](./ROADMAP.md), depois do
 multi-tenant (Fase 1) e da gestão (Fase 2/3), porque depende deles existirem. Inclui:
