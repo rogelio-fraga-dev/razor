@@ -65,6 +65,7 @@ export function Agenda() {
 
   return (
     <Layout
+      flush
       title="Agenda"
       actions={
         <div className="chip-row">
@@ -75,8 +76,8 @@ export function Agenda() {
         </div>
       }
     >
-      <div className="card">
-        <div className="card-head">
+      <div className="page-panel">
+        <div className="panel-bar">
           <h3>{LONG_DATE.format(new Date(`${date}T12:00:00`))}</h3>
           <span className="badge badge-muted">{total} {total === 1 ? "agendamento" : "agendamentos"}</span>
         </div>

@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
+import { CommandPalette } from "./components/CommandPalette";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Agenda } from "./pages/Agenda";
@@ -14,7 +15,12 @@ import { Profile } from "./pages/Profile";
 function Protected() {
   const { session } = useAuth();
   if (!session) return <Navigate to="/login" replace />;
-  return <Outlet />;
+  return (
+    <>
+      <CommandPalette />
+      <Outlet />
+    </>
+  );
 }
 
 export default function App() {

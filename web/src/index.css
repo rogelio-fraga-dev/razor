@@ -423,16 +423,18 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   backdrop-filter: blur(12px);
 }
 .topbar h1 { font-size: 19px; }
+/* Full-bleed: a tela É a superfície. Sem max-width nem caixa flutuando no meio. */
 .content {
   width: 100%;
-  max-width: 1440px;
-  margin: 0 auto; /* centrado — nada de vazio gigante à direita */
-  padding: 32px 36px;
+  padding: 22px 26px 26px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 18px;
   flex: 1;
+  min-height: 0;
 }
+/* páginas que são "uma coisa só" (agenda, listas) ocupam toda a altura restante */
+.content.flush { padding: 0; gap: 0; }
 /* glow + grid técnico no fundo da área de conteúdo */
 .main {
   background-image:
@@ -442,12 +444,14 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   background-size: auto, 72px 72px, 72px 72px;
 }
 
-/* ---------- Stats (KPIs) ---------- */
+/* ---------- Stats (KPIs) — bento assimétrico ---------- */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
   gap: 16px;
 }
+@media (max-width: 1180px) { .stat-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .stat-grid { grid-template-columns: 1fr; } }
 .stat {
   position: relative;
   background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 92%, #000) 100%);
@@ -749,16 +753,57 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   .tl-item:first-child .tl-dot { animation: none; }
 }
 
+/* ---------- Painel de página full-bleed (sem card flutuando) ---------- */
+.page-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 26px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raise);
+}
+.panel-bar h3 {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-transform: capitalize;
+}
+.panel-bar h3::before {
+  content: "";
+  width: 2px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--edge-gradient);
+  transform: skewX(-22deg);
+}
+
 /* ============================== AGENDA (calendário) ============================== */
-.cal { --cal-gutter: 62px; overflow-x: auto; }
+.cal {
+  --cal-gutter: 64px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
 .cal-head {
   display: flex;
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 4;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   min-width: 620px;
+  flex-shrink: 0;
 }
 .cal-head .cal-gutter { width: var(--cal-gutter); flex-shrink: 0; }
 .cal-col-head {
@@ -1015,6 +1060,105 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   color: #444b5a;
   padding: 0 12px 6px;
 }
+
+/* ---------- Command palette (⌘K) ---------- */
+.cmdk-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: rgba(5, 6, 9, 0.6);
+  backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 20px 20px;
+}
+.cmdk {
+  width: 100%;
+  max-width: 580px;
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(62, 99, 255, 0.14);
+  animation: toast-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cmdk-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.cmdk-input input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+.cmdk-input input::placeholder { color: var(--text-faint); }
+.cmdk-ico {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: 14px;
+}
+.cmdk-input kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  border: 1px solid var(--border-hi);
+  border-radius: 5px;
+  padding: 2px 6px;
+}
+.cmdk-list { max-height: 46vh; overflow-y: auto; padding: 8px; }
+.cmdk-group {
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 10px 10px 6px;
+}
+.cmdk-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cmdk-item.active { background: var(--accent-soft); }
+.cmdk-label { font-size: 14px; font-weight: 550; }
+.cmdk-hint { font-size: 12.5px; color: var(--text-faint); }
+.cmdk-enter { margin-left: auto; color: var(--text-faint); font-size: 12px; opacity: 0; }
+.cmdk-item.active .cmdk-enter { opacity: 1; color: var(--accent); }
+.cmdk-empty { padding: 24px; text-align: center; color: var(--text-faint); font-size: 14px; }
+
+/* dica do atalho na topbar */
+.kbd-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  background: var(--bg-raise);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.kbd-hint:hover { border-color: var(--accent); color: var(--text); }
+@media (max-width: 760px) { .kbd-hint { display: none; } }
 
 /* ---------- Toasts (feedback assíncrono único) ---------- */
 .toast-wrap {

@@ -33,7 +33,18 @@ const NAV_GROUPS = [
   },
 ];
 
-export function Layout({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
+export function Layout({
+  title,
+  actions,
+  children,
+  flush,
+}: {
+  title: string;
+  actions?: ReactNode;
+  children: ReactNode;
+  /** true = a página ocupa toda a área útil, sem padding nem caixa (agenda, listas). */
+  flush?: boolean;
+}) {
   const { session, logout } = useAuth();
   const [theme, setTheme] = useState<Theme>(currentTheme);
 
@@ -88,6 +99,14 @@ export function Layout({ title, actions, children }: { title: string; actions?: 
           <h1>{title}</h1>
           <div className="row">
             {actions}
+            <button
+              className="kbd-hint"
+              onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))}
+              title="Barra de comandos"
+            >
+              <span>Buscar</span>
+              <kbd>Ctrl K</kbd>
+            </button>
             <button className="iconbtn" onClick={toggleTheme} title="Alternar tema" aria-label="Alternar tema">
               {theme === "dark" ? "☀" : "☾"}
             </button>
@@ -96,7 +115,7 @@ export function Layout({ title, actions, children }: { title: string; actions?: 
             </button>
           </div>
         </header>
-        <div className="content">{children}</div>
+        <div className={`content${flush ? " flush" : ""}`}>{children}</div>
       </div>
     </div>
   );
