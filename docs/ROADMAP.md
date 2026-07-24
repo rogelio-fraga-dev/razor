@@ -511,6 +511,71 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
+### 🛡️ Proteção jurídica, marca e segurança da operação *(fundador solo)*
+
+> **Por que entra no roadmap:** boa parte disto **bloqueia a cobrança** (não se emite nota nem
+> se assina contrato como pessoa física) ou é **irreversível se feito tarde** (alguém registrar
+> "Razor" antes). Não é burocracia paralela — é pré-requisito comercial.
+>
+> ⚠️ *Este documento organiza as ações; não substitui orientação de advogado/contador.*
+
+#### 1. Autoria e propriedade intelectual
+
+- [ ] 🔴 **Registro de marca no INPI** — *prioridade máxima, e a mais sensível ao tempo.* O
+      domínio garante só o endereço; quem registrar o nome na classe certa pode exigir que a
+      gente **pare de usar "Razor"** e perca o domínio. Classe **NCL 42** (software/SaaS).
+      Passos: busca prévia no site do INPI → GRU → protocolo.
+      _Atenção: "razor" é palavra comum em inglês e existe marca conhecida em periféricos de
+      games — vale checar a busca com atenção e ter um **plano B de nome** antes de investir
+      mais em identidade visual._
+- [ ] **Registro de programa de computador no INPI** — gera certidão pública de autoria e data.
+      Protocola-se o **hash** do código-fonte; custo baixo e processo online.
+      _Fazer depois de um marco estável (ex.: fim do beta), para registrar uma versão que valha._
+- [x] **Histórico Git contínuo e limpo** — o repositório já tem trilha completa e mensagens
+      descritivas, com autoria e timestamp do servidor.
+- [ ] **Assinar commits com GPG** — *auditado hoje: os commits **não** estão assinados*
+      (`git log --format='%G?'` → `N`). Gerar chave, cadastrar no GitHub e habilitar
+      `commit.gpgsign = true`; ativar "Vigilant mode" para marcar como *unverified* qualquer
+      commit não assinado em nome do dono.
+
+#### 2. Blindagem jurídica
+
+- [ ] 🔴 **Abrir a empresa (CNPJ)** — **antes da primeira cobrança**. SLU costuma ser o modelo
+      do fundador solo; a responsabilidade fica limitada ao capital, separando o patrimônio
+      pessoal de dívidas ou processos do SaaS. Também é o que permite gateway PJ e nota fiscal.
+- [ ] **Termos de Serviço próprios** (nada de modelo genérico da internet), prevendo:
+      **licença de uso** (o cliente usa o serviço; não recebe o código nem a arquitetura),
+      **limitação de responsabilidade** (danos indiretos, lucros cessantes, indisponibilidade
+      de terceiros — inclusive **banimento de número pelo WhatsApp**, risco real do canal
+      não-oficial: ver [`WHATSAPP_CHANNEL`](./WHATSAPP_CHANNEL.md)), e **proibição de engenharia
+      reversa/scraping/cópia de funcionalidades**.
+- [ ] **Política de Privacidade + LGPD** — o Razor trata dado pessoal de **terceiros** (os
+      clientes das barbearias), então somos **operador** e a barbearia é **controladora**:
+      isso precisa estar escrito, com **contrato de tratamento de dados** no ToS.
+      Implementar: consentimento no cadastro, exportar/excluir meus dados, e retenção definida.
+
+#### 3. Segurança da infraestrutura *(status auditado em 2026-07-23)*
+
+- [ ] **E-mail institucional no domínio + 2FA por app em tudo** (nunca só SMS): GitHub,
+      provedor de nuvem, DNS, gateway de pagamento, OpenAI. Contas hoje provavelmente em
+      e-mail pessoal — migrar antes de crescer.
+- [x] **Sem segredo no front** — auditado: nenhuma chave/API key no `web/src` nem no bundle.
+      Tudo por variável de ambiente no servidor.
+- [x] **Sem source map em produção** — o build do Vite não emite `.map` (confirmado no `dist/`).
+- [x] **CORS restrito por origem** — lista explícita em `razor.security.cors-allowed-origins`,
+      nunca `*`. _(Melhoria: restringir também os headers, hoje `*`.)_
+- [x] **Segredos por variável de ambiente**, com **fail-closed** onde importa
+      (`WEBHOOK_TOKEN`, `ONBOARDING_API_KEY`).
+- [x] **Rate limiting no login** (5 falhas/15 min por email+IP).
+- [ ] **Rate limiting geral da API** — hoje existe **só no login**. Falta limite por
+      IP/tenant nas rotas `/api/admin/**` e no webhook, para barrar scraping e abuso.
+- [ ] **Backup fora da máquina** — o script existe e é testado, mas grava **local**; falta
+      enviar para storage externo e testar restauração periodicamente.
+- [ ] **Rotação de segredos** documentada (JWT, webhook, OpenAI) e checklist de resposta a
+      incidente.
+
+---
+
 ### Fase 5 — Diferenciais de IA 🧠
 
 > **Objetivo:** ampliar a distância para os concorrentes usando nossa cunha.
