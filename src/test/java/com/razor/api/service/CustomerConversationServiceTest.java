@@ -137,13 +137,54 @@ class CustomerConversationServiceTest {
     }
 
     @Test
-    @DisplayName("'menu' envia o menu textual do cliente")
+    @DisplayName("'menu' envia o menu textual do cliente (invariante)")
     void menuCommand_sendsMenu() {
         givenExistingCustomer();
+        givenBotSettings("", "", "", "");
 
         service.processCustomerMessage(textWebhook("menu"), PHONE);
 
-        assertThat(captureClientMessage()).isEqualTo(MenuOptions.getMenuAsText(0));
+        assertThat(captureClientMessage()).isEqualTo(MenuOptions.getMenuAsText("Barbearia Ficticia", 0));
+    }
+
+    @Test
+    @DisplayName("'opções' também abre o menu (invariante do menu)")
+    void opcoesCommand_sendsMenu() {
+        givenExistingCustomer();
+        givenBotSettings("", "", "", "");
+
+        service.processCustomerMessage(textWebhook("opções"), PHONE);
+
+        assertThat(captureClientMessage()).isEqualTo(MenuOptions.getMenuAsText("Barbearia Ficticia", 0));
+    }
+
+    @Test
+    @DisplayName("saudação simples abre como ATENDENTE (não o menu numerado) e cita 'menu'")
+    void greeting_opensConversationalNotMenu() {
+        givenExistingCustomer();
+        givenBotSettings("", "", "", ""); // tenant com nome padrão
+
+        service.processCustomerMessage(textWebhook("oi"), PHONE);
+
+        String out = captureClientMessage();
+        assertThat(out).isNotEqualTo(MenuOptions.getMenuAsText("Barbearia Ficticia", 0)); // não é o menu seco
+        assertThat(out).contains("atendimento").contains("menu");
+    }
+
+    @Test
+    @DisplayName("'oi, quero marcar um corte' NÃO vira saudação — vai para a IA agendar")
+    void greetingWithIntent_goesToAI() {
+        givenExistingCustomer();
+        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getAgendamentosClienteList(PHONE)).thenReturn(List.of());
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any()))
+                .thenReturn("Claro! Pra quando você quer o corte?");
+
+        service.processCustomerMessage(textWebhook("oi, quero marcar um corte"), PHONE);
+
+        // a IA respondeu — não caiu na saudação canned
+        assertThat(captureClientMessage()).isEqualTo("Claro! Pra quando você quer o corte?");
+        verify(openAIService).processCustomerMessage(any(), any(), any(), anyInt(), any());
     }
 
     @Test

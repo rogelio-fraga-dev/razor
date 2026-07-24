@@ -289,23 +289,23 @@ public class CustomerConversationService {
             return;
         }
 
-        // 4. Comando "menu" explícito — SEMPRE funciona
-        if (msgLower.equals("menu")) {
+        // 4. Menu explícito — SEMPRE funciona (invariante: "menu"/"opções"/"comandos").
+        if (isMenuRequest(msgLower)) {
             log.info("[SISTEMA] Enviando Menu Textual para o Cliente: {}", phoneNumber);
             int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
-            saveAndSend(customer, MenuOptions.getMenuAsText(points), phoneNumber);
+            String nome = barbershopSettingsService.resolve().displayName();
+            saveAndSend(customer, MenuOptions.getMenuAsText(nome, points), phoneNumber);
             return;
         }
 
-        // 5. Saudações — exibe menu APENAS se não há conversa recente com a IA
-        //    Isso evita que "Oi, me chamo João" quebre o fluxo de agendamento
-        if (cState == null && pendingOffer.isEmpty() && !hasRecentIAConversation(customer.getId())) {
-            if (msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
-                log.info("[SISTEMA] Saudação detectada sem conversa ativa, enviando Menu para: {}", phoneNumber);
-                int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
-                saveAndSend(customer, MenuOptions.getMenuAsText(points), phoneNumber);
-                return;
-            }
+        // 5. Abertura conversacional: um cliente ocioso que só cumprimenta é recebido como por
+        //    um ATENDENTE — não com o menu numerado. "Oi, quero marcar" tem mais que saudação,
+        //    então NÃO cai aqui: vai direto para a IA fazer o agendamento.
+        if (cState == null && pendingOffer.isEmpty() && !hasRecentIAConversation(customer.getId())
+                && isPureGreeting(msgLower)) {
+            log.info("[SISTEMA] Saudação de cliente ocioso — abertura conversacional para: {}", phoneNumber);
+            saveAndSend(customer, buildWelcome(), phoneNumber);
+            return;
         }
 
         // 6. Tratamento das Opções do Menu Numérico e Palavras-chave
@@ -587,6 +587,42 @@ public class CustomerConversationService {
     private void saveAndSend(Customer customer, String content, String phone) {
         interactionRepository.save(Interaction.builder().barbershopId(customer.getBarbershopId()).customer(customer).type(Interaction.InteractionType.BOT).content(content).build());
         sendMsg(phone, content, "CLIENTE");
+    }
+
+    /** Invariante do menu: "menu", "opções" ou "comandos" SEMPRE abrem o menu completo. */
+    private boolean isMenuRequest(String msgLower) {
+        String t = msgLower.trim();
+        return t.equals("menu") || t.equals("opcoes") || t.equals("opções")
+                || t.equals("opcao") || t.equals("opção") || t.equals("comandos")
+                || t.equals("ver opcoes") || t.equals("ver opções") || t.equals("ver menu");
+    }
+
+    /**
+     * True apenas quando a mensagem e SO uma saudacao curta ("oi", "bom dia").
+     * "Oi, quero marcar um corte" tem intencao alem do cumprimento — vai para a IA agendar.
+     */
+    private boolean isPureGreeting(String msgLower) {
+        String t = msgLower.trim().replaceAll("[!.,?]+$", "");
+        if (t.isEmpty() || t.length() > 24) return false;
+        if (t.matches(".*(marcar|agendar|corte|barba|horario|horário|preco|preço|servico|serviço|cancelar).*")) {
+            return false;
+        }
+        return t.matches("^(oi+|ola|olá|opa|eae|e ai|e aí|salve|fala|fala ai|bom dia|boa tarde|"
+                + "boa noite|tudo bem|tudo bom|beleza|blz|hey|hello|hi|hola)( .*)?$");
+    }
+
+    /**
+     * Saudacao de abertura no tom de atendente, com o nome do tenant — ou o texto de boas-vindas
+     * que o dono configurou (welcomeText, V15). O menu continua a um "menu" de distancia.
+     */
+    private String buildWelcome() {
+        BarbershopSettingsService.BotSettings bot = barbershopSettingsService.resolve();
+        if (bot.welcomeText() != null && !bot.welcomeText().isBlank()) {
+            return bot.welcomeText();
+        }
+        return "Opa! 👋 Aqui é o atendimento da *" + bot.displayName() + "*.\n\n"
+                + "Posso marcar um horário pra você — é só me dizer *o dia* e *o serviço* que quer. 💈\n\n"
+                + "_Se preferir ver tudo que dá pra fazer por aqui, é só digitar *menu*._";
     }
 
     private List<String> getRecentHistory(java.util.UUID customerId) {

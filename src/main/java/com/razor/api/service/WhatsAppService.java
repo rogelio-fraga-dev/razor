@@ -60,10 +60,6 @@ public class WhatsAppService {
         });
     }
 
-    public void sendMenuList(String phone, int points) {
-        sendTextMessage(phone, MenuOptions.getMenuAsText(points));
-    }
-
     /**
      * Envia lista interativa (Botões) — sincrono, entao a instancia do tenant e resolvida direto.
      */

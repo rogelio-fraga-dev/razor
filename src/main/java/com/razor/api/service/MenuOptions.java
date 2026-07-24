@@ -86,8 +86,8 @@ public final class MenuOptions {
         }
     }
 
-    public static String getMenuAsText(int points) {
-        return "💈 *Menu Barbearia Ficticia*\n\n" +
+    public static String getMenuAsText(String barbershopName, int points) {
+        return "💈 *Menu " + barbershopName + "*\n\n" +
                "1️⃣ Agendar Horário 📅\n" +
                "2️⃣ Meus Agendamentos (Ver/Cancelar)\n" +
                "3️⃣ Horários Disponíveis 🕒\n" +

@@ -394,4 +394,29 @@ conexão do WhatsApp (moldura com corte 68°) · assinatura de e-mail · reposit
 
 ---
 
-_Documento vivo · v2 · 2026-07-23_
+## 18. Estratégia de Marca & Contingência INPI (Plano B Oficial: SHARP OS)
+
+> **Nota de Proteção Intelectual (2026-07-24):** A disponibilidade do domínio `razortecnologia.com.br` no Registro.br foi confirmada para o Plano A. Como contingência oficial para o INPI, foi selecionada a marca **SHARP OS** (`sharpos.com.br`).
+
+### 18.1 Plano B Escolhido: **SHARP / SHARP OS**
+
+- **Nome Comercial de Contingência**: **SHARP OS**
+- **Domínio Principal de Contingência**: `sharpos.com.br`
+- **Slogan / Tagline**: *"Agenda precisa. Corte impecável. Faturamento afiado."*
+- **Etimologia & Racional**: Do inglês *Sharp* (afiado, preciso, elegante - *"looking sharp"*). Conecta diretamente a precisão do corte do barbeiro à precisão cirúrgica da automação e IA.
+- **Adaptação da Identidade Visual**:
+  - **Símbolo**: **Diamond Edge** — paralelogramo/losango afiado a 68° com brilho ciano (`#37E2FF`) refletido nas arestas.
+  - **Linguagem**: *Sharp Grid* — superfícies escovadas, tipografia mono em KPIs e alto contraste prateado (`#E9EBEF`) sobre Obsidian (`#0A0A0C`).
+  - **Transição Nula**: Preserva 100% da arquitetura CSS, tokens de cor, tipografia e animações já desenvolvidas para o Brand Book v2.
+
+### 18.2 Protocolo de Ativação do Plano B
+Caso haja oposição ou indeferimento da marca RAZOR no INPI:
+1. Ativação imediata do domínio `sharpos.com.br`.
+2. O domínio `razortecnologia.com.br` será mantido como alias/redirecionamento técnico.
+3. Substituição da marca nominativa no `wordmark` para `SHARP OS`, mantendo o código-fonte e toda a estrutura visual intacta.
+
+---
+
+_Documento vivo · v2.2 · 2026-07-24_
+
+
