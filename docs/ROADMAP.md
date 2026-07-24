@@ -583,10 +583,12 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 - [x] **Admin fala natural** — o dono não precisa decorar o menu: "manda um aviso",
       "quem vem hoje?", "disparar promoção" viram ação (`AdminIntentResolver`).
       Saudação responde com o resumo do dia; texto não entendido **ensina por exemplo**.
-- [ ] 🎯 **Cliente 100% conversacional (tirar o menu do caminho)** — hoje o cliente novo
-      recebe o menu numerado; deve receber uma **saudação de atendente** ("Oi! Sou do
-      atendimento da *X*, posso marcar um horário pra você?"). Regra: **nunca** abrir a
-      conversa com "digite 1".
+- [x] **Cliente conversacional na abertura** — cliente novo/ocioso que só cumprimenta é
+      recebido como por um **atendente** (nome da barbearia + convite para dizer dia e
+      serviço), não com o menu numerado. "Oi, quero marcar" já vai direto para a IA.
+      _(De quebra: `MenuOptions` tinha o nome "Barbearia Ficticia" cravado — corrigido para
+      usar o nome do tenant.)_ Falta o passo mais fino: a **primeira** mensagem da IA também
+      soar como atendente (hoje a abertura é determinística; a IA entra da 2ª em diante).
 
 > 📱 **Regra dos dois números (documentar no onboarding e validar no wizard):**
 > - **Número do BOT** = o **da barbearia** — é o que aparece para o cliente e o que é pareado
