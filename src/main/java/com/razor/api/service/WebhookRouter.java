@@ -2,15 +2,14 @@ package com.razor.api.service;
 
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.repository.InteractionRepository;
+import com.razor.api.state.StateKeys;
+import com.razor.api.state.StateStore;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.tenant.TenantResolver;
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
@@ -28,6 +27,9 @@ public class WebhookRouter {
     // — nao devem ser respondidas (evita o bot "acordar" respondendo conversas velhas).
     private static final long MAX_MESSAGE_AGE_SECONDS = 300;
 
+    /** Janela de deduplicacao: a Evolution pode reentregar o mesmo evento. */
+    private static final Duration DEDUP_TTL = Duration.ofMinutes(20);
+
     private final CustomerService customerService;
     private final InteractionRepository interactionRepository;
     private final AdminCommandService adminCommandService;
@@ -35,15 +37,7 @@ public class WebhookRouter {
     private final TenantResolver tenantResolver;
     private final TenantAdminService tenantAdminService;
     private final BarbershopSettingsService barbershopSettingsService;
-
-    // Instancia, nao static: servico singleton (mesmo comportamento) e testes isolados.
-    private final Map<String, LocalDateTime> processedMessageIds = new ConcurrentHashMap<>();
-
-    @Scheduled(fixedRate = 600000)
-    public void clearProcessedCache() {
-        LocalDateTime limit = LocalDateTime.now().minusMinutes(20);
-        processedMessageIds.entrySet().removeIf(entry -> entry.getValue().isBefore(limit));
-    }
+    private final StateStore stateStore;
 
     @Async
     public void processWebhook(EvolutionWebhookDTO webhook) {
@@ -122,11 +116,14 @@ public class WebhookRouter {
 
     private boolean isDuplicateMessage(EvolutionWebhookDTO webhook) {
         String messageId = webhook.getData().getKey().getId();
-        if (messageId != null) {
-            if (processedMessageIds.putIfAbsent(messageId, LocalDateTime.now()) != null) return true;
-            return interactionRepository.existsByMessageId(messageId);
-        }
-        return false;
+        if (messageId == null) return false;
+
+        String key = StateKeys.dedup(messageId);
+        if (stateStore.get(key, Boolean.class).isPresent()) return true; // ja visto na janela
+        stateStore.put(key, Boolean.TRUE, DEDUP_TTL);
+
+        // Segunda barreira: mensagem ja persistida (sobrevive a restart, ao contrario do cache).
+        return interactionRepository.existsByMessageId(messageId);
     }
 
 }

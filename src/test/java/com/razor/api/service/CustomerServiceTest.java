@@ -36,6 +36,10 @@ class CustomerServiceTest {
 
     @Mock private CustomerRepository customerRepository;
     @Mock private SubscriptionPlanRepository subscriptionPlanRepository;
+    // Store REAL (nao mock): estes testes exercitam pausa/expiracao de verdade.
+    @org.mockito.Spy
+    private com.razor.api.state.StateStore stateStore =
+            new com.razor.api.state.InMemoryStateStore(new com.fasterxml.jackson.databind.ObjectMapper());
     @InjectMocks private CustomerService service;
 
     @AfterEach

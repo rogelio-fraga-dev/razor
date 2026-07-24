@@ -43,6 +43,10 @@ class WebhookRouterTest {
     @Mock private TenantResolver tenantResolver;
     @Mock private TenantAdminService tenantAdminService;
     @Mock private BarbershopSettingsService barbershopSettingsService;
+    // Store REAL: a deduplicacao depende de gravar/ler de verdade.
+    @org.mockito.Spy
+    private com.razor.api.state.StateStore stateStore =
+            new com.razor.api.state.InMemoryStateStore(new com.fasterxml.jackson.databind.ObjectMapper());
 
     @InjectMocks private WebhookRouter router;
 

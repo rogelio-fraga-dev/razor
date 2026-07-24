@@ -4,17 +4,19 @@ import com.razor.api.model.Customer;
 import com.razor.api.model.SubscriptionPlan;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.SubscriptionPlanRepository;
+import com.razor.api.state.StateKeys;
+import com.razor.api.state.StateStore;
 import com.razor.api.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -25,14 +27,8 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
-
-    // Memória viva: Guarda a pausa de cada cliente, chaveada por tenant+telefone
-    // (o mesmo telefone pode existir em barbearias diferentes).
-    private final Map<String, LocalDateTime> pausedCustomers = new ConcurrentHashMap<>();
-
-    private String pauseKey(String phoneNumber) {
-        return TenantContext.getCurrent() + "|" + phoneNumber;
-    }
+    /** Pausa do bot por cliente — no StateStore (chave ja escopada por tenant). */
+    private final StateStore stateStore;
 
     public Customer findOrCreateCustomer(String phoneNumber, String name) {
         UUID shopId = TenantContext.getCurrent();
@@ -92,36 +88,24 @@ public class CustomerService {
     }
 
     public void pauseCustomer(String phoneNumber, int minutes) {
-        pausedCustomers.put(pauseKey(phoneNumber), LocalDateTime.now().plusMinutes(minutes));
+        // O proprio TTL expira a pausa — nao ha mais varredura manual de vencidos.
+        stateStore.put(StateKeys.pause(phoneNumber), Boolean.TRUE, Duration.ofMinutes(minutes));
         log.info("Pausando cliente {} por {} minutos", phoneNumber, minutes);
     }
 
     public void resumeCustomer(String phoneNumber) {
-        pausedCustomers.remove(pauseKey(phoneNumber));
+        stateStore.remove(StateKeys.pause(phoneNumber));
         log.info("Retomando cliente {}", phoneNumber);
     }
 
     public boolean isCustomerPaused(String phoneNumber) {
-        String key = pauseKey(phoneNumber);
-        LocalDateTime unpauseTime = pausedCustomers.get(key);
-        if (unpauseTime != null) {
-            if (LocalDateTime.now().isAfter(unpauseTime)) {
-                pausedCustomers.remove(key); // O tempo expirou, tira da pausa
-                return false;
-            }
-            return true; // Ainda está pausado
-        }
-        return false;
+        return stateStore.get(StateKeys.pause(phoneNumber), Boolean.class).isPresent();
     }
 
-    // Retorna os telefones pausados DO TENANT ATUAL para o administrador escolher
+    /** Telefones pausados DO TENANT ATUAL (as chaves ja carregam o tenant). */
     public List<String> getPausedPhones() {
-        // Primeiro limpa os que já venceram o tempo
-        pausedCustomers.entrySet().removeIf(e -> LocalDateTime.now().isAfter(e.getValue()));
-        String prefix = TenantContext.getCurrent() + "|";
-        return pausedCustomers.keySet().stream()
-                .filter(k -> k.startsWith(prefix))
-                .map(k -> k.substring(prefix.length()))
+        return stateStore.keysWithPrefix(StateKeys.pausePrefix()).stream()
+                .map(StateKeys::phoneFromPauseKey)
                 .collect(Collectors.toList());
     }
 
