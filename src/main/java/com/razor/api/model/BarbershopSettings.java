@@ -89,6 +89,10 @@ public class BarbershopSettings {
     @Column(name = "bot_persona", columnDefinition = "text")
     private String botPersona;
 
+    /** Quando o resumo de boas-vindas foi enviado ao dono (V17). NULL = ainda nao enviado. */
+    @Column(name = "welcome_brief_sent_at")
+    private LocalDateTime welcomeBriefSentAt;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

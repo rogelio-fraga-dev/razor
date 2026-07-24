@@ -4,7 +4,9 @@ import com.razor.api.config.RazorProperties;
 import com.razor.api.dto.BotSettingsPayload;
 import com.razor.api.dto.BotStatusResponse;
 import com.razor.api.dto.WhatsAppStatusResponse;
+import com.razor.api.model.BarbershopSettings;
 import com.razor.api.service.BarbershopSettingsService;
+import com.razor.api.service.WelcomeBriefService;
 import com.razor.api.service.WhatsAppConnectionService;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -19,6 +21,7 @@ public class AdminBotSettingsController {
 
     private final BarbershopSettingsService barbershopSettingsService;
     private final WhatsAppConnectionService whatsAppConnectionService;
+    private final WelcomeBriefService welcomeBriefService;
     private final RazorProperties properties;
 
     @GetMapping
@@ -28,7 +31,10 @@ public class AdminBotSettingsController {
 
     @PutMapping
     public BotSettingsPayload update(@Valid @RequestBody BotSettingsPayload req) {
-        return BotSettingsPayload.from(barbershopSettingsService.update(req));
+        BarbershopSettings saved = barbershopSettingsService.update(req);
+        // Na 1a configuracao, manda o resumo de boas-vindas ao dono (idempotente).
+        welcomeBriefService.maybeSendAfterConfig(saved);
+        return BotSettingsPayload.from(saved);
     }
 
     /** Saude do bot: WhatsApp conectado? IA configurada? Bot ligado? — a confirmacao de "esta ok". */
