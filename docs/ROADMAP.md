@@ -119,8 +119,11 @@ existe porque hoje não há testes nem CI, e refatorar/escalar sem essa rede de 
       em memória; **os 12 mapas `ConcurrentHashMap` saíram**. O TTL substituiu duas rotinas de
       limpeza (`clearZombieCustomerStates`, `clearProcessedCache`) e fechou um vazamento (oferta
       de lista de espera vivia para sempre). Chaves escopadas por tenant.
-- [ ] **Parte 3:** adaptador **Redis** (`razor.state.store=redis`) + IT com Testcontainers
-      rodando a **mesma bateria de contrato** do `InMemoryStateStoreTest`.
+- [x] **Parte 3:** adaptador **Redis** (`razor.state.store=redis`, padrão segue `memory`) —
+      estado compartilhado entre instâncias e persistente no restart; TTL nativo do Redis e
+      `keysWithPrefix` por **SCAN** (nunca `KEYS`). `RedisStateStoreIT` valida o contrato
+      (round-trip, lista, expiração, remoção, prefixo) contra Redis real via Testcontainers no
+      CI. Health do Redis desligado por padrão para não ficar DOWN sem Redis.
 
 ---
 
@@ -619,8 +622,9 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 > **Objetivo:** aguentar muitas barbearias com confiança operacional.
 
-- [ ] Tirar o estado da conversa da memória (hoje em `static Map`) → Redis/DB,
-      habilitando múltiplas instâncias e zero perda de contexto ao reiniciar.
+- [x] Tirar o estado da conversa da memória → **Redis** (`razor.state.store=redis`),
+      habilitando múltiplas instâncias e zero perda de contexto ao reiniciar. _(Ver Fundação
+      → StateStore parte 3.)_
 - [ ] Observabilidade (métricas, tracing, alertas de custo por tenant).
 - [ ] Otimização de custo de IA (roteamento `gpt-4o-mini` + prompt caching — ver [`PRICING.md`](./PRICING.md)).
 
@@ -639,4 +643,4 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-24 (tela de folgas, 5 modos de fala, boas-vindas ao dono, wizard de configuração) · Documento vivo._
+_Última atualização: 2026-07-24 (tela de folgas, 5 modos de fala, boas-vindas ao dono, wizard de configuração, StateStore Redis) · Documento vivo._
