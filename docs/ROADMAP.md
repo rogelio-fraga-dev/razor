@@ -469,6 +469,17 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
       atendimento da *X*, posso marcar um horário pra você?"). Regra: **nunca** abrir a
       conversa com "digite 1".
 
+> 📱 **Regra dos dois números (documentar no onboarding e validar no wizard):**
+> - **Número do BOT** = o **da barbearia** — é o que aparece para o cliente e o que é pareado
+>   pelo QR code. Idealmente um chip/WhatsApp **só da barbearia**.
+> - **Número do ADMIN** = o **pessoal do dono** (e da equipe), cadastrado em *Equipe & acesso*.
+>   É por ele que o dono comanda o bot e recebe os alertas.
+>
+> Não é só recomendação: se o admin usar **o mesmo número do bot**, as mensagens dele chegam
+> ao webhook marcadas como `fromMe` e são **descartadas na triagem** — ele nunca conseguiria
+> dar um comando. **A fazer:** bloquear no wizard/onboarding cadastrar como admin o mesmo
+> número conectado como bot, com mensagem explicando o porquê.
+
 > 🔒 **Invariante do menu (vale para CLIENTE e ADMIN):** quem digitar **"menu"** — ou
 > "opções", "comandos" — **sempre** recebe o menu completo. O menu não é eliminado, é
 > **rebaixado de porta de entrada para atalho sob demanda**. Ele continua sendo também o

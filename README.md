@@ -62,6 +62,18 @@ fidelidade e pedir para **falar com um humano** (o bot se cala por 15 min e avis
 O celular **não é um painel menor** — é o controle rápido. Qualquer telefone cadastrado como admin
 da barbearia cai neste fluxo (inclusive por **comando de voz**, transcrito pelo Whisper).
 
+> **📱 São dois números diferentes — e precisam ser:**
+> | | Qual número | Papel |
+> |---|---|---|
+> | **Bot** | o **da barbearia** (idealmente um WhatsApp só dela) | é o que o cliente vê e o que se pareia pelo QR |
+> | **Admin** | o **pessoal do dono** / da equipe | comanda o bot e recebe os alertas |
+>
+> Se o admin usar o **mesmo** número do bot, as mensagens dele chegam como `fromMe` e são
+> descartadas na triagem — ele não conseguiria dar nenhum comando.
+
+O admin **não precisa decorar comandos**: fala natural (*"agenda de hoje"*, *"manda um aviso"*,
+*"pausar cliente"*). Digitar **`menu`** sempre mostra a lista completa.
+
 Digitando `menu`, o dono recebe:
 
 ```
