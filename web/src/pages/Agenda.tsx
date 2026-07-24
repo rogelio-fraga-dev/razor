@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Layout } from "../components/Layout";
 import { EmptyState } from "../components/EmptyState";
 import { Skeleton } from "../components/Skeleton";
+import { ScheduleBlocksModal } from "../components/ScheduleBlocksModal";
 import { useApi } from "../lib/useApi";
 import { api } from "../api/client";
 import type { AppointmentView, PaymentStatus, Professional } from "../api/types";
@@ -40,6 +41,7 @@ const UNASSIGNED = "__none__";
 
 export function Agenda() {
   const [date, setDate] = useState(todayIso());
+  const [showBlocks, setShowBlocks] = useState(false);
   const agenda = useApi<AppointmentView[]>(() => api.get(`/api/admin/reports/agenda?date=${date}`), [date]);
   const pros = useApi<Professional[]>(() => api.get("/api/admin/professionals"), []);
 
@@ -73,6 +75,7 @@ export function Agenda() {
           <button className={`chip-btn ${isToday ? "active" : ""}`} onClick={() => setDate(todayIso())}>Hoje</button>
           <button className="chip-btn" onClick={() => setDate(addDays(date, 1))} aria-label="Próximo dia">›</button>
           <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 158, padding: "6px 10px" }} />
+          <button className="chip-btn" onClick={() => setShowBlocks(true)}>🌴 Folgas</button>
         </div>
       }
     >
@@ -177,6 +180,10 @@ export function Agenda() {
           </div>
         )}
       </div>
+
+      {showBlocks && (
+        <ScheduleBlocksModal onClose={() => setShowBlocks(false)} onChanged={() => agenda.reload()} />
+      )}
     </Layout>
   );
 }

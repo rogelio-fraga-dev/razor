@@ -67,6 +67,19 @@ export interface Customer {
 
 export type WhatsAppState = "open" | "connecting" | "close" | "unknown";
 
+/** Folga / bloqueio de agenda. `date` (pontual) OU `weekday` (0=dom … 6=sáb, recorrente).
+ *  Horários nulos = dia inteiro. `professionalId` nulo = barbearia inteira. */
+export interface ScheduleBlock {
+  id: string;
+  professionalId: string | null;
+  professionalName: string | null;
+  date: string | null;
+  weekday: number | null;
+  startTime: string | null;
+  endTime: string | null;
+  reason: string | null;
+}
+
 export interface BotStatus {
   instanceName: string;
   whatsappState: WhatsAppState;
