@@ -287,10 +287,12 @@ select.input { cursor: pointer; }
 .badge-plan { background: var(--plasma-soft); color: var(--plasma); }
 
 /* ============================== LAYOUT ============================== */
+/* Shell do tamanho da viewport: o scroll acontece DENTRO (uma barra só). */
 .app {
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* ---------- Sidebar (obsidian fixa nos dois temas) ---------- */
@@ -408,7 +410,15 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .user-mail { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- Main / topbar / content ---------- */
-.main { display: flex; flex-direction: column; min-width: 0; }
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto; /* páginas normais rolam aqui — barra única */
+}
+/* páginas flush (agenda): quem rola é o painel interno, não a página */
+.main-flush { overflow: hidden; }
 .topbar {
   position: sticky;
   top: 0;
@@ -1061,6 +1071,87 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   padding: 0 12px 6px;
 }
 
+/* ---------- Listas interativas (substituem tabelas genéricas) ---------- */
+.rowlist { display: flex; flex-direction: column; }
+.rowitem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 26px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  transition: background 0.15s;
+  animation: rz-rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.rowitem:last-child { border-bottom: none; }
+.rowitem:hover { background: var(--surface-2); }
+/* fio de acento no hover — a assinatura de 68° */
+.rowitem::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--edge-gradient);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.rowitem:hover::before { opacity: 1; }
+
+.rw-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border-hi);
+  flex-shrink: 0;
+}
+.rowitem:hover .rw-avatar { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.rw-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.rw-title { font-weight: 600; font-size: 14.5px; display: flex; align-items: center; gap: 8px; }
+.rw-meta {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.rw-meta .mono { font-size: 12px; }
+.rw-side { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+/* ações aparecem no hover (contextuais), mas continuam acessíveis por teclado */
+.rw-actions { opacity: 0; transition: opacity 0.15s; }
+.rowitem:hover .rw-actions,
+.rw-actions:focus-within { opacity: 1; }
+@media (hover: none) { .rw-actions { opacity: 1; } }
+
+/* barra de ferramentas da lista */
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 26px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raise);
+  flex-wrap: wrap;
+}
+.list-count { margin-left: auto; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint); }
+
+@media (max-width: 620px) {
+  .rowitem { padding: 12px 14px; }
+  .list-toolbar { padding: 10px 14px; }
+  .rw-side { width: 100%; justify-content: flex-start; padding-left: 50px; }
+  .rowitem { flex-wrap: wrap; }
+}
+
 /* ---------- Command palette (⌘K) ---------- */
 .cmdk-overlay {
   position: fixed;
@@ -1488,6 +1579,9 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 /* Tablet/celular: sidebar vira RAIL de ícones (premium, sem quebrar em linha) */
 @media (max-width: 860px) {
   :root { --sidebar-w: 64px; }
+  /* no celular o rail fica no topo e a página volta a rolar normalmente */
+  .app { height: auto; min-height: 100vh; overflow: visible; }
+  .main, .main-flush { overflow: visible; }
   .sidebar { padding: 16px 10px; align-items: center; }
   .brand { padding: 4px 0 20px; justify-content: center; }
   .brand .brand-word { display: none; }

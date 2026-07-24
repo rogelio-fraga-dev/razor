@@ -94,7 +94,7 @@ export function Layout({
         </div>
       </aside>
 
-      <div className="main">
+      <div className={`main${flush ? " main-flush" : ""}`}>
         <header className="topbar">
           <h1>{title}</h1>
           <div className="row">

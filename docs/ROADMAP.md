@@ -155,6 +155,60 @@ assinaturas) sem sair do Razor.
 
 ---
 
+#### 🎯 Paridade competitiva — análise da lista de features da Frizzar (2026-07)
+
+> **Leitura crítica:** a lista pública da Frizzar tem ~45 itens, mas boa parte é
+> **conteúdo/serviço** (escola de formação, treinamentos em vídeo, central de apoio,
+> "Q.G do gestor"), não software. Perseguir todos os bullets antes de ter clientes é a
+> armadilha clássica. A ordem abaixo é por **o que realmente impede um barbeiro de trocar**.
+
+**🔴 Bloqueadores de troca (fazer antes de vender em escala)**
+
+- [ ] **Caixa: abertura/fechamento + comandas** — o ritual diário da barbearia. Comanda por
+      atendimento (serviços + produtos), fechamento com conferência, sangria/suprimento.
+- [ ] **Folgas e bloqueios de agenda** — sem isso a IA agenda em cima de folga/almoço/feriado.
+      Por profissional, pontual ou recorrente. _(Pré-requisito da agenda confiável.)_
+- [ ] **Pacotes** (ex.: 10 cortes pré-pagos) com **baixa automática** no atendimento —
+      diferente do clube (recorrência); é crédito pré-pago.
+- [ ] **Múltiplas formas de pagamento** por atendimento (dinheiro, débito, crédito, PIX,
+      split) — hoje só PIX/presencial/pendente.
+- [ ] **Limite de agendamentos por cliente** — impede o cliente de reservar vários horários
+      "para garantir" e travar a agenda. _(Boa ideia da Frizzar; barato de implementar.)_
+
+**🟠 Alto valor (diferenciam na venda)**
+
+- [ ] **DRE + taxa de ocupação + frequência de clientes** — as métricas que o dono usa para
+      decidir. Ocupação = horas vendidas / horas disponíveis por barbeiro.
+- [ ] **Contas a pagar e contas recorrentes** (aluguel, produtos, energia) — fecha o
+      financeiro de verdade, não só a receita.
+- [ ] **Estoque**: produtos, estoque mínimo com alerta, **baixa automática** na venda.
+- [ ] **Vales e adiantamentos** dos profissionais, descontados na comissão.
+- [ ] **Comissão por produto e por serviço avulso** + **comissões pagas** (histórico de
+      quitação) — complementa o `commission_percent` atual.
+- [ ] **Grupos de clientes por tags** + **status do cliente** (ativo/sumido/novo) — munição
+      para os disparos que já temos.
+- [ ] **Cobrança antecipada** e **controle de débitos/créditos** do cliente.
+
+**🟡 Desejáveis (depois da tração)**
+
+- [ ] Metas de performance por profissional · Cashback · Checkout express ·
+      Reagendamento self-service pelo cliente · Auditoria de agendamentos apagados ·
+      Avaliação/pesquisa de satisfação estruturada (hoje só o pedido de review) ·
+      Relatório de vendas por período/produto.
+
+**🔵 Fora de escopo por ora (decisão consciente)**
+
+- **Emissão de notas (NFS-e)**: integração fiscal por município, alto custo/manutenção —
+  avaliar via parceiro (ex.: Focus NFe) só quando houver demanda paga.
+- **Escola/treinamentos/central de apoio**: isso é *conteúdo e suporte*, não produto.
+  Nosso equivalente inicial: onboarding guiado no painel + suporte por WhatsApp.
+
+**✅ Onde já estamos à frente:** atendimento por **IA conversacional** (eles têm chatbot
+roteirizado), agendamento por áudio (Whisper), lista de espera reativa automática,
+"app sem download" nativo (o WhatsApp que o cliente já usa) e o site white-label incluso.
+
+---
+
 ### Fase 3 — Painel Web & Site da Barbearia 🌐 *(🎯 próxima)*
 
 > **Objetivo:** dar ao dono da barbearia uma gestão web de verdade (paridade com
