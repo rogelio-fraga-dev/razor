@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.razor.api.dto.BotSettingsPayload;
 import com.razor.api.model.BarbershopSettings;
 import com.razor.api.service.BarbershopSettingsService;
+import com.razor.api.service.WelcomeBriefService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +23,7 @@ import org.mockito.quality.Strictness;
 class AdminBotSettingsControllerTest {
 
     @Mock private BarbershopSettingsService barbershopSettingsService;
+    @Mock private WelcomeBriefService welcomeBriefService;
     @InjectMocks private AdminBotSettingsController controller;
 
     @Test
@@ -36,14 +38,15 @@ class AdminBotSettingsControllerTest {
     }
 
     @Test
-    @DisplayName("update repassa o payload completo para o serviço")
+    @DisplayName("update repassa o payload e dispara o resumo de boas-vindas")
     void update_delegates() {
         BotSettingsPayload payload = BotSettingsPayload.ofTexts("End", "maps", "Serv", "sched", "insta");
-        when(barbershopSettingsService.update(eq(payload)))
-                .thenReturn(BarbershopSettings.builder().addressText("End").build());
+        BarbershopSettings saved = BarbershopSettings.builder().addressText("End").build();
+        when(barbershopSettingsService.update(eq(payload))).thenReturn(saved);
 
         controller.update(payload);
 
         verify(barbershopSettingsService).update(payload);
+        verify(welcomeBriefService).maybeSendAfterConfig(saved);
     }
 }
