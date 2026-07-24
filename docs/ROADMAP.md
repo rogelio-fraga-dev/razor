@@ -343,22 +343,19 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       - Upload de logo/fotos com crop guiado, textos, **preview ao vivo** e publicar.
         Trocar template ou tema **não perde** conteúdo.
       - Dados: `barbershop_site.template_id`, `theme_mode` (`LIGHT|DARK|AUTO`), `accent_color`.
-- [ ] 🎯 **Assistente de configuração do bot (wizard, substitui a lista seca)** — hoje
-      Configurações é um formulário longo de campos soltos; o dono precisa *sentir que
-      controla*, não preencher planilha. Vira um **passo a passo** com botão
-      *"Começar a configurar"* e um cartão por etapa, com barra de progresso e
-      *"salvar e continuar"* (retomável):
-      1. **Identidade** — nome, endereço, Instagram
-      2. **Modo de fala da IA** — **5 presets prontos** (ver abaixo) + *Personalizado*
-      3. **Serviços e preços** — pré-preenchido com o catálogo padrão, editável
-      4. **Funcionamento** — dias, abre/fecha, política de cancelamento
-      5. **Pagamento** — chave PIX e formas aceitas
-      6. **Mensagens automáticas** — saudação, lembrete, avaliação (**já vêm escritas**;
-         o dono só ajusta se quiser)
-      7. **Revisão + "ver como o bot fala"** (prévia de uma conversa de exemplo)
-      > **Princípio:** tudo com **opção padrão pronta** e escolha por seleção, nunca campo
-      > em branco esperando redação. Quem quiser controle fino continua tendo (modo
-      > Personalizado + edição campo a campo depois do wizard).
+- [x] 🎯 **Assistente de configuração do bot (wizard, substitui a lista seca)** — botão
+      *"✨ Abrir assistente"* nas Configurações abre um **passo a passo** com barra de
+      progresso, um cartão por etapa e *Voltar/Próximo*:
+      1. **Identidade** — nome (obrigatório), endereço, mapa, Instagram
+      2. **Funcionamento** — abre/fecha, dias, política de cancelamento
+      3. **Serviços e preços** — tabela do menu + link de agendamento
+      4. **Modo de fala da IA** — **5 presets prontos** + *Personalizado*
+      5. **Pagamento** — chave PIX, copia-e-cola e formas aceitas
+      → ao concluir, dispara o **resumo de boas-vindas** ao dono.
+      > O wizard começa a partir das configs já salvas e sobrepõe as edições, então nunca
+      > apaga campos fora dele (as **mensagens automáticas** já vêm com padrão do sistema e
+      > seguem editáveis campo a campo abaixo). _A retomada "salvar e continuar" e a prévia
+      > "ver como o bot fala" ficam como refinamento futuro._
 - [x] **Boas-vindas no WhatsApp ao concluir a 1ª configuração** — ao salvar a config do bot
       pela 1ª vez, o sistema manda **no WhatsApp do dono** um guia curto de *como o sistema
       funciona e o que ele pode fazer*. Fecha o ciclo *configurei no computador → o bot me
@@ -642,4 +639,4 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-24 (tela de folgas, 5 modos de fala, boas-vindas ao dono no WhatsApp) · Documento vivo._
+_Última atualização: 2026-07-24 (tela de folgas, 5 modos de fala, boas-vindas ao dono, wizard de configuração) · Documento vivo._
