@@ -1276,6 +1276,39 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .cmdk-item.active .cmdk-enter { opacity: 1; color: var(--accent); }
 .cmdk-empty { padding: 24px; text-align: center; color: var(--text-faint); font-size: 14px; }
 
+/* ---------- Relógio da topbar ---------- */
+.clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  padding-right: 12px;
+  margin-right: 2px;
+  border-right: 1px solid var(--border);
+}
+.clk-day {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+}
+.clk-time {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums; /* os dígitos não "dançam" a cada segundo */
+}
+/* segundos em segundo plano: informação viva, sem roubar atenção */
+.clk-sec {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 400;
+}
+@media (max-width: 760px) {
+  .clk-day { display: none; }
+  .clk-sec { display: none; }
+  .clock { padding-right: 10px; }
+}
+
 /* dica do atalho na topbar */
 .kbd-hint {
   display: inline-flex;

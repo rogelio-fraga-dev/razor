@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { applyTheme, currentTheme, type Theme } from "../lib/theme";
 import { RazorLogo } from "./Logo";
+import { Clock } from "./Clock";
 import { IconCalendar, IconGem, IconGrid, IconPercent, IconSliders, IconTag, IconUser, IconUsers } from "./Icons";
 
 // Navegação agrupada pelo que o dono faz — não por "telas do sistema".
@@ -99,6 +100,7 @@ export function Layout({
           <h1>{title}</h1>
           <div className="row">
             {actions}
+            <Clock />
             <button
               className="kbd-hint"
               onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))}
