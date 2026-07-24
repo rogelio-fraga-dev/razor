@@ -95,6 +95,24 @@ estado persistido (`onboarding_step` no tenant) para retomar de onde parou.
   subir fotos do site, testar o bot com seu número, primeiro disparo). Some ao completar.
   *Este checklist é a resposta ao F1 e o maior gerador de ativação.*
 
+### 3.1.b. Assistente de configuração do bot (substitui a lista seca)
+
+**Problema:** Configurações hoje é um formulário longo de campos vazios. O dono olha e pensa
+"o que eu escrevo aqui?" — sensação de dado jogado na tela, não de controle.
+
+**Solução:** um **wizard** dentro de Configurações, com CTA *"Começar a configurar"*:
+
+- Um **cartão por etapa** (7 etapas, §Fase 3 do ROADMAP), barra de progresso com o
+  gradiente-assinatura, botões *Voltar* / *Salvar e continuar*, e **"Pular por agora"**.
+- **Retomável**: o progresso fica no tenant; sair no meio não perde nada. Concluído, o card
+  vira um resumo com *"Reconfigurar"*, e a edição campo a campo continua disponível.
+- **Nunca um campo em branco esperando redação**: toda etapa abre com valor padrão pronto —
+  serviços vêm do catálogo, mensagens automáticas já vêm escritas, e o tom de voz é
+  **escolhido entre 5 modos** (Clássico · Parceiro · Direto · Premium · Brincalhão) em vez
+  de digitado. *Personalizado* existe para quem quer controle fino.
+- **Última etapa = prévia**: "veja como o bot fala" com uma conversa de exemplo renderizada
+  com as configurações escolhidas. É o momento em que o dono *sente* que domina o bot.
+
 ### 3.2. Editor do site (módulo novo "Site" na sidebar)
 
 - **Layout split**: esquerda = formulário por seções (Identidade/Fotos/Textos/Redes);

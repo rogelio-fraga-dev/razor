@@ -277,6 +277,32 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
 - [ ] **Módulo "Site" no painel** (editor white-label): escolha do template, upload de
       fotos/logo, textos, cor de destaque, **preview ao vivo** e publicar. Spec no
       [`UX_BLUEPRINT §3.2`](./UX_BLUEPRINT.md).
+- [ ] 🎯 **Assistente de configuração do bot (wizard, substitui a lista seca)** — hoje
+      Configurações é um formulário longo de campos soltos; o dono precisa *sentir que
+      controla*, não preencher planilha. Vira um **passo a passo** com botão
+      *"Começar a configurar"* e um cartão por etapa, com barra de progresso e
+      *"salvar e continuar"* (retomável):
+      1. **Identidade** — nome, endereço, Instagram
+      2. **Modo de fala da IA** — **5 presets prontos** (ver abaixo) + *Personalizado*
+      3. **Serviços e preços** — pré-preenchido com o catálogo padrão, editável
+      4. **Funcionamento** — dias, abre/fecha, política de cancelamento
+      5. **Pagamento** — chave PIX e formas aceitas
+      6. **Mensagens automáticas** — saudação, lembrete, avaliação (**já vêm escritas**;
+         o dono só ajusta se quiser)
+      7. **Revisão + "ver como o bot fala"** (prévia de uma conversa de exemplo)
+      > **Princípio:** tudo com **opção padrão pronta** e escolha por seleção, nunca campo
+      > em branco esperando redação. Quem quiser controle fino continua tendo (modo
+      > Personalizado + edição campo a campo depois do wizard).
+- [ ] **Modos de fala da IA (presets de persona)** — 5 opções prontas que preenchem o
+      `bot_persona` (V15) sem o dono escrever nada:
+      | Modo | Como soa |
+      |---|---|
+      | **Clássico** | educado e formal, trata por "senhor/senhora" |
+      | **Parceiro** (padrão) | descontraído e próximo, "fala, chefe!", poucos emojis |
+      | **Direto** | objetivo, frases curtas, zero enrolação |
+      | **Premium** | sofisticado e discreto, sem gírias nem emoji |
+      | **Brincalhão** | bem-humorado, emojis à vontade |
+      | *Personalizado* | o dono escreve o próprio tom |
 - [ ] Site/landing **white-label** por barbearia (marca, serviços, endereço, avaliações),
       servido em **subdomínio próprio**: `<slug>.razor.com.br` (ex.: `barbeariaficticia.razor.com.br`).
       O tenant é resolvido pelo `Host` header → `slug` → `barbershop_id` (mesmo padrão do
@@ -407,9 +433,18 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 > **Objetivo:** ampliar a distância para os concorrentes usando nossa cunha.
 
+- [x] **Admin fala natural** — o dono não precisa decorar o menu: "manda um aviso",
+      "quem vem hoje?", "disparar promoção" viram ação (`AdminIntentResolver`).
+      Saudação responde com o resumo do dia; texto não entendido **ensina por exemplo**.
+- [ ] 🎯 **Cliente 100% conversacional (tirar o menu do caminho)** — hoje o cliente novo
+      recebe o menu numerado; deve receber uma **saudação de atendente** ("Oi! Sou do
+      atendimento da *X*, posso marcar um horário pra você?"). O menu **não some**: vira
+      resposta sob demanda ("quais os preços?", "onde fica?", "quero ver as opções") e
+      *fallback* quando a IA não estiver disponível. Regra: **nunca** responder "digite 1".
 - [ ] Inteligência de retenção proativa (IA identifica e reengaja quem vai sumir).
 - [ ] Upsell/cross-sell por IA (sugere serviços/planos no contexto da conversa).
-- [ ] Roteiros/persona do bot configuráveis por tenant (tom de voz da marca).
+- [x] Persona do bot configurável por tenant (`bot_persona`, V15) — falta expor os
+      **5 modos de fala prontos** no wizard (ver Fase 3).
 
 ---
 
