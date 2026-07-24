@@ -13,18 +13,18 @@ import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.InteractionRepository;
 import com.razor.api.repository.WaitlistRepository;
+import com.razor.api.state.StateKeys;
+import com.razor.api.state.StateStore;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
 import com.razor.api.util.ConsoleText;
 import java.text.Normalizer;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
@@ -51,10 +51,13 @@ public class CustomerConversationService {
     private final ProfessionalService professionalService;
     private final TenantAdminService tenantAdminService;
     private final BarbershopSettingsService barbershopSettingsService;
+    private final StateStore stateStore;
 
+    // Publicas + construtor vazio: sao serializadas em JSON pelo StateStore.
     @lombok.Data
     @lombok.AllArgsConstructor
-    private static class WaitlistOffer {
+    @lombok.NoArgsConstructor
+    public static class WaitlistOffer {
         private String phone;
         private String name;
         private String date;
@@ -65,7 +68,8 @@ public class CustomerConversationService {
     /** Agendamento aguardando a escolha do profissional (agenda multiprofissional). */
     @lombok.Data
     @lombok.AllArgsConstructor
-    private static class PendingBooking {
+    @lombok.NoArgsConstructor
+    public static class PendingBooking {
         private String name;
         private String date;
         private String time;
@@ -73,13 +77,11 @@ public class CustomerConversationService {
         private List<com.razor.api.model.Professional> options; // alinhado 1:1 com os numeros exibidos
     }
 
-    // Estado por-cliente (chaveado por telefone). Instancia, nao static: o servico e um
-    // singleton (mesmo comportamento em runtime) e assim cada teste tem estado isolado.
-    private final Map<String, String> customerStates = new ConcurrentHashMap<>();
-    private final Map<String, LocalDateTime> customerStatesTimestamps = new ConcurrentHashMap<>();
-    private final Map<String, List<Appointment>> customerCancelOptions = new ConcurrentHashMap<>();
-    private final Map<String, WaitlistOffer> waitlistOffers = new ConcurrentHashMap<>();
-    private final Map<String, PendingBooking> pendingBookings = new ConcurrentHashMap<>();
+    /** Conversa abandonada morre sozinha (antes: varredura de estados "zumbi"). */
+    private static final Duration CONV_TTL = Duration.ofMinutes(30);
+    /** A vaga oferecida deixa de valer no dia seguinte. */
+    private static final Duration WAITLIST_TTL = Duration.ofHours(24);
+
     private final AiTagParser aiTagParser = new AiTagParser();
 
     private void sendMsg(String phone, String text, String role) {
@@ -95,27 +97,17 @@ public class CustomerConversationService {
     }
 
     private void setCustomerState(String phone, String state) {
-        customerStates.put(phone, state);
-        customerStatesTimestamps.put(phone, LocalDateTime.now());
+        // O TTL substitui a antiga varredura de estados zumbi: conversa parada expira sozinha.
+        stateStore.put(StateKeys.convState(phone), state, CONV_TTL);
+    }
+
+    private String getCustomerState(String phone) {
+        return stateStore.get(StateKeys.convState(phone), String.class).orElse(null);
     }
 
     private void clearCustomerState(String phone) {
-        customerStates.remove(phone);
-        customerStatesTimestamps.remove(phone);
-        pendingBookings.remove(phone);
-    }
-
-    /** Limpa estados zumbi abandonados (>30min). Antes vivia no clearProcessedCache do Orchestrator. */
-    @Scheduled(fixedRate = 600000)
-    public void clearZombieCustomerStates() {
-        LocalDateTime stateLimit = LocalDateTime.now().minusMinutes(30);
-        customerStatesTimestamps.entrySet().removeIf(entry -> {
-            if (entry.getValue().isBefore(stateLimit)) {
-                clearCustomerState(entry.getKey());
-                return true;
-            }
-            return false;
-        });
+        stateStore.remove(StateKeys.convState(phone));
+        stateStore.remove(StateKeys.pendingBooking(phone));
     }
 
     // ==========================================
@@ -138,11 +130,13 @@ public class CustomerConversationService {
         interactionRepository.save(Interaction.builder().barbershopId(customer.getBarbershopId()).customer(customer).type(Interaction.InteractionType.USER).content(contentToSave).messageId(webhook.getData().getKey().getId()).build());
 
         String msgLower = contentToSave.toLowerCase().trim();
-        String cState = customerStates.get(phoneNumber);
+        String cState = getCustomerState(phoneNumber);
+        var pendingOffer = stateStore.get(StateKeys.waitlistOffer(phoneNumber), WaitlistOffer.class);
 
         // 1. Confirmação de Oferta da Lista de Espera
-        if (waitlistOffers.containsKey(phoneNumber) && (msgLower.equals("sim") || msgLower.equals("s") || msgLower.contains("quero"))) {
-            WaitlistOffer offer = waitlistOffers.remove(phoneNumber);
+        if (pendingOffer.isPresent() && (msgLower.equals("sim") || msgLower.equals("s") || msgLower.contains("quero"))) {
+            WaitlistOffer offer = pendingOffer.get();
+            stateStore.remove(StateKeys.waitlistOffer(phoneNumber));
             agendaService.adicionarAgendamentoViaIA(offer.getName(), phoneNumber, offer.getDate(), offer.getTime(), offer.getService());
 
             String successMsg = "Perfeito, " + offer.getName().split(" ")[0] + "! 🥳\n\n" +
@@ -171,7 +165,8 @@ public class CustomerConversationService {
 
         // Tratamento do estado de escolha múltipla para cancelamento
         if ("ESPERANDO_CANCELAMENTO_MULTIPLO".equals(cState)) {
-            List<Appointment> apps = customerCancelOptions.get(phoneNumber);
+            List<Appointment> apps = stateStore
+                    .getList(StateKeys.cancelOptions(phoneNumber), Appointment.class).orElse(null);
             if (apps == null || apps.isEmpty()) {
                 clearCustomerState(phoneNumber);
                 saveAndSend(customer, "Sua sessão de cancelamento expirou. Tente novamente.", phoneNumber);
@@ -180,7 +175,7 @@ public class CustomerConversationService {
 
             if (msgLower.contains("cancelar") || msgLower.contains("desistir") || msgLower.contains("sair") || msgLower.equals("0")) {
                 clearCustomerState(phoneNumber);
-                customerCancelOptions.remove(phoneNumber);
+                stateStore.remove(StateKeys.cancelOptions(phoneNumber));
                 saveAndSend(customer, "Operação cancelada! Nenhum agendamento foi excluído.", phoneNumber);
                 return;
             }
@@ -206,7 +201,7 @@ public class CustomerConversationService {
                         saveAndSend(customer, "❌ Não foi possível cancelar esse agendamento.", phoneNumber);
                     }
                     clearCustomerState(phoneNumber);
-                    customerCancelOptions.remove(phoneNumber);
+                    stateStore.remove(StateKeys.cancelOptions(phoneNumber));
                     return;
                 }
             } catch (NumberFormatException e) {
@@ -215,7 +210,7 @@ public class CustomerConversationService {
 
             if (msgLower.equals("menu") || msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
                 clearCustomerState(phoneNumber);
-                customerCancelOptions.remove(phoneNumber);
+                stateStore.remove(StateKeys.cancelOptions(phoneNumber));
                 // Não damos return! A mensagem flui normalmente para exibir o menu ou cumprimentar.
             } else {
                 saveAndSend(customer, "Por favor, digite apenas o *NÚMERO* da opção que deseja cancelar, ou *0* para sair.", phoneNumber);
@@ -304,7 +299,7 @@ public class CustomerConversationService {
 
         // 5. Saudações — exibe menu APENAS se não há conversa recente com a IA
         //    Isso evita que "Oi, me chamo João" quebre o fluxo de agendamento
-        if (cState == null && !waitlistOffers.containsKey(phoneNumber) && !hasRecentIAConversation(customer.getId())) {
+        if (cState == null && pendingOffer.isEmpty() && !hasRecentIAConversation(customer.getId())) {
             if (msgLower.matches(".*(oi|ola|olá|bom dia|boa tarde|boa noite|tudo bem|fala|opa|salve|hey|hello|hi).*")) {
                 log.info("[SISTEMA] Saudação detectada sem conversa ativa, enviando Menu para: {}", phoneNumber);
                 int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
@@ -403,7 +398,7 @@ public class CustomerConversationService {
             }
         } else {
             setCustomerState(phoneNumber, "ESPERANDO_CANCELAMENTO_MULTIPLO");
-            customerCancelOptions.put(phoneNumber, apps);
+            stateStore.put(StateKeys.cancelOptions(phoneNumber), apps, CONV_TTL);
             StringBuilder sb = new StringBuilder("Você tem mais de um agendamento ativo. Qual deles deseja cancelar?\n\n");
             for (int i = 0; i < apps.size(); i++) {
                 sb.append("*").append(i + 1).append("* - ").append(AppointmentDates.formatDate(apps.get(i).getAppointmentDate())).append(" às ").append(AppointmentDates.formatTime(apps.get(i).getAppointmentTime())).append("\n");
@@ -481,7 +476,7 @@ public class CustomerConversationService {
         // quer se atender. Com 0 ou 1 barbeiro, mantemos a auto-atribuição imediata (padrão).
         List<com.razor.api.model.Professional> ativos = professionalService.listActive();
         if (ativos != null && ativos.size() > 1) {
-            pendingBookings.put(phoneNumber, new PendingBooking(name, date, time, service, ativos));
+            stateStore.put(StateKeys.pendingBooking(phoneNumber), new PendingBooking(name, date, time, service, ativos), CONV_TTL);
             setCustomerState(phoneNumber, "ESPERANDO_PROFISSIONAL");
             log.info("[AGENDA] Estado ESPERANDO_PROFISSIONAL definido para {} ({} barbeiros)", phoneNumber, ativos.size());
             return montarPerguntaProfissional(date, time, ativos);
@@ -520,7 +515,7 @@ public class CustomerConversationService {
 
     /** Trata a resposta do cliente no estado ESPERANDO_PROFISSIONAL e conclui o agendamento. */
     private void trataEscolhaProfissional(Customer customer, String phoneNumber, String msgLower) {
-        PendingBooking pend = pendingBookings.get(phoneNumber);
+        PendingBooking pend = stateStore.get(StateKeys.pendingBooking(phoneNumber), PendingBooking.class).orElse(null);
         if (pend == null) {
             clearCustomerState(phoneNumber);
             saveAndSend(customer, "Sua sessão de agendamento expirou. Digite *menu* para recomeçar.", phoneNumber);
@@ -563,7 +558,7 @@ public class CustomerConversationService {
     private void finalizarAgendamentoMultiprofissional(Customer customer, String phoneNumber, PendingBooking pend,
                                                        java.util.UUID escolhido, String nomeEscolhido) {
         agendaService.adicionarAgendamentoViaIA(pend.getName(), phoneNumber, pend.getDate(), pend.getTime(), pend.getService(), escolhido);
-        pendingBookings.remove(phoneNumber);
+        stateStore.remove(StateKeys.pendingBooking(phoneNumber));
 
         String comQuem = nomeEscolhido != null ? "com *" + nomeEscolhido + "* " : "";
         String confirm = "Fechado! Seu horário " + comQuem + "para *" + pend.getDate() + "* às *" + pend.getTime() + "* está reservado. 🎉";
@@ -638,7 +633,7 @@ public class CustomerConversationService {
 
             if (matched != null) {
                 WaitlistOffer offer = new WaitlistOffer(matched.getCustomerPhone(), matched.getCustomerName(), date, time, service);
-                waitlistOffers.put(matched.getCustomerPhone(), offer);
+                stateStore.put(StateKeys.waitlistOffer(matched.getCustomerPhone()), offer, WAITLIST_TTL);
 
                 String capitalizeDia = diaSemana.substring(0, 1).toUpperCase() + diaSemana.substring(1);
                 String notificationMsg = "Opa, " + matched.getCustomerName().split(" ")[0] + "! 💈\n\n" +

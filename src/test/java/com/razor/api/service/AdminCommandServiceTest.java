@@ -47,6 +47,11 @@ class AdminCommandServiceTest {
     @Mock private WhatsAppMessenger messenger;
     @Mock private EvolutionMediaService evolutionMediaService;
 
+    // Store REAL (nao mock): a maquina de estados da conversa precisa gravar/ler de verdade.
+    @org.mockito.Spy
+    private com.razor.api.state.StateStore stateStore =
+            new com.razor.api.state.InMemoryStateStore(new com.fasterxml.jackson.databind.ObjectMapper());
+
     @InjectMocks private AdminCommandService service;
 
     private EvolutionWebhookDTO adminText(String text) {

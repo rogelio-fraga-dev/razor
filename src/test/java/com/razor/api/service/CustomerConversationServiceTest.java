@@ -59,6 +59,11 @@ class CustomerConversationServiceTest {
     @Mock private TenantAdminService tenantAdminService;
     @Mock private BarbershopSettingsService barbershopSettingsService;
 
+    // Store REAL (nao mock): a maquina de estados da conversa precisa gravar/ler de verdade.
+    @org.mockito.Spy
+    private com.razor.api.state.StateStore stateStore =
+            new com.razor.api.state.InMemoryStateStore(new com.fasterxml.jackson.databind.ObjectMapper());
+
     @InjectMocks private CustomerConversationService service;
 
     /** Config do tenant com a chave PIX preenchida (caso normal de uma barbearia configurada). */

@@ -7,16 +7,16 @@ import com.razor.api.model.Professional;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.InteractionRepository;
 import com.razor.api.repository.WaitlistRepository;
+import com.razor.api.state.StateKeys;
+import com.razor.api.state.StateStore;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.ConsoleText;
-import java.math.BigDecimal;
 import java.text.Normalizer;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -51,13 +51,10 @@ public class AdminCommandService {
     private final WaitlistRepository waitlistRepository;
     private final WhatsAppMessenger messenger;
     private final EvolutionMediaService evolutionMediaService;
+    private final StateStore stateStore;
 
-    // Estado por-admin (chaveado por telefone). Instancia, nao static: servico singleton
-    // (mesmo comportamento em runtime) e assim cada teste tem estado isolado.
-    private final Map<String, String> adminStates = new ConcurrentHashMap<>();
-    private final Map<String, List<String>> adminRetomarOptions = new ConcurrentHashMap<>();
-    private final Map<String, List<String>> adminApagarOptions = new ConcurrentHashMap<>();
-    private final Map<String, String> adminScheduledMsg = new ConcurrentHashMap<>();
+    /** Fluxo do admin abandonado no meio expira sozinho. */
+    private static final Duration ADMIN_TTL = Duration.ofMinutes(30);
 
     private void sendMsg(String phone, String text, String role) {
         messenger.send(phone, text, role);
@@ -91,7 +88,7 @@ public class AdminCommandService {
         String command = null;
 
         if (webhook.hasDocument()) {
-            adminStates.remove(phoneNumber);
+            stateStore.remove(StateKeys.adminState(phoneNumber));
             String base64 = webhook.getBase64() != null ? webhook.getBase64() : fetchBase64FromEvolution(webhook.getData().getKey().getId());
             if (base64 != null) {
                 log.info("[ADMIN] CSV de contatos recebido do Admin {}.", phoneNumber);
@@ -112,7 +109,7 @@ public class AdminCommandService {
         }
 
         if (webhook.hasImage()) {
-            adminStates.remove(phoneNumber);
+            stateStore.remove(StateKeys.adminState(phoneNumber));
             String base64 = webhook.getBase64() != null ? webhook.getBase64() : fetchBase64FromEvolution(webhook.getData().getKey().getId());
             if (base64 != null) {
                 log.info("[ADMIN] Imagem de agenda recebida do Admin {} para processamento via GPT-4o Vision.", phoneNumber);
@@ -145,7 +142,8 @@ public class AdminCommandService {
             command = openAIService.transcribeAudio(base64, webhook.getMimeType());
             log.info("[ADMIN] Audio transcrito: '{}'", sanitizeForConsole(command));
 
-            if (!adminStates.containsKey(phoneNumber) && command != null && !isSystemCommand(command)) {
+            boolean semEstadoAtivo = stateStore.get(StateKeys.adminState(phoneNumber), String.class).isEmpty();
+            if (semEstadoAtivo && command != null && !isSystemCommand(command)) {
                 sendMsg(phoneNumber, "📝 *Transcrição Livre:*\n" + command, "ADMIN");
                 return;
             }
@@ -176,37 +174,37 @@ public class AdminCommandService {
                 else if (MenuOptions.ROW_ID_ADMIN_AGENDA_SEMANA.equals(adminRowId)) cmdLower = "13";
             }
 
-            String currentState = adminStates.get(phoneNumber);
+            String currentState = stateStore.get(StateKeys.adminState(phoneNumber), String.class).orElse(null);
 
             if (currentState != null) {
                 if (cmdLower.equals("cancelar")) {
-                    adminStates.remove(phoneNumber);
-                    adminRetomarOptions.remove(phoneNumber);
-                    adminApagarOptions.remove(phoneNumber);
-                    adminScheduledMsg.remove(phoneNumber);
+                    stateStore.remove(StateKeys.adminState(phoneNumber));
+                    stateStore.getList(StateKeys.adminResumeOptions(phoneNumber), String.class).orElse(null);
+                    stateStore.getList(StateKeys.adminDeleteOptions(phoneNumber), String.class).orElse(null);
+                    stateStore.get(StateKeys.adminScheduledMsg(phoneNumber), String.class).orElse(null);
                     sendFullMenu(phoneNumber);
                     return;
                 }
                 if (currentState.equals("AVISO_BASE")) {
-                    adminStates.remove(phoneNumber);
+                    stateStore.remove(StateKeys.adminState(phoneNumber));
                     performBroadcast(phoneNumber, originalCommand, false);
                     return;
                 }
                 if (currentState.equals("AVISO_PROSPEC")) {
-                    adminStates.remove(phoneNumber);
+                    stateStore.remove(StateKeys.adminState(phoneNumber));
                     performBroadcast(phoneNumber, originalCommand, true);
                     return;
                 }
                 if (currentState.equals("PAUSAR")) {
-                    adminStates.remove(phoneNumber);
+                    stateStore.remove(StateKeys.adminState(phoneNumber));
                     String target = cmdLower.replaceAll("[^0-9]", "");
                     customerService.pauseCustomer(target, 60);
                     sendMsg(phoneNumber, "⏸️ Robô silenciado com sucesso para esse cliente.", "ADMIN");
                     return;
                 }
                 if (currentState.equals("RETOMAR")) {
-                    adminStates.remove(phoneNumber);
-                    List<String> options = adminRetomarOptions.remove(phoneNumber);
+                    stateStore.remove(StateKeys.adminState(phoneNumber));
+                    List<String> options = stateStore.getList(StateKeys.adminResumeOptions(phoneNumber), String.class).orElse(null);
                     try {
                         int index = Integer.parseInt(cmdLower.replaceAll("[^0-9]", "")) - 1;
                         if (options != null && index >= 0 && index < options.size()) {
@@ -222,8 +220,8 @@ public class AdminCommandService {
                     return;
                 }
                 if (currentState.equals("APAGAR_CONTATO")) {
-                    adminStates.remove(phoneNumber);
-                    List<String> options = adminApagarOptions.remove(phoneNumber);
+                    stateStore.remove(StateKeys.adminState(phoneNumber));
+                    List<String> options = stateStore.getList(StateKeys.adminDeleteOptions(phoneNumber), String.class).orElse(null);
                     try {
                         int index = Integer.parseInt(cmdLower.replaceAll("[^0-9]", "")) - 1;
                         if (options != null && index >= 0 && index < options.size()) {
@@ -246,15 +244,15 @@ public class AdminCommandService {
                     return;
                 }
                 if (currentState.equals("AGENDAR_DISPARO_MSG")) {
-                    adminStates.remove(phoneNumber);
-                    adminScheduledMsg.put(phoneNumber, originalCommand);
-                    adminStates.put(phoneNumber, "AGENDAR_DISPARO_DATA");
+                    stateStore.remove(StateKeys.adminState(phoneNumber));
+                    stateStore.put(StateKeys.adminScheduledMsg(phoneNumber), originalCommand, ADMIN_TTL);
+                    stateStore.put(StateKeys.adminState(phoneNumber), "AGENDAR_DISPARO_DATA", ADMIN_TTL);
                     sendMsg(phoneNumber, "🗓️ *Data e Hora:*\nDigite o horário do disparo no formato numérico: *DD/MM HH:MM* (Ex: 28/05 10:30)", "ADMIN");
                     return;
                 }
                 if (currentState.equals("AGENDAR_DISPARO_DATA")) {
-                    adminStates.remove(phoneNumber);
-                    String msg = adminScheduledMsg.remove(phoneNumber);
+                    stateStore.remove(StateKeys.adminState(phoneNumber));
+                    String msg = stateStore.get(StateKeys.adminScheduledMsg(phoneNumber), String.class).orElse(null);
                     try {
                         String[] parts = cmdLower.replaceAll("[^0-9/:]", " ").trim().split("\\s+");
                         String datePart = parts[0];
@@ -291,24 +289,24 @@ public class AdminCommandService {
                 String agendaSemana = agendaService.getAgendaSemanaText();
                 sendMsg(phoneNumber, agendaSemana, "ADMIN");
             } else if (cmdLower.equals("3") || (cmdLower.contains("aviso") && !cmdLower.contains("promocao"))) {
-                adminStates.put(phoneNumber, "AVISO_BASE");
+                stateStore.put(StateKeys.adminState(phoneNumber), "AVISO_BASE", ADMIN_TTL);
                 sendMsg(phoneNumber, "📢 *Disparo de Avisos*\nEnvie a mensagem agora. _(Ou digite 'cancelar')_", "ADMIN");
             } else if (cmdLower.equals("4") || cmdLower.contains("promocao") || cmdLower.contains("prospec")) {
-                adminStates.put(phoneNumber, "AVISO_PROSPEC");
+                stateStore.put(StateKeys.adminState(phoneNumber), "AVISO_PROSPEC", ADMIN_TTL);
                 sendMsg(phoneNumber, "🎯 *Promoções do dia*\nEnvie a oferta que deseja disparar para a base toda.", "ADMIN");
             } else if (cmdLower.equals("5") || cmdLower.contains("agendar disparo")) {
-                adminStates.put(phoneNumber, "AGENDAR_DISPARO_MSG");
+                stateStore.put(StateKeys.adminState(phoneNumber), "AGENDAR_DISPARO_MSG", ADMIN_TTL);
                 sendMsg(phoneNumber, "📝 *Agendar Disparo*\nQual é a mensagem que deseja enviar para a base? (Digite 'cancelar' para abortar)", "ADMIN");
             } else if (cmdLower.equals("6") || cmdLower.contains("pausa")) {
-                adminStates.put(phoneNumber, "PAUSAR");
+                stateStore.put(StateKeys.adminState(phoneNumber), "PAUSAR", ADMIN_TTL);
                 sendMsg(phoneNumber, "⏸️ *Pausar Robô*\nDigite o telefone com DDD do cliente. _(Ou digite 'cancelar')_", "ADMIN");
             } else if (cmdLower.equals("7") || cmdLower.contains("retoma")) {
                 List<String> pausedPhones = customerService.getPausedPhones();
                 if (pausedPhones.isEmpty()) {
                     sendMsg(phoneNumber, "▶️ *Retomar*\nNenhum cliente pausado no momento.", "ADMIN");
                 } else {
-                    adminStates.put(phoneNumber, "RETOMAR");
-                    adminRetomarOptions.put(phoneNumber, pausedPhones);
+                    stateStore.put(StateKeys.adminState(phoneNumber), "RETOMAR", ADMIN_TTL);
+                    stateStore.put(StateKeys.adminResumeOptions(phoneNumber), pausedPhones, ADMIN_TTL);
                     StringBuilder sb = new StringBuilder("▶️ *Retomar Robô - Clientes Pausados*\n\n");
                     for (int i = 0; i < pausedPhones.size(); i++) {
                         sb.append("*").append(i + 1).append("* - ").append(pausedPhones.get(i)).append("\n");
@@ -330,14 +328,14 @@ public class AdminCommandService {
                 if (customers.isEmpty()) {
                     sendMsg(phoneNumber, "📭 Nenhum cliente salvo.", "ADMIN");
                 } else {
-                    adminStates.put(phoneNumber, "APAGAR_CONTATO");
+                    stateStore.put(StateKeys.adminState(phoneNumber), "APAGAR_CONTATO", ADMIN_TTL);
                     List<String> phoneList = new ArrayList<>();
                     StringBuilder sb = new StringBuilder("🗑️ *Apagar Cliente*\n\n");
                     for (int i = 0; i < customers.size(); i++) {
                         phoneList.add(customers.get(i).getPhoneNumber());
                         sb.append("*").append(i + 1).append("* - ").append(customers.get(i).getName()).append("\n");
                     }
-                    adminApagarOptions.put(phoneNumber, phoneList);
+                    stateStore.put(StateKeys.adminDeleteOptions(phoneNumber), phoneList, ADMIN_TTL);
                     sb.append("\nDigite o *NÚMERO DA OPÇÃO* para apagar _(Ou digite 'cancelar')_.");
                     sendMsg(phoneNumber, sb.toString(), "ADMIN");
                 }
