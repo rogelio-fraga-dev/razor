@@ -1506,6 +1506,18 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .mode-tag { font-size: 12px; color: var(--text-muted); }
 .mode-custom { cursor: default; border-style: dashed; }
 
+/* ---------- Assistente de configuração (wizard) ---------- */
+.wiz-dots { display: flex; gap: 6px; }
+.wiz-dot {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-hi);
+  transition: background 0.2s;
+}
+.wiz-dot.done { background: color-mix(in oklab, var(--accent) 55%, transparent); }
+.wiz-dot.active { background: var(--accent); }
+
 /* ---------- Tabs ---------- */
 .tabs {
   display: flex;

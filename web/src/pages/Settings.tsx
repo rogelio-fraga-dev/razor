@@ -3,6 +3,7 @@ import { Layout } from "../components/Layout";
 import { Switch } from "../components/Modal";
 import { Skeleton } from "../components/Skeleton";
 import { SpeechModePicker } from "../components/SpeechModePicker";
+import { ConfigWizard } from "../components/ConfigWizard";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
@@ -456,6 +457,7 @@ function BotCard() {
   const toast = useToast();
   const [form, setForm] = useState<BotSettings>(EMPTY_BOT);
   const [saving, setSaving] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
 
   useEffect(() => {
     if (data) {
@@ -507,11 +509,14 @@ function BotCard() {
     <div className="card">
       <div className="card-head">
         <h3>O que o bot fala</h3>
-        <span className="badge badge-muted">WhatsApp</span>
+        <button className="btn btn-primary btn-sm" onClick={() => setShowWizard(true)} disabled={loading || !!error}>
+          ✨ Abrir assistente
+        </button>
       </div>
       <div className="card-pad">
         <p className="muted" style={{ margin: "0 0 14px", fontSize: 14 }}>
-          Tudo o que o cliente recebe. Campo vazio usa o padrão do sistema.
+          Use o <strong>assistente</strong> para configurar passo a passo, ou ajuste campo a
+          campo abaixo. Campo vazio usa o padrão do sistema.
         </p>
         {loading ? (
           <div className="stack" style={{ gap: 10 }}>
@@ -567,6 +572,10 @@ function BotCard() {
           </div>
         )}
       </div>
+
+      {showWizard && (
+        <ConfigWizard initial={form} onClose={() => setShowWizard(false)} onSaved={reload} />
+      )}
     </div>
   );
 }
