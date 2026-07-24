@@ -8,6 +8,40 @@
 
 ---
 
+## 📖 De onde o Razor veio
+
+Não começou num plano de negócios. Começou numa cadeira de barbearia.
+
+Era uma conversa comum com o meu barbeiro — dessas que se tem enquanto o corte acontece — até
+ele descrever uma rotina que eu reconheci na hora como um problema de software: o celular
+apitando sem parar no meio do atendimento, cliente esperando resposta, horário perdido porque
+ninguém conseguiu responder a tempo. Saí de lá e construí um bot para **aquela** barbearia.
+Funcionava, mas era isso mesmo: feito sob medida para o contexto dela, com todas as limitações
+que isso traz.
+
+O passo seguinte parecia óbvio — tirar as amarras e transformar aquilo num bot que servisse a
+qualquer barbearia pequena. Foi o que fiz. E foi aí que veio o feedback que mudou tudo.
+
+Uma barbearia testou e disse, com todas as letras: *"é interessante, mas não vale a pena pagar
+por um bot que resolve só uma parte."* Doeu — e estava certíssimo. O atendimento é a porta de
+entrada, não a barbearia inteira. Quem toca um negócio de verdade precisa saber quanto entrou
+no caixa, quanto vai para cada barbeiro, quem sumiu e quem volta. Um robô simpático no WhatsApp
+não paga o aluguel.
+
+Foi conversando com o meu professor de programação que a ficha caiu de vez. A dica dele foi
+direta: pare de tratar isso como um bot e trate como um **produto**. Evolua.
+
+**O Razor nasceu daí.** Não de uma ideia bonita, mas de um "não" bem dado e de um conselho na
+hora certa. Ele foi desenhado para o dia a dia real de quem vive de barbearia — a de uma
+cadeira só e a que tem cinco barbeiros e fila de espera. Atendimento por IA que realmente
+atende, agenda que não fura, financeiro que fecha, comissão que não gera discussão.
+
+Chegamos para competir com os grandes do mercado. E, mais do que isso, para entregar solução e
+praticidade — tirar da frente do barbeiro tudo o que não é o ofício dele, e devolver o tempo
+para o que realmente importa: **cortar bem e ganhar dinheiro**.
+
+---
+
 ## 🎯 Visão
 
 Fazer um barbeiro olhar para o Razor e pensar:
