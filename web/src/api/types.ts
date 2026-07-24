@@ -130,8 +130,11 @@ export type PaymentStatus = "PIX" | "PRESENCIAL" | "PENDENTE";
 export interface AppointmentView {
   time: string | null;
   customerName: string | null;
+  customerPhone: string | null;
   service: string | null;
+  durationMinutes: number | null;
   paymentStatus: PaymentStatus | null;
+  professionalId: string | null;
   professionalName: string | null;
   subscriber: boolean;
 }

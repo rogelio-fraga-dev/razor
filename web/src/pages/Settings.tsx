@@ -571,18 +571,24 @@ function BotCard() {
 }
 
 export function Settings() {
-  // Página única em 2 colunas: tudo à vista, sem corredor de scroll nem vazio à direita.
+  // Bloco único: um card só, com as caixas por assunto lado a lado.
   return (
     <Layout title="Configurações">
-      <div className="settings-grid">
-        <div className="settings-col">
-          <BotStatusCard />
-          <BotCard />
+      <div className="card cfg-block">
+        <div className="card-head">
+          <h3>Sua barbearia no automático</h3>
+          <span className="badge badge-muted">tudo em um lugar</span>
         </div>
-        <div className="settings-col">
-          <WhatsAppCard />
-          <ProfileCard />
-          <AdminsCard />
+        <div className="cfg-body">
+          <div className="cfg-lane">
+            <BotStatusCard />
+            <BotCard />
+          </div>
+          <div className="cfg-lane">
+            <WhatsAppCard />
+            <ProfileCard />
+            <AdminsCard />
+          </div>
         </div>
       </div>
     </Layout>

@@ -256,11 +256,15 @@ select.input { cursor: pointer; }
   white-space: nowrap;
 }
 .table td {
-  padding: 13px var(--space);
+  padding: 15px var(--space);
   border-bottom: 1px solid var(--border);
   color: var(--text);
   font-variant-numeric: tabular-nums;
+  vertical-align: middle;
 }
+/* zebra sutil: dá ritmo de leitura sem pesar */
+.table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+.table tbody tr:hover { background: var(--surface-2); }
 .table tr:last-child td { border-bottom: none; }
 .table tbody tr { transition: background 0.15s; }
 .table tbody tr:hover { background: var(--surface-2); }
@@ -638,27 +642,10 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .content > *:nth-child(4) { animation-delay: 0.2s; }
 .content > *:nth-child(n + 5) { animation-delay: 0.26s; }
 
-/* --- Glint: a luz que corre no gume da lâmina, a 68°, no hover --- */
 .card,
 .stat {
   position: relative;
   overflow: hidden;
-}
-.card::after,
-.stat::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(68deg, transparent 42%, rgba(55, 226, 255, 0.07) 50%, transparent 58%);
-  transform: translateX(-130%);
-  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.card:hover::after,
-.stat:hover::after { transform: translateX(130%); }
-:root[data-theme="light"] .card::after,
-:root[data-theme="light"] .stat::after {
-  background: linear-gradient(68deg, transparent 42%, rgba(47, 81, 230, 0.05) 50%, transparent 58%);
 }
 
 /* --- Título da página com a marca do ângulo --- */
@@ -759,9 +746,135 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   .table tbody tr,
   .tl-item,
   .stat::before { animation: none; }
-  .card::after,
-  .stat::after { display: none; }
   .tl-item:first-child .tl-dot { animation: none; }
+}
+
+/* ============================== AGENDA (calendário) ============================== */
+.cal { --cal-gutter: 62px; overflow-x: auto; }
+.cal-head {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  min-width: 620px;
+}
+.cal-head .cal-gutter { width: var(--cal-gutter); flex-shrink: 0; }
+.cal-col-head {
+  flex: 1;
+  min-width: 150px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-left: 1px solid var(--border);
+}
+.cal-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--edge-gradient);
+  color: #051020;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.cal-pro { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+  background: var(--surface-2);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.cal-body { display: flex; position: relative; min-width: 620px; }
+.cal-body .cal-gutter { width: var(--cal-gutter); flex-shrink: 0; position: relative; }
+.cal-time {
+  position: absolute;
+  right: 10px;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+.cal-col { flex: 1; min-width: 150px; position: relative; border-left: 1px solid var(--border); }
+.cal-slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--border);
+}
+.cal-slot.hour { border-top: 1px solid var(--border); }
+
+.cal-event {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  border-radius: 8px;
+  padding: 5px 9px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  cursor: default;
+  border: 1px solid;
+  border-left-width: 3px;
+  background: var(--surface-2);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s;
+  z-index: 1;
+}
+.cal-event:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); z-index: 2; }
+:root[data-theme="light"] .cal-event:hover { box-shadow: 0 6px 20px rgba(16, 24, 40, 0.14); }
+.ev-pix { background: var(--green-soft); border-color: var(--green); }
+.ev-presencial { background: var(--blue-soft); border-color: var(--blue); }
+.ev-pendente { background: var(--amber-soft); border-color: var(--amber); }
+.ev-time { font-size: 10.5px; color: var(--text-muted); }
+.ev-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.ev-gem { font-size: 11px; }
+.ev-service { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-pay {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-top: auto;
+}
+
+/* linha "agora" — o pulso do dia */
+.cal-now {
+  position: absolute;
+  left: var(--cal-gutter);
+  right: 0;
+  height: 2px;
+  background: var(--red);
+  z-index: 3;
+  pointer-events: none;
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.5);
+}
+.cal-now-dot {
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--red);
 }
 
 /* ---------- Cockpit: cabeçalho do Painel ---------- */
@@ -986,22 +1099,36 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .es-hint { margin: 0; color: var(--text-muted); font-size: 13.5px; max-width: 44ch; }
 .es-action { margin-top: 12px; }
 
-/* ---------- Configurações em 2 colunas (tudo numa página, sem vazio) ---------- */
-.settings-grid {
+/* ---------- Configurações: um bloco só, com caixas por assunto ---------- */
+.cfg-body {
   display: grid;
   grid-template-columns: 1.05fr 1fr;
-  gap: 20px;
+  gap: 18px;
+  padding: 18px;
   align-items: start;
 }
-.settings-col {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-}
+.cfg-lane { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 @media (max-width: 1000px) {
-  .settings-grid { grid-template-columns: 1fr; }
+  .cfg-body { grid-template-columns: 1fr; padding: 14px; gap: 14px; }
 }
+
+/* caixas internas: viram "boxes" leves, sem cara de card dentro de card */
+.cfg-body .card {
+  background: var(--bg-raise);
+  border-radius: var(--radius-sm);
+  border-color: var(--border);
+}
+:root[data-theme="light"] .cfg-body .card { background: var(--surface-2); box-shadow: none; }
+.cfg-body .card:hover { border-color: var(--border-hi); }
+.cfg-body .card-head {
+  padding: 12px 14px;
+  background: transparent;
+}
+.cfg-body .card-head h3 { font-size: 13.5px; }
+.cfg-body .card-head h3::before { height: 11px; }
+.cfg-body .card-pad { padding: 14px; }
+/* as seções colapsáveis dentro da caixa ficam mais discretas */
+.cfg-body .cfg-section { background: var(--surface); }
 
 /* ---------- Seções colapsáveis (progressive disclosure) ---------- */
 .cfg-section {

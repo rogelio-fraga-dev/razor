@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { applyTheme, currentTheme, type Theme } from "../lib/theme";
 import { RazorLogo } from "./Logo";
-import { IconGem, IconGrid, IconPercent, IconSliders, IconTag, IconUser, IconUsers } from "./Icons";
+import { IconCalendar, IconGem, IconGrid, IconPercent, IconSliders, IconTag, IconUser, IconUsers } from "./Icons";
 
 // Navegação agrupada pelo que o dono faz — não por "telas do sistema".
 const NAV_GROUPS = [
@@ -11,6 +11,7 @@ const NAV_GROUPS = [
     label: "Operação",
     items: [
       { to: "/", label: "Painel", icon: <IconGrid />, end: true },
+      { to: "/agenda", label: "Agenda", icon: <IconCalendar /> },
       { to: "/customers", label: "Clientes", icon: <IconUsers /> },
     ],
   },

@@ -97,6 +97,7 @@ public class ReportService {
         Map<UUID, String> nomePorProfissional = professionalRepository.findByBarbershopId(shop).stream()
                 .collect(Collectors.toMap(Professional::getId, Professional::getName, (a, b) -> a));
         Set<String> assinantes = customerService.subscriberPhones();
+        Map<ServiceCategory, Integer> duracoes = pricingService.resolveDurations();
 
         return appointmentRepository.findByBarbershopId(shop).stream()
                 .filter(a -> date.equals(a.getAppointmentDate()))
@@ -105,8 +106,11 @@ public class ReportService {
                 .map(a -> new AppointmentView(
                         a.getAppointmentTime(),
                         a.getCustomerName(),
+                        a.getCustomerPhone(),
                         a.getService(),
+                        duracoes.getOrDefault(pricingService.categorize(a.getService()), 30),
                         a.getPaymentStatus(),
+                        a.getProfessionalId(),
                         a.getProfessionalId() == null ? null : nomePorProfissional.get(a.getProfessionalId()),
                         a.getCustomerPhone() != null && assinantes.contains(a.getCustomerPhone())))
                 .toList();

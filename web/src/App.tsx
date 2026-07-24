@@ -2,6 +2,7 @@ import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
+import { Agenda } from "./pages/Agenda";
 import { Services } from "./pages/Services";
 import { Professionals } from "./pages/Professionals";
 import { Customers } from "./pages/Customers";
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
       <Route element={<Protected />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/agenda" element={<Agenda />} />
         <Route path="/services" element={<Services />} />
         <Route path="/professionals" element={<Professionals />} />
         <Route path="/customers" element={<Customers />} />

@@ -70,6 +70,14 @@ export const IconPercent = () => (
   </Icon>
 );
 
+export const IconCalendar = () => (
+  <Icon>
+    <rect x="3" y="5" width="18" height="16" rx="2.5" />
+    <path d="M3 10h18M8 3v4M16 3v4" />
+    <path d="M7.5 14h3M13.5 14h3M7.5 17.5h3" />
+  </Icon>
+);
+
 export const IconSliders = () => (
   <Icon>
     <path d="M4 7h9M17 7h3" />
