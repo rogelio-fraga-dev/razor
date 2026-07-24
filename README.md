@@ -1,222 +1,257 @@
-# 💈 BarberBot AI - Sistema de Agendamento Autônomo & CRM (MVP Completo)
+# 🪒 RAZOR — O sistema operacional inteligente da barbearia
 
-> **SaaS de Automação de Atendimento, Agendamento e Vendas via WhatsApp para Barbearias e Centros de Estética**
+> **SaaS multi-tenant** de atendimento e gestão para barbearias: uma **IA conversacional** atende,
+> agenda e cobra pelo WhatsApp enquanto o dono acompanha tudo por um **painel web**.
 >
-> Arquitetura corporativa escalável desenvolvida com **Spring Boot 3**, **PostgreSQL**, **Flyway**, e **OpenAI (GPT-4o & Whisper)**. Integração de mensageria assíncrona robusta via **Evolution API** projetada para operação 100% autônoma e otimização de faturamento comercial.
+> **Spring Boot 3 · PostgreSQL + Flyway · OpenAI (GPT-4o + Whisper) · Evolution API · React (Vite + TS)**
+
+Documentação viva em [`docs/`](./docs): [ROADMAP](./docs/ROADMAP.md) · [PLATFORM](./docs/PLATFORM.md) ·
+[PRICING](./docs/PRICING.md) · [BRANDING](./docs/BRANDING.md) · [UX_BLUEPRINT](./docs/UX_BLUEPRINT.md) ·
+[WHATSAPP_CHANNEL](./docs/WHATSAPP_CHANNEL.md) · [COMPETITIVE_ANALYSIS](./docs/COMPETITIVE_ANALYSIS.md)
 
 ---
 
-## 🚀 1. Visão Geral e Proposta de Valor Comercial (MVP)
+## 1. O que o Razor é (e para quem)
 
-O **BarberBot** é uma plataforma SaaS *white-label* pronta para ser validada e escalada em ambiente real de produção. Diferente de chatbots tradicionais baseados em fluxogramas engessados e opções numéricas limitadas, o BarberBot combina a flexibilidade e a empatia do processamento de linguagem natural (NLP) com a precisão de um banco de dados relacional e automações de reengajamento ativo para impulsionar a receita recorrente e otimizar processos internos.
+Plataforma **B2B2C** com três públicos e três superfícies distintas:
 
-### 💰 Impacto de Negócio do MVP
-1. **Desperdício Zero de Agenda (Lista de Espera Reativa)**: Vagas perdidas por cancelamentos de última hora em sextas-feiras e sábados são preenchidas de forma autônoma. O sistema notifica imediatamente a primeira pessoa da lista de espera e fecha o agendamento sem intervenção manual.
-2. **Ciclo de Retorno Reduzido (Retenção de Clientes)**: Reduz o tempo de inatividade entre cortes enviando lembretes proativos de forma personalizada a cada 15 dias. Um cliente que passa a vir a cada 20 dias em vez de 40 **dobra a sua receita recorrente** dentro do estabelecimento.
-3. **Fidelização com Gamificação Própria (Cartão Fidelidade Digital)**: Promove uma experiência livre de cartões físicos de papel, aumentando a retenção de forma astronômica e garantindo a recorrência na base de clientes.
-4. **Fricção Zero no Pagamento (Pix Copia e Cola)**: Disponibiliza a chave e o código Pix imediatamente após a reserva do horário, diminuindo o fluxo de atendimento físico e agilizando as operações no caixa.
+| Nível | Quem | Onde usa | O que faz |
+|---|---|---|---|
+| **Plataforma** | dono do Razor | console do dono *(Fase 4)* | vê todas as barbearias, MRR, custo de IA por tenant, suporte |
+| **Barbearia** (tenant) | dono / equipe | **painel web** + **WhatsApp admin** | configura tudo no painel; opera o dia a dia pelo celular |
+| **Cliente final** | cliente da barbearia | **WhatsApp** (e o site da barbearia, Fase 3) | agenda, tira dúvidas, é atendido pela IA |
+
+**Princípio que organiza o produto:** *configuração e relatórios vivem no **web**; o **WhatsApp** é
+operação rápida.* Financeiro, comissões e fechamento saíram do WhatsApp e ficam no painel; no celular
+o dono tem só o que precisa entre um corte e outro.
 
 ---
 
-## 🧠 2. Diagramas de Fluxo e Arquitetura do Sistema
+## 2. Os três fluxos, na prática
 
-### 2.1. Arquitetura Geral do Fluxo de Mensagens
-Este diagrama demonstra como o sistema recebe a mensagem do cliente via WhatsApp, processa por meio da Inteligência Artificial do GPT-4o, realiza o tratamento de tags estruturadas em segundo plano e direciona para os fluxos de agendamento, lista de espera e checkout de pagamento.
+### 2.1. Fluxo do CLIENTE (WhatsApp, sem baixar nada)
 
-```mermaid
-graph TD
-    A[Mensagem do Cliente] --> B{OrchestratorService}
-    B -- "Menu / Oi" --> C[Lista Interativa WhatsApp]
-    B -- "Conversa Natural" --> D[Análise GPT-4o]
-    D -- "Identifica Intenção" --> E[Tag de Agendamento]
-    D -- "Agenda Cheia (Sex/Sáb)" --> F[Tag Lista de Espera]
-    F --> G[waitlist_entries Table]
-    E --> H[Confirmação de Agendamento]
-    H --> I[Pergunta Forma de Pagamento]
-    I -- "Opção 1 (PIX)" --> J[Gera Chave e Copia e Cola / Status: PIX]
-    I -- "Opção 2 (Presencial)" --> K[Status: PRESENCIAL]
-```
-
-### 2.2. Sequência Reativa: Cancelamento de Horário & Lista de Espera
-Esta sequência demonstra o funcionamento concorrente e reativo da Lista de Espera. No momento em que um cliente cancela seu horário, o sistema atua imediatamente para reabsorver a vaga, oferecendo-a para o primeiro da lista de espera para o mesmo dia da semana.
+O cliente conversa em linguagem natural — texto **ou áudio**. Não existe "digite 1".
 
 ```mermaid
 sequenceDiagram
-    actor Cliente A
-    actor Cliente B
-    participant Bot as BarberBot Assist
-    participant DB as PostgreSQL
+    actor C as Cliente
+    participant WA as WhatsApp
+    participant R as Razor
+    participant IA as GPT-4o / Whisper
 
-    Cliente A->>Bot: "cancelar meu horário"
-    Bot->>Bot: Identifica agendamento ativo e remove
-    Bot->>Bot: Extrai dia da semana cancelado (Ex: Sábado)
-    Bot->>DB: Busca registro mais antigo na waitlist_entries para 'Sábado'
-    DB-->>Bot: Retorna Cliente B (preferência por Sábado)
-    Bot->>Bot: Cria WaitlistOffer temporária em cache
-    Bot->>Cliente B: "Um horário acaba de vagar para este Sábado! Deseja reservar? Responda SIM"
-    Cliente B->>Bot: "SIM"
-    Bot->>Bot: Lê oferta do cache, cria agendamento
-    Bot->>Bot: Configura status de pagamento pendente
-    Bot->>Cliente B: Confirmado! Pergunta forma de pagamento (PIX/Presencial)
+    C->>WA: "tem horário sábado de manhã?" (ou áudio)
+    WA->>R: webhook (token + instância → tenant)
+    R->>R: é admin? não → fluxo do cliente
+    R->>R: bot ligado? cliente não pausado? mensagem recente?
+    R->>IA: contexto do TENANT (nome, catálogo real, horário, agenda livre)
+    IA-->>R: resposta + tag estruturada
+    R->>WA: "Tenho! 9h30 ou 11h com o Diego. Qual prefere?"
+    C->>WA: "9h30, corte e barba"
+    R->>R: valida folga/bloqueio, atribui barbeiro, grava agendamento
+    R->>WA: confirma + pergunta pagamento (PIX / presencial)
+    Note over R: agenda lembrete (1h antes) e pedido de avaliação (1h depois)
 ```
 
-### 2.3. Sequência de Fidelidade Digital (Pós-Serviço)
-Esta sequência detalha a lógica de banco de dados relacional e gamificação aplicada após o término do corte de cabelo. O sistema incrementa a pontuação em segundo plano e, ao atingir a meta, emite o código promocional exclusivo.
+**O que o cliente consegue fazer sozinho:** agendar, escolher o barbeiro, ver/cancelar o próprio
+horário, consultar endereço, preços e Instagram, entrar na lista de espera, pagar por PIX, acumular
+fidelidade e pedir para **falar com um humano** (o bot se cala por 15 min e avisa o dono).
 
-```mermaid
-sequenceDiagram
-    participant Bot as BarberBot Scheduler
-    participant DB as PostgreSQL
-    actor Cliente
+### 2.2. Fluxo do ADMIN no CELULAR (WhatsApp = controle remoto)
 
-    Note over Bot: Tarefa REVIEW_REQUEST é disparada 1 hora após o corte
-    Bot->>Cliente: Envia mensagem de agradecimento e link Google Maps
-    Bot->>DB: Incrementa 1 ponto de fidelidade para o cliente
-    DB-->>Bot: Retorna nova pontuação (ex: 10 pontos)
-    Note over Bot: Detecção de meta (Pontos >= 10)
-    Bot->>DB: Reseta pontos de fidelidade para 0
-    Bot->>Bot: Gera código UUID de 10% de desconto
-    Bot->>Cliente: "PARABÉNS! Você completou 10 pontos e ganhou o cupom FIDELIDADE10-XXXXX!"
+O celular **não é um painel menor** — é o controle rápido. Qualquer telefone cadastrado como admin
+da barbearia cai neste fluxo (inclusive por **comando de voz**, transcrito pelo Whisper).
+
+Digitando `menu`, o dono recebe:
+
+```
+🛠️ PAINEL DA BARBEARIA — ações rápidas
+ 1 - 📅 Agenda do Dia          6 - ⏸️ Pausar bot (cliente)
+ 2 - 📆 Agenda da Semana       7 - ▶️ Retomar bot (cliente)
+ 3 - 📢 Avisos (geral)         8 - 📋 Listar clientes
+ 4 - 🎯 Promoções do dia       9 - 🗑️ Apagar um cliente
+ 5 - 📝 Agendar disparo       10 - ℹ️ Ajuda / manual
+
+📊 Financeiro, comissões e fechamento: no painel web.
 ```
 
-### 2.4. Fluxo de Compreensão e Processamento de Áudio (OpenAI Whisper-1)
-Este diagrama detalha o funcionamento assíncrono e concorrente da recepção de áudio no sistema. O bot baixa o arquivo de voz do WhatsApp de forma transparente via API do Evolution, decodifica a mídia e utiliza a inteligência artificial do Whisper para transcrever a voz em texto de alta fidelidade, permitindo processar a intenção do cliente na recepção ou executar comandos administrativos remotamente por voz.
+Além do menu, o admin pode pelo celular:
+- **Mandar áudio** com o comando (ex.: *"agenda do dia"*) — o Whisper transcreve e executa;
+- **Enviar a foto de uma agenda de papel** — a IA (Vision) lê e cadastra os horários;
+- **Enviar um CSV** — importa a base de clientes inteira;
+- **Receber alertas** automáticos: relatório matinal, fechamento do dia, aviso quando um cliente
+  pede atendimento humano.
 
-```mermaid
-sequenceDiagram
-    actor Usuário (Cliente/Admin)
-    participant WA as WhatsApp Client
-    participant Evo as Evolution API
-    participant Bot as BarberBot Core
-    participant OAI as OpenAI Whisper API
-    participant GPT as OpenAI GPT-4o API
+Pedir "financeiro" ou "comissões" no WhatsApp **redireciona para o painel** de propósito — relatório
+comprido não se lê no celular entre dois cortes.
 
-    Usuário (Cliente/Admin)->>WA: Envia mensagem de áudio ou comando de voz (.ogg / .mp3)
-    WA->>Evo: Transmite arquivo de mídia de áudio
-    Evo->>Bot: Dispara Webhook de Áudio (contendo messageId)
-    Bot->>Evo: Requisita o arquivo decodificado em Base64 (/chat/getBase64FromMediaMessage)
-    Evo-->>Bot: Retorna o conteúdo de mídia em string Base64
-    Bot->>OAI: Transmite Base64 para transcrição de áudio (Whisper-1)
-    OAI-->>Bot: Retorna transcrição em texto (ex: "quero marcar amanhã 10h corte" ou "dashboard")
-    
-    alt Fluxo do Cliente
-        Bot->>GPT: Processa texto transcrito com histórico da conversa (GPT-4o)
-        GPT-->>Bot: Retorna tags estruturadas + resposta receptiva
-        Bot->>WA: Envia mensagem confirmando agendamento ou tirando dúvidas
-    else Fluxo do Administrador
-        Note over Bot: Identifica comando administrativo falado e executa
-        Bot->>WA: Retorna painel financeiro, pausa/retoma robô ou exibe a transcrição
-    end
-```
+### 2.3. Fluxo do DONO no PAINEL WEB (onde se configura tudo)
+
+`Painel` (cockpit do dia) · **`Agenda`** (calendário por barbeiro, estilo Google Agenda) ·
+`Clientes` (base, assinantes do clube) · `Serviços` · `Profissionais` (+ comissão) · `Planos` ·
+`Comissões` · `Configurações` · `Meu perfil`.
+
+Em **Configurações** o dono resolve o essencial:
+- **Status do bot** — semáforo: WhatsApp conectado? IA funcionando? atendimento ligado? (+ liga/desliga)
+- **Conectar o WhatsApp** — **QR code na própria tela**, sem abrir a Evolution
+- **O que o bot fala** — nome, endereço, **chave PIX**, horário de funcionamento, tabela de serviços,
+  saudação, lembrete, pedido de avaliação, política de cancelamento e a **persona da IA**
 
 ---
 
-## 🛠️ 3. Mapeamento e Especificação dos Módulos do Sistema
+## 3. Arquitetura
 
-### MÓDULO A: INTEGRAÇÃO INTELIGENTE DE ATENDIMENTO (CLIENTE)
-* **Inteligência Artificial Conversacional (NLP - OpenAI GPT-4o)**: Compreensão de linguagem natural, gírias e agendamentos diretos em conversas livres por chat.
-* **Extração Temática de Tags de IA**: Geração e interceptação em milissegundos das tags `[NOVO_AGENDAMENTO|...]` e `[LISTA_DE_ESPERA|...]` sem exibição visual ao cliente.
-* **Compreensão de Áudio em Tempo Real (OpenAI Whisper)**: O cliente pode fazer agendamentos, cancelar horários ou tirar dúvidas enviando mensagens de voz normais no WhatsApp. O sistema realiza o download dinâmico do áudio, faz a transcrição de alta fidelidade nativamente e processa o texto pela inteligência do GPT-4o como se tivesse sido digitado, respondendo o cliente com agilidade e fluidez.
-* **Trava de Agenda Semanal Dinâmica**: A IA possui uma diretriz rígida que impede o cliente de agendar para datas futuras distantes, forçando e limitando a exibição da agenda apenas para a semana corrente (Segunda a Sábado), priorizando o fechamento rápido e o fluxo de caixa imediato.
-* **Menus Nativos Interativos (WhatsApp List Messages)**: Interface de gaveta clicável nativa do WhatsApp com fallback numérico robusto (1 a 8) e reconciliação total de rotas.
-* **Autogestão de Agendamentos**: Possibilidade de o cliente consultar seu horário ativo ou cancelá-lo informando apenas a frase `"cancelar meu horário"`.
+```
+WhatsApp ──▶ Evolution API ──▶ POST /api/webhook?token=… ──▶ WebhookRouter (@Async)
+                                                              │ resolve TENANT pela instância
+                                                              ├─▶ AdminCommandService     (admin)
+                                                              └─▶ CustomerConversationService
+                                                                        │
+                                                     OpenAIService (prompt do TENANT) ─▶ GPT-4o
+                                                     AgendaService · ScheduleBlockService · Pricing
+                                                                        │
+Painel React (Vite) ──▶ /api/admin/** (JWT) ──────────────▶ PostgreSQL (Flyway V1…V16)
+```
 
-### MÓDULO B: AUTOMAÇÕES FINANCEIRAS & FIDELIZAÇÃO
-* **Cartão Fidelidade Digital**: Acúmulo automático de **1 ponto** na conta do Postgres toda vez que o cliente conclui a rotina de pós-venda. Zera ao chegar a **10 pontos** e envia um cupom promocional único de **10% de desconto** (`FIDELIDADE10-[HASH]`).
-* **Automação "Sextou" (Engajamento em Massa)**: Motor de varredura que dispara toda sexta-feira às **09h00** uma mensagem descontraída de lembrete do final de semana para *toda* a base de clientes que ainda não marcou horário para sexta ou sábado.
-* **Retenção Inteligente ("Cabelo Crescido")**: Motor diário rodando via CRON às **11h00** que busca inativos por ciclos de **15 dias** e dispara lembretes calorosos se não houver reserva futura.
-* **Lista de Espera Reativa (Sexta & Sábado)**: Fila automatizada persistida na tabela `waitlist_entries` quando a agenda do fim de semana está lotada. Preenche a vaga de forma concorrente e avisa o cliente da lista com auto-booking sob resposta `"SIM"`.
-* **Checkout PIX Copia e Cola**: Fluxo imediato de pagamento pós-agendamento com payloads formatados e badges visuais (`[PIX 💳]`, `[Presencial 💵]`, `[Pendente ⏳]`) no fechamento do dia do administrador.
+### Multi-tenancy
+Schema compartilhado com **`barbershop_id` em todas as tabelas**. O tenant entra por dois caminhos:
+a **instância da Evolution** (WhatsApp) ou o **JWT** (painel), e vive num `TenantContext` (ThreadLocal)
+setado dentro da thread `@Async`. Instância desconhecida é **descartada** — nunca cai num tenant padrão.
 
-### MÓDULO C: PAINEL ADMINISTRATIVO & CRM (ADMINISTRADOR)
-* **Controle Total por Comandos de Voz**: O proprietário/administrador pode comandar a barbearia por mensagens de áudio no WhatsApp! O Whisper transcreve a voz e o sistema executa o comando correspondente diretamente (ex: falar *"dashboard"* para ver faturamento, *"relatório matinal"* ou *"relatório noturno"*, *"pausar"* ou *"retomar"* o robô para clientes específicos). O bot também retorna a transcrição de voz no chat para acompanhamento visual.
-* **Dashboard Financeiro**: Resumo estimado de faturamento e cortes efetuados no chat administrativo.
-* **Relatório Matinal Automatizado (07h30)**: Disparo diário com a contagem de clientes agendados e a listagem das horas de cada atendimento.
-* **Relatório Noturno Detalhado (22h30)**: Fechamento detalhado dos serviços do dia integrados com as badges de pagamento de cada cliente.
-* **Importação via Visão Computacional (IA Vision)**: O administrador envia a foto de uma agenda física e a IA mapeia e cadastra todos os horários e clientes automaticamente no banco de dados.
-* **Agendamento de Disparos Promocionais**: O proprietário redige campanhas de marketing ou avisos em dias de baixo movimento e programa uma data e hora para que o sistema efetue o disparo em massa para toda a base, de forma 100% autônoma e silenciosa.
-* **Importação de Leads em Lote (CSV)**: Decodificação e cadastro de base de clientes inteira enviando um arquivo de planilha CSV no chat.
-* **Transbordo Humano & Pausa Inteligente**: Silenciamento do robô para um cliente específico durante **15 minutos** quando ele solicita falar com o barbeiro, com triagem de motivos disparada para o administrador.
-* **CRUD de Clientes**: Possibilidade de listar toda a base relacional ou deletar um contato permanentemente via chat de controle.
-
-### MÓDULO D: RESILIÊNCIA E ARQUITETURA DE DADOS
-* **Persistência Híbrida de Estado (JSON + RDBMS)**: Salvamento automático da agenda em cache e em arquivo físico `agenda.json`. Restabelece o estado da aplicação e horários indisponíveis no `@PostConstruct` caso o servidor sofra reinício inesperado.
-* **Fila e Motor de Disparo de Lembretes (Scheduled Tasks)**: Tabela `scheduled_tasks` que programa lembretes (`REMINDER` 1 hora antes) e pós-venda (`REVIEW_REQUEST` 1 hora depois), adiando envios caso o robô esteja em pausa de transbordo humano.
+### Estado efêmero (`StateStore`)
+Passo da conversa, dedup de mensagem, pausa de cliente e ofertas de lista de espera vivem atrás da
+porta `StateStore`, com **TTL por chave** e chaves escopadas por tenant. O adaptador padrão é em
+memória; o **Redis** entra como adaptador novo (`razor.state.store=redis`) sem tocar na lógica.
 
 ---
 
-## 🏗️ 4. Modelo do Banco de Dados Relacional (Flyway)
+## 4. Segurança
 
-Para garantir integridade transacional e implantação limpa do MVP em produção, as novas colunas e tabelas foram estruturadas em migrações gerenciadas pelo **Flyway**.
-
-### Script de Migração (`V2__add_fidelity_waitlist.sql`)
-
-```sql
--- 1. Adiciona colunas para controle de fidelidade e última visita na tabela de clientes
-ALTER TABLE customers ADD COLUMN fidelity_points INTEGER DEFAULT 0;
-ALTER TABLE customers ADD COLUMN last_service_date TIMESTAMP;
-
--- 2. Tabela de Lista de Espera Inteligente
-CREATE TABLE waitlist_entries (
-    id UUID PRIMARY KEY,
-    customer_phone VARCHAR(20) NOT NULL,
-    customer_name VARCHAR(255),
-    preferred_day VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP NOT NULL
-);
-
--- 3. Índices de performance para busca reativa eficiente
-CREATE INDEX idx_waitlist_day ON waitlist_entries(preferred_day);
-CREATE INDEX idx_waitlist_phone ON waitlist_entries(customer_phone);
-```
+| Proteção | Como |
+|---|---|
+| **Webhook** | token compartilhado obrigatório (`X-Webhook-Token` ou `?token=`), **fail-closed**, comparação em tempo constante |
+| **Isolamento de tenant** | instância desconhecida → mensagem descartada (sem fallback para o tenant padrão) |
+| **Painel** | Spring Security stateless + **JWT**; `/api/admin/**` exige token (401 sem token) |
+| **Senhas** | bcrypt; troca de senha exige a senha atual |
+| **Força bruta** | 5 falhas por email+IP → bloqueio de 15 min (429) |
+| **Onboarding** | protegido por chave (`X-Onboarding-Key`), **fail-closed** |
+| **Cabeçalhos** | frame-deny, nosniff, referrer-policy, HSTS |
+| **QR de pareamento** | só pelo painel autenticado (endpoint público foi **removido**) |
+| **Custo de IA** | chave OpenAI é **global, da plataforma** — o tenant nunca configura nem paga direto |
 
 ---
 
-## 📂 5. Estrutura do Projeto
+## 5. Modelo de dados (Flyway — V1 a V16)
 
-O sistema é construído sobre pilares de **Clean Architecture** e forte modularização, separando os controladores REST das regras de negócio.
-
-```
-barberbot-core
- ├── src/main/java/com/barberbot/api
- │    ├── controller      # Controllers REST (Webhook Evolution API)
- │    ├── repository      # Repositories JPA (Spring Data)
- │    ├── model           # Entidades JPA (Customer, WaitlistEntry, Tasks, Interaction)
- │    ├── service         # Camada de Negócio (Orchestrator, OpenAI, WhatsApp, Agenda)
- │    ├── scheduler       # Agendadores CRON e Processamento de Filas
- │    └── config          # Configurações de Properties, WebClient e OpenAI
- └── src/main/resources
-      ├── db/migration    # Migrações Flyway SQL (V1, V2)
-      └── application.yml # Configuração de preços, serviços e APIs
-```
+| Migração | O que trouxe |
+|---|---|
+| V1–V3 | base: clientes, interações, agendamentos, tarefas; tipos fortes (`PaymentStatus`, `LocalDate/Time`) |
+| **V4–V6** | **fundação multi-tenant**: `barbershops` + `barbershop_id` em tudo; telefone único **por barbearia** |
+| V7 | profissional no agendamento (agenda multiprofissional) |
+| V8–V9 | admins por tenant · comissão por profissional |
+| V10–V11 | `tenant_users` (login do painel) · `barbershop_settings` (textos do bot) |
+| V12–V13 | `subscription_plans` (clube) · **assinantes** (cliente ↔ plano) |
+| V14 | liga/desliga do bot por tenant |
+| V15 | **identidade, PIX, horário e persona** do bot por tenant |
+| **V16** | **`schedule_blocks`** — folgas, almoço, feriado (por barbeiro ou barbearia; pontual ou recorrente) |
 
 ---
 
-## ⚙️ 6. Instalação, Deploy e Inicialização do MVP
+## 6. Módulos
 
-### 6.1. Configurar Variáveis de Ambiente (`.env`)
-Antes de iniciar a aplicação, garanta a criação do arquivo `.env` na raiz do projeto:
+**Atendimento (cliente)** — IA conversacional (GPT-4o) · áudio (Whisper) · menu nativo do WhatsApp
+com fallback numérico · autogestão do próprio horário · lista de espera reativa · fidelidade digital
+· PIX copia-e-cola · transbordo humano.
 
-```env
-# Conexão PostgreSQL
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/barberbot_db
-SPRING_DATASOURCE_USERNAME=seu_usuario
-SPRING_DATASOURCE_PASSWORD=sua_senha
+**Agenda** — multiprofissional com escolha explícita ou auto-atribuição (menos ocupado) ·
+disponibilidade respeita a **duração real** do serviço · **folgas e bloqueios** barram a oferta *e* a
+atribuição · calendário no painel com linha do "agora".
 
-# Chaves de Integração e APIs
-OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-ADMIN_PHONE=5511999999999
-EVOLUTION_API_KEY=barberbot
+**Gestão** — financeiro do dia/semana · comissões por barbeiro · clube de assinatura com
+identificação de assinante na agenda (💎) · base de clientes com filtros.
+
+**Operação automática** — relatório matinal e fechamento noturno · lembrete 1h antes · pedido de
+avaliação 1h depois · retenção de inativos (15 dias) · "Sextou" · disparos imediatos e agendados.
+
+**Plataforma** — onboarding self-service transacional (barbearia + catálogo + barbeiro + admins +
+usuário OWNER) · conexão de WhatsApp por QR no painel.
+
+---
+
+## 7. Rodando localmente
+
+### 7.1. Pré-requisitos
+Docker · JDK 17+ · Node 18+
+
+### 7.2. Configuração
+```bash
+cp .env.local.example .env.local   # e preencha
 ```
+| Variável | Para quê |
+|---|---|
+| `OPENAI_API_KEY` | **obrigatória** — sem chave real a IA não responde |
+| `WEBHOOK_TOKEN` | **obrigatória** — sem ela o webhook fica desabilitado (fail-closed) |
+| `ONBOARDING_API_KEY` | habilita criar barbearias |
+| `RAZOR_JWT_SECRET` | assina os JWT do painel |
+| `SPRING_DATASOURCE_URL` | banco (o dev local usa a porta **5433**) |
 
-### 6.2. Inicialização em Produção/Desenvolvimento
-Execute o script utilitário de inicialização em sistemas Windows:
-
+### 7.3. Subir
 ```powershell
-./run.ps1
+.\dev.ps1            # containers (Postgres 5433 + Evolution 8080) + backend 8081
+cd web; npm install; npm run dev    # painel em http://localhost:5173
 ```
 
-O Flyway se encarrega de verificar a versão do banco de dados, criar os campos de fidelidade e tabela de lista de espera de forma transparente e segura, permitindo o funcionamento imediato do bot.
+A Evolution precisa apontar o webhook para `http://host.docker.internal:8081/api/webhook?token=<WEBHOOK_TOKEN>`.
+
+### 7.4. Criar a primeira barbearia
+```bash
+curl -X POST http://localhost:8081/api/onboarding \
+  -H "Content-Type: application/json" -H "X-Onboarding-Key: $ONBOARDING_API_KEY" \
+  -d '{"name":"Barbearia Teste","slug":"barbearia-teste","whatsappInstance":"BarbeariaTesteWpp",
+       "professionalName":"Rafael","adminPhones":["5511999999999"],
+       "ownerEmail":"dono@teste.com","ownerPassword":"senha12345"}'
+```
+Depois entre no painel → **Configurações → Conexão do WhatsApp → Conectar** e escaneie o QR.
+
+### 7.5. Backup
+```powershell
+.\scripts\backup-db.ps1     # dump comprimido + retenção de 14 dias
+```
 
 ---
-*BarberBot AI MVP: Automação completa de atendimento, fidelidade reativa e controle financeiro de ponta a ponta na palma da mão.* ✂️💈
+
+## 8. Qualidade
+
+```bash
+./mvnw verify        # unitários + ITs (Testcontainers)
+cd web && npm run build
+```
+
+- **235 testes** (unitários + integração). Os ITs usam **Postgres real** via Testcontainers e
+  **pulam automaticamente** sem Docker (rodam no CI).
+- CI no GitHub Actions a cada push (build + testes + cobertura).
+- Migrações **sempre** por Flyway — nunca alteração manual de banco.
+
+---
+
+## 9. Estrutura
+
+```
+razor/
+├── src/main/java/com/razor/api
+│   ├── controller     # REST: webhook + /api/admin/** + auth + onboarding
+│   ├── service        # regras de negócio (tenant-scoped)
+│   ├── security       # JWT, filtro, rate limiter
+│   ├── state          # StateStore (porta + adaptador em memória)
+│   ├── tenant         # TenantContext / TenantResolver
+│   ├── model · repository · dto · scheduler · config
+│   └── resources/db/migration   # Flyway V1…V16
+├── web/               # painel React (Vite + TS)
+├── site/              # landing institucional (estática)
+├── docs/              # roadmap, plataforma, preços, marca, UX, canal
+└── scripts/           # backup do banco
+```
+
+---
+
+*Razor — a IA que atende, agenda e cobra pelo WhatsApp, enquanto você corta.* ✂️
