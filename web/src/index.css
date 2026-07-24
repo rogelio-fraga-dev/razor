@@ -1277,19 +1277,26 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .cmdk-empty { padding: 24px; text-align: center; color: var(--text-faint); font-size: 14px; }
 
 /* ---------- Relógio da topbar ---------- */
+/* data à esquerda · relógio à direita, separados por um traço fino */
 .clock {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.15;
+  align-items: center;
+  gap: 10px;
   padding-right: 12px;
   margin-right: 2px;
   border-right: 1px solid var(--border);
 }
 .clk-day {
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  color: var(--text-faint);
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text-muted); /* legível — não é detalhe apagado */
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.clk-div {
+  width: 1px;
+  height: 13px;
+  background: var(--border-hi);
 }
 .clk-time {
   font-size: 15px;
@@ -1304,7 +1311,8 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   font-weight: 400;
 }
 @media (max-width: 760px) {
-  .clk-day { display: none; }
+  .clk-day,
+  .clk-div,
   .clk-sec { display: none; }
   .clock { padding-right: 10px; }
 }

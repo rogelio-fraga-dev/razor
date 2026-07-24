@@ -270,6 +270,26 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       Clientes, Planos, Comissões, Configurações (status do bot + WhatsApp por QR +
       textos + admins) e Perfil, com a identidade RAZOR aplicada.
       _(Falta: agenda multiprofissional interativa.)_
+- [ ] 🎯 **Perfil completo do barbeiro (hoje é só nome, telefone, comissão e ativo)** — o
+      profissional é a cara da barbearia: aparece na agenda, no relatório de comissão e,
+      principalmente, na **página da equipe do site white-label**. Campos a acrescentar,
+      todos editáveis pelo dono na tela *Profissionais*:
+      | Campo | Para quê |
+      |---|---|
+      | **Foto** | avatar na agenda/painel e retrato na página da equipe do site |
+      | **Apelido / como o bot chama** | a IA fala "com o Diego", não "com Diego Aparecido Santos" |
+      | **Bio curta** | texto de apresentação no site ("10 anos de navalha, especialista em degradê") |
+      | **Especialidades** (tags) | mostra no site e, depois, ajuda a IA a sugerir o barbeiro certo |
+      | **Instagram** | link no perfil do site |
+      | **Serviços que atende** | restringe a auto-atribuição (ex.: quem não faz barba não recebe barba) |
+      > **Decisão de armazenamento da foto (a tomar):** não há storage de objetos hoje.
+      > Opções: **(a)** redimensionar no navegador (~256px, JPEG) e guardar **data URI** em
+      > coluna `TEXT` — sem infra nova, ~30KB por barbeiro, suficiente para uma equipe;
+      > **(b)** `photo_url` apontando para storage externo (S3/R2) — melhor em escala, exige
+      > infra e credenciais. **Recomendação: (a) agora, (b) quando entrar o upload de fotos do
+      > site** (que vai precisar de storage de qualquer forma) — aí os dois migram juntos.
+      > Onde aparece: avatar nas colunas da **Agenda**, na lista de **Profissionais**, em
+      > **Comissões**, e no bloco "nossa equipe" do **site**.
 - [ ] **Overhaul de UX** conforme [`UX_BLUEPRINT.md`](./UX_BLUEPRINT.md): infra de feedback
       (toasts/skeletons/empty states), **tutorial de primeiro acesso + checklist de ativação**,
       Configurações em abas, Clientes com drawer + cards mobile, chips de período em

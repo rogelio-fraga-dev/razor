@@ -30,8 +30,9 @@ export function Clock() {
   const [hh, mm, ss] = TIME.format(now).split(":");
 
   return (
-    <div className="clock" title={DAY.format(now)} aria-label={`Agora: ${hh}:${mm}`}>
-      <span className="clk-day mono">{DAY.format(now).replace(".", "").toUpperCase()}</span>
+    <div className="clock" aria-label={`Hoje ${DAY.format(now)}, agora ${hh}:${mm}`}>
+      <span className="clk-day">{DAY.format(now).replace(".", "")}</span>
+      <span className="clk-div" aria-hidden="true" />
       <span className="clk-time mono">
         {hh}:{mm}
         <span className="clk-sec">:{ss}</span>
