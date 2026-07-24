@@ -127,7 +127,14 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
-        
+
+        <!-- Redis: adaptador de StateStore para estado compartilhado entre instancias
+             (opt-in via razor.state.store=redis; sem isso, so o beans lazy ficam ociosos) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

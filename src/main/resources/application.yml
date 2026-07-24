@@ -22,11 +22,32 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+  # Conexao Redis — usada apenas quando razor.state.store=redis. Com store=memory (padrao),
+  # os beans do Redis ficam ociosos e nao abrem conexao.
+  data:
+    redis:
+      host: "${REDIS_HOST:localhost}"
+      port: "${REDIS_PORT:6379}"
+      password: "${REDIS_PASSWORD:}"
+
 server:
   port: 8081
 
+management:
+  health:
+    # O starter do Redis esta no classpath so pelo adaptador de StateStore opcional. Com
+    # store=memory (padrao) nao ha Redis, entao o health check dele ficaria DOWN a toa —
+    # desligado por padrao. Ligue (REDIS_HEALTH=true) ao rodar com razor.state.store=redis.
+    redis:
+      enabled: "${REDIS_HEALTH:false}"
+
 # Configurações do Razor (SaaS de barbearias)
 razor:
+  # Onde vive o estado efemero da conversa (dedup de mensagem, pausa de cliente, passo da
+  # conversa). "memory" (padrao) = uma instancia, estado perdido no restart. "redis" =
+  # compartilhado entre instancias e sobrevive ao restart (exige Redis; ver spring.data.redis).
+  state:
+    store: "${RAZOR_STATE_STORE:memory}"
   admin:
     phones: "${ADMIN_PHONES}"
   evolution:
