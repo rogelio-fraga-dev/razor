@@ -11,7 +11,6 @@ import com.razor.api.state.StateKeys;
 import com.razor.api.state.StateStore;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.ConsoleText;
-import java.text.Normalizer;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -68,17 +67,9 @@ public class AdminCommandService {
         return evolutionMediaService.fetchBase64(messageId);
     }
 
+    /** Audio transcrito e um comando (e nao um ditado livre)? Mesma inteligencia do texto. */
     private boolean isSystemCommand(String text) {
-        if (text == null) return false;
-        String t = Normalizer.normalize(text.toLowerCase(), Normalizer.Form.NFD)
-                .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "")
-                .replaceAll("[^a-z0-9 ]", "");
-        return t.contains("comando") || t.contains("menu") || t.contains("ajuda") ||
-               t.contains("resumo") || t.contains("dashboard") ||
-               t.contains("aviso") || t.contains("prospec") || t.contains("promocao") || t.contains("promo") ||
-               t.contains("pausar") || t.contains("pausa") || t.contains("retomar") || t.contains("retoma") ||
-               t.contains("agenda") || t.contains("listar") || t.contains("lista") || t.contains("comiss") ||
-               t.contains("apagar") || t.contains("apaga") || t.contains("excluir") || t.contains("exclui");
+        return AdminIntentResolver.isCommand(text);
     }
 
     // ==========================================
@@ -154,9 +145,8 @@ public class AdminCommandService {
 
         if (command != null) {
             String originalCommand = command.trim();
-            String normalized = Normalizer.normalize(originalCommand.toLowerCase(), Normalizer.Form.NFD)
-                    .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "");
-            String cmdLower = normalized.replaceAll("[^a-z0-9 ]", "").trim();
+            // Normalizacao unica, a mesma do resolvedor de intencao.
+            String cmdLower = AdminIntentResolver.normalize(originalCommand);
 
             String adminRowId = MenuOptions.resolveAdminMenuOptionId(originalCommand);
             if (adminRowId != null) {
@@ -273,34 +263,38 @@ public class AdminCommandService {
                 }
             }
 
-            if (cmdLower.contains("comando") || cmdLower.contains("menu")) {
+            // O admin NAO precisa decorar o menu: a frase natural vira intencao.
+            AdminIntentResolver.AdminIntent intent = AdminIntentResolver.resolve(cmdLower);
+
+            if (intent == AdminIntentResolver.AdminIntent.MENU) {
                 sendFullMenu(phoneNumber);
-            } else if (cmdLower.contains("dashboard") || cmdLower.contains("resumo") || cmdLower.contains("financeiro")
-                    || cmdLower.contains("caixa") || cmdLower.contains("fechamento") || cmdLower.contains("comiss")) {
+            } else if (intent == AdminIntentResolver.AdminIntent.SAUDACAO) {
+                sendGreeting(phoneNumber);
+            } else if (intent == AdminIntentResolver.AdminIntent.PAINEL_WEB) {
                 // Relatorios e configuracao financeira vivem no painel web (principio 6 do roadmap).
                 sendMsg(phoneNumber, PAINEL_REDIRECT, "ADMIN");
-            } else if (cmdLower.equals("1") || cmdLower.contains("agenda do dia") || cmdLower.contains("painel")) {
+            } else if (intent == AdminIntentResolver.AdminIntent.AGENDA_HOJE) {
                 long total = customerRepository.countByBarbershopId(TenantContext.getCurrent());
                 long waitlistCount = waitlistRepository.countByBarbershopId(TenantContext.getCurrent());
                 long pausedCount = customerService.getPausedPhones().size();
                 String painelAgendamentos = agendaService.getPainelAgendamentosDetalhado(total, waitlistCount, pausedCount);
                 sendMsg(phoneNumber, painelAgendamentos, "ADMIN");
-            } else if (cmdLower.equals("2") || cmdLower.contains("agenda da semana")) {
+            } else if (intent == AdminIntentResolver.AdminIntent.AGENDA_SEMANA) {
                 String agendaSemana = agendaService.getAgendaSemanaText();
                 sendMsg(phoneNumber, agendaSemana, "ADMIN");
-            } else if (cmdLower.equals("3") || (cmdLower.contains("aviso") && !cmdLower.contains("promocao"))) {
+            } else if (intent == AdminIntentResolver.AdminIntent.AVISO) {
                 stateStore.put(StateKeys.adminState(phoneNumber), "AVISO_BASE", ADMIN_TTL);
                 sendMsg(phoneNumber, "📢 *Disparo de Avisos*\nEnvie a mensagem agora. _(Ou digite 'cancelar')_", "ADMIN");
-            } else if (cmdLower.equals("4") || cmdLower.contains("promocao") || cmdLower.contains("prospec")) {
+            } else if (intent == AdminIntentResolver.AdminIntent.PROMOCAO) {
                 stateStore.put(StateKeys.adminState(phoneNumber), "AVISO_PROSPEC", ADMIN_TTL);
                 sendMsg(phoneNumber, "🎯 *Promoções do dia*\nEnvie a oferta que deseja disparar para a base toda.", "ADMIN");
-            } else if (cmdLower.equals("5") || cmdLower.contains("agendar disparo")) {
+            } else if (intent == AdminIntentResolver.AdminIntent.AGENDAR_DISPARO) {
                 stateStore.put(StateKeys.adminState(phoneNumber), "AGENDAR_DISPARO_MSG", ADMIN_TTL);
                 sendMsg(phoneNumber, "📝 *Agendar Disparo*\nQual é a mensagem que deseja enviar para a base? (Digite 'cancelar' para abortar)", "ADMIN");
-            } else if (cmdLower.equals("6") || cmdLower.contains("pausa")) {
+            } else if (intent == AdminIntentResolver.AdminIntent.PAUSAR) {
                 stateStore.put(StateKeys.adminState(phoneNumber), "PAUSAR", ADMIN_TTL);
                 sendMsg(phoneNumber, "⏸️ *Pausar Robô*\nDigite o telefone com DDD do cliente. _(Ou digite 'cancelar')_", "ADMIN");
-            } else if (cmdLower.equals("7") || cmdLower.contains("retoma")) {
+            } else if (intent == AdminIntentResolver.AdminIntent.RETOMAR) {
                 List<String> pausedPhones = customerService.getPausedPhones();
                 if (pausedPhones.isEmpty()) {
                     sendMsg(phoneNumber, "▶️ *Retomar*\nNenhum cliente pausado no momento.", "ADMIN");
@@ -314,7 +308,7 @@ public class AdminCommandService {
                     sb.append("\nDigite o *NÚMERO DA OPÇÃO* _(Ou digite 'cancelar')_.");
                     sendMsg(phoneNumber, sb.toString(), "ADMIN");
                 }
-            } else if (cmdLower.equals("8") || cmdLower.contains("lista")) {
+            } else if (intent == AdminIntentResolver.AdminIntent.LISTAR_CLIENTES) {
                 List<Customer> customers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
                 if (customers.isEmpty()) {
                     sendMsg(phoneNumber, "📭 Nenhum cliente salvo na base.", "ADMIN");
@@ -323,7 +317,7 @@ public class AdminCommandService {
                     for (Customer c : customers) sb.append("👤 ").append(c.getName()).append(" - ").append(c.getPhoneNumber()).append("\n");
                     sendMsg(phoneNumber, sb.toString(), "ADMIN");
                 }
-            } else if (cmdLower.equals("9") || cmdLower.contains("apaga") || cmdLower.contains("exclui")) {
+            } else if (intent == AdminIntentResolver.AdminIntent.APAGAR_CLIENTE) {
                 List<Customer> customers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
                 if (customers.isEmpty()) {
                     sendMsg(phoneNumber, "📭 Nenhum cliente salvo.", "ADMIN");
@@ -339,7 +333,7 @@ public class AdminCommandService {
                     sb.append("\nDigite o *NÚMERO DA OPÇÃO* para apagar _(Ou digite 'cancelar')_.");
                     sendMsg(phoneNumber, sb.toString(), "ADMIN");
                 }
-            } else if (cmdLower.equals("10") || cmdLower.contains("ajuda") || cmdLower.contains("manual")) {
+            } else if (intent == AdminIntentResolver.AdminIntent.AJUDA) {
                 String manual = """
                         📖 *MANUAL DO ADMINISTRADOR - RAZOR*
 
@@ -372,11 +366,42 @@ public class AdminCommandService {
                         """;
                 sendMsg(phoneNumber, manual, "ADMIN");
             } else {
+                // Nao entendeu: ENSINA pelo exemplo, em vez de mandar "digite menu".
                 if (!webhook.hasAudio()) {
-                    sendMsg(phoneNumber, "Fala, Chefe! 💈 Digite *menu* para ver as opções.", "ADMIN");
+                    sendMsg(phoneNumber, """
+                            Não peguei essa 🤔
+
+                            Pode falar normal, tipo:
+                            • _"agenda de hoje"_
+                            • _"manda um aviso"_ ou _"disparar promoção"_
+                            • _"pausar cliente"_
+                            • _"listar clientes"_
+
+                            _(ou *menu* para ver tudo)_""", "ADMIN");
                 }
             }
         }
+    }
+
+    /**
+     * Resposta a um "oi": em vez de mandar abrir o menu, ja entrega a informacao mais util do
+     * momento (o dia) e ensina 3 comandos naturais — e assim que o dono aprende sem decorar nada.
+     */
+    private void sendGreeting(String phoneNumber) {
+        int hoje = agendaService.getAgendamentosHojeCount();
+        String resumo = hoje == 0
+                ? "📅 Nenhum corte marcado para hoje ainda."
+                : "📅 Hoje você tem *" + hoje + (hoje == 1 ? " corte* marcado." : " cortes* marcados.");
+
+        sendMsg(phoneNumber, "Fala, chefe! 👊\n\n" + resumo + """
+
+
+                É só me dizer o que precisa:
+                • _"agenda de hoje"_
+                • _"disparar promoção"_
+                • _"pausar cliente"_
+
+                _(ou *menu* para ver todas as opções)_""", "ADMIN");
     }
 
     private void sendFullMenu(String phoneNumber) {

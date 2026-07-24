@@ -142,10 +142,31 @@ class AdminCommandServiceTest {
     }
 
     @Test
-    @DisplayName("texto livre não reconhecido responde com a dica de digitar 'menu'")
-    void unknownText_promptsMenu() {
+    @DisplayName("texto não reconhecido ENSINA os comandos por exemplo (não só 'digite menu')")
+    void unknownText_teachesByExample() {
         service.processAdminMessage(adminText("blablabla xyz"), ADMIN);
-        verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("Digite *menu*")), eq("ADMIN"));
+        verify(messenger).send(eq(ADMIN),
+                argThat(m -> m.contains("Não peguei") && m.contains("agenda de hoje") && m.contains("menu")),
+                eq("ADMIN"));
         verify(agendaService, never()).getResumoFinanceiroDetalhado();
+    }
+
+    @Test
+    @DisplayName("'oi' responde com o resumo do dia + comandos naturais (sem exigir 'menu')")
+    void greeting_respondsWithBriefing() {
+        when(agendaService.getAgendamentosHojeCount()).thenReturn(3);
+
+        service.processAdminMessage(adminText("oi"), ADMIN);
+
+        verify(messenger).send(eq(ADMIN),
+                argThat(m -> m.contains("Fala, chefe") && m.contains("3") && m.contains("agenda de hoje")),
+                eq("ADMIN"));
+    }
+
+    @Test
+    @DisplayName("fala natural funciona sem o menu: 'manda um aviso' abre o disparo")
+    void naturalPhrase_startsBroadcast() {
+        service.processAdminMessage(adminText("manda um aviso"), ADMIN);
+        verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("Disparo de Avisos")), eq("ADMIN"));
     }
 }
