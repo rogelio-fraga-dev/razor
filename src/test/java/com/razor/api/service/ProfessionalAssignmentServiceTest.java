@@ -33,6 +33,7 @@ class ProfessionalAssignmentServiceTest {
 
     @Mock private ProfessionalRepository professionalRepository;
     @Mock private AppointmentRepository appointmentRepository;
+    @Mock private ScheduleBlockService scheduleBlockService; // sem bloqueios por padrão (false)
     @InjectMocks private ProfessionalAssignmentService service;
 
     @AfterEach
@@ -68,6 +69,22 @@ class ProfessionalAssignmentServiceTest {
                 .thenReturn(List.of());
 
         assertThat(service.assign(DATE, TIME, null)).isEqualTo(b); // menos ocupado
+    }
+
+    @Test
+    @DisplayName("barbeiro de FOLGA não é atribuído, mesmo com a agenda vazia")
+    void professionalOnLeave_isNotAssigned() {
+        UUID folgando = UUID.randomUUID();
+        UUID disponivel = UUID.randomUUID();
+        when(professionalRepository.findByBarbershopIdAndActiveTrue(any()))
+                .thenReturn(List.of(prof(folgando), prof(disponivel)));
+        when(appointmentRepository.findByBarbershopIdAndProfessionalIdAndAppointmentDate(any(), any(), eq(DATE)))
+                .thenReturn(List.of()); // ambos sem agendamento
+        when(scheduleBlockService.isBlocked(eq(DATE), eq(TIME), eq(30), eq(folgando))).thenReturn(true);
+
+        assertThat(service.assign(DATE, TIME, null)).isEqualTo(disponivel);
+        // e nem sendo pedido explicitamente ele é escolhido
+        assertThat(service.assign(DATE, TIME, folgando)).isEqualTo(disponivel);
     }
 
     @Test

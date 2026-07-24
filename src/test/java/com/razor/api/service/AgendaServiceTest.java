@@ -2,6 +2,7 @@ package com.razor.api.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -54,6 +55,7 @@ class AgendaServiceTest {
     @Mock private com.razor.api.repository.ProfessionalRepository professionalRepository;
     @Mock private PricingService pricingService;
     @Mock private TenantAdminService tenantAdminService;
+    @Mock private ScheduleBlockService scheduleBlockService;
 
     @InjectMocks private AgendaService service;
 
@@ -137,6 +139,37 @@ class AgendaServiceTest {
         String out = service.getHorariosDisponiveisDoDia(dateStr);
 
         assertThat(out).doesNotContain("09:00").contains("09:30");
+    }
+
+    @Test
+    @DisplayName("horário de FOLGA/almoço não é oferecido (bloqueio da V16)")
+    void horariosDisponiveis_excludesBlocked() {
+        LocalDate future = AppointmentDates.today().plusDays(5);
+        String dateStr = AppointmentDates.formatDate(future);
+        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of()); // agenda vazia
+        givenDurations();
+        // almoço: 12:00 e 12:30 bloqueados
+        when(scheduleBlockService.isBlocked(eq(future), eq(LocalTime.of(12, 0)), anyInt(), any()))
+                .thenReturn(true);
+        when(scheduleBlockService.isBlocked(eq(future), eq(LocalTime.of(12, 30)), anyInt(), any()))
+                .thenReturn(true);
+
+        String out = service.getHorariosDisponiveisDoDia(dateStr);
+
+        assertThat(out).doesNotContain("12:00").doesNotContain("12:30");
+    }
+
+    @Test
+    @DisplayName("dia inteiro bloqueado (feriado) não oferece nenhum horário")
+    void horariosDisponiveis_fullDayBlocked() {
+        LocalDate future = AppointmentDates.today().plusDays(6);
+        String dateStr = AppointmentDates.formatDate(future);
+        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of());
+        givenDurations();
+        when(scheduleBlockService.isBlocked(eq(future), any(), anyInt(), any())).thenReturn(true);
+
+        assertThat(service.getHorariosDisponiveisDoDia(dateStr))
+                .isEqualTo("Nenhum horário disponível para este dia.");
     }
 
     /** Duracoes padrao (combo=60, barba=30, corte=30) para os testes de disponibilidade. */

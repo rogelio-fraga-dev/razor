@@ -34,6 +34,7 @@ public class ProfessionalAssignmentService {
 
     private final ProfessionalRepository professionalRepository;
     private final AppointmentRepository appointmentRepository;
+    private final ScheduleBlockService scheduleBlockService;
 
     public UUID assign(LocalDate date, LocalTime time, UUID preferredProfessionalId) {
         if (date == null || time == null) return null;
@@ -42,8 +43,10 @@ public class ProfessionalAssignmentService {
         List<Professional> ativos = professionalRepository.findByBarbershopIdAndActiveTrue(shop);
         if (ativos.isEmpty()) return null;
 
+        // Livre = sem outro agendamento no horario E sem folga/bloqueio incidindo (V16).
         List<Professional> livres = ativos.stream()
                 .filter(p -> isFree(shop, p.getId(), date, time))
+                .filter(p -> !scheduleBlockService.isBlocked(date, time, 30, p.getId()))
                 .toList();
         if (livres.isEmpty()) return null;
 

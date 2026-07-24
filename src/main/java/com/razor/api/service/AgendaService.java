@@ -41,6 +41,7 @@ public class AgendaService {
     private final PricingService pricingService;
     private final TenantAdminService tenantAdminService;
     private final BarbershopSettingsService barbershopSettingsService;
+    private final ScheduleBlockService scheduleBlockService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Classe auxiliar de leitura para manter a migração legada funcionando
@@ -290,7 +291,7 @@ public class AgendaService {
         List<Appointment> doDia = agendaAtiva.stream()
                 .filter(a -> target.equals(a.getAppointmentDate()) && a.getAppointmentTime() != null)
                 .collect(Collectors.toList());
-        return montarHorariosLivres(target, expandirSlotsOcupados(doDia));
+        return montarHorariosLivres(target, expandirSlotsOcupados(doDia), null);
     }
 
     /**
@@ -308,7 +309,7 @@ public class AgendaService {
 
         List<Appointment> apps = appointmentRepository.findByBarbershopIdAndProfessionalIdAndAppointmentDate(
                 TenantContext.getCurrent(), professionalId, target);
-        return montarHorariosLivres(target, expandirSlotsOcupados(apps));
+        return montarHorariosLivres(target, expandirSlotsOcupados(apps), professionalId);
     }
 
     /**
@@ -334,7 +335,7 @@ public class AgendaService {
      * Gera ate 4 horarios livres (espacados) dentro do expediente CONFIGURADO pelo tenant
      * (Configuracoes > Funcionamento), excluindo ocupados e passados.
      */
-    private String montarHorariosLivres(LocalDate target, List<String> ocupadosDoDia) {
+    private String montarHorariosLivres(LocalDate target, List<String> ocupadosDoDia, java.util.UUID professionalId) {
         List<String> livres = new ArrayList<>();
         var cfg = barbershopSettingsService.resolve();
         LocalTime inicio = parseHora(cfg.openingTime(), LocalTime.of(9, 0));
@@ -350,8 +351,10 @@ public class AgendaService {
             String horario = cursor.format(fmt);
 
             boolean isPassado = isHoje && cursor.isBefore(agora);
+            // Folga/feriado/almoço: nunca oferecer horário bloqueado (V16).
+            boolean isBloqueado = scheduleBlockService.isBlocked(target, cursor, 30, professionalId);
 
-            if (!ocupadosDoDia.contains(horario) && !isPassado) {
+            if (!ocupadosDoDia.contains(horario) && !isPassado && !isBloqueado) {
                 livres.add(horario);
             }
             cursor = cursor.plusMinutes(30);
