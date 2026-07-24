@@ -55,6 +55,41 @@ O roadmap é sequencial por dependência: cada fase assenta sobre a anterior. A 
 existe porque hoje não há testes nem CI, e refatorar/escalar sem essa rede de segurança
 é o que vinha gerando a sequência de "corrige bug crítico" no histórico.
 
+### 🔐 Fundação & Segurança *(✅ rodada de 2026-07-23)*
+
+> Auditoria antes de seguir no front. Três buracos **reais** (não teóricos) foram fechados,
+> e o bot passou a falar os dados de cada tenant.
+
+- [x] **Injeção pelo webhook (crítico)** — `/api/webhook` era público **e** o `TenantResolver`
+      caía no *tenant padrão* para instância desconhecida: dava para forjar um POST com o
+      telefone de um admin e executar comandos de gestão numa barbearia real. Agora: token
+      compartilhado obrigatório (**fail-closed**, `WEBHOOK_TOKEN`) **e** instância desconhecida
+      é descartada — duas barreiras independentes.
+- [x] **QR code público (crítico)** — `GET /api/webhook/qrcode` servia o QR de pareamento sem
+      autenticação (um estranho podia conectar o WhatsApp da barbearia no próprio aparelho).
+      Endpoint removido; o QR só sai pelo painel autenticado.
+- [x] **Força bruta no login** — `LoginRateLimiter`: 5 falhas por email+IP → bloqueio de 15 min (429).
+- [x] **Cabeçalhos de segurança** (frame-deny, nosniff, referrer-policy, HSTS).
+- [x] **Bot multi-tenant** — o system prompt tinha "Barbearia Ficticia" e a tabela de preços
+      **cravados no código**: toda barbearia teria um bot dizendo o nome e cobrando os preços
+      de outra. Agora nome, catálogo real, horário e persona vêm do tenant; catálogo vazio
+      **não inventa preço**. O `AgendaService` usa o expediente configurado (V15).
+- [x] **Chave PIX real** — o bot enviava uma chave **falsa hardcoded**; agora é a do tenant, e
+      sem PIX configurado ele não inventa nada.
+- [x] **Folgas e bloqueios de agenda (V16)** — a IA marcava em cima de folga, almoço e feriado.
+      Por barbeiro ou barbearia toda, pontual ou recorrente, faixa ou dia inteiro; barrado na
+      oferta de horários **e** na auto-atribuição. Sobreposição respeita duração.
+- [x] **Backup do Postgres** — `scripts/backup-db.ps1` (pg_dump `-Fc`, validação, retenção de
+      14 dias), verificado com `pg_restore -l`.
+- [x] **Estado efêmero fora dos services (partes 1 e 2 de 3)** — porta `StateStore` + adaptador
+      em memória; **os 12 mapas `ConcurrentHashMap` saíram**. O TTL substituiu duas rotinas de
+      limpeza (`clearZombieCustomerStates`, `clearProcessedCache`) e fechou um vazamento (oferta
+      de lista de espera vivia para sempre). Chaves escopadas por tenant.
+- [ ] **Parte 3:** adaptador **Redis** (`razor.state.store=redis`) + IT com Testcontainers
+      rodando a **mesma bateria de contrato** do `InMemoryStateStoreTest`.
+
+---
+
 ### Fase 0 — Fundação de Engenharia 🏗️ *(✅ concluída)*
 
 > **Objetivo:** parar de apagar incêndio. Criar a base técnica que permite evoluir com
@@ -402,4 +437,4 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-23 (beta + UX blueprint + canal WhatsApp) · Documento vivo._
+_Última atualização: 2026-07-23 (segurança, bot multi-tenant, folgas, StateStore) · Documento vivo._

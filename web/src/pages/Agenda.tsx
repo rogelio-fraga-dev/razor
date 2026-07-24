@@ -79,6 +79,15 @@ export function Agenda() {
       <div className="page-panel">
         <div className="panel-bar">
           <h3>{LONG_DATE.format(new Date(`${date}T12:00:00`))}</h3>
+          {/* Legenda: o bloco é colorido pelo status do pagamento. */}
+          <div className="cal-legend" aria-label="Legenda de cores">
+            <span className="lg-item"><i className="lg-dot lg-pix" />PIX</span>
+            <span className="lg-item"><i className="lg-dot lg-presencial" />Presencial</span>
+            <span className="lg-item"><i className="lg-dot lg-pendente" />Pendente</span>
+            <span className="lg-sep" aria-hidden="true" />
+            <span className="lg-item">💎 Assinante</span>
+            <span className="lg-item"><i className="lg-line-now" />Agora</span>
+          </div>
           <span className="badge badge-muted">{total} {total === 1 ? "agendamento" : "agendamentos"}</span>
         </div>
 

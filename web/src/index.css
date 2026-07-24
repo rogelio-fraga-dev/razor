@@ -796,6 +796,49 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   transform: skewX(-22deg);
 }
 
+/* ---------- Legenda de cores da agenda ---------- */
+.cal-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-left: auto;
+  margin-right: 14px;
+}
+.lg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.lg-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+.lg-pix { background: var(--green-soft); border-color: var(--green); }
+.lg-presencial { background: var(--blue-soft); border-color: var(--blue); }
+.lg-pendente { background: var(--amber-soft); border-color: var(--amber); }
+.lg-line-now {
+  width: 14px;
+  height: 2px;
+  background: var(--red);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.lg-sep {
+  width: 1px;
+  height: 12px;
+  background: var(--border-hi);
+}
+@media (max-width: 900px) {
+  .cal-legend { display: none; } /* no celular a barra fica só com data e contagem */
+}
+
 /* ============================== AGENDA (calendário) ============================== */
 .cal {
   --cal-gutter: 64px;
