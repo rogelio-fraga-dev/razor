@@ -144,9 +144,13 @@ Não confundir os dois endereços web da plataforma:
 O site da barbearia **não é um site builder livre** — é um sistema de templates controlado
 pela plataforma:
 
-- **3 templates prontos** inclusos em todo plano (direções distintas: *Clássico*,
-  *Dark Premium*, *Vitrine/fotos*). O tenant **escolhe 1** no painel e preenche só
-  **conteúdo**: logo, fotos, textos, cores de destaque — nunca código.
+- **3 templates prontos** inclusos em todo plano, com direções distintas de **layout**
+  (não de cor): **Clássico**, **Estúdio**, **Vitrine**. O tenant **escolhe 1** no painel e
+  preenche só **conteúdo**: logo, fotos, textos e a cor de destaque — nunca código.
+- **Tema é escolha separada e vale para os 3**: ☀️ Claro · 🌙 Escuro · ◐ **Ambos** (padrão:
+  segue o aparelho do visitante + botão de alternância no site). Cada template já vem com as
+  **duas paletas testadas** (contraste AA), derivadas da cor de destaque escolhida — assim o
+  dono não consegue montar uma combinação ilegível.
 - **Template personalizado** = serviço **avulso** (one-time, sob consulta — [PRICING §3](./PRICING.md)):
   nosso time desenha um tema exclusivo para aquela barbearia.
 - **O código dos templates é 100% nosso e centralizado**: um template é um *tema versionado

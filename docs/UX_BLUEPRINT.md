@@ -119,10 +119,41 @@ estado persistido (`onboarding_step` no tenant) para retomar de onde parou.
   direita = **preview ao vivo** do template (iframe do renderer real, atualiza on-change).
 - Progressive disclosure: seção "Identidade" aberta; demais colapsadas.
 - Upload de fotos com crop 1:1/16:9 guiado, compressão automática, máx. 10 fotos.
-- Trocar template = modal com os 3 cards de preview (mantém o conteúdo, muda a pele).
 - CTA fixo no rodapé do form: `Publicar alterações` (disabled sem mudanças) + "última
   publicação há X min" em mono. Publicar = toast "Site atualizado ✓ · ver site".
 - Card "Template personalizado" no fim: "Quer um site exclusivo? Fale com a gente" (avulso).
+
+#### Etapa 1 do editor — **escolher o template e o tema**
+
+Primeira decisão do dono, em dois controles simples (o conteúdo nunca se perde ao trocar):
+
+**a) Template** — 3 opções, cada uma com card de preview clicável:
+
+| Template | Personalidade | Para quem |
+|---|---|---|
+| **Clássico** | elegante e direto: serviços, equipe, avaliações, botão de agendar | barbearia tradicional |
+| **Estúdio** | sofisticado, foco em marca e atmosfera, tipografia grande | barbearia com pegada de estúdio |
+| **Vitrine** | galeria grande dos cortes, prova social, Instagram integrado | quem vende pelo visual |
+
+> ⚠️ **Renomeado:** o antigo *"Dark Premium"* virou **"Estúdio"**. Com claro/escuro agora
+> disponível em **todos** os templates, nomear um deles pela cor confundiria o dono
+> ("se eu quero o Dark Premium no claro, o que acontece?"). Nome de template passa a
+> descrever **layout e personalidade**; cor é uma escolha separada.
+
+**b) Tema** — 3 opções, valem para qualquer template:
+
+| Opção | Comportamento no site da barbearia |
+|---|---|
+| ☀️ **Claro** | site sempre claro |
+| 🌙 **Escuro** | site sempre escuro |
+| ◐ **Ambos** *(padrão)* | segue a preferência do aparelho do visitante **e** exibe um botão de alternância no site |
+
+- Trocar template **ou** tema atualiza o preview na hora, sem perder fotos nem textos.
+- Cada template é entregue com **as duas paletas prontas e testadas** (contraste AA nas
+  duas), derivadas da cor de destaque escolhida pelo dono — ele nunca escolhe cor de texto
+  ou de fundo, só o acento.
+- Modelo de dados: `barbershop_site.template_id`, `theme_mode` (`LIGHT|DARK|AUTO`) e
+  `accent_color`.
 
 ---
 

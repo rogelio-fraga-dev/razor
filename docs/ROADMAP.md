@@ -274,9 +274,20 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       (toasts/skeletons/empty states), **tutorial de primeiro acesso + checklist de ativação**,
       Configurações em abas, Clientes com drawer + cards mobile, chips de período em
       Comissões, regra dos 2 cliques.
-- [ ] **Módulo "Site" no painel** (editor white-label): escolha do template, upload de
-      fotos/logo, textos, cor de destaque, **preview ao vivo** e publicar. Spec no
-      [`UX_BLUEPRINT §3.2`](./UX_BLUEPRINT.md).
+- [ ] **Módulo "Site" no painel** (editor white-label) — spec em
+      [`UX_BLUEPRINT §3.2`](./UX_BLUEPRINT.md):
+      - **Escolha do template** entre **3 opções** com preview clicável: **Clássico**,
+        **Estúdio**, **Vitrine**. _(O antigo "Dark Premium" foi renomeado para "Estúdio":
+        com claro/escuro em todos, nome de template descreve **layout**, não cor.)_
+      - **Escolha do tema**, válida para qualquer template: ☀️ **Claro** · 🌙 **Escuro** ·
+        ◐ **Ambos** (padrão — segue o aparelho do visitante e mostra um botão de alternância
+        no site).
+      - Cada template entregue com **as duas paletas prontas e testadas** (contraste AA nas
+        duas), derivadas só da **cor de destaque** que o dono escolhe — ele nunca define cor
+        de texto ou de fundo.
+      - Upload de logo/fotos com crop guiado, textos, **preview ao vivo** e publicar.
+        Trocar template ou tema **não perde** conteúdo.
+      - Dados: `barbershop_site.template_id`, `theme_mode` (`LIGHT|DARK|AUTO`), `accent_color`.
 - [ ] 🎯 **Assistente de configuração do bot (wizard, substitui a lista seca)** — hoje
       Configurações é um formulário longo de campos soltos; o dono precisa *sentir que
       controla*, não preencher planilha. Vira um **passo a passo** com botão
@@ -293,6 +304,23 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       > **Princípio:** tudo com **opção padrão pronta** e escolha por seleção, nunca campo
       > em branco esperando redação. Quem quiser controle fino continua tendo (modo
       > Personalizado + edição campo a campo depois do wizard).
+- [ ] **Boas-vindas no WhatsApp ao concluir a 1ª configuração** — ao finalizar o wizard, o
+      sistema manda **no WhatsApp do dono** um guia curto de *como o sistema funciona e o que
+      ele pode fazer*. Fecha o ciclo *configurei no computador → o bot me respondeu no
+      celular* — a primeira prova de que está no ar. Enviado **uma vez** (`first_config_sent`).
+      Conteúdo em 4 blocos, curto e escaneável:
+      1. **O que o bot faz sozinho** — atende no WhatsApp 24h, agenda entendendo texto e
+         áudio, não marca em cima de folga, manda lembrete 1h antes, pede avaliação depois
+         e chama a lista de espera quando alguém cancela.
+      2. **O que você faz por aqui** (fala natural, sem decorar): _"agenda de hoje"_,
+         _"manda um aviso"_, _"disparar promoção"_, _"pausar cliente"_ — e **"menu"**
+         mostra tudo.
+      3. **O que fica no painel** — financeiro, comissões, clube de assinatura, clientes e
+         as configurações do bot (com o link).
+      4. **Convite para testar** — _"Manda um **oi** de outro número pra ver seu bot
+         atendendo."_
+      > O tom segue o **modo de fala** escolhido no wizard — a mensagem já é uma amostra de
+      > como o bot vai soar.
 - [ ] **Modos de fala da IA (presets de persona)** — 5 opções prontas que preenchem o
       `bot_persona` (V15) sem o dono escrever nada:
       | Modo | Como soa |
@@ -309,7 +337,7 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       `TenantResolver` de WhatsApp). Exige DNS/TLS **wildcard** `*.razor.com.br` e lista de
       slugs reservados. Detalhes em [`PLATFORM.md §6`](./PLATFORM.md).
 - [ ] **Sistema de templates do site** (modelo de negócio — [`PLATFORM.md §templates`](./PLATFORM.md)):
-      **3 templates prontos** inclusos (Clássico, Dark Premium, Vitrine) — o tenant escolhe 1
+      **3 templates prontos** inclusos (Clássico, Estúdio, Vitrine) + tema claro/escuro/ambos — o tenant escolhe
       no painel e sobe apenas **conteúdo** (logo, fotos, textos, cores); **código é nosso e
       centralizado** (tema versionado no repo; atualização propaga p/ todos). **Template
       personalizado = serviço avulso** (one-time, sob consulta) feito pelo nosso time.
@@ -438,9 +466,15 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
       Saudação responde com o resumo do dia; texto não entendido **ensina por exemplo**.
 - [ ] 🎯 **Cliente 100% conversacional (tirar o menu do caminho)** — hoje o cliente novo
       recebe o menu numerado; deve receber uma **saudação de atendente** ("Oi! Sou do
-      atendimento da *X*, posso marcar um horário pra você?"). O menu **não some**: vira
-      resposta sob demanda ("quais os preços?", "onde fica?", "quero ver as opções") e
-      *fallback* quando a IA não estiver disponível. Regra: **nunca** responder "digite 1".
+      atendimento da *X*, posso marcar um horário pra você?"). Regra: **nunca** abrir a
+      conversa com "digite 1".
+
+> 🔒 **Invariante do menu (vale para CLIENTE e ADMIN):** quem digitar **"menu"** — ou
+> "opções", "comandos" — **sempre** recebe o menu completo. O menu não é eliminado, é
+> **rebaixado de porta de entrada para atalho sob demanda**. Ele continua sendo também o
+> *fallback* quando a IA estiver indisponível.
+> *Status: já funciona nos dois fluxos* — cliente (`MenuOptions.isAskingForMenu`) e admin
+> (`AdminIntentResolver` → `MENU`). A mudança da Fase 5 é só na **abertura** da conversa.
 - [ ] Inteligência de retenção proativa (IA identifica e reengaja quem vai sumir).
 - [ ] Upsell/cross-sell por IA (sugere serviços/planos no contexto da conversa).
 - [x] Persona do bot configurável por tenant (`bot_persona`, V15) — falta expor os
