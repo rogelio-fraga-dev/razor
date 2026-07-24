@@ -235,8 +235,9 @@ assinaturas) sem sair do Razor.
 
 - [ ] **Caixa: abertura/fechamento + comandas** — o ritual diário da barbearia. Comanda por
       atendimento (serviços + produtos), fechamento com conferência, sangria/suprimento.
-- [ ] **Folgas e bloqueios de agenda** — sem isso a IA agenda em cima de folga/almoço/feriado.
-      Por profissional, pontual ou recorrente. _(Pré-requisito da agenda confiável.)_
+- [x] **Folgas e bloqueios de agenda** — sem isso a IA agenda em cima de folga/almoço/feriado.
+      Por profissional (ou barbearia toda), pontual ou recorrente, dia inteiro ou faixa de
+      horário. Back V16 + **tela no painel** (modal aberto pela toolbar da Agenda).
 - [ ] **Pacotes** (ex.: 10 cortes pré-pagos) com **baixa automática** no atendimento —
       diferente do clube (recorrência); é crédito pré-pago.
 - [ ] **Múltiplas formas de pagamento** por atendimento (dinheiro, débito, crédito, PIX,
@@ -375,8 +376,9 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
          atendendo."_
       > O tom segue o **modo de fala** escolhido no wizard — a mensagem já é uma amostra de
       > como o bot vai soar.
-- [ ] **Modos de fala da IA (presets de persona)** — 5 opções prontas que preenchem o
-      `bot_persona` (V15) sem o dono escrever nada:
+- [x] **Modos de fala da IA (presets de persona)** — 5 opções prontas que preenchem o
+      `bot_persona` (V15) sem o dono escrever nada. Seletor na config do bot (Settings →
+      Personalidade da IA); editar o texto cai em *Personalizado*:
       | Modo | Como soa |
       |---|---|
       | **Clássico** | educado e formal, trata por "senhor/senhora" |
@@ -609,8 +611,8 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 > (`AdminIntentResolver` → `MENU`). A mudança da Fase 5 é só na **abertura** da conversa.
 - [ ] Inteligência de retenção proativa (IA identifica e reengaja quem vai sumir).
 - [ ] Upsell/cross-sell por IA (sugere serviços/planos no contexto da conversa).
-- [x] Persona do bot configurável por tenant (`bot_persona`, V15) — falta expor os
-      **5 modos de fala prontos** no wizard (ver Fase 3).
+- [x] Persona do bot configurável por tenant (`bot_persona`, V15), com os **5 modos de
+      fala prontos** já expostos na config do bot (ver Fase 3).
 
 ---
 
@@ -638,4 +640,4 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-23 (segurança, bot multi-tenant, folgas, StateStore) · Documento vivo._
+_Última atualização: 2026-07-24 (tela de folgas no painel, 5 modos de fala da IA) · Documento vivo._
