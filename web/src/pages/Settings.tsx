@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Layout } from "../components/Layout";
 import { Switch } from "../components/Modal";
 import { Skeleton } from "../components/Skeleton";
+import { SpeechModePicker } from "../components/SpeechModePicker";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
@@ -555,7 +556,7 @@ function BotCard() {
             </Section>
 
             <Section title="Personalidade da IA" hint="tom de voz">
-              {area("botPersona", "Como a IA deve falar", 3, "Ex.: simpática e objetiva, trata o cliente por você, usa poucos emojis")}
+              <SpeechModePicker value={form.botPersona ?? ""} onChange={(v) => set("botPersona", v)} />
             </Section>
 
             <div className="row" style={{ marginTop: 4 }}>
