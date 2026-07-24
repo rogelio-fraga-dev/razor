@@ -52,6 +52,17 @@ public class SecurityConfig {
                 // API JWT: acesso sem token (ou token invalido) retorna 401 — o SPA usa isso para
                 // disparar o re-login. Sem isso o padrao do Spring seria 403 para o anonimo.
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                // Cabecalhos de seguranca: a API nunca e enquadrada, nao adivinha content-type e
+                // nao vaza a URL interna no Referer. HSTS so faz sentido atras de HTTPS (producao).
+                .headers(h -> h
+                        .frameOptions(fo -> fo.deny())
+                        .contentTypeOptions(cto -> {})
+                        .referrerPolicy(rp -> rp.policy(
+                                org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
+                                        .ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(31536000)))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

@@ -37,6 +37,11 @@ razor:
     # Vazio por padrão = onboarding desabilitado (fail-closed). Defina ONBOARDING_API_KEY
     # no ambiente para habilitar o provisionamento de novas barbearias.
     api-key: "${ONBOARDING_API_KEY:}"
+  webhook:
+    # Segredo que a Evolution deve enviar no webhook (header X-Webhook-Token ou ?token=...).
+    # Vazio = webhook DESABILITADO (fail-closed): sem ele, qualquer um poderia forjar uma
+    # mensagem com o telefone de um admin e executar comandos de gestão.
+    token: "${WEBHOOK_TOKEN:}"
   security:
     # Segredo dos JWT do painel web. Vazio = chave aleatória no boot (dev). Em produção defina
     # RAZOR_JWT_SECRET com uma string longa e secreta (>= 32 caracteres).

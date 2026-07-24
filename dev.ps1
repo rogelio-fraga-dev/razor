@@ -22,6 +22,10 @@ Get-Content $envFile | ForEach-Object {
     }
 }
 
+if (-not $env:WEBHOOK_TOKEN) {
+    Write-Host "AVISO: WEBHOOK_TOKEN nao definido — o webhook fica DESABILITADO (fail-closed)." -ForegroundColor Yellow
+}
+
 if ($env:OPENAI_API_KEY -like "*SUA-CHAVE*" -or $env:OPENAI_API_KEY -like "*dummy*") {
     Write-Host "AVISO: OPENAI_API_KEY parece placeholder — a IA NAO vai responder clientes." -ForegroundColor Yellow
 }

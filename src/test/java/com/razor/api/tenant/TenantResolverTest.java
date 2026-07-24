@@ -40,18 +40,20 @@ class TenantResolverTest {
     }
 
     @Test
-    @DisplayName("instância desconhecida recai no tenant padrão")
-    void unknownInstance_fallsBackToDefault() {
+    @DisplayName("SEGURANÇA: instância desconhecida NÃO cai no tenant padrão (devolve null)")
+    void unknownInstance_isRejected() {
         when(barbershopRepository.findByWhatsappInstance("nao-existe")).thenReturn(Optional.empty());
 
-        assertThat(resolver.resolveByInstance("nao-existe")).isEqualTo(TenantContext.DEFAULT_BARBERSHOP_ID);
+        // Cair no tenant padrão permitiria injetar mensagem forjada (inclusive comando de admin)
+        // numa barbearia real. A mensagem tem de ser descartada.
+        assertThat(resolver.resolveByInstance("nao-existe")).isNull();
     }
 
     @Test
-    @DisplayName("instância nula/vazia recai no padrão sem consultar o banco")
-    void nullOrBlank_defaultWithoutQuery() {
-        assertThat(resolver.resolveByInstance(null)).isEqualTo(TenantContext.DEFAULT_BARBERSHOP_ID);
-        assertThat(resolver.resolveByInstance("   ")).isEqualTo(TenantContext.DEFAULT_BARBERSHOP_ID);
+    @DisplayName("SEGURANÇA: instância nula/vazia é rejeitada sem consultar o banco")
+    void nullOrBlank_isRejected() {
+        assertThat(resolver.resolveByInstance(null)).isNull();
+        assertThat(resolver.resolveByInstance("   ")).isNull();
         verifyNoInteractions(barbershopRepository);
     }
 

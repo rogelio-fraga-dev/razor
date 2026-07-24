@@ -24,15 +24,27 @@ public class TenantResolver {
     private final BarbershopRepository barbershopRepository;
     private final RazorProperties properties;
 
+    /**
+     * Tenant dono da instancia, ou {@code null} quando a instancia e desconhecida.
+     *
+     * <p><b>Sem fallback no tenant padrao</b> (mudanca de seguranca): antes, uma instancia
+     * desconhecida caia na barbearia padrao — o que permitia que uma mensagem forjada fosse
+     * processada como se fosse dela (inclusive comandos de admin). Instancia nao cadastrada
+     * agora e simplesmente descartada pelo {@code WebhookRouter}.
+     *
+     * <p>A instancia do config global ({@code razor.evolution.instance-name}) continua valendo
+     * para o tenant padrao — ela existe no banco desde a V4.
+     */
     public UUID resolveByInstance(String instance) {
         if (instance == null || instance.isBlank()) {
-            return TenantContext.DEFAULT_BARBERSHOP_ID;
+            log.warn("[TENANT] Webhook sem instancia — descartado.");
+            return null;
         }
         return barbershopRepository.findByWhatsappInstance(instance)
                 .map(Barbershop::getId)
                 .orElseGet(() -> {
-                    log.warn("[TENANT] Instancia '{}' sem barbearia correspondente; usando tenant padrao.", instance);
-                    return TenantContext.DEFAULT_BARBERSHOP_ID;
+                    log.warn("[TENANT] Instancia '{}' nao cadastrada — mensagem descartada.", instance);
+                    return null;
                 });
     }
 

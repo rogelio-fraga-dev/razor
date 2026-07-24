@@ -142,6 +142,18 @@ class WebhookRouterTest {
     }
 
     @Test
+    @DisplayName("SEGURANÇA: instância desconhecida é descartada (não processa em tenant nenhum)")
+    void unknownInstance_isDropped() {
+        when(tenantResolver.resolveByInstance("instancia-forjada")).thenReturn(null);
+
+        router.processWebhook(webhook("instancia-forjada", CLIENTE, "m20"));
+
+        verify(customerConversationService, never()).processCustomerMessage(any(), any());
+        verify(adminCommandService, never()).processAdminMessage(any(), any());
+        assertThat(TenantContext.isSet()).isFalse();
+    }
+
+    @Test
     @DisplayName("mensagem duplicada é ignorada e o tenant é limpo mesmo assim")
     void duplicateMessage_ignored() {
         when(tenantResolver.resolveByInstance(any())).thenReturn(TenantContext.DEFAULT_BARBERSHOP_ID);

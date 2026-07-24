@@ -51,7 +51,13 @@ public class WebhookRouter {
             // Resolve o tenant desta mensagem (por instancia da Evolution) e o mantem
             // no contexto por toda a thread de processamento. Precisa ser setado AQUI
             // (thread @Async), nao no controller.
-            TenantContext.set(tenantResolver.resolveByInstance(webhook.getInstance()));
+            java.util.UUID tenant = tenantResolver.resolveByInstance(webhook.getInstance());
+            if (tenant == null) {
+                // Instancia desconhecida: nao existe barbearia dona desta mensagem. Descartar e
+                // a unica acao segura — processar no tenant padrao permitiria injecao de comandos.
+                return;
+            }
+            TenantContext.set(tenant);
 
             if (shouldIgnoreMessage(webhook)) {
                 log.debug("[IGNORED] Mensagem ignorada (do proprio bot, grupo ou sem numero valido).");

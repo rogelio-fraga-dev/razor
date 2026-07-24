@@ -1,5 +1,6 @@
 package com.razor.api.controller;
 
+import com.razor.api.config.RazorProperties;
 import com.razor.api.dto.EvolutionWebhookDTO;
 import com.razor.api.service.WebhookRouter;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,9 +11,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.Map;
 
@@ -24,13 +27,27 @@ public class WebhookController {
 
     private final WebhookRouter webhookRouter;
     private final ObjectMapper objectMapper;
+    private final RazorProperties properties;
 
     /**
      * Endpoint que recebe webhooks da Evolution API (mensagens e QR Code).
-     * Aceita JSON flexivel para tratar evento de QR Code que o Manager nao exibe.
+     *
+     * <p><b>Protegido por token compartilhado</b> ({@code X-Webhook-Token} ou {@code ?token=}),
+     * <b>fail-closed</b> como o onboarding: sem {@code razor.webhook.token} configurado, nada entra.
+     * Sem isso qualquer um poderia forjar uma mensagem com o telefone de um admin e executar
+     * comandos de gestao (listar base, apagar cliente, disparo em massa).
      */
     @PostMapping
-    public ResponseEntity<String> receiveWebhook(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<String> receiveWebhook(
+            @RequestBody Map<String, Object> body,
+            @RequestHeader(value = "X-Webhook-Token", required = false) String headerToken,
+            @RequestParam(value = "token", required = false) String queryToken) {
+
+        if (!isAuthorized(headerToken, queryToken)) {
+            log.warn("[WEBHOOK] Requisicao rejeitada: token ausente ou invalido.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("nao autorizado");
+        }
+
         try {
             String event = body.get("event") != null ? body.get("event").toString() : null;
             String instance = body.get("instance") != null ? body.get("instance").toString() : null;
@@ -65,6 +82,20 @@ public class WebhookController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Erro ao processar webhook");
         }
+    }
+
+    /** Comparacao em tempo constante; vazio no config = fail-closed (webhook desabilitado). */
+    private boolean isAuthorized(String headerToken, String queryToken) {
+        String expected = properties.getWebhook().getToken();
+        if (expected == null || expected.isBlank()) {
+            log.error("[WEBHOOK] razor.webhook.token nao configurado — webhook desabilitado (fail-closed). "
+                    + "Defina WEBHOOK_TOKEN e aponte a Evolution para /api/webhook?token=...");
+            return false;
+        }
+        String provided = (headerToken != null && !headerToken.isBlank()) ? headerToken : queryToken;
+        if (provided == null || provided.isBlank()) return false;
+        return MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8), provided.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -115,24 +146,7 @@ public class WebhookController {
         return ResponseEntity.ok("Razor está online!");
     }
 
-    /**
-     * Exibe o ultimo QR Code recebido pelo webhook (para quando o Manager nao mostra).
-     * Abra no navegador: http://localhost:8081/api/webhook/qrcode
-     */
-    @GetMapping(value = "/qrcode", produces = "image/png")
-    public ResponseEntity<byte[]> getQrCodeImage() {
-        try {
-            Path file = Paths.get(System.getProperty("user.dir")).resolve("qrcode-evolution.png");
-            if (!Files.exists(file)) {
-                return ResponseEntity.notFound().build();
-            }
-            byte[] bytes = Files.readAllBytes(file);
-            return ResponseEntity.ok()
-                    .header("Content-Disposition", "inline; filename=qrcode-evolution.png")
-                    .body(bytes);
-        } catch (IOException e) {
-            log.warn("Erro ao ler QR Code: {}", e.getMessage());
-            return ResponseEntity.notFound().build();
-        }
-    }
+    // REMOVIDO: GET /api/webhook/qrcode servia o QR de pareamento SEM autenticacao — qualquer
+    // um poderia conectar o WhatsApp da barbearia ao proprio aparelho. O QR agora sai apenas
+    // pelo painel autenticado (POST /api/admin/whatsapp/connect), escopado no tenant do JWT.
 }

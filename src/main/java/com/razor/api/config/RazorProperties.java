@@ -16,6 +16,17 @@ public class RazorProperties {
     private Menu menu = new Menu();
     private Onboarding onboarding = new Onboarding();
     private Security security = new Security();
+    private Webhook webhook = new Webhook();
+
+    @Data
+    public static class Webhook {
+        /**
+         * Token exigido no webhook da Evolution (header {@code X-Webhook-Token} ou {@code ?token=}).
+         * Vazio (padrao) = webhook DESABILITADO (fail-closed), pelo mesmo criterio do onboarding:
+         * sem segredo configurado ninguem injeta mensagem forjada no sistema.
+         */
+        private String token = "";
+    }
 
     @Data
     public static class Admin {
