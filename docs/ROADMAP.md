@@ -359,10 +359,12 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       > **Princípio:** tudo com **opção padrão pronta** e escolha por seleção, nunca campo
       > em branco esperando redação. Quem quiser controle fino continua tendo (modo
       > Personalizado + edição campo a campo depois do wizard).
-- [ ] **Boas-vindas no WhatsApp ao concluir a 1ª configuração** — ao finalizar o wizard, o
-      sistema manda **no WhatsApp do dono** um guia curto de *como o sistema funciona e o que
-      ele pode fazer*. Fecha o ciclo *configurei no computador → o bot me respondeu no
-      celular* — a primeira prova de que está no ar. Enviado **uma vez** (`first_config_sent`).
+- [x] **Boas-vindas no WhatsApp ao concluir a 1ª configuração** — ao salvar a config do bot
+      pela 1ª vez, o sistema manda **no WhatsApp do dono** um guia curto de *como o sistema
+      funciona e o que ele pode fazer*. Fecha o ciclo *configurei no computador → o bot me
+      respondeu no celular* — a primeira prova de que está no ar. Enviado **uma vez**
+      (`welcome_brief_sent_at`, V17), sai pelo número da barbearia para o número do admin.
+      _(Ainda dispara no save da config, não no wizard — o wizard reaproveita este envio.)_
       Conteúdo em 4 blocos, curto e escaneável:
       1. **O que o bot faz sozinho** — atende no WhatsApp 24h, agenda entendendo texto e
          áudio, não marca em cima de folga, manda lembrete 1h antes, pede avaliação depois
@@ -640,4 +642,4 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-24 (tela de folgas no painel, 5 modos de fala da IA) · Documento vivo._
+_Última atualização: 2026-07-24 (tela de folgas, 5 modos de fala, boas-vindas ao dono no WhatsApp) · Documento vivo._
