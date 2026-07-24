@@ -363,6 +363,16 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       > apaga campos fora dele (as **mensagens automáticas** já vêm com padrão do sistema e
       > seguem editáveis campo a campo abaixo). _A retomada "salvar e continuar" e a prévia
       > "ver como o bot fala" ficam como refinamento futuro._
+- [ ] 🎯 **Config do bot vira modal único e completo (evolução do wizard)** — mudar o fluxo de
+      configuração do WhatsApp: **ao abrir a tela de Configurações, já abrir automaticamente o
+      modal** de configuração — e nele dá pra configurar **TUDO** (identidade, funcionamento,
+      serviços, modo de fala, pagamento **e** todas as mensagens automáticas — nada fica só na
+      "lista seca" de fora). **Ao concluir, fechar o modal e atualizar a tela** refletindo tudo
+      que foi salvo (a tela por trás mostra o estado atualizado, sem F5).
+      > Diferença para o wizard atual: hoje o assistente é opt-in (botão "Abrir assistente") e
+      > cobre os essenciais, deixando as mensagens automáticas para edição campo a campo. Aqui o
+      > modal **abre sozinho**, cobre **todos** os campos e a tela de trás **reflete o resultado**
+      > ao fechar. Reaproveita `ConfigWizard` + o `reload()` que já existe.
 - [x] **Boas-vindas no WhatsApp ao concluir a 1ª configuração** — ao salvar a config do bot
       pela 1ª vez, o sistema manda **no WhatsApp do dono** um guia curto de *como o sistema
       funciona e o que ele pode fazer*. Fecha o ciclo *configurei no computador → o bot me
