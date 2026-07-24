@@ -65,3 +65,6 @@ evolution_store/
 
 # segredos de dev local
 .env.local
+
+# dumps locais do banco
+backups/

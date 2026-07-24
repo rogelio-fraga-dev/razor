@@ -330,11 +330,15 @@ public class AgendaService {
         return ocupados;
     }
 
-    /** Gera ate 4 horarios livres (espacados) das 09:00 as 18:30, excluindo ocupados e passados. */
+    /**
+     * Gera ate 4 horarios livres (espacados) dentro do expediente CONFIGURADO pelo tenant
+     * (Configuracoes > Funcionamento), excluindo ocupados e passados.
+     */
     private String montarHorariosLivres(LocalDate target, List<String> ocupadosDoDia) {
         List<String> livres = new ArrayList<>();
-        LocalTime inicio = LocalTime.of(9, 0);
-        LocalTime fim = LocalTime.of(19, 0);
+        var cfg = barbershopSettingsService.resolve();
+        LocalTime inicio = parseHora(cfg.openingTime(), LocalTime.of(9, 0));
+        LocalTime fim = parseHora(cfg.closingTime(), LocalTime.of(19, 0));
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm");
         LocalTime cursor = inicio;
 
@@ -807,6 +811,17 @@ public class AgendaService {
                 .build();
         taskRepository.save(task);
         log.info("[AGENDA] Notificação de retorno agendada para {} em {} minutos", phone, minutesDelay);
+    }
+
+    /** "HH:mm" configurado pelo dono; valor invalido/ausente cai no padrao historico. */
+    private LocalTime parseHora(String hhmm, LocalTime fallback) {
+        if (hhmm == null || hhmm.isBlank()) return fallback;
+        try {
+            return LocalTime.parse(hhmm.trim());
+        } catch (Exception e) {
+            log.warn("[AGENDA] Horario de funcionamento invalido ('{}') — usando {}.", hhmm, fallback);
+            return fallback;
+        }
     }
 
     /** Ordena agendamentos por horário, tolerando horários nulos (vão para o fim). */

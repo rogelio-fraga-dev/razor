@@ -57,6 +57,16 @@ class AgendaServiceTest {
 
     @InjectMocks private AgendaService service;
 
+    /**
+     * Config padrao do tenant (expediente 09:00-19:00) para os testes de disponibilidade —
+     * os que precisam de textos especificos sobrescrevem o stub localmente.
+     */
+    @org.junit.jupiter.api.BeforeEach
+    void givenDefaultSettings() {
+        when(barbershopSettingsService.resolve())
+                .thenReturn(new BarbershopSettingsService.BotSettings("", "", "", null, ""));
+    }
+
     private com.razor.api.model.Professional prof() {
         return com.razor.api.model.Professional.builder().id(UUID.randomUUID()).active(true).build();
     }

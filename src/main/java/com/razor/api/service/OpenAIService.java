@@ -30,24 +30,26 @@ public class OpenAIService {
     private final OpenAiChatModel chatModel;
     private final RazorProperties properties;
     private final AgendaService agendaService;
+    private final BarbershopSettingsService barbershopSettingsService;
+    private final com.razor.api.repository.ServiceOfferingRepository serviceOfferingRepository;
     private WebClient openAiWebClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private static final String DEFAULT_PERSONA = "Seja simpática, objetiva e eficiente.";
+
     private static final String SYSTEM_PROMPT_RECEPTIONIST = """
-            Você é a recepcionista virtual da "Barbearia Ficticia". Seja simpática, objetiva e eficiente.
+            Você é a recepcionista virtual da "{{nomeBarbearia}}". {{persona}}
             Responda SEMPRE em português brasileiro. Use formatação *negrito* (um asterisco) e _itálico_ (underscore), pois estamos no WhatsApp.
-            
+
             HOJE É DIA: {{hoje}}
-            
+
             🗓️ *CALENDÁRIO DA SEMANA:*
             {{calendarioSemana}}
-            
+
             ✂️ *SERVIÇOS E PREÇOS:*
-            - Corte: R$ 35,00
-            - Barba: R$ 30,00
-            - Combo (Cabelo + Barba): R$ 60,00
-            (Funcionamento: Seg a Sáb, das 09h às 19h)
-            
+            {{tabelaServicos}}
+            (Funcionamento: {{funcionamento}})
+
             ⚙️ *FLUXO OBRIGATÓRIO DE AGENDAMENTO (siga estes passos em ordem):*
             
             *PASSO 1 — NOME:* 
@@ -64,7 +66,7 @@ public class OpenAIService {
             - Se o horário sugerido estiver OCUPADO, sugira *apenas 2 opções próximas* que estejam livres (ex: 30 min antes ou depois).
             - Se ele pedir uma data para a próxima semana, informe que a agenda só abre na própria semana.
             
-            *PASSO 3 — SERVIÇO:* Assim que o horário for confirmado, pergunte qual serviço deseja (Corte R$35 / Barba R$30 / Combo R$60). Informe brevemente que se ele quiser desistir do atendimento, basta dizer "cancelar".
+            *PASSO 3 — SERVIÇO:* Assim que o horário for confirmado, pergunte qual serviço deseja (use APENAS os serviços e preços da tabela acima — nunca invente valores). Informe brevemente que se ele quiser desistir do atendimento, basta dizer "cancelar".
             
             *PASSO 4 — PEDIR CONFIRMAÇÃO:* Com nome, data, horário e serviço em mãos, retorne um resumo completo e PERGUNTE de forma clara se o cliente confirma o agendamento.
             NÃO emita a tag de agendamento neste passo.
@@ -106,6 +108,37 @@ public class OpenAIService {
             {"items": [{"date": "26/02", "name": "Adilson", "time": "14:30", "service": "Corte"}]}
             """;
 
+    private static String blankTo(String value, String fallback) {
+        return (value == null || value.isBlank()) ? fallback : value;
+    }
+
+    /** Tabela de servicos do catalogo do tenant (nome, preco e duracao) para o prompt da IA. */
+    // package-private: coberto por OpenAIServiceTest (garante que a IA nunca recite preco fixo).
+    String buildServiceTable() {
+        var catalog = serviceOfferingRepository.findByBarbershopIdAndActiveTrue(
+                com.razor.api.tenant.TenantContext.getCurrent());
+        if (catalog == null || catalog.isEmpty()) {
+            return "- (catálogo não cadastrado — peça ao cliente que aguarde e avise o barbeiro)";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (var s : catalog) {
+            sb.append("- ").append(s.getName());
+            if (s.getPrice() != null) {
+                sb.append(": R$ ").append(String.format(new java.util.Locale("pt", "BR"), "%.2f", s.getPrice()));
+            }
+            if (s.getDurationMinutes() != null) {
+                sb.append(" (").append(s.getDurationMinutes()).append(" min)");
+            }
+            sb.append("\n");
+        }
+        return sb.toString().trim();
+    }
+
+    /** Ex.: "Seg a Sáb, das 09:00 às 19:00" — vindo das configuracoes do tenant. */
+    String buildOpeningHours(BarbershopSettingsService.BotSettings cfg) {
+        return cfg.workingDays() + ", das " + cfg.openingTime() + " às " + cfg.closingTime();
+    }
+
     public String processCustomerMessage(String userMessage, List<String> recentHistory, String agendaContext, int activeAppointments, String knownCustomerName) {
         try {
             List<ChatMessage> messages = new ArrayList<>();
@@ -122,12 +155,20 @@ public class OpenAIService {
             String dataHojeFormatada = hoje.format(DateTimeFormatter.ofPattern("dd/MM"));
             String horariosLivresHoje = agendaService.getHorariosDisponiveisDoDia(dataHojeFormatada);
             
+            // Identidade, catalogo e funcionamento vem do TENANT ATUAL — sem isso toda barbearia
+            // teria um bot dizendo o nome e os precos de outra (bug multi-tenant).
+            var cfg = barbershopSettingsService.resolve();
+
             String finalPrompt = SYSTEM_PROMPT_RECEPTIONIST
                     .replace("{{agendaContext}}", agendaContext)
                     .replace("{{hoje}}", dataHoje)
                     .replace("{{horariosLivresHoje}}", horariosLivresHoje)
                     .replace("{{calendarioSemana}}", cal.toString())
-                    .replace("{{knownCustomerName}}", knownCustomerName);
+                    .replace("{{knownCustomerName}}", knownCustomerName)
+                    .replace("{{nomeBarbearia}}", cfg.displayName())
+                    .replace("{{persona}}", blankTo(cfg.botPersona(), DEFAULT_PERSONA))
+                    .replace("{{tabelaServicos}}", buildServiceTable())
+                    .replace("{{funcionamento}}", buildOpeningHours(cfg));
                     
             if (activeAppointments == 1) {
                 finalPrompt += "\n\n⚠️ AVISO DE MULTIPLOS AGENDAMENTOS: O cliente já possui 1 agendamento ativo nesta semana. Avise-o sutilmente no começo da conversa ('Vi que você já tem um horário marcado conosco, mas vamos marcar esse outro!'). O limite do sistema são 2 agendamentos, portanto ele ainda pode agendar este.";
