@@ -181,3 +181,52 @@ export interface CommissionReport {
   items: CommissionItem[];
   total: number;
 }
+
+// ---------- Caixa (V18) ----------
+
+export type CashMovementType = "VENDA" | "SANGRIA" | "SUPRIMENTO";
+export type CashPaymentMethod = "DINHEIRO" | "PIX" | "DEBITO" | "CREDITO";
+
+export interface CashMovementView {
+  id: string;
+  type: CashMovementType;
+  paymentMethod: CashPaymentMethod | null;
+  amount: number;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface CashTotals {
+  vendasDinheiro: number;
+  vendasPix: number;
+  vendasDebito: number;
+  vendasCredito: number;
+  vendasTotal: number;
+  sangrias: number;
+  suprimentos: number;
+}
+
+/** Retrato da sessão de caixa. Endpoint devolve `null` quando o caixa está fechado. */
+export interface CashSessionSummary {
+  id: string;
+  status: "OPEN" | "CLOSED";
+  openedByName: string | null;
+  openedAt: string;
+  openingAmount: number;
+  closedByName: string | null;
+  closedAt: string | null;
+  closingCounted: number | null;
+  closingExpected: number | null;
+  notes: string | null;
+  movements: CashMovementView[];
+  totals: CashTotals;
+  expectedDrawer: number;
+  difference: number | null;
+}
+
+export interface CashMovementInput {
+  type: CashMovementType;
+  paymentMethod?: CashPaymentMethod | null;
+  amount: number;
+  description?: string | null;
+}

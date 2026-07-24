@@ -8,6 +8,7 @@ import { Services } from "./pages/Services";
 import { Professionals } from "./pages/Professionals";
 import { Customers } from "./pages/Customers";
 import { Plans } from "./pages/Plans";
+import { Caixa } from "./pages/Caixa";
 import { Commissions } from "./pages/Commissions";
 import { Settings } from "./pages/Settings";
 import { Profile } from "./pages/Profile";
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/professionals" element={<Professionals />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/plans" element={<Plans />} />
+        <Route path="/caixa" element={<Caixa />} />
         <Route path="/commissions" element={<Commissions />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/profile" element={<Profile />} />

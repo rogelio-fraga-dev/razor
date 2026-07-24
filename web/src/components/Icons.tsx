@@ -86,3 +86,11 @@ export const IconSliders = () => (
     <circle cx="9" cy="17" r="2" />
   </Icon>
 );
+
+export const IconCash = () => (
+  <Icon>
+    <rect x="2.5" y="6" width="19" height="12" rx="2" />
+    <circle cx="12" cy="12" r="2.6" />
+    <path d="M6 9.5v5M18 9.5v5" />
+  </Icon>
+);

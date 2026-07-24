@@ -20,6 +20,7 @@ const COMMANDS: Cmd[] = [
   { id: "go-services", label: "Serviços", hint: "preços e duração", group: "Ir para", run: (n) => n("/services") },
   { id: "go-pros", label: "Profissionais", hint: "equipe e comissão", group: "Ir para", run: (n) => n("/professionals") },
   { id: "go-plans", label: "Planos", hint: "clube de assinatura", group: "Ir para", run: (n) => n("/plans") },
+  { id: "go-caixa", label: "Caixa", hint: "abrir, fechar e movimentos", group: "Ir para", run: (n) => n("/caixa") },
   { id: "go-comm", label: "Comissões", hint: "fechamento por barbeiro", group: "Ir para", run: (n) => n("/commissions") },
   { id: "go-settings", label: "Configurações", hint: "bot, WhatsApp e equipe", group: "Ir para", run: (n) => n("/settings") },
   { id: "go-profile", label: "Meu perfil", hint: "nome e senha", group: "Ir para", run: (n) => n("/profile") },
