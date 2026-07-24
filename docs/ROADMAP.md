@@ -365,14 +365,20 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       > "ver como o bot fala" ficam como refinamento futuro._
 - [ ] 🎯 **Config do bot vira modal único e completo (evolução do wizard)** — mudar o fluxo de
       configuração do WhatsApp: **ao abrir a tela de Configurações, já abrir automaticamente o
-      modal** de configuração — e nele dá pra configurar **TUDO** (identidade, funcionamento,
-      serviços, modo de fala, pagamento **e** todas as mensagens automáticas — nada fica só na
-      "lista seca" de fora). **Ao concluir, fechar o modal e atualizar a tela** refletindo tudo
-      que foi salvo (a tela por trás mostra o estado atualizado, sem F5).
-      > Diferença para o wizard atual: hoje o assistente é opt-in (botão "Abrir assistente") e
-      > cobre os essenciais, deixando as mensagens automáticas para edição campo a campo. Aqui o
-      > modal **abre sozinho**, cobre **todos** os campos e a tela de trás **reflete o resultado**
-      > ao fechar. Reaproveita `ConfigWizard` + o `reload()` que já existe.
+      modal** de configuração — e nele dá pra configurar **TUDO, num lugar só**:
+      - **Conexão do WhatsApp (QR code)** — parear o número da **barbearia** (o bot) direto no
+        modal, com o status "conectado/desconectado" ali mesmo.
+      - **Número do admin** — cadastrar/editar o(s) telefone(s) **pessoal(is)** do dono que dão
+        comando e recebem avisos (regra dos dois números).
+      - **Identidade, funcionamento, serviços, modo de fala, pagamento** e **todas as mensagens
+        automáticas** — nada fica só na "lista seca" de fora.
+      **Ao concluir, fechar o modal e atualizar a tela** refletindo tudo que foi salvo (a tela por
+      trás mostra o estado atualizado — QR conectado, número do admin, textos — sem F5).
+      > Diferença para o wizard atual: hoje o assistente é opt-in (botão "Abrir assistente"),
+      > cobre só os essenciais dos **textos** e deixa QR, admin e mensagens automáticas nos cards
+      > separados. Aqui o modal **abre sozinho**, junta **QR + número do admin + todos os campos**
+      > num fluxo único e a tela de trás **reflete o resultado** ao fechar. Reaproveita
+      > `ConfigWizard`, `WhatsAppCard` (QR), `AdminsCard` (números) e o `reload()` que já existem.
 - [x] **Boas-vindas no WhatsApp ao concluir a 1ª configuração** — ao salvar a config do bot
       pela 1ª vez, o sistema manda **no WhatsApp do dono** um guia curto de *como o sistema
       funciona e o que ele pode fazer*. Fecha o ciclo *configurei no computador → o bot me
