@@ -236,8 +236,12 @@ assinaturas) sem sair do Razor.
 
 **🔴 Bloqueadores de troca (fazer antes de vender em escala)**
 
-- [ ] **Caixa: abertura/fechamento + comandas** — o ritual diário da barbearia. Comanda por
-      atendimento (serviços + produtos), fechamento com conferência, sangria/suprimento.
+- [~] **Caixa: abertura/fechamento** ✅ + **comandas** (pendente) — o ritual diário da barbearia.
+      Feito (V18): sessão de caixa com fundo de troco (uma aberta por barbearia), movimentos
+      (venda com forma de pagamento, sangria, suprimento), **gaveta esperada** = fundo +
+      suprimentos − sangrias + vendas em dinheiro, e fechamento com conferência (sobra/falta).
+      Tela **Caixa** no painel. **Falta:** comanda por atendimento (serviços + **produtos**) com
+      baixa no caixa — precisa antes de um catálogo de produtos.
 - [x] **Folgas e bloqueios de agenda** — sem isso a IA agenda em cima de folga/almoço/feriado.
       Por profissional (ou barbearia toda), pontual ou recorrente, dia inteiro ou faixa de
       horário. Back V16 + **tela no painel** (modal aberto pela toolbar da Agenda).
@@ -643,4 +647,4 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-24 (tela de folgas, 5 modos de fala, boas-vindas ao dono, wizard de configuração, StateStore Redis) · Documento vivo._
+_Última atualização: 2026-07-24 (tela de folgas, 5 modos de fala, boas-vindas ao dono, wizard, StateStore Redis, caixa V18) · Documento vivo._
