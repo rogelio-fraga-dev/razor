@@ -19,14 +19,27 @@ interface AuthState {
 const STORAGE_KEY = "razor.session";
 const AuthContext = createContext<AuthState | null>(null);
 
+const DEMO_SESSION: Session = {
+  token: "demo-token",
+  role: "OWNER",
+  name: "Dono da Barbearia",
+  email: "admin@razor.com.br",
+  barbershopId: "razor-01",
+};
+
 function loadSession(): Session | null {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw || !getToken()) return null;
-  try {
-    return JSON.parse(raw) as Session;
-  } catch {
-    return null;
+  if (raw && getToken()) {
+    try {
+      return JSON.parse(raw) as Session;
+    } catch {
+      // fallback
+    }
   }
+  // Se não houver token ou sessão salva, define a sessão demo automaticamente
+  setToken(DEMO_SESSION.token);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEMO_SESSION));
+  return DEMO_SESSION;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

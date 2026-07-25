@@ -14,11 +14,11 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="empty-state">
-      <span className="es-icon" aria-hidden="true">{icon}</span>
+    <div className="empty-state empty-blueprint">
+      <div className="empty-icon">{icon}</div>
       <p className="es-title">{title}</p>
       {hint && <p className="es-hint">{hint}</p>}
-      {action && <div className="es-action">{action}</div>}
+      {action && <div className="es-action" style={{ marginTop: 16 }}>{action}</div>}
     </div>
   );
 }

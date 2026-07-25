@@ -51,6 +51,17 @@ export function Layout({
 }) {
   const { session, logout } = useAuth();
   const [theme, setTheme] = useState<Theme>(currentTheme);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem("razor.sidebar_collapsed") === "true";
+  });
+
+  const toggleSidebar = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("razor.sidebar_collapsed", String(next));
+      return next;
+    });
+  };
 
   const toggleTheme = () => {
     const next: Theme = theme === "dark" ? "light" : "dark";
@@ -61,10 +72,19 @@ export function Layout({
   const initial = (session?.name || session?.email || "?").charAt(0).toUpperCase();
 
   return (
-    <div className="app">
+    <div className={`app${collapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
-        <div className="brand">
+        <div className="brand" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
           <RazorLogo size={24} />
+          <button
+            className="iconbtn sidebar-toggle-btn"
+            onClick={toggleSidebar}
+            title={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+            aria-label="Recolher/Expandir menu"
+            style={{ width: 28, height: 28, padding: 0, fontSize: 13, flexShrink: 0 }}
+          >
+            {collapsed ? "⇥" : "⇤"}
+          </button>
         </div>
         <span className="brand-tag mono">SISTEMA OPERACIONAL</span>
         <nav className="nav">

@@ -98,6 +98,7 @@ existe porque hoje não há testes nem CI, e refatorar/escalar sem essa rede de 
       caía no *tenant padrão* para instância desconhecida: dava para forjar um POST com o
       telefone de um admin e executar comandos de gestão numa barbearia real. Agora: token
       compartilhado obrigatório (**fail-closed**, `WEBHOOK_TOKEN`) **e** instância desconhecida
+- [ ] **Seed de Dados Reais de Analytics (PostgreSQL + Spring Boot)** — Criar migração Flyway `V19__seed_demo_analytics.sql` com histórico real de agendamentos, caixa e comissões para o tenant padrão (`00000000-0000-0000-0000-000000000001`), conectando os relatórios do backend (`/api/admin/reports/financial`, `/api/admin/reports/commissions`) diretamente às tabelas do banco de dados.
       é descartada — duas barreiras independentes.
 - [x] **QR code público (crítico)** — `GET /api/webhook/qrcode` servia o QR de pareamento sem
       autenticação (um estranho podia conectar o WhatsApp da barbearia no próprio aparelho).
@@ -663,4 +664,12 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-24 (tela de folgas, 5 modos de fala, boas-vindas ao dono, wizard, StateStore Redis, caixa V18) · Documento vivo._
+### 🐛 Pendências & Débitos Conhecidos de Interface (Painel Analítico)
+
+- [ ] **Ajuste fino no topo do Dashboard (`ActivationChecklist` / `Cockpit`)**: 
+      Em alguns cenários com dados incompletos ou em carregamento, os cards no topo do painel (`ActivationChecklist` e indicador de metas) apresentam problemas de renderização (cards vazios/barras escuras ou ocultação indevida quando o WhatsApp está desconectado). Necessita refatoração de estado e layout para garantir renderização consistente.
+
+---
+
+_Última atualização: 2026-07-25 (Documentado bug no topo do Painel Analítico / ActivationChecklist no Roadmap) · Documento vivo._
+

@@ -1,3 +1,5 @@
+@import "./razor-design-system.css";
+
 /* ============================================================================
    RAZOR · Painel — brand book v2 (docs/BRANDING.md)
    Dark-first · obsidian/graphite/steel/chrome · acento voltage · ângulo 68°
@@ -293,21 +295,34 @@ select.input { cursor: pointer; }
   grid-template-columns: var(--sidebar-w) 1fr;
   height: 100vh;
   overflow: hidden;
+  transition: grid-template-columns 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ---------- Sidebar (obsidian fixa nos dois temas) ---------- */
+.app.sidebar-collapsed {
+  --sidebar-w: 72px;
+}
+
+/* ---------- Sidebar (Sincronizada com o Tema) ---------- */
 .sidebar {
-  background: #0a0a0c;
-  color: #8b93a1;
+  background: var(--surface);
+  color: var(--text-muted);
   display: flex;
   flex-direction: column;
   padding: 20px 14px;
   position: sticky;
   top: 0;
   height: 100vh;
-  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  border-right: 1px solid var(--border);
   overflow: hidden;
+  transition: background 0.2s ease, border-color 0.2s ease, width 0.25s ease, padding 0.25s ease;
 }
+
+:root[data-theme="light"] .sidebar {
+  background: #ffffff;
+  color: #5d6572;
+  border-right: 1px solid #e5e7ec;
+}
+
 /* brilho sutil no topo da sidebar */
 .sidebar::before {
   content: "";
@@ -327,14 +342,17 @@ select.input { cursor: pointer; }
   align-items: center;
   gap: 10px;
   padding: 6px 10px 24px;
-  color: #fff;
+  color: var(--text);
+}
+:root[data-theme="light"] .brand {
+  color: #16181d;
 }
 .nav-label {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #4a5160;
+  color: var(--text-faint);
   padding: 0 12px 10px;
 }
 .nav { display: flex; flex-direction: column; gap: 2px; position: relative; }
@@ -345,12 +363,23 @@ select.input { cursor: pointer; }
   gap: 12px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  color: #8b93a1;
+  color: var(--text-muted);
   font-size: 14px;
   font-weight: 500;
   transition: background 0.15s, color 0.15s;
 }
-.nav a:hover { background: rgba(255, 255, 255, 0.05); color: #e9ebef; }
+.nav a:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+:root[data-theme="light"] .nav a {
+  color: #5d6572;
+}
+:root[data-theme="light"] .nav a:hover {
+  color: #16181d;
+  background: #f1f3f6;
+}
+:root[data-theme="light"] .nav a.active {
+  color: #2f51e6;
+  background: #e9eeff;
+}
 .nav a.active {
   background: linear-gradient(90deg, rgba(62, 99, 255, 0.16), rgba(62, 99, 255, 0.04));
   color: #fff;
@@ -370,17 +399,19 @@ select.input { cursor: pointer; }
   display: grid;
   place-items: center;
   width: 20px;
-  color: #62697a;
+  color: var(--text-faint, #62697a);
   transition: color 0.15s;
   flex-shrink: 0;
 }
-.nav a:hover .ico { color: #e9ebef; }
+.nav a:hover .ico { color: var(--text, #e9ebef); }
 .nav a.active .ico { color: #37e2ff; }
+:root[data-theme="light"] .nav a:hover .ico { color: #16181d; }
+:root[data-theme="light"] .nav a.active .ico { color: #2f51e6; }
 .sidebar-foot {
   position: relative;
   margin-top: auto;
   padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.07));
 }
 .user-chip {
   display: flex;
@@ -406,8 +437,10 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   flex-shrink: 0;
 }
 .user-meta { overflow: hidden; }
-.user-name { color: #fff; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.user-mail { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-name { color: var(--text); font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-theme="light"] .user-name { color: #16181d; }
+:root[data-theme="light"] a.user-chip:hover { background: #f1f3f6; }
+.user-mail { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- Main / topbar / content ---------- */
 .main {
@@ -982,42 +1015,12 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 26px 28px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background:
-    radial-gradient(520px 200px at 0% 0%, rgba(62, 99, 255, 0.1), transparent 70%),
-    linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 90%, #000) 100%);
+  padding: 8px 0 16px;
 }
 :root[data-theme="light"] .cockpit {
-  background:
-    radial-gradient(520px 200px at 0% 0%, rgba(47, 81, 230, 0.08), transparent 70%),
-    var(--surface);
-  box-shadow: var(--shadow-sm);
+  /* no special styling needed for light mode */
 }
-/* faixa diagonal 68° — a assinatura estrutural da marca */
-.cockpit::before {
-  content: "";
-  position: absolute;
-  top: -40%;
-  right: 8%;
-  width: 2px;
-  height: 180%;
-  background: var(--edge-gradient);
-  opacity: 0.5;
-  transform: rotate(22deg);
-}
-.cockpit::after {
-  content: "";
-  position: absolute;
-  top: -40%;
-  right: 12%;
-  width: 1px;
-  height: 180%;
-  background: var(--border-hi);
-  transform: rotate(22deg);
-}
+
 .ck-main { position: relative; z-index: 1; min-width: 0; }
 .ck-date {
   font-size: 10.5px;
@@ -1026,10 +1029,10 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 .ck-title {
   font-family: var(--font-display);
-  font-size: clamp(22px, 3vw, 30px);
+  font-size: clamp(20px, 2.5vw, 26px);
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 6px 0 6px;
+  margin: 4px 0 4px;
 }
 .ck-title em {
   font-style: normal;
@@ -1038,7 +1041,7 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   background-clip: text;
   color: transparent;
 }
-.ck-sub { color: var(--text-muted); font-size: 14px; max-width: 52ch; }
+.ck-sub { color: var(--text-muted); font-size: 13.5px; max-width: 54ch; margin: 0; }
 
 .ck-pulse {
   position: relative;
@@ -1097,12 +1100,14 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 
 /* ---------- Sidebar: grupos e tagline ---------- */
 .brand-tag {
-  display: block;
+  display: inline-block;
   font-size: 8.5px;
   letter-spacing: 0.22em;
-  color: #4a5160;
-  padding: 0 12px 18px;
-  margin-top: -16px;
+  color: var(--voltage, #3e63ff);
+  background: var(--voltage-soft, rgba(62, 99, 255, 0.14));
+  padding: 3px 8px;
+  border-radius: 999px;
+  margin: 4px 0 16px 12px;
 }
 .nav-group { display: flex; flex-direction: column; gap: 2px; margin-bottom: 14px; }
 .nav-group .nav-label {
@@ -1110,7 +1115,7 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   font-size: 9px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #444b5a;
+  color: var(--text-faint, #4a5160);
   padding: 0 12px 6px;
 }
 
