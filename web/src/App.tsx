@@ -6,6 +6,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Agenda } from "./pages/Agenda";
 import { Services } from "./pages/Services";
 import { Products } from "./pages/Products";
+import { Comandas } from "./pages/Comandas";
 import { Professionals } from "./pages/Professionals";
 import { Customers } from "./pages/Customers";
 import { Plans } from "./pages/Plans";
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/professionals" element={<Professionals />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/plans" element={<Plans />} />
+        <Route path="/comandas" element={<Comandas />} />
         <Route path="/caixa" element={<Caixa />} />
         <Route path="/commissions" element={<Commissions />} />
         <Route path="/settings" element={<Settings />} />

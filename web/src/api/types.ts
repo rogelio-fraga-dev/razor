@@ -264,3 +264,34 @@ export interface ProductSale {
   paymentMethod: CashPaymentMethod;
   soldAt: string;
 }
+
+// ---------- Comanda por atendimento (V22) ----------
+
+export type ComandaStatus = "ABERTA" | "FECHADA" | "CANCELADA";
+export type ComandaItemKind = "SERVICO" | "PRODUTO";
+
+export interface ComandaItem {
+  id: string;
+  kind: ComandaItemKind;
+  referenceId: string | null;
+  description: string;
+  unitPrice: number;
+  quantity: number;
+  total: number;
+}
+
+/** `currentTotal` é a soma do que está na conta agora; `total` só existe depois de fechada. */
+export interface Comanda {
+  id: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  professionalId: string | null;
+  professionalName: string | null;
+  status: ComandaStatus;
+  openedAt: string;
+  closedAt: string | null;
+  currentTotal: number;
+  total: number | null;
+  paymentMethod: CashPaymentMethod | null;
+  items: ComandaItem[];
+}

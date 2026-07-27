@@ -55,9 +55,17 @@ public class ProductSale {
     @Column(name = "payment_method", nullable = false, length = 12)
     private CashPaymentMethod paymentMethod;
 
-    /** Movimento de caixa criado por esta venda — amarra a venda ao fechamento da gaveta. */
+    /**
+     * Movimento de caixa desta venda — amarra a venda ao fechamento da gaveta. Quando a venda
+     * veio de uma comanda (V22), aponta para o movimento unico da comanda: a linha registra a
+     * venda sem lancar dinheiro de novo no caixa.
+     */
     @Column(name = "cash_movement_id")
     private UUID cashMovementId;
+
+    /** Comanda de origem (V22). {@code null} = venda avulsa de balcao. */
+    @Column(name = "comanda_id")
+    private UUID comandaId;
 
     @Column(name = "sale_date", nullable = false)
     private LocalDate saleDate;

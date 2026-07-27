@@ -37,6 +37,15 @@ export const IconTag = () => (
   </Icon>
 );
 
+/** Comanda: a conta do atendimento. */
+export const IconReceipt = () => (
+  <Icon>
+    <path d="M4 3h16v18l-2.5-1.5L15 21l-2.5-1.5L10 21l-2.5-1.5L5 21 4 21V3Z" />
+    <path d="M8 8h8" />
+    <path d="M8 12h8" />
+  </Icon>
+);
+
 /** Produtos do balcão: caixa/embalagem. */
 export const IconBox = () => (
   <Icon>

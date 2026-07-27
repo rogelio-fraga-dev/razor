@@ -200,8 +200,9 @@ uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Impleme
 
 > **Objetivo:** cobrir o que faz um barbeiro pagar Frizzar/CashBarber hoje.
 
-- [~] **Financeiro**: resumo do dia/semana e fluxo por meio de pagamento (relatórios prontos,
-      no WhatsApp e no painel). _(Falta: caixa/comandas transacional e fechamento formal.)_
+- [x] **Financeiro**: resumo do dia/semana e fluxo por meio de pagamento (relatórios prontos, no
+      WhatsApp e no painel), **caixa transacional com fechamento formal (V18)** e **comanda por
+      atendimento (V22)**.
 - [x] **Comissões** por profissional: percentual por barbeiro (`commission_percent`), relatório
       por dia e configuração no painel. _(Config por WhatsApp removida — princípio 6.)_
 - [x] **Vendas de balcão (produtos)** — **catálogo (V20)** com tela própria (*Produtos*): nome
@@ -214,6 +215,12 @@ uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Impleme
       > ⚠️ **Decisão a confirmar:** a comissão de produto usa **o mesmo percentual** do serviço
       > (`commission_percent` do barbeiro). Muitas barbearias pagam percentual menor em produto —
       > se for o caso, vira o item "comissão por produto" abaixo, com percentual próprio.
+- [x] **Comanda por atendimento (V22)** — serviços + produtos na mesma conta, fechada de uma vez.
+      Abre com cliente e barbeiro (ambos opcionais), recebe itens do catálogo com **preço
+      congelado na entrada**, e no fechamento lança **um único** movimento no caixa com o total.
+      Os produtos da comanda viram linha em `product_sales` apontando para **esse mesmo**
+      movimento — registram a venda e a comissão sem lançar o dinheiro duas vezes na gaveta.
+      Comanda vazia, sem forma de pagamento ou já fechada não fecha; cancelar não mexe em dinheiro.
 - [ ] **Produtos no financeiro estruturado** — a venda já entra no caixa do dia; falta somar no
       `/reports/financial`, que hoje só conta agendamentos (`totalAppointments`, tíquete médio).
       Precisa de campo separado, para não misturar receita de serviço com a de produto.
@@ -245,12 +252,12 @@ assinaturas) sem sair do Razor.
 
 **🔴 Bloqueadores de troca (fazer antes de vender em escala)**
 
-- [~] **Caixa: abertura/fechamento** ✅ + **comandas** (pendente) — o ritual diário da barbearia.
-      Feito (V18): sessão de caixa com fundo de troco (uma aberta por barbearia), movimentos
-      (venda com forma de pagamento, sangria, suprimento), **gaveta esperada** = fundo +
-      suprimentos − sangrias + vendas em dinheiro, e fechamento com conferência (sobra/falta).
-      Tela **Caixa** no painel. **Falta:** comanda por atendimento (serviços + **produtos**) com
-      baixa no caixa — precisa antes de um catálogo de produtos.
+- [x] **Caixa: abertura/fechamento + comandas** — o ritual diário da barbearia, completo.
+      **V18:** sessão de caixa com fundo de troco (uma aberta por barbearia), movimentos (venda
+      com forma de pagamento, sangria, suprimento), **gaveta esperada** = fundo + suprimentos −
+      sangrias + vendas em dinheiro, e fechamento com conferência (sobra/falta).
+      **V22:** comanda por atendimento juntando serviços + **produtos** numa conta só, com baixa
+      no caixa em **um único** movimento no fechamento. Telas *Caixa* e *Comandas* no painel.
 - [x] **Folgas e bloqueios de agenda** — sem isso a IA agenda em cima de folga/almoço/feriado.
       Por profissional (ou barbearia toda), pontual ou recorrente, dia inteiro ou faixa de
       horário. Back V16 + **tela no painel** (modal aberto pela toolbar da Agenda).

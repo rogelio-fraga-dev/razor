@@ -18,6 +18,7 @@ const COMMANDS: Cmd[] = [
   { id: "go-agenda", label: "Agenda", hint: "calendário por barbeiro", group: "Ir para", run: (n) => n("/agenda") },
   { id: "go-customers", label: "Clientes", hint: "base e assinantes", group: "Ir para", run: (n) => n("/customers") },
   { id: "go-services", label: "Serviços", hint: "preços e duração", group: "Ir para", run: (n) => n("/services") },
+  { id: "go-comandas", label: "Comandas", hint: "conta do atendimento", group: "Ir para", run: (n) => n("/comandas") },
   { id: "go-products", label: "Produtos", hint: "catálogo do balcão", group: "Ir para", run: (n) => n("/products") },
   { id: "go-pros", label: "Profissionais", hint: "equipe e comissão", group: "Ir para", run: (n) => n("/professionals") },
   { id: "go-plans", label: "Planos", hint: "clube de assinatura", group: "Ir para", run: (n) => n("/plans") },
