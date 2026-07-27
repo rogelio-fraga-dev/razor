@@ -255,7 +255,8 @@ export function Dashboard() {
                 <tr>
                   <th>Profissional</th>
                   <th style={{ textAlign: "right" }}>Atendimentos</th>
-                  <th style={{ textAlign: "right" }}>Faturamento</th>
+                  <th style={{ textAlign: "right" }}>Serviços</th>
+                  <th style={{ textAlign: "right" }}>Produtos</th>
                   <th style={{ textAlign: "right" }}>Comissão</th>
                 </tr>
               </thead>
@@ -270,6 +271,9 @@ export function Dashboard() {
                     </td>
                     <td className="num">{it.atendimentos}</td>
                     <td className="num">{money(it.faturamento)}</td>
+                    <td className="num">
+                      {it.produtos > 0 ? money(it.faturamentoProdutos) : <span className="faint">—</span>}
+                    </td>
                     <td className="num" style={{ color: "var(--signal)", fontWeight: 700 }}>
                       {money(it.comissao)}
                     </td>
@@ -277,6 +281,7 @@ export function Dashboard() {
                 ))}
                 <tr>
                   <td><strong>Total</strong></td>
+                  <td className="num" />
                   <td className="num" />
                   <td className="num" />
                   <td className="num" style={{ fontWeight: 700 }}>{money(commissions.data.total)}</td>

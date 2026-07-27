@@ -67,6 +67,17 @@ public class CashRegisterService {
     @Transactional
     public CashSessionSummary addMovement(CashMovementType type, CashPaymentMethod method,
                                           BigDecimal amount, String description) {
+        CashMovement movement = recordMovement(type, method, amount, description);
+        return buildSummary(sessionRepository.findById(movement.getSessionId()).orElseThrow());
+    }
+
+    /**
+     * Grava o movimento e devolve a linha criada. Existe separado de {@link #addMovement} porque
+     * a venda de balcao precisa guardar o id do movimento para amarrar venda e caixa.
+     */
+    @Transactional
+    public CashMovement recordMovement(CashMovementType type, CashPaymentMethod method,
+                                       BigDecimal amount, String description) {
         CashRegisterSession session = openSession()
                 .orElseThrow(() -> new IllegalArgumentException("Nenhum caixa aberto. Abra o caixa primeiro."));
         if (type == null) {
@@ -86,7 +97,7 @@ public class CashRegisterService {
             effectiveMethod = null;
         }
 
-        movementRepository.save(CashMovement.builder()
+        CashMovement saved = movementRepository.save(CashMovement.builder()
                 .sessionId(session.getId())
                 .barbershopId(TenantContext.getCurrent())
                 .type(type)
@@ -95,7 +106,7 @@ public class CashRegisterService {
                 .description(description == null || description.isBlank() ? null : description.trim())
                 .build());
         log.info("[CAIXA] {} de {} no tenant {}", type, scale(amount), TenantContext.getCurrent());
-        return buildSummary(session);
+        return saved;
     }
 
     @Transactional

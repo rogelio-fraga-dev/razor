@@ -172,7 +172,10 @@ export interface CommissionItem {
   professionalName: string;
   commissionPercent: number;
   atendimentos: number;
+  /** Faturamento dos **serviços**; produtos do balcão vêm separados (V21). */
   faturamento: number;
+  produtos: number;
+  faturamentoProdutos: number;
   comissao: number;
 }
 
@@ -246,4 +249,18 @@ export interface Product {
   name: string;
   price: number;
   active: boolean;
+}
+
+/** Venda de balcão (V21). Nome e preço são os congelados no momento da venda. */
+export interface ProductSale {
+  id: string;
+  productId: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  total: number;
+  professionalId: string | null;
+  professionalName: string | null;
+  paymentMethod: CashPaymentMethod;
+  soldAt: string;
 }

@@ -7,9 +7,10 @@ import { Modal, Switch } from "../components/Modal";
 import { EmptyState } from "../components/EmptyState";
 import { SkeletonRows } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
+import { SellProductModal } from "../components/SellProductModal";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
-import type { Product } from "../api/types";
+import type { Product, ProductSale } from "../api/types";
 import { money } from "../lib/format";
 
 interface Draft {
@@ -21,12 +22,18 @@ interface Draft {
 
 const EMPTY: Draft = { id: null, name: "", price: "", active: true };
 
+const TIME_FMT = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
 export function Products() {
   const { data, loading, error, reload } = useApi<Product[]>(() => api.get("/api/admin/products"), []);
   const toast = useToast();
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [selling, setSelling] = useState<Product | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [salesVersion, setSalesVersion] = useState(0);
+
+  const sales = useApi<ProductSale[]>(() => api.get("/api/admin/product-sales"), [salesVersion]);
 
   const openNew = () => {
     setFormError(null);
@@ -111,6 +118,11 @@ export function Products() {
                       )}
                     </td>
                     <td className="right">
+                      {p.active && (
+                        <button className="btn btn-primary btn-sm" onClick={() => setSelling(p)}>
+                          Vender
+                        </button>
+                      )}
                       <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>Editar</button>
                     </td>
                   </tr>
@@ -120,6 +132,64 @@ export function Products() {
           </div>
         )}
       </div>
+
+      {/* Vendas de hoje — a prova de que a venda entrou, sem sair da tela */}
+      <div className="card">
+        <div className="card-head">
+          <h3>Vendas de hoje</h3>
+          {sales.data && sales.data.length > 0 && (
+            <span className="badge badge-green mono">
+              {money(sales.data.reduce((sum, s) => sum + s.total, 0))}
+            </span>
+          )}
+        </div>
+        {sales.loading ? (
+          <SkeletonRows rows={2} />
+        ) : sales.error ? (
+          <div className="empty error">{sales.error}</div>
+        ) : !sales.data || sales.data.length === 0 ? (
+          <EmptyState
+            icon="🧾"
+            title="Nenhuma venda de balcão hoje."
+            hint="Use o botão “Vender” em um produto ativo. A venda entra no caixa aberto."
+          />
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Produto</th>
+                  <th>Qtde</th>
+                  <th>Barbeiro</th>
+                  <th>Pagamento</th>
+                  <th style={{ textAlign: "right" }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sales.data.map((s) => (
+                  <tr key={s.id}>
+                    <td className="mono">{TIME_FMT.format(new Date(s.soldAt))}</td>
+                    <td style={{ fontWeight: 550 }}>{s.productName}</td>
+                    <td>{s.quantity}</td>
+                    <td className="muted">{s.professionalName ?? "—"}</td>
+                    <td className="muted">{s.paymentMethod}</td>
+                    <td className="num">{money(s.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {selling && (
+        <SellProductModal
+          product={selling}
+          onClose={() => setSelling(null)}
+          onSold={() => setSalesVersion((v) => v + 1)}
+        />
+      )}
 
       {draft && (
         <Modal

@@ -204,12 +204,19 @@ uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Impleme
       no WhatsApp e no painel). _(Falta: caixa/comandas transacional e fechamento formal.)_
 - [x] **Comissões** por profissional: percentual por barbeiro (`commission_percent`), relatório
       por dia e configuração no painel. _(Config por WhatsApp removida — princípio 6.)_
-- [~] **Vendas de balcão (produtos)** 🎯 *em andamento*: **catálogo pronto (V20)** — nome, preço
-      e ativo, com tela própria (*Produtos*), nome único por barbearia, preço obrigatoriamente
-      maior que zero e desativação em vez de exclusão (venda antiga precisa manter a referência).
-      _(Falta: o registro da venda em si — produto, qtde, barbeiro opcional —, a entrada no
-      **financeiro do dia**/caixa e a **comissão de produto** no relatório de comissões.
-      Estoque/reposição continua para depois.)_
+- [x] **Vendas de balcão (produtos)** — **catálogo (V20)** com tela própria (*Produtos*): nome
+      único por barbearia, preço maior que zero e desativação em vez de exclusão. **Venda (V21)**:
+      produto, quantidade e barbeiro opcional, lançada no **caixa aberto** como movimento de venda
+      — sem caixa aberto a venda é recusada, senão o dinheiro não apareceria na conferência da
+      gaveta. Nome e preço são **congelados na venda**: reajuste de preço não reescreve o
+      histórico. Com barbeiro escolhido, entra na **comissão** dele (serviços e produtos aparecem
+      em colunas separadas no relatório).
+      > ⚠️ **Decisão a confirmar:** a comissão de produto usa **o mesmo percentual** do serviço
+      > (`commission_percent` do barbeiro). Muitas barbearias pagam percentual menor em produto —
+      > se for o caso, vira o item "comissão por produto" abaixo, com percentual próprio.
+- [ ] **Produtos no financeiro estruturado** — a venda já entra no caixa do dia; falta somar no
+      `/reports/financial`, que hoje só conta agendamentos (`totalAppointments`, tíquete médio).
+      Precisa de campo separado, para não misturar receita de serviço com a de produto.
 - [~] **Clube de assinatura**: catálogo de **planos configuráveis** pronto (`subscription_plans`,
       painel). _(Falta: identificação assinante x avulso no agendamento e cobrança recorrente — Fase 4.)_
 - [~] **Relatórios/DRE**: financeiro estruturado e comissões prontos no painel.

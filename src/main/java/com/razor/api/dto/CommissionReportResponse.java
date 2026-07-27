@@ -9,17 +9,20 @@ import java.util.UUID;
 /** Relatorio de comissoes por profissional num dia, com o total. */
 public record CommissionReportResponse(LocalDate date, List<Item> items, BigDecimal total) {
 
+    /** {@code faturamento} e o dos servicos; produtos do balcao vem separados (V21). */
     public record Item(
             UUID professionalId,
             String professionalName,
             BigDecimal commissionPercent,
             int atendimentos,
             BigDecimal faturamento,
+            int produtos,
+            BigDecimal faturamentoProdutos,
             BigDecimal comissao) {
 
         public static Item from(ProfessionalCommission c) {
             return new Item(c.professionalId(), c.professionalName(), c.commissionPercent(),
-                    c.atendimentos(), c.faturamento(), c.comissao());
+                    c.atendimentos(), c.faturamento(), c.produtos(), c.faturamentoProdutos(), c.comissao());
         }
     }
 

@@ -7,7 +7,9 @@ import static org.mockito.Mockito.when;
 import com.razor.api.model.Appointment;
 import com.razor.api.model.PaymentStatus;
 import com.razor.api.model.Professional;
+import com.razor.api.model.ProductSale;
 import com.razor.api.repository.AppointmentRepository;
+import com.razor.api.repository.ProductSaleRepository;
 import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.service.CommissionService.ProfessionalCommission;
 import com.razor.api.service.PricingService.ServiceCategory;
@@ -37,6 +39,7 @@ class CommissionServiceTest {
 
     @Mock private AppointmentRepository appointmentRepository;
     @Mock private ProfessionalRepository professionalRepository;
+    @Mock private ProductSaleRepository productSaleRepository;
     @Mock private PricingService pricingService;
 
     @InjectMocks private CommissionService service;
@@ -139,5 +142,62 @@ class CommissionServiceTest {
         assertThat(out).contains("Rafael").contains("50%")
                 .contains(String.format("%.2f", 17.50)) // 35 * 50%
                 .contains("Total de comissões");
+    }
+
+    // --- Comissao de produto vendido no balcao (V21) ---
+
+    private ProductSale venda(UUID profId, String total, int qtd, LocalDate dia) {
+        return ProductSale.builder()
+                .professionalId(profId).total(new BigDecimal(total)).quantity(qtd).saleDate(dia).build();
+    }
+
+    @Test
+    @DisplayName("venda de balcão entra na comissão, separada do faturamento de serviços")
+    void productSale_addsToCommission_separateFromServices() {
+        LocalDate hoje = AppointmentDates.today();
+        UUID rafael = UUID.randomUUID();
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
+                .thenReturn(List.of(venda(rafael, "60.00", 2, hoje)));
+        givenPrices();
+
+        ProfessionalCommission c = service.commissionsForDay(hoje).get(0);
+
+        assertThat(c.faturamento()).isEqualByComparingTo("35.00");          // só serviços
+        assertThat(c.faturamentoProdutos()).isEqualByComparingTo("60.00");  // só produtos
+        assertThat(c.produtos()).isEqualTo(2);                              // unidades vendidas
+        assertThat(c.comissao()).isEqualByComparingTo("47.50");             // (35 + 60) * 50%
+    }
+
+    @Test
+    @DisplayName("venda sem barbeiro não gera comissão para ninguém")
+    void productSale_withoutProfessional_noCommission() {
+        LocalDate hoje = AppointmentDates.today();
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of());
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
+                .thenReturn(List.of(venda(null, "60.00", 1, hoje)));
+        givenPrices();
+
+        assertThat(service.commissionsForDay(hoje)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("barbeiro que só vendeu produto aparece no relatório, com zero atendimentos")
+    void productSale_onlyProductSeller_appearsWithZeroAppointments() {
+        LocalDate hoje = AppointmentDates.today();
+        UUID rafael = UUID.randomUUID();
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "10")));
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
+                .thenReturn(List.of(venda(rafael, "100.00", 1, hoje)));
+        givenPrices();
+
+        ProfessionalCommission c = service.commissionsForDay(hoje).get(0);
+
+        assertThat(c.atendimentos()).isZero();
+        assertThat(c.faturamento()).isEqualByComparingTo("0.00");
+        assertThat(c.comissao()).isEqualByComparingTo("10.00"); // 100 * 10%
     }
 }

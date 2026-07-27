@@ -91,7 +91,8 @@ export function Commissions() {
                 <tr>
                   <th>Barbeiro</th>
                   <th>Atendimentos</th>
-                  <th>Faturamento</th>
+                  <th>Serviços</th>
+                  <th>Produtos</th>
                   <th>Taxa</th>
                   <th className="right">Comissão</th>
                 </tr>
@@ -102,6 +103,16 @@ export function Commissions() {
                     <td style={{ fontWeight: 550 }}>{c.professionalName}</td>
                     <td>{c.atendimentos}</td>
                     <td>{money(c.faturamento)}</td>
+                    <td>
+                      {c.produtos > 0 ? (
+                        <>
+                          {money(c.faturamentoProdutos)}
+                          <span className="faint" style={{ fontSize: 12 }}> · {c.produtos} un.</span>
+                        </>
+                      ) : (
+                        <span className="faint">—</span>
+                      )}
+                    </td>
                     <td className="muted">{percent(c.commissionPercent)}</td>
                     <td className="right" style={{ fontWeight: 600 }}>{money(c.comissao)}</td>
                   </tr>

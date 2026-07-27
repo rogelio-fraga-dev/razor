@@ -2,7 +2,9 @@ package com.razor.api.service;
 
 import com.razor.api.model.Appointment;
 import com.razor.api.model.Professional;
+import com.razor.api.model.ProductSale;
 import com.razor.api.repository.AppointmentRepository;
+import com.razor.api.repository.ProductSaleRepository;
 import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
@@ -34,15 +36,25 @@ public class CommissionService {
 
     private final AppointmentRepository appointmentRepository;
     private final ProfessionalRepository professionalRepository;
+    private final ProductSaleRepository productSaleRepository;
     private final PricingService pricingService;
 
-    /** Comissao consolidada de um profissional num periodo. */
+    /**
+     * Comissao consolidada de um profissional num periodo.
+     *
+     * <p>{@code faturamento} e o dos <b>servicos</b>; produtos vendidos no balcao vem separados
+     * em {@code produtos}/{@code faturamentoProdutos}, porque sao coisas diferentes para o dono.
+     * A {@code comissao} incide sobre os dois, usando o mesmo percentual do barbeiro — percentual
+     * proprio para produto e um item futuro do roadmap.
+     */
     public record ProfessionalCommission(
             UUID professionalId,
             String professionalName,
             BigDecimal commissionPercent,
             int atendimentos,
             BigDecimal faturamento,
+            int produtos,
+            BigDecimal faturamentoProdutos,
             BigDecimal comissao) {
     }
 
@@ -73,15 +85,27 @@ public class CommissionService {
             acc.faturamento = acc.faturamento.add(valor);
         }
 
+        // Vendas de balcao atribuidas a um barbeiro (V21). Venda sem barbeiro nao gera comissao.
+        for (ProductSale venda : productSaleRepository.findByBarbershopIdAndSaleDateBetween(shop, start, end)) {
+            UUID pid = venda.getProfessionalId();
+            if (pid == null) continue;
+            Acumulador acc = porProf.computeIfAbsent(pid, k -> new Acumulador());
+            acc.produtos += venda.getQuantity();
+            acc.faturamentoProdutos = acc.faturamentoProdutos.add(venda.getTotal());
+        }
+
         List<ProfessionalCommission> resultado = new ArrayList<>();
         for (Map.Entry<UUID, Acumulador> entry : porProf.entrySet()) {
             Professional p = profs.get(entry.getKey());
             String nome = p != null ? p.getName() : "Sem barbeiro";
             BigDecimal pct = (p != null && p.getCommissionPercent() != null) ? p.getCommissionPercent() : BigDecimal.ZERO;
             BigDecimal faturamento = entry.getValue().faturamento.setScale(2, RoundingMode.HALF_UP);
-            BigDecimal comissao = faturamento.multiply(pct).divide(CEM, 2, RoundingMode.HALF_UP);
+            BigDecimal faturamentoProdutos = entry.getValue().faturamentoProdutos.setScale(2, RoundingMode.HALF_UP);
+            BigDecimal base = faturamento.add(faturamentoProdutos);
+            BigDecimal comissao = base.multiply(pct).divide(CEM, 2, RoundingMode.HALF_UP);
             resultado.add(new ProfessionalCommission(entry.getKey(), nome, pct,
-                    entry.getValue().atendimentos, faturamento, comissao));
+                    entry.getValue().atendimentos, faturamento,
+                    entry.getValue().produtos, faturamentoProdutos, comissao));
         }
         resultado.sort(Comparator.comparing(ProfessionalCommission::professionalName, String.CASE_INSENSITIVE_ORDER));
         return resultado;
@@ -100,9 +124,13 @@ public class CommissionService {
         StringBuilder sb = new StringBuilder(cabecalho).append("\n━━━━━━━━━━━━━━━━━━\n");
         BigDecimal total = BigDecimal.ZERO;
         for (ProfessionalCommission c : comissoes) {
-            sb.append(String.format(
-                    "👤 *%s* — %d atend.%n   Faturamento: R$ %.2f · Comissão (%s%%): *R$ %.2f*%n",
-                    c.professionalName(), c.atendimentos(), c.faturamento(),
+            sb.append(String.format("👤 *%s* — %d atend.%n", c.professionalName(), c.atendimentos()));
+            sb.append(String.format("   Serviços: R$ %.2f%n", c.faturamento()));
+            if (c.produtos() > 0) {
+                sb.append(String.format("   Produtos: R$ %.2f (%d un.)%n",
+                        c.faturamentoProdutos(), c.produtos()));
+            }
+            sb.append(String.format("   Comissão (%s%%): *R$ %.2f*%n",
                     formatPercent(c.commissionPercent()), c.comissao()));
             total = total.add(c.comissao());
         }
@@ -118,5 +146,7 @@ public class CommissionService {
     private static final class Acumulador {
         private int atendimentos = 0;
         private BigDecimal faturamento = BigDecimal.ZERO;
+        private int produtos = 0;
+        private BigDecimal faturamentoProdutos = BigDecimal.ZERO;
     }
 }
