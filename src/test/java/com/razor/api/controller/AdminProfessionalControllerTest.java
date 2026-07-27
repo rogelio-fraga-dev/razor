@@ -3,6 +3,7 @@ package com.razor.api.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,7 +40,7 @@ class AdminProfessionalControllerTest {
         UUID id = UUID.randomUUID();
         when(professionalService.create("Rafael", "5511999998888")).thenReturn(prof(id));
 
-        var resp = controller.create(new ProfessionalRequest("Rafael", "5511999998888", null, null));
+        var resp = controller.create(new ProfessionalRequest("Rafael", "5511999998888", null, null, null));
 
         assertThat(resp.getStatusCode().value()).isEqualTo(201);
         verify(professionalService, never()).updateCommission(any(), any());
@@ -52,7 +53,7 @@ class AdminProfessionalControllerTest {
         when(professionalService.create("Rafael", null)).thenReturn(prof(id));
         when(professionalService.updateCommission(eq(id), any())).thenReturn(prof(id));
 
-        controller.create(new ProfessionalRequest("Rafael", null, null, new BigDecimal("40")));
+        controller.create(new ProfessionalRequest("Rafael", null, null, new BigDecimal("40"), null));
 
         verify(professionalService).updateCommission(eq(id), eq(new BigDecimal("40")));
     }
@@ -61,13 +62,13 @@ class AdminProfessionalControllerTest {
     @DisplayName("atualizar aplica active e comissão (defaults quando nulos)")
     void update_appliesFields() {
         UUID id = UUID.randomUUID();
-        when(professionalService.update(eq(id), eq("Rafael"), eq("5511999998888"), eq(false), any()))
+        when(professionalService.update(eq(id), eq("Rafael"), eq("5511999998888"), eq(false), any(), any()))
                 .thenReturn(prof(id));
 
         ProfessionalResponse resp = controller.update(id,
-                new ProfessionalRequest("Rafael", "5511999998888", false, new BigDecimal("25")));
+                new ProfessionalRequest("Rafael", "5511999998888", false, new BigDecimal("25"), null));
 
         assertThat(resp.name()).isEqualTo("Rafael");
-        verify(professionalService).update(eq(id), eq("Rafael"), eq("5511999998888"), eq(false), eq(new BigDecimal("25")));
+        verify(professionalService).update(eq(id), eq("Rafael"), eq("5511999998888"), eq(false), eq(new BigDecimal("25")), isNull());
     }
 }

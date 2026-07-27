@@ -43,7 +43,7 @@ class AdminReportControllerTest {
         LocalDate dia = LocalDate.of(2026, 7, 21);
         when(commissionService.commissionsForDay(dia)).thenReturn(List.of(
                 new ProfessionalCommission(UUID.randomUUID(), "Rafael", new BigDecimal("50"),
-                        2, new BigDecimal("95.00"), 0, BigDecimal.ZERO, new BigDecimal("47.50"))));
+                        2, new BigDecimal("95.00"), BigDecimal.ZERO, 0, BigDecimal.ZERO, new BigDecimal("47.50"))));
 
         CommissionReportResponse resp = controller.commissions(dia);
 

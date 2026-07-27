@@ -11,10 +11,12 @@ interface Draft {
   name: string;
   phone: string;
   commissionPercent: string;
+  /** Vazio = herda o percentual dos serviços (V23). */
+  productCommissionPercent: string;
   active: boolean;
 }
 
-const EMPTY: Draft = { id: null, name: "", phone: "", commissionPercent: "0", active: true };
+const EMPTY: Draft = { id: null, name: "", phone: "", commissionPercent: "0", productCommissionPercent: "", active: true };
 
 export function Professionals() {
   const { data, loading, error, reload } = useApi<Professional[]>(() => api.get("/api/admin/professionals"), []);
@@ -28,7 +30,14 @@ export function Professionals() {
   };
   const openEdit = (p: Professional) => {
     setFormError(null);
-    setDraft({ id: p.id, name: p.name, phone: p.phone ?? "", commissionPercent: String(p.commissionPercent), active: p.active });
+    setDraft({
+      id: p.id,
+      name: p.name,
+      phone: p.phone ?? "",
+      commissionPercent: String(p.commissionPercent),
+      productCommissionPercent: p.productCommissionPercent == null ? "" : String(p.productCommissionPercent),
+      active: p.active,
+    });
   };
 
   const save = async () => {
@@ -39,6 +48,11 @@ export function Professionals() {
       name: draft.name.trim(),
       phone: draft.phone.trim() || null,
       commissionPercent: Number(draft.commissionPercent.replace(",", ".")),
+      // Vazio vira null de propósito: "herda o percentual dos serviços", diferente de 0.
+      productCommissionPercent:
+        draft.productCommissionPercent.trim() === ""
+          ? null
+          : Number(draft.productCommissionPercent.replace(",", ".")),
       active: draft.active,
     };
     try {
@@ -73,7 +87,8 @@ export function Professionals() {
                 <tr>
                   <th>Nome</th>
                   <th>Telefone</th>
-                  <th>Comissão</th>
+                  <th>Comissão (serviços)</th>
+                  <th>Comissão (produtos)</th>
                   <th>Status</th>
                   <th></th>
                 </tr>
@@ -84,6 +99,16 @@ export function Professionals() {
                     <td style={{ fontWeight: 550 }}>{p.name}</td>
                     <td className="muted">{p.phone || "—"}</td>
                     <td>{percent(p.commissionPercent)}</td>
+                    <td>
+                      {p.productCommissionPercent == null ? (
+                        <span className="muted">
+                          {percent(p.commissionPercent)}{" "}
+                          <span className="faint" style={{ fontSize: 12 }}>(igual serviços)</span>
+                        </span>
+                      ) : (
+                        percent(p.productCommissionPercent)
+                      )}
+                    </td>
                     <td>
                       {p.active ? <span className="badge badge-green">Ativo</span> : <span className="badge badge-muted">Inativo</span>}
                     </td>
@@ -122,9 +147,24 @@ export function Professionals() {
                 <input className="input" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
               </div>
               <div className="field">
-                <label>Comissão (%)</label>
+                <label>Comissão em serviços (%)</label>
                 <input className="input" inputMode="decimal" value={draft.commissionPercent} onChange={(e) => setDraft({ ...draft, commissionPercent: e.target.value })} />
               </div>
+            </div>
+            <div className="field">
+              <label>Comissão em produtos (%)</label>
+              <input
+                className="input"
+                inputMode="decimal"
+                value={draft.productCommissionPercent}
+                placeholder={`Vazio = mesmo dos serviços (${draft.commissionPercent || 0}%)`}
+                onChange={(e) => setDraft({ ...draft, productCommissionPercent: e.target.value })}
+              />
+              <span className="faint" style={{ fontSize: 12 }}>
+                Muitas barbearias pagam menos em produto. Deixe <strong>vazio</strong> para usar o
+                mesmo percentual dos serviços — <strong>0</strong> é diferente: significa não pagar
+                comissão de produto.
+              </span>
             </div>
             {draft.id && <Switch checked={draft.active} onChange={(v) => setDraft({ ...draft, active: v })} label="Barbeiro ativo" />}
             {formError && <div className="error">{formError}</div>}

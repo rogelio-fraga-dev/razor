@@ -42,10 +42,10 @@ public class CommissionService {
     /**
      * Comissao consolidada de um profissional num periodo.
      *
-     * <p>{@code faturamento} e o dos <b>servicos</b>; produtos vendidos no balcao vem separados
-     * em {@code produtos}/{@code faturamentoProdutos}, porque sao coisas diferentes para o dono.
-     * A {@code comissao} incide sobre os dois, usando o mesmo percentual do barbeiro — percentual
-     * proprio para produto e um item futuro do roadmap.
+     * <p>{@code faturamento} e o dos <b>servicos</b>; produtos vendidos vem separados em
+     * {@code produtos}/{@code faturamentoProdutos}, porque sao coisas diferentes para o dono.
+     * Cada base usa o <b>seu</b> percentual ({@code commissionPercent} e
+     * {@code productCommissionPercent}, V23) e a {@code comissao} e a soma das duas parcelas.
      */
     public record ProfessionalCommission(
             UUID professionalId,
@@ -53,6 +53,7 @@ public class CommissionService {
             BigDecimal commissionPercent,
             int atendimentos,
             BigDecimal faturamento,
+            BigDecimal productCommissionPercent,
             int produtos,
             BigDecimal faturamentoProdutos,
             BigDecimal comissao) {
@@ -99,13 +100,21 @@ public class CommissionService {
             Professional p = profs.get(entry.getKey());
             String nome = p != null ? p.getName() : "Sem barbeiro";
             BigDecimal pct = (p != null && p.getCommissionPercent() != null) ? p.getCommissionPercent() : BigDecimal.ZERO;
+            // Sem percentual proprio de produto, vale o de servico (V23).
+            BigDecimal produtoPct = p != null ? p.effectiveProductCommissionPercent() : BigDecimal.ZERO;
+
             BigDecimal faturamento = entry.getValue().faturamento.setScale(2, RoundingMode.HALF_UP);
             BigDecimal faturamentoProdutos = entry.getValue().faturamentoProdutos.setScale(2, RoundingMode.HALF_UP);
-            BigDecimal base = faturamento.add(faturamentoProdutos);
-            BigDecimal comissao = base.multiply(pct).divide(CEM, 2, RoundingMode.HALF_UP);
+
+            // Cada parcela arredonda por conta propria, como linha de nota — somar antes de
+            // arredondar mudaria o centavo dependendo do mix de servico e produto.
+            BigDecimal comissaoServicos = faturamento.multiply(pct).divide(CEM, 2, RoundingMode.HALF_UP);
+            BigDecimal comissaoProdutos = faturamentoProdutos.multiply(produtoPct).divide(CEM, 2, RoundingMode.HALF_UP);
+
             resultado.add(new ProfessionalCommission(entry.getKey(), nome, pct,
-                    entry.getValue().atendimentos, faturamento,
-                    entry.getValue().produtos, faturamentoProdutos, comissao));
+                    entry.getValue().atendimentos, faturamento, produtoPct,
+                    entry.getValue().produtos, faturamentoProdutos,
+                    comissaoServicos.add(comissaoProdutos)));
         }
         resultado.sort(Comparator.comparing(ProfessionalCommission::professionalName, String.CASE_INSENSITIVE_ORDER));
         return resultado;
@@ -125,13 +134,14 @@ public class CommissionService {
         BigDecimal total = BigDecimal.ZERO;
         for (ProfessionalCommission c : comissoes) {
             sb.append(String.format("👤 *%s* — %d atend.%n", c.professionalName(), c.atendimentos()));
-            sb.append(String.format("   Serviços: R$ %.2f%n", c.faturamento()));
+            sb.append(String.format("   Serviços: R$ %.2f (%s%%)%n",
+                    c.faturamento(), formatPercent(c.commissionPercent())));
             if (c.produtos() > 0) {
-                sb.append(String.format("   Produtos: R$ %.2f (%d un.)%n",
-                        c.faturamentoProdutos(), c.produtos()));
+                sb.append(String.format("   Produtos: R$ %.2f (%d un., %s%%)%n",
+                        c.faturamentoProdutos(), c.produtos(),
+                        formatPercent(c.productCommissionPercent())));
             }
-            sb.append(String.format("   Comissão (%s%%): *R$ %.2f*%n",
-                    formatPercent(c.commissionPercent()), c.comissao()));
+            sb.append(String.format("   Comissão: *R$ %.2f*%n", c.comissao()));
             total = total.add(c.comissao());
         }
         sb.append("━━━━━━━━━━━━━━━━━━\n💰 *Total de comissões: R$ ")

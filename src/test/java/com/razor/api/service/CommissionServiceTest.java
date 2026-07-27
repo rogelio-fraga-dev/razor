@@ -184,6 +184,65 @@ class CommissionServiceTest {
     }
 
     @Test
+    @DisplayName("percentual próprio de produto é usado no lugar do de serviço (V23)")
+    void productCommission_ownPercent_isUsed() {
+        LocalDate hoje = AppointmentDates.today();
+        UUID rafael = UUID.randomUUID();
+        Professional p = prof(rafael, "Rafael", "40");
+        p.setProductCommissionPercent(new BigDecimal("10")); // produto paga menos
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(p));
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
+                .thenReturn(List.of(venda(rafael, "100.00", 1, hoje)));
+        givenPrices();
+
+        ProfessionalCommission c = service.commissionsForDay(hoje).get(0);
+
+        assertThat(c.commissionPercent()).isEqualByComparingTo("40");
+        assertThat(c.productCommissionPercent()).isEqualByComparingTo("10");
+        // serviço 35 × 40% = 14,00  +  produto 100 × 10% = 10,00
+        assertThat(c.comissao()).isEqualByComparingTo("24.00");
+    }
+
+    @Test
+    @DisplayName("sem percentual próprio, produto continua usando o de serviço — migração não muda comissão de ninguém")
+    void productCommission_nullPercent_fallsBackToServicePercent() {
+        LocalDate hoje = AppointmentDates.today();
+        UUID rafael = UUID.randomUUID();
+        Professional p = prof(rafael, "Rafael", "40");
+        p.setProductCommissionPercent(null); // nunca configurado
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(p));
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
+                .thenReturn(List.of(venda(rafael, "100.00", 1, hoje)));
+        givenPrices();
+
+        ProfessionalCommission c = service.commissionsForDay(hoje).get(0);
+
+        assertThat(c.productCommissionPercent()).isEqualByComparingTo("40"); // herdou o de serviço
+        // (35 + 100) × 40% = 54,00 — exatamente o que era antes da V23
+        assertThat(c.comissao()).isEqualByComparingTo("54.00");
+    }
+
+    @Test
+    @DisplayName("percentual de produto zero significa não pagar comissão de produto")
+    void productCommission_zeroPercent_paysNothingOnProducts() {
+        LocalDate hoje = AppointmentDates.today();
+        UUID rafael = UUID.randomUUID();
+        Professional p = prof(rafael, "Rafael", "40");
+        p.setProductCommissionPercent(BigDecimal.ZERO);
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(p));
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
+                .thenReturn(List.of(venda(rafael, "100.00", 1, hoje)));
+        givenPrices();
+
+        ProfessionalCommission c = service.commissionsForDay(hoje).get(0);
+
+        assertThat(c.comissao()).isEqualByComparingTo("14.00"); // só os 35 × 40%
+    }
+
+    @Test
     @DisplayName("barbeiro que só vendeu produto aparece no relatório, com zero atendimentos")
     void productSale_onlyProductSeller_appearsWithZeroAppointments() {
         LocalDate hoje = AppointmentDates.today();

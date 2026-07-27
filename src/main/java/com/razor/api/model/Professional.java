@@ -42,6 +42,20 @@ public class Professional {
     @Column(name = "commission_percent", nullable = false, precision = 5, scale = 2)
     private BigDecimal commissionPercent = BigDecimal.ZERO;
 
+    /**
+     * Percentual de comissao sobre <b>produtos</b> vendidos (V23). {@code null} = usa o mesmo
+     * percentual dos servicos — o comportamento anterior, preservado para nao alterar a comissao
+     * de ninguem sem o dono pedir. Use {@link #effectiveProductCommissionPercent()} para ler.
+     */
+    @Column(name = "product_commission_percent", precision = 5, scale = 2)
+    private BigDecimal productCommissionPercent;
+
+    /** O percentual que vale para produto: o proprio, ou o de servico quando nao definido. */
+    public BigDecimal effectiveProductCommissionPercent() {
+        if (productCommissionPercent != null) return productCommissionPercent;
+        return commissionPercent != null ? commissionPercent : BigDecimal.ZERO;
+    }
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

@@ -31,6 +31,8 @@ export interface Professional {
   phone: string | null;
   active: boolean;
   commissionPercent: number;
+  /** `null` = usa o percentual dos serviços (V23) — diferente de 0, que é "não paga". */
+  productCommissionPercent: number | null;
 }
 
 export interface ProfessionalInput {
@@ -38,6 +40,7 @@ export interface ProfessionalInput {
   phone?: string | null;
   active?: boolean;
   commissionPercent?: number | null;
+  productCommissionPercent?: number | null;
 }
 
 export interface Barbershop {
@@ -182,6 +185,7 @@ export interface CommissionItem {
   atendimentos: number;
   /** Faturamento dos **serviços**; produtos do balcão vêm separados (V21). */
   faturamento: number;
+  productCommissionPercent: number;
   produtos: number;
   faturamentoProdutos: number;
   comissao: number;

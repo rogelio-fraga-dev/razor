@@ -113,7 +113,14 @@ export function Commissions() {
                         <span className="faint">—</span>
                       )}
                     </td>
-                    <td className="muted">{percent(c.commissionPercent)}</td>
+                    <td className="muted">
+                      {percent(c.commissionPercent)}
+                      {c.produtos > 0 && c.productCommissionPercent !== c.commissionPercent && (
+                        <span className="faint" style={{ fontSize: 12 }}>
+                          {" "}· produtos {percent(c.productCommissionPercent)}
+                        </span>
+                      )}
+                    </td>
                     <td className="right" style={{ fontWeight: 600 }}>{money(c.comissao)}</td>
                   </tr>
                 ))}

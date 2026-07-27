@@ -57,14 +57,24 @@ public class ProfessionalService {
         return saved;
     }
 
-    /** Atualiza nome, telefone, status e comissao de um profissional do tenant atual. */
-    public Professional update(UUID id, String name, String phone, boolean active, BigDecimal commissionPercent) {
+    /**
+     * Atualiza nome, telefone, status e comissoes de um profissional do tenant atual.
+     *
+     * <p>{@code productCommissionPercent} nulo significa "usa o mesmo percentual dos servicos" —
+     * e o que vale para quem nunca configurou um percentual proprio de produto (V23).
+     */
+    public Professional update(UUID id, String name, String phone, boolean active,
+                               BigDecimal commissionPercent, BigDecimal productCommissionPercent) {
         validateCommission(commissionPercent);
+        if (productCommissionPercent != null) {
+            validateCommission(productCommissionPercent);
+        }
         Professional professional = findOwned(id);
         professional.setName(name);
         professional.setPhone(phone);
         professional.setActive(active);
         professional.setCommissionPercent(commissionPercent);
+        professional.setProductCommissionPercent(productCommissionPercent);
         return professionalRepository.save(professional);
     }
 

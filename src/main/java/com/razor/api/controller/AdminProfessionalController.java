@@ -42,7 +42,10 @@ public class AdminProfessionalController {
     public ProfessionalResponse update(@PathVariable UUID id, @Valid @RequestBody ProfessionalRequest req) {
         boolean active = req.active() == null || req.active();
         BigDecimal commission = req.commissionPercent() == null ? BigDecimal.ZERO : req.commissionPercent();
-        Professional updated = professionalService.update(id, req.name(), req.phone(), active, commission);
+        // Produto nulo continua nulo de proposito: significa "usa o percentual dos servicos",
+        // que e diferente de zero ("nao paga comissao de produto").
+        Professional updated = professionalService.update(
+                id, req.name(), req.phone(), active, commission, req.productCommissionPercent());
         return ProfessionalResponse.from(updated);
     }
 }

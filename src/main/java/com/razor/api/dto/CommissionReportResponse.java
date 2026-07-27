@@ -16,13 +16,15 @@ public record CommissionReportResponse(LocalDate date, List<Item> items, BigDeci
             BigDecimal commissionPercent,
             int atendimentos,
             BigDecimal faturamento,
+            BigDecimal productCommissionPercent,
             int produtos,
             BigDecimal faturamentoProdutos,
             BigDecimal comissao) {
 
         public static Item from(ProfessionalCommission c) {
             return new Item(c.professionalId(), c.professionalName(), c.commissionPercent(),
-                    c.atendimentos(), c.faturamento(), c.produtos(), c.faturamentoProdutos(), c.comissao());
+                    c.atendimentos(), c.faturamento(), c.productCommissionPercent(),
+                    c.produtos(), c.faturamentoProdutos(), c.comissao());
         }
     }
 

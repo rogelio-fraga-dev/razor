@@ -105,7 +105,7 @@ class ProfessionalServiceTest {
         when(professionalRepository.findById(id)).thenReturn(Optional.of(p));
         when(professionalRepository.save(any(Professional.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Professional saved = service.update(id, "Novo", "5511999998888", false, new BigDecimal("40"));
+        Professional saved = service.update(id, "Novo", "5511999998888", false, new BigDecimal("40"), null);
 
         assertThat(saved.getName()).isEqualTo("Novo");
         assertThat(saved.getPhone()).isEqualTo("5511999998888");
@@ -116,7 +116,7 @@ class ProfessionalServiceTest {
     @Test
     @DisplayName("update rejeita comissão fora de 0–100")
     void update_invalidCommission_throws() {
-        assertThatThrownBy(() -> service.update(UUID.randomUUID(), "X", null, true, new BigDecimal("150")))
+        assertThatThrownBy(() -> service.update(UUID.randomUUID(), "X", null, true, new BigDecimal("150"), null))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(professionalRepository, never()).save(any());
     }
@@ -127,7 +127,7 @@ class ProfessionalServiceTest {
         UUID id = UUID.randomUUID();
         when(professionalRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.update(id, "X", null, true, new BigDecimal("10")))
+        assertThatThrownBy(() -> service.update(id, "X", null, true, new BigDecimal("10"), null))
                 .isInstanceOf(NotFoundException.class);
     }
 }

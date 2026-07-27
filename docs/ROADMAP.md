@@ -212,9 +212,11 @@ uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Impleme
       gaveta. Nome e preço são **congelados na venda**: reajuste de preço não reescreve o
       histórico. Com barbeiro escolhido, entra na **comissão** dele (serviços e produtos aparecem
       em colunas separadas no relatório).
-      > ⚠️ **Decisão a confirmar:** a comissão de produto usa **o mesmo percentual** do serviço
-      > (`commission_percent` do barbeiro). Muitas barbearias pagam percentual menor em produto —
-      > se for o caso, vira o item "comissão por produto" abaixo, com percentual próprio.
+      **Percentual próprio de produto (V23):** cada barbeiro tem
+      `product_commission_percent` além do de serviços, e cada base usa o seu. A coluna nasce
+      **nula** de propósito — nula significa "usa o mesmo percentual dos serviços", o
+      comportamento anterior, então subir a versão não alterou a comissão de ninguém. `0` é
+      diferente de nulo: quer dizer "não paga comissão de produto".
 - [x] **Comanda por atendimento (V22)** — serviços + produtos na mesma conta, fechada de uma vez.
       Abre com cliente e barbeiro (ambos opcionais), recebe itens do catálogo com **preço
       congelado na entrada**, e no fechamento lança **um único** movimento no caixa com o total.
@@ -283,8 +285,8 @@ assinaturas) sem sair do Razor.
       financeiro de verdade, não só a receita.
 - [ ] **Estoque**: produtos, estoque mínimo com alerta, **baixa automática** na venda.
 - [ ] **Vales e adiantamentos** dos profissionais, descontados na comissão.
-- [ ] **Comissão por produto e por serviço avulso** + **comissões pagas** (histórico de
-      quitação) — complementa o `commission_percent` atual.
+- [~] **Comissão por produto** ✅ (V23: `product_commission_percent` por barbeiro) + **por serviço
+      avulso** e **comissões pagas** (histórico de quitação) — estes dois ainda pendentes.
 - [ ] **Grupos de clientes por tags** + **status do cliente** (ativo/sumido/novo) — munição
       para os disparos que já temos.
 - [ ] **Cobrança antecipada** e **controle de débitos/créditos** do cliente.
