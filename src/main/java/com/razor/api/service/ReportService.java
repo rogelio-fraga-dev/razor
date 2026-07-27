@@ -5,6 +5,7 @@ import com.razor.api.dto.FinancialSummaryResponse;
 import com.razor.api.dto.FinancialSummaryResponse.Bucket;
 import com.razor.api.dto.FinancialSummaryResponse.CategoryBreakdown;
 import com.razor.api.dto.FinancialSummaryResponse.PaymentBreakdown;
+import com.razor.api.dto.RevenuePoint;
 import com.razor.api.model.Appointment;
 import com.razor.api.model.PaymentStatus;
 import com.razor.api.model.Professional;
@@ -15,8 +16,12 @@ import com.razor.api.tenant.TenantContext;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -89,6 +94,87 @@ public class ReportService {
                         new Bucket(presCount, scale(presVal)),
                         new Bucket(pendCount, scale(pendVal))),
                 scale(total), averageTicket);
+    }
+
+    /** Periodos do grafico de faturamento do painel. O backend e quem define as faixas. */
+    public enum SeriesPeriod {
+        /** Os ultimos 7 dias, um ponto por dia. */
+        LAST_7_DAYS,
+        /** Os ultimos 30 dias em 5 faixas de 6 dias. */
+        LAST_30_DAYS,
+        /** Os ultimos 6 meses, um ponto por mes. */
+        LAST_6_MONTHS
+    }
+
+    private static final DateTimeFormatter WEEKDAY =
+            DateTimeFormatter.ofPattern("EEE", Locale.forLanguageTag("pt-BR"));
+    private static final DateTimeFormatter DAY_MONTH = DateTimeFormatter.ofPattern("d/M");
+    private static final DateTimeFormatter MONTH =
+            DateTimeFormatter.ofPattern("MMM", Locale.forLanguageTag("pt-BR"));
+
+    /**
+     * Serie de faturamento do periodo, ja dividida em faixas. Uma unica varredura dos
+     * agendamentos do tenant alimenta todos os pontos — antes o painel pedia um resumo por
+     * ponto e cada um relia a tabela inteira.
+     */
+    public List<RevenuePoint> revenueSeries(SeriesPeriod period, LocalDate today) {
+        List<RevenuePoint> buckets = emptyBuckets(period, today);
+        Map<ServiceCategory, BigDecimal> precos = pricingService.resolvePrices();
+        BigDecimal[] totals = new BigDecimal[buckets.size()];
+        Arrays.fill(totals, BigDecimal.ZERO);
+
+        for (Appointment ag : appointmentRepository.findByBarbershopId(TenantContext.getCurrent())) {
+            LocalDate data = ag.getAppointmentDate();
+            if (data == null) continue;
+            for (int i = 0; i < buckets.size(); i++) {
+                RevenuePoint b = buckets.get(i);
+                if (!data.isBefore(b.from()) && !data.isAfter(b.to())) {
+                    totals[i] = totals[i].add(precos.get(pricingService.categorize(ag.getService())));
+                    break;
+                }
+            }
+        }
+
+        List<RevenuePoint> series = new ArrayList<>(buckets.size());
+        for (int i = 0; i < buckets.size(); i++) {
+            RevenuePoint b = buckets.get(i);
+            series.add(new RevenuePoint(b.label(), b.from(), b.to(), scale(totals[i])));
+        }
+        return series;
+    }
+
+    /** "ter." -> "ter": o rotulo do eixo do grafico e curto e nao leva ponto de abreviacao. */
+    private String shortLabel(String formatted) {
+        return formatted.replace(".", "");
+    }
+
+    /** As faixas (rotulo + intervalo) do periodo, da mais antiga para a mais recente. */
+    private List<RevenuePoint> emptyBuckets(SeriesPeriod period, LocalDate today) {
+        List<RevenuePoint> buckets = new ArrayList<>();
+        switch (period) {
+            case LAST_7_DAYS -> {
+                for (int i = 6; i >= 0; i--) {
+                    LocalDate day = today.minusDays(i);
+                    buckets.add(new RevenuePoint(shortLabel(WEEKDAY.format(day)), day, day, BigDecimal.ZERO));
+                }
+            }
+            case LAST_30_DAYS -> {
+                for (int i = 0; i < 5; i++) {
+                    LocalDate start = today.minusDays(29L - i * 6L);
+                    LocalDate end = start.plusDays(5);
+                    buckets.add(new RevenuePoint(DAY_MONTH.format(start), start, end, BigDecimal.ZERO));
+                }
+            }
+            case LAST_6_MONTHS -> {
+                for (int i = 5; i >= 0; i--) {
+                    LocalDate start = today.minusMonths(i).withDayOfMonth(1);
+                    LocalDate end = start.plusMonths(1).minusDays(1);
+                    buckets.add(new RevenuePoint(shortLabel(MONTH.format(start)), start,
+                            end.isAfter(today) ? today : end, BigDecimal.ZERO));
+                }
+            }
+        }
+        return buckets;
     }
 
     /** Agenda do dia do tenant atual, ordenada por horario, com o nome do barbeiro resolvido. */

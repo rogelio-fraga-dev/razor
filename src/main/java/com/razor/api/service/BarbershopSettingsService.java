@@ -4,6 +4,8 @@ import com.razor.api.config.RazorProperties;
 import com.razor.api.model.BarbershopSettings;
 import com.razor.api.repository.BarbershopSettingsRepository;
 import com.razor.api.tenant.TenantContext;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -108,6 +110,27 @@ public class BarbershopSettingsService {
         BarbershopSettings saved = repository.save(s);
         log.info("[BOT] Configuracoes do bot atualizadas para o tenant {}", TenantContext.getCurrent());
         return saved;
+    }
+
+    /** Meta de faturamento mensal definida pelo dono (V19). {@code null} = sem meta. */
+    public BigDecimal getMonthlyRevenueGoal() {
+        return repository.findById(TenantContext.getCurrent())
+                .map(BarbershopSettings::getMonthlyRevenueGoal)
+                .orElse(null);
+    }
+
+    /**
+     * Define (ou limpa, com {@code null}) a meta de faturamento do mes. Meta zero ou negativa
+     * nao tem significado no calculo de progresso e e tratada como "sem meta".
+     */
+    public BigDecimal setMonthlyRevenueGoal(BigDecimal goal) {
+        BigDecimal valid = (goal == null || goal.signum() <= 0) ? null : goal.setScale(2, RoundingMode.HALF_UP);
+        BarbershopSettings s = repository.findById(TenantContext.getCurrent())
+                .orElseGet(() -> BarbershopSettings.builder().barbershopId(TenantContext.getCurrent()).build());
+        s.setMonthlyRevenueGoal(valid);
+        repository.save(s);
+        log.info("[METAS] Meta mensal do tenant {} definida como {}", TenantContext.getCurrent(), valid);
+        return valid;
     }
 
     /** O bot atende clientes neste tenant? Sem linha (tenant novo) = ligado. */

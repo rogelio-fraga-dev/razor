@@ -121,4 +121,58 @@ class ReportServiceTest {
         assertThat(agenda.get(1).professionalName()).isEqualTo("Rafael");
         assertThat(agenda.get(1).subscriber()).isTrue();                 // assinante
     }
+
+    // --- Serie de faturamento do grafico (uma varredura, faixas definidas no backend) ---
+
+    @Test
+    @DisplayName("série de 7 dias tem um ponto por dia e soma no dia certo")
+    void revenueSeries_last7Days_bucketsByDay() {
+        LocalDate hoje = LocalDate.of(2026, 7, 27);
+        givenPrices();
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+                appt("Combo", PaymentStatus.PIX, hoje, LocalTime.of(10, 0), null),            // 60 hoje
+                appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(11, 0), null),            // 35 hoje
+                appt("Corte", PaymentStatus.PIX, hoje.minusDays(3), LocalTime.of(9, 0), null) // 35 ha 3 dias
+        ));
+
+        List<com.razor.api.dto.RevenuePoint> serie =
+                service.revenueSeries(ReportService.SeriesPeriod.LAST_7_DAYS, hoje);
+
+        assertThat(serie).hasSize(7);
+        assertThat(serie.get(6).from()).isEqualTo(hoje);              // ultimo ponto = hoje
+        assertThat(serie.get(6).revenue()).isEqualByComparingTo("95.00");
+        assertThat(serie.get(3).revenue()).isEqualByComparingTo("35.00");
+        assertThat(serie.get(0).from()).isEqualTo(hoje.minusDays(6)); // primeiro ponto = 6 dias atras
+        assertThat(serie.get(0).revenue()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    @DisplayName("agendamento fora da janela não entra na série")
+    void revenueSeries_outsideWindow_ignored() {
+        LocalDate hoje = LocalDate.of(2026, 7, 27);
+        givenPrices();
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+                appt("Combo", PaymentStatus.PIX, hoje.minusDays(40), LocalTime.of(10, 0), null)));
+
+        List<com.razor.api.dto.RevenuePoint> serie =
+                service.revenueSeries(ReportService.SeriesPeriod.LAST_7_DAYS, hoje);
+
+        assertThat(serie).extracting(p -> p.revenue().signum()).containsOnly(0);
+    }
+
+    @Test
+    @DisplayName("série de 6 meses fecha o último ponto em hoje, não no fim do mês")
+    void revenueSeries_last6Months_currentMonthEndsToday() {
+        LocalDate hoje = LocalDate.of(2026, 7, 27);
+        givenPrices();
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+
+        List<com.razor.api.dto.RevenuePoint> serie =
+                service.revenueSeries(ReportService.SeriesPeriod.LAST_6_MONTHS, hoje);
+
+        assertThat(serie).hasSize(6);
+        assertThat(serie.get(5).from()).isEqualTo(LocalDate.of(2026, 7, 1));
+        assertThat(serie.get(5).to()).isEqualTo(hoje);
+        assertThat(serie.get(0).from()).isEqualTo(LocalDate.of(2026, 2, 1));
+    }
 }

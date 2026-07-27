@@ -3,6 +3,7 @@ package com.razor.api.controller;
 import com.razor.api.dto.AppointmentView;
 import com.razor.api.dto.CommissionReportResponse;
 import com.razor.api.dto.FinancialSummaryResponse;
+import com.razor.api.dto.RevenuePoint;
 import com.razor.api.service.CommissionService;
 import com.razor.api.service.ReportService;
 import com.razor.api.util.AppointmentDates;
@@ -43,6 +44,17 @@ public class AdminReportController {
         LocalDate start = from != null ? from : AppointmentDates.today();
         LocalDate end = to != null ? to : AppointmentDates.today();
         return reportService.financialSummary(start, end);
+    }
+
+    /**
+     * Serie de faturamento do grafico do painel, em uma unica chamada.
+     * Ex.: {@code /revenue-series?period=LAST_7_DAYS}.
+     */
+    @GetMapping("/revenue-series")
+    public List<RevenuePoint> revenueSeries(
+            @RequestParam(required = false) ReportService.SeriesPeriod period) {
+        ReportService.SeriesPeriod target = period != null ? period : ReportService.SeriesPeriod.LAST_7_DAYS;
+        return reportService.revenueSeries(target, AppointmentDates.today());
     }
 
     /** Agenda do dia (padrao: hoje). Ex.: {@code /agenda?date=2026-07-21}. */

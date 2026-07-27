@@ -1,6 +1,7 @@
 package com.razor.api.model;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -92,6 +93,10 @@ public class BarbershopSettings {
     /** Quando o resumo de boas-vindas foi enviado ao dono (V17). NULL = ainda nao enviado. */
     @Column(name = "welcome_brief_sent_at")
     private LocalDateTime welcomeBriefSentAt;
+
+    /** Meta de faturamento do mes definida pelo dono (V19). NULL = sem meta; o painel omite o card. */
+    @Column(name = "monthly_revenue_goal", precision = 12, scale = 2)
+    private BigDecimal monthlyRevenueGoal;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

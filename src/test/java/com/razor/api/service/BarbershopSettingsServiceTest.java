@@ -8,6 +8,7 @@ import com.razor.api.config.RazorProperties;
 import com.razor.api.model.BarbershopSettings;
 import com.razor.api.repository.BarbershopSettingsRepository;
 import com.razor.api.tenant.TenantContext;
+import java.math.BigDecimal;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -81,5 +82,49 @@ class BarbershopSettingsServiceTest {
         assertThat(saved.getAddressText()).isEqualTo("End");
         assertThat(saved.getInstagramUrl()).isEqualTo("insta");
         assertThat(saved.getBarbershopId()).isEqualTo(TenantContext.DEFAULT_BARBERSHOP_ID);
+    }
+
+    // --- Meta de faturamento mensal (V19) ---
+
+    @Test
+    @DisplayName("meta mensal ausente devolve null (sem meta definida)")
+    void monthlyGoal_noRow_returnsNull() {
+        when(repository.findById(any())).thenReturn(Optional.empty());
+
+        assertThat(service.getMonthlyRevenueGoal()).isNull();
+    }
+
+    @Test
+    @DisplayName("define a meta mensal com escala 2 e faz upsert")
+    void setMonthlyGoal_upsertsWithScale() {
+        when(repository.findById(any())).thenReturn(Optional.empty());
+        when(repository.save(any(BarbershopSettings.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        BigDecimal saved = service.setMonthlyRevenueGoal(new BigDecimal("12000.456"));
+
+        assertThat(saved).isEqualByComparingTo("12000.46");
+        assertThat(saved.scale()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("meta zero ou negativa é tratada como sem meta")
+    void setMonthlyGoal_zeroOrNegative_clearsGoal() {
+        when(repository.findById(any())).thenReturn(Optional.empty());
+        when(repository.save(any(BarbershopSettings.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(service.setMonthlyRevenueGoal(BigDecimal.ZERO)).isNull();
+        assertThat(service.setMonthlyRevenueGoal(new BigDecimal("-500"))).isNull();
+        assertThat(service.setMonthlyRevenueGoal(null)).isNull();
+    }
+
+    @Test
+    @DisplayName("meta definida é lida de volta da linha do tenant")
+    void getMonthlyGoal_readsFromRow() {
+        when(repository.findById(any())).thenReturn(Optional.of(BarbershopSettings.builder()
+                .barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)
+                .monthlyRevenueGoal(new BigDecimal("8000.00"))
+                .build()));
+
+        assertThat(service.getMonthlyRevenueGoal()).isEqualByComparingTo("8000.00");
     }
 }
