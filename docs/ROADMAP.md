@@ -221,9 +221,16 @@ uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Impleme
       Os produtos da comanda viram linha em `product_sales` apontando para **esse mesmo**
       movimento — registram a venda e a comissão sem lançar o dinheiro duas vezes na gaveta.
       Comanda vazia, sem forma de pagamento ou já fechada não fecha; cancelar não mexe em dinheiro.
-- [ ] **Produtos no financeiro estruturado** — a venda já entra no caixa do dia; falta somar no
-      `/reports/financial`, que hoje só conta agendamentos (`totalAppointments`, tíquete médio).
-      Precisa de campo separado, para não misturar receita de serviço com a de produto.
+- [x] **Produtos no financeiro estruturado** — `/reports/financial` agora devolve
+      `servicesRevenue`, `productsRevenue` e `productsSold` **separados**, com `totalRevenue` =
+      serviços + produtos. O **tíquete médio continua serviços ÷ atendimentos**: somar produto ali
+      inflaria o ticket com venda de balcão que nem teve atendimento junto. O gráfico de evolução
+      também passou a incluir produtos, para bater com o KPI. O `payments` (PIX/presencial/
+      pendente) segue descrevendo só os agendamentos — a forma de pagamento das vendas vive no
+      caixa, com outro vocabulário.
+      > ⚠️ **Lacuna conhecida:** serviço lançado numa **comanda** não entra no `/reports/financial`,
+      > que conta agendamentos. Ligar comanda ↔ agendamento resolveria, mas hoje não há esse
+      > vínculo e somar direto arriscaria contar duas vezes quando o dono registra os dois.
 - [~] **Clube de assinatura**: catálogo de **planos configuráveis** pronto (`subscription_plans`,
       painel). _(Falta: identificação assinante x avulso no agendamento e cobrança recorrente — Fase 4.)_
 - [~] **Relatórios/DRE**: financeiro estruturado e comissões prontos no painel.

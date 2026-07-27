@@ -110,7 +110,7 @@ export function Dashboard() {
             <div className="kpi-value mono">{money(m?.totalRevenue)}</div>
             <div className="kpi-sub">
               {m
-                ? `PIX ${money(m.payments.pix.value)} · presencial ${money(m.payments.presencial.value)}`
+                ? `Serviços ${money(m.servicesRevenue)} · produtos ${money(m.productsRevenue)}`
                 : "—"}
             </div>
           </div>
@@ -132,7 +132,11 @@ export function Dashboard() {
               <span className="kpi-title">Tíquete médio</span>
             </div>
             <div className="kpi-value mono">{money(m?.averageTicket)}</div>
-            <div className="kpi-sub">Média por atendimento no mês</div>
+            <div className="kpi-sub">
+              {m && m.productsSold > 0
+                ? `Serviços por atendimento · ${m.productsSold} produto(s) à parte`
+                : "Serviços por atendimento no mês"}
+            </div>
           </div>
 
           <div className="card kpi-card">

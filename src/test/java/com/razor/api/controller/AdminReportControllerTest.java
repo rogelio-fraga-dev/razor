@@ -72,7 +72,7 @@ class AdminReportControllerTest {
                 new CategoryBreakdown(0, 0, 0),
                 new PaymentBreakdown(new Bucket(0, BigDecimal.ZERO), new Bucket(0, BigDecimal.ZERO),
                         new Bucket(0, BigDecimal.ZERO)),
-                BigDecimal.ZERO, BigDecimal.ZERO);
+                BigDecimal.ZERO, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
         when(reportService.financialSummary(hoje, hoje)).thenReturn(summary);
 
         assertThat(controller.financial(null, null)).isSameAs(summary);

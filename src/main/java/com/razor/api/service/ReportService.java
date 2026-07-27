@@ -8,8 +8,10 @@ import com.razor.api.dto.FinancialSummaryResponse.PaymentBreakdown;
 import com.razor.api.dto.RevenuePoint;
 import com.razor.api.model.Appointment;
 import com.razor.api.model.PaymentStatus;
+import com.razor.api.model.ProductSale;
 import com.razor.api.model.Professional;
 import com.razor.api.repository.AppointmentRepository;
+import com.razor.api.repository.ProductSaleRepository;
 import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.service.PricingService.ServiceCategory;
 import com.razor.api.tenant.TenantContext;
@@ -42,6 +44,7 @@ public class ReportService {
 
     private final AppointmentRepository appointmentRepository;
     private final ProfessionalRepository professionalRepository;
+    private final ProductSaleRepository productSaleRepository;
     private final PricingService pricingService;
     private final CustomerService customerService;
 
@@ -83,9 +86,20 @@ public class ReportService {
             }
         }
 
+        // Ticket medio segue sendo servicos / atendimentos: e o valor medio do atendimento.
+        // Somar produto ali inflaria o ticket com venda de balcao que nem teve atendimento.
         BigDecimal averageTicket = count > 0
                 ? total.divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
+
+        // Vendas de produto do periodo (balcao V21 e comanda V22 gravam na mesma tabela, entao
+        // somar aqui nao conta duas vezes).
+        int productsSold = 0;
+        BigDecimal productsRevenue = BigDecimal.ZERO;
+        for (ProductSale venda : productSaleRepository.findByBarbershopIdAndSaleDateBetween(shop, from, to)) {
+            productsSold += venda.getQuantity();
+            productsRevenue = productsRevenue.add(venda.getTotal());
+        }
 
         return new FinancialSummaryResponse(from, to, count,
                 new CategoryBreakdown(combo, barba, simples),
@@ -93,7 +107,8 @@ public class ReportService {
                         new Bucket(pixCount, scale(pixVal)),
                         new Bucket(presCount, scale(presVal)),
                         new Bucket(pendCount, scale(pendVal))),
-                scale(total), averageTicket);
+                scale(total), productsSold, scale(productsRevenue),
+                scale(total.add(productsRevenue)), averageTicket);
     }
 
     /** Periodos do grafico de faturamento do painel. O backend e quem define as faixas. */
@@ -116,23 +131,27 @@ public class ReportService {
      * Serie de faturamento do periodo, ja dividida em faixas. Uma unica varredura dos
      * agendamentos do tenant alimenta todos os pontos — antes o painel pedia um resumo por
      * ponto e cada um relia a tabela inteira.
+     *
+     * <p>Inclui servicos <b>e</b> produtos, para bater com o {@code totalRevenue} do resumo
+     * financeiro — grafico e KPI contando coisas diferentes so confundiria o dono.
      */
     public List<RevenuePoint> revenueSeries(SeriesPeriod period, LocalDate today) {
+        UUID shop = TenantContext.getCurrent();
         List<RevenuePoint> buckets = emptyBuckets(period, today);
         Map<ServiceCategory, BigDecimal> precos = pricingService.resolvePrices();
         BigDecimal[] totals = new BigDecimal[buckets.size()];
         Arrays.fill(totals, BigDecimal.ZERO);
 
-        for (Appointment ag : appointmentRepository.findByBarbershopId(TenantContext.getCurrent())) {
+        for (Appointment ag : appointmentRepository.findByBarbershopId(shop)) {
             LocalDate data = ag.getAppointmentDate();
             if (data == null) continue;
-            for (int i = 0; i < buckets.size(); i++) {
-                RevenuePoint b = buckets.get(i);
-                if (!data.isBefore(b.from()) && !data.isAfter(b.to())) {
-                    totals[i] = totals[i].add(precos.get(pricingService.categorize(ag.getService())));
-                    break;
-                }
-            }
+            addToBucket(buckets, totals, data, precos.get(pricingService.categorize(ag.getService())));
+        }
+
+        LocalDate windowStart = buckets.get(0).from();
+        LocalDate windowEnd = buckets.get(buckets.size() - 1).to();
+        for (ProductSale venda : productSaleRepository.findByBarbershopIdAndSaleDateBetween(shop, windowStart, windowEnd)) {
+            addToBucket(buckets, totals, venda.getSaleDate(), venda.getTotal());
         }
 
         List<RevenuePoint> series = new ArrayList<>(buckets.size());
@@ -146,6 +165,18 @@ public class ReportService {
     /** "ter." -> "ter": o rotulo do eixo do grafico e curto e nao leva ponto de abreviacao. */
     private String shortLabel(String formatted) {
         return formatted.replace(".", "");
+    }
+
+    /** Soma o valor na faixa que contem a data. Fora da janela do grafico, ignora. */
+    private void addToBucket(List<RevenuePoint> buckets, BigDecimal[] totals, LocalDate date, BigDecimal value) {
+        if (date == null || value == null) return;
+        for (int i = 0; i < buckets.size(); i++) {
+            RevenuePoint b = buckets.get(i);
+            if (!date.isBefore(b.from()) && !date.isAfter(b.to())) {
+                totals[i] = totals[i].add(value);
+                return;
+            }
+        }
     }
 
     /** As faixas (rotulo + intervalo) do periodo, da mais antiga para a mais recente. */

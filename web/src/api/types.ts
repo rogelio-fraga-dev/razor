@@ -162,8 +162,16 @@ export interface FinancialSummary {
   to: string;
   totalAppointments: number;
   categories: { combo: number; barba: number; simples: number };
+  /** Só dos **agendamentos** — a forma de pagamento das vendas de produto vive no caixa. */
   payments: { pix: Bucket; presencial: Bucket; pendente: Bucket };
+  /** Faturamento dos agendamentos. */
+  servicesRevenue: number;
+  /** Unidades vendidas (balcão V21 + comanda V22). */
+  productsSold: number;
+  productsRevenue: number;
+  /** Serviços + produtos: o faturamento da barbearia no período. */
   totalRevenue: number;
+  /** Serviços ÷ atendimentos — produto fica fora para não inflar o ticket. */
   averageTicket: number;
 }
 

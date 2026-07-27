@@ -8,8 +8,10 @@ import com.razor.api.dto.AppointmentView;
 import com.razor.api.dto.FinancialSummaryResponse;
 import com.razor.api.model.Appointment;
 import com.razor.api.model.PaymentStatus;
+import com.razor.api.model.ProductSale;
 import com.razor.api.model.Professional;
 import com.razor.api.repository.AppointmentRepository;
+import com.razor.api.repository.ProductSaleRepository;
 import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.service.PricingService.ServiceCategory;
 import com.razor.api.util.AppointmentDates;
@@ -36,6 +38,7 @@ class ReportServiceTest {
 
     @Mock private AppointmentRepository appointmentRepository;
     @Mock private ProfessionalRepository professionalRepository;
+    @Mock private ProductSaleRepository productSaleRepository;
     @Mock private PricingService pricingService;
     @Mock private CustomerService customerService;
 
@@ -49,6 +52,11 @@ class ReportServiceTest {
         return Appointment.builder()
                 .customerName("Cliente").service(svc).paymentStatus(status).customerPhone(phone)
                 .appointmentDate(date).appointmentTime(time).professionalId(profId).build();
+    }
+
+    private ProductSale sale(String total, int qty, LocalDate dia) {
+        return ProductSale.builder()
+                .total(new BigDecimal(total)).quantity(qty).saleDate(dia).build();
     }
 
     private void givenPrices() {
@@ -82,8 +90,48 @@ class ReportServiceTest {
         assertThat(s.payments().pix().value()).isEqualByComparingTo("60.00");
         assertThat(s.payments().presencial().value()).isEqualByComparingTo("30.00");
         assertThat(s.payments().pendente().value()).isEqualByComparingTo("35.00");
-        assertThat(s.totalRevenue()).isEqualByComparingTo("125.00");
+        assertThat(s.servicesRevenue()).isEqualByComparingTo("125.00");
+        assertThat(s.totalRevenue()).isEqualByComparingTo("125.00"); // sem produtos, total = serviços
         assertThat(s.averageTicket()).isEqualByComparingTo("41.67"); // 125 / 3
+    }
+
+    @Test
+    @DisplayName("produtos entram no total sem inflar o ticket médio do atendimento")
+    void financialSummary_addsProductsToTotalOnly() {
+        LocalDate hoje = AppointmentDates.today();
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+                appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(9, 0), null),   // 35
+                appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(10, 0), null))); // 35
+        when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
+                .thenReturn(List.of(
+                        sale("59.80", 2, hoje),
+                        sale("10.00", 1, hoje)));
+        givenPrices();
+
+        FinancialSummaryResponse s = service.financialSummary(hoje, hoje);
+
+        assertThat(s.servicesRevenue()).isEqualByComparingTo("70.00");
+        assertThat(s.productsRevenue()).isEqualByComparingTo("69.80");
+        assertThat(s.productsSold()).isEqualTo(3);
+        assertThat(s.totalRevenue()).isEqualByComparingTo("139.80");   // 70 + 69,80
+        assertThat(s.averageTicket()).isEqualByComparingTo("35.00");   // 70 / 2 — produto fora
+    }
+
+    @Test
+    @DisplayName("venda de produto sem atendimento nenhum aparece no total, com ticket médio zero")
+    void financialSummary_productsWithoutAppointments() {
+        LocalDate hoje = AppointmentDates.today();
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
+                .thenReturn(List.of(sale("29.90", 1, hoje)));
+        givenPrices();
+
+        FinancialSummaryResponse s = service.financialSummary(hoje, hoje);
+
+        assertThat(s.totalAppointments()).isZero();
+        assertThat(s.servicesRevenue()).isEqualByComparingTo("0.00");
+        assertThat(s.totalRevenue()).isEqualByComparingTo("29.90");
+        assertThat(s.averageTicket()).isEqualByComparingTo("0");
     }
 
     @Test
