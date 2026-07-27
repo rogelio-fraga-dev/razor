@@ -18,6 +18,7 @@ const COMMANDS: Cmd[] = [
   { id: "go-agenda", label: "Agenda", hint: "calendário por barbeiro", group: "Ir para", run: (n) => n("/agenda") },
   { id: "go-customers", label: "Clientes", hint: "base e assinantes", group: "Ir para", run: (n) => n("/customers") },
   { id: "go-services", label: "Serviços", hint: "preços e duração", group: "Ir para", run: (n) => n("/services") },
+  { id: "go-products", label: "Produtos", hint: "catálogo do balcão", group: "Ir para", run: (n) => n("/products") },
   { id: "go-pros", label: "Profissionais", hint: "equipe e comissão", group: "Ir para", run: (n) => n("/professionals") },
   { id: "go-plans", label: "Planos", hint: "clube de assinatura", group: "Ir para", run: (n) => n("/plans") },
   { id: "go-caixa", label: "Caixa", hint: "abrir, fechar e movimentos", group: "Ir para", run: (n) => n("/caixa") },
@@ -33,6 +34,7 @@ const COMMANDS: Cmd[] = [
   },
   { id: "act-wpp", label: "Conectar WhatsApp", hint: "QR code", group: "Ações", run: (n) => n("/settings") },
   { id: "act-new-service", label: "Novo serviço", hint: "catálogo", group: "Ações", run: (n) => n("/services") },
+  { id: "act-new-product", label: "Novo produto", hint: "balcão", group: "Ações", run: (n) => n("/products") },
 ];
 
 function norm(s: string) {

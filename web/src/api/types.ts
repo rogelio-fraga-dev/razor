@@ -237,3 +237,13 @@ export interface CashMovementInput {
 export interface Goals {
   monthlyRevenueGoal: number | null;
 }
+
+// ---------- Produtos de balcão (V20) ----------
+
+/** Produto vendido no balcão. Sem duração: não ocupa cadeira nem entra na agenda. */
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  active: boolean;
+}

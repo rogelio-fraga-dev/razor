@@ -37,6 +37,15 @@ export const IconTag = () => (
   </Icon>
 );
 
+/** Produtos do balcão: caixa/embalagem. */
+export const IconBox = () => (
+  <Icon>
+    <path d="M21 8v8a2 2 0 0 1-1 1.73l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.73l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8Z" />
+    <path d="m3.3 7 8.7 5 8.7-5" />
+    <path d="M12 22V12" />
+  </Icon>
+);
+
 export const IconUser = () => (
   <Icon>
     <circle cx="12" cy="8" r="4" />

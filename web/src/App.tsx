@@ -5,6 +5,7 @@ import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Agenda } from "./pages/Agenda";
 import { Services } from "./pages/Services";
+import { Products } from "./pages/Products";
 import { Professionals } from "./pages/Professionals";
 import { Customers } from "./pages/Customers";
 import { Plans } from "./pages/Plans";
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/agenda" element={<Agenda />} />
         <Route path="/services" element={<Services />} />
+        <Route path="/products" element={<Products />} />
         <Route path="/professionals" element={<Professionals />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/plans" element={<Plans />} />
