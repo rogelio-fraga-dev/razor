@@ -230,3 +230,10 @@ export interface CashMovementInput {
   amount: number;
   description?: string | null;
 }
+
+// ---------- Metas (V19) ----------
+
+/** Meta de faturamento do mês definida pelo dono. `null` = sem meta (o painel omite o card). */
+export interface Goals {
+  monthlyRevenueGoal: number | null;
+}

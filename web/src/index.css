@@ -476,6 +476,11 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   flex: 1;
   min-height: 0;
 }
+/* Cada bloco da página guarda a altura do próprio conteúdo. Sem isto os cards são espremidos:
+   `.card` tem `overflow: hidden` (design system), o que zera o min-height automático do item
+   flex e libera o flex-shrink a esmagá-lo — era o que cortava o checklist e o card de meta.
+   Quem rola continua sendo o `.main`. */
+.content:not(.flush) > * { flex-shrink: 0; }
 /* páginas que são "uma coisa só" (agenda, listas) ocupam toda a altura restante */
 .content.flush { padding: 0; gap: 0; }
 /* glow + grid técnico no fundo da área de conteúdo */
@@ -1634,6 +1639,8 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   height: 2px;
   background: var(--edge-gradient);
 }
+/* o cabeçalho inteiro recolhe/expande — o alvo de clique não é só o botãozinho */
+.cl-head { cursor: pointer; user-select: none; }
 .cl-progress { height: 4px; background: var(--surface-2); }
 .cl-progress span {
   display: block;

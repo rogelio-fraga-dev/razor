@@ -1,20 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Layout } from "../components/Layout";
 import { Switch } from "../components/Modal";
 import { Skeleton } from "../components/Skeleton";
 import { SpeechModePicker } from "../components/SpeechModePicker";
 import { ConfigWizard } from "../components/ConfigWizard";
+import { WhatsAppPairing } from "../components/WhatsAppPairing";
+import { AdminsEditor } from "../components/AdminsEditor";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
+import { useWhatsAppConnection } from "../lib/useWhatsAppConnection";
 import { api, ApiError } from "../api/client";
-import type {
-  AdminContact,
-  Barbershop,
-  BotSettings,
-  BotStatus,
-  WhatsAppConnect,
-  WhatsAppStatus,
-} from "../api/types";
+import { money } from "../lib/format";
+import type { Barbershop, BotSettings, BotStatus, Goals } from "../api/types";
 
 function StatusDot({ ok, warn }: { ok: boolean; warn?: boolean }) {
   const color = ok ? "var(--green)" : warn ? "var(--amber)" : "var(--red)";
@@ -34,10 +31,10 @@ function StatusDot({ ok, warn }: { ok: boolean; warn?: boolean }) {
 }
 
 /** Saúde do bot: a resposta imediata de "está tudo funcionando?" + o liga/desliga geral. */
-function BotStatusCard() {
+function BotStatusCard({ reloadKey }: { reloadKey: number }) {
   const { data, loading, error, reload } = useApi<BotStatus>(
     () => api.get("/api/admin/settings/bot/status"),
-    [],
+    [reloadKey],
   );
   const [toggling, setToggling] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
@@ -133,147 +130,38 @@ function BotStatusCard() {
   );
 }
 
-function WhatsAppCard() {
-  const [status, setStatus] = useState<WhatsAppStatus | null>(null);
-  const [qr, setQr] = useState<string | null>(null);
-  const [pairing, setPairing] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+function WhatsAppCard({ reloadKey }: { reloadKey: number }) {
+  const conn = useWhatsAppConnection();
+  const { refreshStatus } = conn;
 
-  const refreshStatus = useCallback(async (): Promise<WhatsAppStatus | null> => {
-    try {
-      const s = await api.get<WhatsAppStatus>("/api/admin/whatsapp/status");
-      setStatus(s);
-      if (s.connected) {
-        setQr(null);
-        setPairing(null);
-      }
-      return s;
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Erro ao consultar o WhatsApp.");
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Reconsulta quando o assistente fecha — o pareamento pode ter sido feito lá dentro.
   useEffect(() => {
-    refreshStatus();
-  }, [refreshStatus]);
-
-  // Enquanto o QR está na tela, verifica a conexão a cada 3s até o WhatsApp parear.
-  useEffect(() => {
-    if (!qr) return;
-    const id = setInterval(async () => {
-      const s = await refreshStatus();
-      if (s?.connected) clearInterval(id);
-    }, 3000);
-    return () => clearInterval(id);
-  }, [qr, refreshStatus]);
-
-  const connect = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await api.post<WhatsAppConnect>("/api/admin/whatsapp/connect");
-      setStatus({ instanceName: r.instanceName, state: r.state, connected: r.state === "open" });
-      if (r.state === "open") {
-        setQr(null);
-        setPairing(null);
-      } else {
-        setQr(r.qrCodeBase64);
-        setPairing(r.pairingCode);
-      }
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Erro ao conectar.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const disconnect = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api.post("/api/admin/whatsapp/disconnect");
-      setQr(null);
-      setPairing(null);
-      await refreshStatus();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Erro ao desconectar.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const connected = status?.connected ?? false;
+    if (reloadKey > 0) refreshStatus();
+  }, [reloadKey, refreshStatus]);
 
   return (
     <div className="card">
       <div className="card-head">
         <h3>Conexão do WhatsApp</h3>
-        {status &&
-          (connected ? (
+        {conn.status &&
+          (conn.connected ? (
             <span className="badge badge-green">● Conectado</span>
           ) : (
             <span className="badge badge-amber">● Desconectado</span>
           ))}
       </div>
       <div className="card-pad">
-        {loading ? (
-          <div className="muted">Carregando…</div>
-        ) : (
-          <div className="stack">
-            <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
-              Conecte o número de WhatsApp da barbearia escaneando o QR code pelo app — sem sair daqui.
-            </p>
-
-            {connected ? (
-              <div className="row" style={{ gap: 12 }}>
-                <span className="badge badge-green">WhatsApp conectado ✓</span>
-                <button className="btn btn-danger btn-sm" onClick={disconnect} disabled={busy}>
-                  {busy ? "…" : "Desconectar"}
-                </button>
-              </div>
-            ) : qr ? (
-              <>
-                <img
-                  src={qr}
-                  alt="QR code do WhatsApp"
-                  width={260}
-                  height={260}
-                  style={{ borderRadius: 12, border: "1px solid var(--border)", background: "#fff", padding: 8 }}
-                />
-                <span className="faint" style={{ fontSize: 13 }}>
-                  No celular: WhatsApp → <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> → aponte para o QR.
-                  Ele expira em ~40s; gere um novo se precisar.
-                </span>
-                {pairing && (
-                  <div className="faint" style={{ fontSize: 13 }}>
-                    Código de pareamento: <b>{pairing}</b>
-                  </div>
-                )}
-                <button className="btn btn-ghost btn-sm" onClick={connect} disabled={busy} style={{ alignSelf: "flex-start" }}>
-                  {busy ? "Gerando…" : "Gerar novo QR"}
-                </button>
-              </>
-            ) : (
-              <button className="btn btn-primary" onClick={connect} disabled={busy} style={{ alignSelf: "flex-start" }}>
-                {busy ? "Conectando…" : "Conectar WhatsApp"}
-              </button>
-            )}
-
-            {error && <div className="error">{error}</div>}
-          </div>
-        )}
+        <WhatsAppPairing conn={conn} />
       </div>
     </div>
   );
 }
 
-function ProfileCard() {
-  const { data, loading, error, reload } = useApi<Barbershop>(() => api.get("/api/admin/barbershop"), []);
+function ProfileCard({ reloadKey }: { reloadKey: number }) {
+  const { data, loading, error, reload } = useApi<Barbershop>(
+    () => api.get("/api/admin/barbershop"),
+    [reloadKey],
+  );
   const [name, setName] = useState("");
   const [instance, setInstance] = useState("");
   const [saving, setSaving] = useState(false);
@@ -335,74 +223,14 @@ function ProfileCard() {
   );
 }
 
-function AdminsCard() {
-  const { data, loading, error, reload } = useApi<AdminContact[]>(() => api.get("/api/admin/admins"), []);
-  const [phone, setPhone] = useState("");
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-
-  const add = async () => {
-    if (!phone.trim()) return;
-    setBusy(true);
-    setFormError(null);
-    try {
-      await api.post("/api/admin/admins", { phone: phone.trim(), name: name.trim() || null });
-      setPhone("");
-      setName("");
-      reload();
-    } catch (e) {
-      setFormError(e instanceof ApiError ? e.message : "Erro ao adicionar.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async (id: string) => {
-    try {
-      await api.del(`/api/admin/admins/${id}`);
-      reload();
-    } catch {
-      /* silencioso: recarrega estado real */
-      reload();
-    }
-  };
-
+function AdminsCard({ reloadKey }: { reloadKey: number }) {
   return (
     <div className="card">
       <div className="card-head">
         <h3>Administradores do WhatsApp</h3>
       </div>
       <div className="card-pad">
-        <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
-          Telefones tratados como admin no WhatsApp (recebem avisos e usam os comandos de gestão).
-        </p>
-        <div className="row wrap" style={{ marginBottom: 16 }}>
-          <input className="input grow" style={{ maxWidth: 220 }} placeholder="Telefone (com DDD)" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          <input className="input grow" style={{ maxWidth: 200 }} placeholder="Nome (opcional)" value={name} onChange={(e) => setName(e.target.value)} />
-          <button className="btn btn-primary btn-sm" onClick={add} disabled={busy || !phone.trim()}>Adicionar</button>
-        </div>
-        {formError && <div className="error" style={{ marginBottom: 12 }}>{formError}</div>}
-
-        {loading ? (
-          <div className="muted">Carregando…</div>
-        ) : error ? (
-          <div className="error">{error}</div>
-        ) : !data || data.length === 0 ? (
-          <div className="faint">Nenhum admin cadastrado — o sistema usa os telefones da configuração global.</div>
-        ) : (
-          <div className="stack" style={{ gap: 8 }}>
-            {data.map((a) => (
-              <div key={a.id} className="row between" style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}>
-                <div>
-                  <div style={{ fontWeight: 550 }}>{a.phone}</div>
-                  {a.name && <div className="faint" style={{ fontSize: 13 }}>{a.name}</div>}
-                </div>
-                <button className="btn btn-danger btn-sm" onClick={() => remove(a.id)}>Remover</button>
-              </div>
-            ))}
-          </div>
-        )}
+        <AdminsEditor reloadKey={reloadKey} />
       </div>
     </div>
   );
@@ -452,21 +280,110 @@ function Section({
   );
 }
 
-function BotCard() {
-  const { data, loading, error, reload } = useApi<BotSettings>(() => api.get("/api/admin/settings/bot"), []);
+/** Meta de faturamento do mês (V19). É o alvo que o painel usa para calcular o progresso. */
+function GoalsCard({ reloadKey }: { reloadKey: number }) {
+  const { data, loading, error, reload } = useApi<Goals>(
+    () => api.get("/api/admin/settings/goals"),
+    [reloadKey],
+  );
+  const toast = useToast();
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(data?.monthlyRevenueGoal != null ? String(data.monthlyRevenueGoal) : "");
+  }, [data]);
+
+  const save = async () => {
+    const parsed = Number(value.replace(",", "."));
+    if (value.trim() !== "" && (!Number.isFinite(parsed) || parsed <= 0)) {
+      toast.error("Informe um valor maior que zero — ou deixe vazio para não usar meta.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.put("/api/admin/settings/goals", {
+        monthlyRevenueGoal: value.trim() === "" ? null : parsed,
+      });
+      toast.success(value.trim() === "" ? "Meta removida." : "Meta do mês salva ✓");
+      reload();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Erro ao salvar a meta.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3>Meta do mês</h3>
+        {data?.monthlyRevenueGoal != null && (
+          <span className="badge badge-green">{money(data.monthlyRevenueGoal)}</span>
+        )}
+      </div>
+      <div className="card-pad">
+        <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
+          Quanto você quer faturar por mês. O painel compara com o faturamento real e mostra o
+          progresso. Deixe vazio para não acompanhar meta.
+        </p>
+        {loading ? (
+          <div className="muted">Carregando…</div>
+        ) : error ? (
+          <div className="error">{error}</div>
+        ) : (
+          <div className="stack">
+            <div className="field">
+              <label>Meta de faturamento mensal (R$)</label>
+              <input
+                className="input"
+                inputMode="decimal"
+                value={value}
+                placeholder="ex.: 20000"
+                onChange={(e) => setValue(e.target.value)}
+              />
+            </div>
+            <div className="row">
+              <button className="btn btn-primary" onClick={save} disabled={saving}>
+                {saving ? "Salvando…" : "Salvar meta"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Preenche o formulário a partir do que veio do backend (campo nulo vira string vazia). */
+function fillBot(data: BotSettings | null): BotSettings {
+  const filled = { ...EMPTY_BOT };
+  if (!data) return filled;
+  (Object.keys(EMPTY_BOT) as (keyof BotSettings)[]).forEach((k) => {
+    filled[k] = data[k] ?? "";
+  });
+  return filled;
+}
+
+function BotCard({
+  data,
+  loading,
+  error,
+  onSaved,
+  onOpenWizard,
+}: {
+  data: BotSettings | null;
+  loading: boolean;
+  error: string | null;
+  onSaved: () => void;
+  onOpenWizard: () => void;
+}) {
   const toast = useToast();
   const [form, setForm] = useState<BotSettings>(EMPTY_BOT);
   const [saving, setSaving] = useState(false);
-  const [showWizard, setShowWizard] = useState(false);
 
   useEffect(() => {
-    if (data) {
-      const filled = { ...EMPTY_BOT };
-      (Object.keys(EMPTY_BOT) as (keyof BotSettings)[]).forEach((k) => {
-        filled[k] = data[k] ?? "";
-      });
-      setForm(filled);
-    }
+    setForm(fillBot(data));
   }, [data]);
 
   const set = (k: keyof BotSettings, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -476,7 +393,7 @@ function BotCard() {
     try {
       await api.put("/api/admin/settings/bot", form);
       toast.success("Configurações do bot salvas ✓");
-      reload();
+      onSaved();
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : "Erro ao salvar.");
     } finally {
@@ -509,7 +426,7 @@ function BotCard() {
     <div className="card">
       <div className="card-head">
         <h3>O que o bot fala</h3>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowWizard(true)} disabled={loading || !!error}>
+        <button className="btn btn-primary btn-sm" onClick={onOpenWizard} disabled={loading || !!error}>
           ✨ Abrir assistente
         </button>
       </div>
@@ -572,35 +489,74 @@ function BotCard() {
           </div>
         )}
       </div>
-
-      {showWizard && (
-        <ConfigWizard initial={form} onClose={() => setShowWizard(false)} onSaved={reload} />
-      )}
     </div>
   );
 }
 
 export function Settings() {
   // Bloco único: um card só, com as caixas por assunto lado a lado.
+  // O assistente é o tutorial da tela: passa por todas as configurações e, ao fechar, faz a
+  // tela inteira recarregar — os cards atrás já aparecem com o que foi preenchido.
+  const [configVersion, setConfigVersion] = useState(0);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [autoOpened, setAutoOpened] = useState(false);
+
+  const bot = useApi<BotSettings>(() => api.get("/api/admin/settings/bot"), [configVersion]);
+
+  const refreshAll = () => setConfigVersion((v) => v + 1);
+
+  // Barbearia ainda sem identidade configurada: o assistente abre sozinho, uma vez por visita.
+  useEffect(() => {
+    if (!autoOpened && bot.data && !(bot.data.displayName ?? "").trim()) {
+      setWizardOpen(true);
+      setAutoOpened(true);
+    }
+  }, [bot.data, autoOpened]);
+
+  const closeWizard = () => {
+    setWizardOpen(false);
+    refreshAll();
+  };
+
   return (
     <Layout title="Configurações">
       <div className="card cfg-block">
         <div className="card-head">
           <h3>Sua barbearia no automático</h3>
-          <span className="badge badge-muted">tudo em um lugar</span>
+          <div className="row" style={{ gap: 10 }}>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setWizardOpen(true)}
+              disabled={bot.loading || !!bot.error}
+            >
+              ✨ Abrir assistente
+            </button>
+            <span className="badge badge-muted">tudo em um lugar</span>
+          </div>
         </div>
         <div className="cfg-body">
           <div className="cfg-lane">
-            <BotStatusCard />
-            <BotCard />
+            <BotStatusCard reloadKey={configVersion} />
+            <BotCard
+              data={bot.data}
+              loading={bot.loading}
+              error={bot.error}
+              onSaved={refreshAll}
+              onOpenWizard={() => setWizardOpen(true)}
+            />
           </div>
           <div className="cfg-lane">
-            <WhatsAppCard />
-            <ProfileCard />
-            <AdminsCard />
+            <WhatsAppCard reloadKey={configVersion} />
+            <ProfileCard reloadKey={configVersion} />
+            <GoalsCard reloadKey={configVersion} />
+            <AdminsCard reloadKey={configVersion} />
           </div>
         </div>
       </div>
+
+      {wizardOpen && (
+        <ConfigWizard initial={fillBot(bot.data)} onClose={closeWizard} onSaved={refreshAll} />
+      )}
     </Layout>
   );
 }

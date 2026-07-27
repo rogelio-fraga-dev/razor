@@ -1,11 +1,19 @@
-// Assistente de configuração do bot: passo a passo guiado que substitui a "lista seca".
-// Começa a partir das configs já salvas e sobrepõe as edições, então o PUT (que troca o
-// registro inteiro) nunca apaga campos fora do wizard (ex.: mensagens automáticas). Ao
-// concluir, o back manda o resumo de boas-vindas ao dono (WelcomeBriefService).
+// Assistente de configuração do bot: o tutorial que leva o dono por TODAS as configurações,
+// numa janela só — conexão do WhatsApp, número do admin, identidade, funcionamento, serviços,
+// modo de fala, pagamento e mensagens automáticas.
+//
+// Duas regras que valem para o fluxo inteiro:
+//  1. Começa a partir das configs já salvas e sobrepõe as edições, então o PUT (que troca o
+//     registro inteiro) nunca apaga campo que o assistente não mostra.
+//  2. Ao concluir, o back manda o resumo de boas-vindas ao dono (WelcomeBriefService) e a tela
+//     de Configurações atrás recarrega, já mostrando tudo que foi preenchido.
 import { useState, type ReactNode } from "react";
 import { Modal } from "./Modal";
 import { SpeechModePicker } from "./SpeechModePicker";
+import { WhatsAppPairing } from "./WhatsAppPairing";
+import { AdminsEditor } from "./AdminsEditor";
 import { useToast } from "./Toast";
+import { useWhatsAppConnection } from "../lib/useWhatsAppConnection";
 import { api, ApiError } from "../api/client";
 import type { BotSettings } from "../api/types";
 
@@ -27,6 +35,7 @@ export function ConfigWizard({
   onSaved: () => void;
 }) {
   const toast = useToast();
+  const whatsapp = useWhatsAppConnection();
   const [draft, setDraft] = useState<BotSettings>(initial);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -55,6 +64,25 @@ export function ConfigWizard({
   );
 
   const steps: Step[] = [
+    {
+      title: "Conectar o WhatsApp",
+      hint: "O número da barbearia — é ele que o cliente vê e que o bot usa para responder.",
+      render: () => <WhatsAppPairing conn={whatsapp} />,
+    },
+    {
+      title: "Seu número de admin",
+      hint: "O seu número pessoal, por onde você comanda o bot e recebe os avisos.",
+      render: () => (
+        <div className="stack" style={{ gap: 12 }}>
+          <AdminsEditor />
+          <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>
+            São dois números diferentes: o <b>do bot</b> (o da barbearia, que você acabou de parear)
+            e o <b>seu</b>, cadastrado aqui. Se você usar o mesmo número nos dois, o WhatsApp marca
+            suas mensagens como próprias e o bot não consegue receber seus comandos.
+          </p>
+        </div>
+      ),
+    },
     {
       title: "Identidade",
       hint: "Como sua barbearia se apresenta ao cliente.",
@@ -105,6 +133,18 @@ export function ConfigWizard({
           {field("pixKey", "Chave PIX", "CNPJ, e-mail, telefone ou aleatória")}
           {area("pixCopyPaste", "PIX copia-e-cola (opcional)", 3, "Cole aqui o código do seu banco")}
           {area("paymentInfo", "Formas de pagamento", 2, "Ex.: PIX, dinheiro, débito e crédito")}
+        </div>
+      ),
+    },
+    {
+      title: "Mensagens automáticas",
+      hint: "O que o bot manda sozinho. Campo vazio usa o texto padrão do sistema.",
+      render: () => (
+        <div className="stack" style={{ gap: 12 }}>
+          {area("welcomeText", "Saudação inicial", 2, "Primeira mensagem ao cliente novo")}
+          {area("reminderText", "Lembrete (1h antes)", 2)}
+          {area("reviewText", "Pedido de avaliação (após o corte)", 2)}
+          {area("fidelityRewardText", "Recompensa de fidelidade (10 pontos)", 2)}
         </div>
       ),
     },
@@ -166,8 +206,8 @@ export function ConfigWizard({
 
         {isLast && (
           <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>
-            Campos deixados em branco usam o padrão do sistema. Você pode ajustar tudo depois,
-            campo a campo, aqui nas Configurações.
+            Ao concluir, esta janela fecha e a tela de Configurações mostra tudo que você preencheu —
+            onde dá para ajustar campo a campo quando quiser.
           </p>
         )}
       </div>
