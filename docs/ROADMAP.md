@@ -98,7 +98,6 @@ existe porque hoje não há testes nem CI, e refatorar/escalar sem essa rede de 
       caía no *tenant padrão* para instância desconhecida: dava para forjar um POST com o
       telefone de um admin e executar comandos de gestão numa barbearia real. Agora: token
       compartilhado obrigatório (**fail-closed**, `WEBHOOK_TOKEN`) **e** instância desconhecida
-- [ ] **Seed de Dados Reais de Analytics (PostgreSQL + Spring Boot)** — Criar migração Flyway `V19__seed_demo_analytics.sql` com histórico real de agendamentos, caixa e comissões para o tenant padrão (`00000000-0000-0000-0000-000000000001`), conectando os relatórios do backend (`/api/admin/reports/financial`, `/api/admin/reports/commissions`) diretamente às tabelas do banco de dados.
       é descartada — duas barreiras independentes.
 - [x] **QR code público (crítico)** — `GET /api/webhook/qrcode` servia o QR de pareamento sem
       autenticação (um estranho podia conectar o WhatsApp da barbearia no próprio aparelho).
@@ -664,12 +663,46 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-### 🐛 Pendências & Débitos Conhecidos de Interface (Painel Analítico)
+### 🐛 Pendências & débitos conhecidos
 
-- [ ] **Ajuste fino no topo do Dashboard (`ActivationChecklist` / `Cockpit`)**: 
-      Em alguns cenários com dados incompletos ou em carregamento, os cards no topo do painel (`ActivationChecklist` e indicador de metas) apresentam problemas de renderização (cards vazios/barras escuras ou ocultação indevida quando o WhatsApp está desconectado). Necessita refatoração de estado e layout para garantir renderização consistente.
+- [x] **Topo do Painel renderizando vazio (`ActivationChecklist`)** — o card aparecia como uma
+      barra escura sem conteúdo. Causa: a versão de 25/07 trocou as classes do design system por
+      estilos inline e engolia falha de API com dados-padrão (`DEFAULT_STATUS`/`DEFAULT_BOT_TEXTS`),
+      então uma barbearia já configurada via um checklist zerado. Agora o componente usa as classes
+      `.checklist`/`.cl-*`, mostra skeleton enquanto carrega e **não aparece** se os dados não vierem.
+- [x] **Painel com números fabricados** — o Dashboard exibia faturamento, meta mensal, ranking de
+      barbeiros e métricas de IA **hardcoded** (R$ 42.850, "Lucas Navalha", 94.2%), com fallback que
+      substituía o dado real por exemplo sempre que a API retornava zero atendimentos. Removido: todo
+      número da tela agora vem de `/api/admin/reports/{financial,agenda,commissions}` e período sem
+      movimento aparece como período sem movimento.
+- [x] **Auto-login de demonstração** — `AuthContext` criava uma sessão `OWNER` falsa (`demo-token`)
+      quando não havia sessão salva, entrando no painel sem passar pelo login. Removido.
+- [x] **Cards espremidos no painel (barras vazias)** — o `razor-design-system.css` pôs
+      `overflow: hidden` no `.card`. Em flexbox isso **zera o min-height automático** do item, e
+      como `.content` é `display: flex; flex-direction: column`, o `flex-shrink` esmagava os cards
+      que são filhos diretos da página (checklist e meta) até virarem uma listra, cortando o
+      conteúdo. Os KPIs escapavam por estarem dentro do `.bento-grid`. Corrigido com
+      `.content:not(.flush) > * { flex-shrink: 0 }` — quem rola continua sendo o `.main`.
+- [x] **Enxurrada de requisições no painel** — o gráfico montava a série pedindo um resumo
+      financeiro por ponto (7 requisições) e, com as demais, o painel abria **16 chamadas
+      simultâneas**; passando do limite de ~6 conexões do navegador, o checklist ficava preso na
+      fila mostrando skeleton. Pior: cada chamada varria todos os agendamentos do tenant. Agora
+      `GET /reports/revenue-series?period=` devolve a série pronta em **uma** chamada e **uma**
+      varredura.
+- [ ] **Dados de exemplo para desenvolvimento local** — sem histórico o painel fica (corretamente)
+      vazio, o que dificulta ver gráfico e ranking ao desenvolver. Se for feito, tem que ser um
+      **script de seed de ambiente local** (perfil `local`), **nunca** uma migração Flyway: migração
+      roda em produção e injetaria movimento financeiro falso no banco de uma barbearia real.
+- [x] **Meta de faturamento mensal (V19)** — em vez do alvo fixo de R$ 50.000 que estava no
+      código, o dono define a própria meta em *Configurações → Meta do mês*
+      (`monthly_revenue_goal` em `barbershop_settings`, endpoint próprio
+      `/api/admin/settings/goals` para o PUT das configs do bot não zerar a meta). O painel
+      compara com o faturamento real; sem meta definida, mostra só o convite para definir.
+- [ ] **Métricas ainda sem fonte de dados** — taxa de ocupação de cadeiras, no-show e "clientes
+      resgatados pela IA" não existem no backend. Enquanto não existirem, não entram na tela.
 
 ---
 
-_Última atualização: 2026-07-25 (Documentado bug no topo do Painel Analítico / ActivationChecklist no Roadmap) · Documento vivo._
+_Última atualização: 2026-07-27 (painel religado a dados reais; removidos auto-login demo e números
+fabricados; checklist de ativação corrigido) · Documento vivo._
 
