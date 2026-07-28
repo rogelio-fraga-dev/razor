@@ -494,6 +494,9 @@ h1, h2, h3, h4, h5, h6 {
 .kpi-value {
   font-family: var(--font-mono);
   font-size: 28px;
+  /* Explicito: sem isto herda a altura de linha do corpo, que muda conforme o contexto e
+     encosta nos limites do card (que tem overflow: hidden). */
+  line-height: 1.2;
   font-weight: 700;
   color: var(--chrome-pure);
   letter-spacing: -0.03em;
@@ -1130,10 +1133,15 @@ h1, h2, h3, h4, h5, h6 {
 .cfg-hero-sub { margin: 0; font-size: 13.5px; color: var(--text-muted); }
 
 .cfg-hero-kpi { display: flex; align-items: baseline; gap: 7px; flex-shrink: 0; }
+/* line-height 1 cortava o numero.
+   Com background-clip:text o gradiente e pintado na CAIXA DA LINHA, e uma caixa de altura 1em
+   nao comporta um numero de 34px inteiro: a virgula de "10,7%" descia abaixo dela e o topo dos
+   digitos encostava no limite. Somado ao overflow:hidden do card, o excedente sumia. */
 .cfg-hero-pct {
   font-size: 34px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.25;
+  padding-bottom: 2px;
   font-variant-numeric: tabular-nums;
   background: linear-gradient(68deg, var(--accent), var(--plasma));
   -webkit-background-clip: text;

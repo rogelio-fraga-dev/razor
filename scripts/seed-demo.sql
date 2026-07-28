@@ -248,10 +248,31 @@ BEGIN
     -- -----------------------------------------------------------------------------------------
     -- 6. Clientes
     -- -----------------------------------------------------------------------------------------
+    -- Base de 72 clientes, e nao 18.
+    --
+    -- Com 18 clientes os ~370 atendimentos do historico davam uma visita a cada 2,7 dias por
+    -- pessoa — frequencia que nao existe em barbearia nenhuma. Duas telas ficavam inuteis por
+    -- causa disso: a Retencao mostrava "18 ativos" e mais nada (todo mundo abaixo do piso de
+    -- ritmo plausivel, entao nem mediana havia), e a lista de Clientes cabia numa pagina so, sem
+    -- exercitar a paginacao.
+    --
+    -- Com 72, o mesmo volume financeiro se espalha em ~5 visitas por cliente no periodo, dando
+    -- intervalos de 12 a 20 dias. Volume de caixa igual, comportamento realista.
     v_cust_nome := ARRAY['André Souza','Bruno Lima','Carlos Dias','Diego Rocha','Eduardo Pinto',
                          'Fábio Moreira','Gustavo Alves','Henrique Costa','Igor Ramos','João Bastos',
                          'Kleber Nunes','Lucas Freitas','Marcelo Tavares','Nelson Bueno','Otávio Prado',
-                         'Paulo Vieira','Rodrigo Sales','Thiago Mendes'];
+                         'Paulo Vieira','Rodrigo Sales','Thiago Mendes',
+                         'Alexandre Rocha','Bento Farias','Caio Antunes','Danilo Peixoto','Elias Marques',
+                         'Felipe Duarte','Gabriel Lira','Heitor Campos','Ivan Portela','Joel Siqueira',
+                         'Kaique Barros','Leandro Pires','Murilo Fontes','Norberto Alencar','Osvaldo Reis',
+                         'Pedro Cavalcanti','Quirino Matos','Renato Bastos','Sérgio Vasques','Tarcísio Melo',
+                         'Ubirajara Pinto','Valter Assunção','Wagner Diniz','Xavier Brandão','Yuri Salgado',
+                         'Zeca Monteiro','Adriano Cordeiro','Breno Tavares','Cássio Nogueira','Décio Ramalho',
+                         'Emerson Paiva','Fernando Quirino','Guilherme Sá','Hugo Teixeira','Ícaro Amaral',
+                         'Jonas Bittencourt','Kevin Andrade','Luiz Otávio','Mateus Camargo','Nicolas Prado',
+                         'Otto Bergamo','Pablo Estrela','Raul Continentino','Samuel Vidigal','Téo Rangel',
+                         'Ulisses Franco','Vinícius Meireles','Wesley Aragão','Yago Bertoldo','Zico Neves',
+                         'Anderson Vilela','Bruno Sampaio','César Delgado','Douglas Mainardi'];
 
     v_cust := ARRAY[]::uuid[];
     v_cust_fone := ARRAY[]::text[];
