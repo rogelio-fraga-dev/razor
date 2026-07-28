@@ -139,6 +139,22 @@ export interface SubscriptionPlan {
   price: number;
   description: string | null;
   active: boolean;
+  /** Antecedência com que o assinante pode agendar (V27).  = sem regra especial. */
+  bookingWindowDays: number | null;
+}
+
+export type BenefitTargetType = "SERVICO" | "PRODUTO";
+
+/** Benefício de plano (V27).  nulo = vale para todos do tipo. */
+export interface PlanBenefit {
+  id: string;
+  targetType: BenefitTargetType;
+  targetId: string | null;
+  discountPercent: number;
+  monthlyQuota: number | null;
+  /** CSV ISO (1=segunda … 7=domingo).  = todos os dias. */
+  weekdays: string | null;
+  free: boolean;
 }
 
 export type PaymentStatus = "PIX" | "PRESENCIAL" | "PENDENTE";

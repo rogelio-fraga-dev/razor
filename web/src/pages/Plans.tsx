@@ -4,6 +4,7 @@ import { Modal, Switch } from "../components/Modal";
 import { EmptyState } from "../components/EmptyState";
 import { SkeletonRows } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
+import { PlanBenefitsModal } from "../components/PlanBenefitsModal";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { SubscriptionPlan } from "../api/types";
@@ -25,10 +26,26 @@ export function Plans() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [benefitsOf, setBenefitsOf] = useState<SubscriptionPlan | null>(null);
+  const [creatingSuggested, setCreatingSuggested] = useState(false);
 
   const openNew = () => {
     setFormError(null);
     setDraft({ ...EMPTY });
+  };
+
+  /** Ponto de partida pronto: Bronze/Prata/Ouro já com os benefícios montados. */
+  const createSuggested = async () => {
+    setCreatingSuggested(true);
+    try {
+      await api.post("/api/admin/plans/suggested");
+      toast.success("Planos Bronze, Prata e Ouro criados ✓ Ajuste preços e benefícios como quiser.");
+      reload();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Erro ao criar os planos sugeridos.");
+    } finally {
+      setCreatingSuggested(false);
+    }
   };
   const openEdit = (p: SubscriptionPlan) => {
     setFormError(null);
@@ -59,7 +76,24 @@ export function Plans() {
   };
 
   return (
-    <Layout title="Planos" actions={<button className="btn btn-primary btn-sm" onClick={openNew}>+ Novo plano</button>}>
+    <Layout
+      title="Planos"
+      actions={
+        <div className="row" style={{ gap: 8 }}>
+          {data && data.length === 0 && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={createSuggested}
+              disabled={creatingSuggested}
+              title="Cria Bronze, Prata e Ouro já com os benefícios configurados"
+            >
+              {creatingSuggested ? "Criando…" : "✨ Usar planos sugeridos"}
+            </button>
+          )}
+          <button className="btn btn-primary btn-sm" onClick={openNew}>+ Novo plano</button>
+        </div>
+      }
+    >
       <div className="card">
         <div className="card-head">
           <h3>Clube de assinatura</h3>
@@ -98,6 +132,7 @@ export function Plans() {
                       {p.active ? <span className="badge badge-green">Ativo</span> : <span className="badge badge-muted">Inativo</span>}
                     </td>
                     <td className="right">
+                      <button className="btn btn-ghost btn-sm" onClick={() => setBenefitsOf(p)}>Benefícios</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>Editar</button>
                     </td>
                   </tr>
@@ -107,6 +142,10 @@ export function Plans() {
           </div>
         )}
       </div>
+
+      {benefitsOf && (
+        <PlanBenefitsModal plan={benefitsOf} onClose={() => setBenefitsOf(null)} />
+      )}
 
       {draft && (
         <Modal

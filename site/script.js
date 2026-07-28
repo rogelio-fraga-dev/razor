@@ -135,3 +135,25 @@ if (!reduced && matchMedia("(hover: hover)").matches) {
     card.addEventListener("mouseleave", () => { card.style.transform = ""; });
   });
 }
+
+// ---- Ligação com o painel (login e planos) ----------------------------------
+// O endereço do painel muda por ambiente: em desenvolvimento ele roda no Vite (:5173),
+// em produção fica sob o mesmo domínio, em /app. Fica centralizado aqui porque estava
+// cravado no HTML como localhost — o que só funcionava na máquina de quem desenvolve.
+const PANEL_URL = (() => {
+  const host = location.hostname;
+  const isDev = host === "localhost" || host === "127.0.0.1" || host === "";
+  return isDev ? "http://localhost:5173" : "/app";
+})();
+
+// "Entrar" e qualquer outro link marcado com data-panel apontam para o painel.
+document.querySelectorAll("[data-panel]").forEach((el) => {
+  el.setAttribute("href", PANEL_URL);
+});
+
+// CTAs dos planos: levam ao painel já dizendo qual plano o visitante escolheu.
+// Enquanto o cadastro self-service não existe (Fase 4), o painel recebe o parâmetro e
+// orienta o visitante — melhor do que o href="#" atual, que não fazia nada.
+document.querySelectorAll("[data-cta]").forEach((el) => {
+  el.setAttribute("href", `${PANEL_URL}/?plano=${encodeURIComponent(el.dataset.cta)}`);
+});
