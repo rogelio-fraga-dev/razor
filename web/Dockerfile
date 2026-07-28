@@ -14,6 +14,12 @@ RUN npm ci
 
 COPY . .
 
+# Endereco da landing, usado pelo link "voltar ao site" na tela de login. O Vite resolve
+# import.meta.env em tempo de BUILD, entao precisa entrar aqui e nao no `environment` do
+# compose — variavel de runtime nao alcançaria o bundle ja compilado.
+ARG VITE_SITE_URL=""
+ENV VITE_SITE_URL=$VITE_SITE_URL
+
 # `npm run build` = tsc -b && vite build. Erro de tipo derruba o build aqui, de proposito.
 RUN npm run build
 

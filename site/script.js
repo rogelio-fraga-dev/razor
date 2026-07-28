@@ -137,10 +137,15 @@ if (!reduced && matchMedia("(hover: hover)").matches) {
 }
 
 // ---- Ligação com o painel (login e planos) ----------------------------------
-// O endereço do painel muda por ambiente: em desenvolvimento ele roda no Vite (:5173),
-// em produção fica sob o mesmo domínio, em /app. Fica centralizado aqui porque estava
-// cravado no HTML como localhost — o que só funcionava na máquina de quem desenvolve.
+// O endereço do painel muda por ambiente: Vite em dev (:5173), container próprio no
+// Docker (:3000), domínio próprio em produção. Vem do config.js, que o container reescreve
+// a partir de RAZOR_PANEL_URL — cravar aqui só funcionava na máquina de quem desenvolve.
+//
+// O fallback existe para quem abre o index.html direto do disco, sem servidor: aí não há
+// container para gerar o config.js.
 const PANEL_URL = (() => {
+  const configured = window.RAZOR_CONFIG?.panelUrl;
+  if (configured) return configured;
   const host = location.hostname;
   const isDev = host === "localhost" || host === "127.0.0.1" || host === "";
   return isDev ? "http://localhost:5173" : "/app";

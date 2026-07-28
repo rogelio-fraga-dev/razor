@@ -1,0 +1,6 @@
+# O Dockerfile copia os arquivos um a um, mas manter o contexto enxuto acelera o build
+# e evita mandar lixo para o daemon do Docker.
+Dockerfile
+.dockerignore
+README.md
+*.log

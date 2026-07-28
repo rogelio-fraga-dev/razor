@@ -36,7 +36,8 @@
     </nav>
     <div class="nav-cta">
       <button id="theme-toggle" class="theme-btn" type="button" aria-label="Alternar tema">☀</button>
-      <!-- PROD: trocar para https://app.razor.com.br -->
+      <!-- href resolvido em runtime pelo script.js a partir de window.RAZOR_CONFIG.panelUrl.
+           O valor abaixo é só o destino de produção, usado se o JS não rodar. -->
       <a class="btn btn-ghost btn-sm" href="/app" data-panel>Entrar</a>
       <a class="btn btn-primary btn-sm" href="#planos">Começar agora</a>
     </div>
@@ -444,7 +445,9 @@
       </nav>
     </div>
     <div class="foot-bottom">
-      <span class="mono tiny">© 2026 RAZOR TECNOLOGIA · CNPJ 00.000.000/0001-00 · feito no Brasil</span>
+      <!-- Sem CNPJ até a empresa existir: número inventado no rodapé é declaração falsa de
+           identidade jurídica, não placeholder de layout. Voltar aqui ao abrir o CNPJ. -->
+      <span class="mono tiny">© 2026 RAZOR · feito no Brasil</span>
       <nav class="foot-social" aria-label="Redes sociais">
         <a href="#" aria-label="Instagram">Instagram</a>
         <a href="#" aria-label="YouTube">YouTube</a>
@@ -454,6 +457,10 @@
   </div>
 </footer>
 
+<!-- config.js antes do script.js: define window.RAZOR_CONFIG (endereço do painel) e é
+     reescrito no boot do container. Sem `defer` os dois manteriam esta ordem, mas com
+     `defer` nos dois ela também é garantida — e nenhum bloqueia o render. -->
+<script src="config.js" defer></script>
 <script src="script.js" defer></script>
 </body>
 </html>

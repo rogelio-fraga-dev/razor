@@ -10,6 +10,12 @@ const PLANOS: Record<string, string> = {
   pro: "Pro",
 };
 
+/**
+ * Endereco da landing, injetado no build (ver web/Dockerfile). Vazio esconde o link de
+ * volta: quem abre o painel sozinho, sem o site no ar, nao deve ver um caminho quebrado.
+ */
+const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "").trim();
+
 export function Login() {
   const { login } = useAuth();
   // A landing manda ?plano=… nos CTAs. Enquanto o cadastro self-service não existe,
@@ -92,6 +98,12 @@ export function Login() {
             {busy ? "Entrando…" : "Entrar"}
           </button>
         </form>
+
+        {SITE_URL && (
+          <p className="muted" style={{ margin: "18px 0 0", fontSize: 13.5, textAlign: "center" }}>
+            <a href={SITE_URL}>← Voltar para o site</a>
+          </p>
+        )}
       </div>
     </div>
   );

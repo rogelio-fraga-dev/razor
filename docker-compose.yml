@@ -6,7 +6,8 @@
 #   docker compose down                   parar tudo (o banco sobrevive, e volume nomeado)
 #   docker compose down -v                parar e APAGAR o banco
 #
-#   painel    http://localhost:3000
+#   landing   http://localhost:8000   (site institucional, o que o visitante ve primeiro)
+#   painel    http://localhost:3000   (o "Entrar" da landing leva para ca)
 #   API       http://localhost:8081
 #   postgres  localhost:5433
 #
@@ -83,6 +84,10 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
+      args:
+        # Volta para a landing a partir do login. Build arg, nao variavel de ambiente: o
+        # Vite congela import.meta.env no bundle durante o build.
+        VITE_SITE_URL: ${RAZOR_SITE_URL:-http://localhost:8000}
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-3000}:80"
@@ -91,6 +96,21 @@ services:
       # pode subir antes da API estar pronta sem quebrar.
       backend:
         condition: service_started
+
+  site:
+    # Landing institucional (razor.com.br). Estatica e independente: nao fala com a API e
+    # nao depende do backend para subir — se a API cair, o site continua no ar.
+    build:
+      context: ./site
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # Para onde vao o botao "Entrar" e os CTAs dos planos. Precisa ser um endereco que o
+      # NAVEGADOR alcance, nao um nome de servico do compose: o clique acontece na maquina
+      # do visitante, fora da rede do Docker.
+      RAZOR_PANEL_URL: ${RAZOR_PANEL_URL:-http://localhost:3000}
+    ports:
+      - "${SITE_PORT:-8000}:80"
 
   evolution-api:
     # Fora do `up` padrao. Suba com: docker compose --profile bot up -d
