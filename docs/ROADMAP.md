@@ -786,10 +786,11 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
       fila mostrando skeleton. Pior: cada chamada varria todos os agendamentos do tenant. Agora
       `GET /reports/revenue-series?period=` devolve a série pronta em **uma** chamada e **uma**
       varredura.
-- [ ] **Dados de exemplo para desenvolvimento local** — sem histórico o painel fica (corretamente)
-      vazio, o que dificulta ver gráfico e ranking ao desenvolver. Se for feito, tem que ser um
-      **script de seed de ambiente local** (perfil `local`), **nunca** uma migração Flyway: migração
-      roda em produção e injetaria movimento financeiro falso no banco de uma barbearia real.
+- [x] **Dados de exemplo para desenvolvimento local (2026-07-28)** — sem histórico o painel fica
+      (corretamente) vazio, o que dificultava ver gráfico e ranking ao desenvolver. Resolvido com
+      `scripts/seed-demo.sql`: um script avulso, **fora do Flyway**, exatamente como este item
+      exigia — migração roda em produção e injetaria movimento financeiro falso no banco de uma
+      barbearia real. Detalhes na seção *Ambiente local em um comando*, abaixo.
 - [x] **Meta de faturamento mensal (V19)** — em vez do alvo fixo de R$ 50.000 que estava no
       código, o dono define a própria meta em *Configurações → Meta do mês*
       (`monthly_revenue_goal` em `barbershop_settings`, endpoint próprio
@@ -797,6 +798,75 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
       compara com o faturamento real; sem meta definida, mostra só o convite para definir.
 - [ ] **Métricas ainda sem fonte de dados** — taxa de ocupação de cadeiras, no-show e "clientes
       resgatados pela IA" não existem no backend. Enquanto não existirem, não entram na tela.
+
+---
+
+### 🐳 Ambiente local em um comando *(2026-07-28)*
+
+> Antes desta rodada, ligar o Razor exigia Docker **mais** JDK 17 **mais** Node, três terminais e
+> seis passos manuais de `INICIALIZACAO.md`. Agora `docker compose up -d --build` sobe o sistema
+> inteiro, e `.\scripts\seed.ps1` enche o banco de movimento para o painel ter o que mostrar.
+
+**O stack**
+
+- [x] **`Dockerfile` do backend** — build em dois estágios (Maven → JRE), usuário sem privilégio,
+      cache do `~/.m2` entre builds. Testes **não** rodam na imagem: os de integração usam
+      Testcontainers e precisariam de Docker dentro do Docker.
+- [x] **`web/Dockerfile` + `web/nginx.conf`** — o Vite gera estático e o nginx serve, encaminhando
+      `/api` para o backend. Isso põe painel e API na **mesma origem**, então não existe CORS no
+      caminho — é o mesmo papel que o proxy do Vite faz em `npm run dev`. O upstream fica numa
+      variável com `resolver 127.0.0.11` de propósito: sem isso o nginx resolveria `backend` uma
+      única vez no boot e morreria de vez se o container da API fosse recriado.
+- [x] **`docker-compose.yml` reescrito** — banco + API + painel no `up` padrão. A Evolution API
+      saiu para trás do profile `bot` (`docker compose --profile bot up -d`) porque só faz sentido
+      quando se vai parear um WhatsApp de verdade; sem ela o resto funciona inteiro.
+- [x] **Sobe sem configuração nenhuma** — todas as variáveis têm default no compose
+      (`.env.docker.example` documenta). A `OPENAI_API_KEY` nasce como `sk-dummy-local`, não
+      vazia: o cliente da OpenAI recusa chave em branco no boot, e o painel já trata chave com
+      "dummy" como IA não configurada. Assim o stack sobe com a IA honestamente desligada em vez
+      de não subir.
+- [x] **`EVOLUTION_BASE_URL` em `application.yml`** — o endereço da Evolution era literal
+      (`http://localhost:8080`), que dentro de um container aponta para o próprio container.
+      Virou placeholder com o mesmo valor como default, então nada muda fora do Docker.
+- [x] **`dev.ps1` passou a subir o Postgres pelo compose** — ele ligava um container solto
+      `razor-postgres`, que depois desta mudança brigaria pela porta 5433 com o do compose. Agora
+      há uma definição só de banco. Os containers soltos antigos (`razor-postgres`,
+      `razor-evolution`) foram removidos, com dump preservado em `backups/`.
+
+**O seed**
+
+- [x] **`scripts/seed-demo.sql`** — uma barbearia fictícia ("Navalha de Prata", slug
+      `demo-navalha`) com ~60 dias de movimento: 3 barbeiros, 7 serviços, 5 produtos, 3 planos com
+      benefícios, 18 clientes, 335 comandas, 52 caixas fechados, cupons, vales e comissões pagas.
+      Login `dono@navalhademo.local` / `demo12345` (e um `RECEPTION` e um `BARBER`).
+- [x] **Escopo travado num tenant de UUID fixo** — o script começa apagando **esse** tenant e só
+      ele, então é re-executável e não encosta em nenhuma outra barbearia. É o que o torna seguro
+      de rodar num banco que já tenha dados.
+- [x] **O seed respeita as invariantes de dinheiro** — e isso não é preciosismo: um seed que as
+      viola faz o painel mostrar números que o sistema jamais produziria, e aí o teste não vale
+      nada. Verificado por consulta depois de rodar, tudo em zero divergência: total da comanda =
+      soma dos itens − desconto; uma comanda fechada = um movimento de caixa de mesmo valor;
+      `closing_expected` = fundo + suprimentos − sangrias + vendas em dinheiro (a mesma conta de
+      `CashRegisterService.expectedDrawer`); saldo do produto = entradas − saídas no histórico.
+      O saldo de estoque vem do `RETURNING` do próprio `UPDATE`, que é o único jeito de o
+      histórico nunca discordar do saldo atual.
+- [x] **Pontos de fidelidade derivados, não inventados** — vêm da contagem de comandas fechadas
+      que existem de fato, mesmo critério do sistema. Coerente com a regra de nunca fabricar
+      número no painel: aqui o dado é fictício por ser um ambiente de demonstração, mas continua
+      sendo *consequência* do movimento, não um valor solto.
+- [x] **Datas relativas a `CURRENT_DATE`** — o "mês atual" do relatório sempre tem movimento, não
+      importa quando o seed rodar. Domingo fica zerado porque a barbearia não abre.
+
+**Achado ao validar: a lacuna de PIX e horário já estava fechada**
+
+- [x] **Chave PIX e horário de funcionamento por tenant** — estavam anotados como a pendência mais
+      urgente ("o bot envia dado errado hoje") e como o próximo passo da sessão. Ao popular
+      `barbershop_settings` para o seed ficou claro que **já foram resolvidos** na leva V19→V30:
+      as colunas `pix_key`, `opening_time`, `closing_time` e `working_days` existem,
+      `BarbershopSettingsService` as lê (com 09:00/19:00 apenas como *default* quando em branco),
+      `AgendaService.montarHorariosLivres` gera os horários livres dentro do expediente configurado
+      e o painel expõe os campos em *Configurações* e no `ConfigWizard`. Não é preciso uma V31 para
+      isso — **a próxima tarefa da frente do cliente final é o item 5 (sites white-label)**.
 
 ---
 

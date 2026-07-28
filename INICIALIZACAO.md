@@ -1,111 +1,161 @@
-# 🛠️ Guia de Inicialização do BarberBot AI (Passo a Passo)
+# 🛠️ Guia de Inicialização do Razor
 
-Este documento descreve todos os passos necessários para ligar o sistema do absoluto zero e colocá-lo para funcionar. Siga a ordem abaixo para não esquecer nada!
-
----
-
-## 📋 Checklist de Inicialização Rápida
-
-- [ ] **Passo 1**: Subir os serviços Docker (PostgreSQL e Evolution API).
-- [ ] **Passo 2**: Configurar as variáveis no arquivo `.env`.
-- [ ] **Passo 3**: Ligar a aplicação Spring Boot (via script ou IDE).
-- [ ] **Passo 4**: Criar a instância do WhatsApp na Evolution API.
-- [ ] **Passo 5**: Configurar o Webhook de integração na Evolution API.
-- [ ] **Passo 6**: Escanear o QR Code no celular para conectar o WhatsApp.
+Como ligar o sistema do zero. O **Passo 1** já entrega o Razor rodando; os passos seguintes só
+são necessários quando você for conectar um WhatsApp de verdade.
 
 ---
 
-## 📖 Descrição Detalhada dos Passos
+## 🐳 Passo 1: Subir o stack
 
-### 🐳 Passo 1: Subir os Serviços Externos (Docker)
-O banco de dados e o gateway do WhatsApp rodam no Docker. Abra o terminal na raiz do projeto e execute:
+Na raiz do projeto:
 
 ```bash
-docker-compose up -d
+docker compose up -d --build
 ```
+
+Isso sobe **banco + API + painel** de uma vez. O primeiro build demora alguns minutos (compila o
+Spring Boot e o painel dentro do Docker); os próximos são rápidos por causa do cache.
+
+| Serviço | Endereço |
+| --- | --- |
+| Painel | http://localhost:3000 |
+| API | http://localhost:8081 |
+| Postgres | localhost:5433 |
+
+Acompanhe o boot com `docker compose logs -f backend`. O Flyway cria as ~30 tabelas na primeira
+execução; a API está pronta quando o log mostra `Started RazorApplication`.
+
+Conferir se está tudo de pé:
+
+```bash
+docker compose ps                                  # os 3 serviços em "Up"
+curl http://localhost:8081/actuator/health          # {"status":"UP"}
+```
+
 > [!NOTE]
-> O parâmetro `-d` faz o Docker rodar em segundo plano. Certifique-se de que os containers do PostgreSQL e da Evolution API estão com status `Running` no Docker Desktop.
+> O banco fica num volume Docker (`razor_pgdata`) e **sobrevive** ao `docker compose down`.
+> Para zerar de verdade: `docker compose down -v`.
 
 ---
 
-### 🔑 Passo 2: Configurar o Arquivo `.env`
-Crie ou edite o arquivo chamado `.env` (exatamente com esse nome) na raiz do projeto contendo as seguintes configurações de ambiente:
+## 🔑 Passo 2: Configurar (opcional)
 
-```env
-# 1. Configurações de Conexão com o PostgreSQL
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/barberbot_db
-SPRING_DATASOURCE_USERNAME=barberbot_user
-SPRING_DATASOURCE_PASSWORD=barberbot_pass
+O stack sobe sem nenhum arquivo de configuração — só com a IA desligada e um telefone admin
+fictício. Isso já basta para navegar no painel. Para ligar a IA:
 
-# 2. Credenciais de APIs Externas
-OPENAI_API_KEY=sua_chave_da_openai_aqui
-ADMIN_PHONE=55XXXXXXXXXXX # Seu número de WhatsApp com 55 e DDD (ex: 5511999999999)
-EVOLUTION_API_KEY=barberbot # Chave definida no docker-compose da Evolution API
+```bash
+cp .env.docker.example .env
+```
+
+Preencha e reinicie com `docker compose up -d`:
+
+| Variável | Para quê |
+| --- | --- |
+| `OPENAI_API_KEY` | chave real da OpenAI — sem ela o bot não gera resposta |
+| `ADMIN_PHONES` | seu WhatsApp com 55 e DDD, para ter poder de admin no bot |
+| `WEBHOOK_TOKEN` | segredo do webhook — vazio deixa o webhook desabilitado (fail-closed) |
+| `ONBOARDING_API_KEY` | habilita criar barbearias |
+| `RAZOR_JWT_SECRET` | assina os JWT do painel (< 32 caracteres = você cai do painel a cada restart) |
+
+---
+
+## 💈 Passo 3: Popular o banco
+
+O banco nasce vazio. Escolha um dos dois.
+
+### a) Seed de demonstração (recomendado para testar)
+
+```powershell
+.\scripts\seed.ps1
+```
+
+Cria a "Barbearia Navalha de Prata" com ~60 dias de movimento — 335 comandas, 52 caixas fechados,
+estoque, comissões, cupons e planos — para o painel ter gráfico e relatório de verdade.
+
+| Login | Senha | Papel |
+| --- | --- | --- |
+| `dono@navalhademo.local` | `demo12345` | OWNER |
+| `recepcao@navalhademo.local` | `demo12345` | RECEPTION |
+| `barbeiro@navalhademo.local` | `demo12345` | BARBER |
+
+O script só mexe no tenant da demo — rodar de novo regenera os dados fictícios sem tocar em
+nenhuma outra barbearia do banco.
+
+### b) Barbearia vazia (fluxo real de provisionamento)
+
+Cria barbearia + catálogo + barbeiro + usuário do painel numa transação só:
+
+```bash
+curl -X POST http://localhost:8081/api/onboarding \
+  -H "Content-Type: application/json" \
+  -H "X-Onboarding-Key: dev-onboarding-key" \
+  -d '{"name":"Barbearia Teste","slug":"barbearia-teste","whatsappInstance":"BarbeariaTesteWpp",
+       "professionalName":"Rafael","adminPhones":["5511999999999"],
+       "ownerEmail":"dono@teste.com","ownerPassword":"senha12345"}'
+```
+
+Agora entre em http://localhost:3000 com `dono@teste.com` / `senha12345`.
+
+---
+
+## 📲 Passo 4: Conectar o WhatsApp (só quando for testar o bot)
+
+A Evolution API fica fora do `up` padrão. Suba junto:
+
+```bash
+docker compose --profile bot up -d      # Evolution em http://localhost:8080
+```
+
+O webhook já vem apontado para o backend com o token correto — não precisa configurar nada no
+Evolution Manager. Só falta parear o aparelho:
+
+1. Painel → **Configurações → Conexão do WhatsApp → Conectar**.
+2. Escaneie o QR Code no celular (**Aparelhos Conectados → Conectar um aparelho**).
+
+Se o QR não aparecer no painel, o backend também o expõe em
+`http://localhost:8081/api/webhook/qrcode`.
+
+---
+
+## 📈 Verificação final
+
+1. `curl http://localhost:8081/actuator/health` → `{"status":"UP"}`.
+2. Painel abre em http://localhost:3000 e aceita o login criado no Passo 3.
+3. Com o bot conectado, mande `"Oi"` do celular do cliente — o bot responde com o menu.
+
+---
+
+## 🔧 Comandos do dia a dia
+
+```bash
+docker compose logs -f backend    # logs da API
+docker compose logs -f web        # logs do nginx do painel
+docker compose restart backend    # reiniciar só a API
+docker compose up -d --build      # rebuild depois de mexer no código
+docker compose down               # parar tudo (banco sobrevive)
+docker compose down -v            # parar e APAGAR o banco
+```
+
+Para abrir o banco direto:
+
+```bash
+docker compose exec postgres psql -U barberbot_user -d barberbot_db
 ```
 
 ---
 
-### ☕ Passo 3: Iniciar o Spring Boot (Backend)
-Com o banco ativo e o `.env` preenchido, ligue a aplicação principal:
+## 💻 Desenvolvendo com recarga automática
 
-* **Opção A (PowerShell - Recomendado)**:
-  Abra o PowerShell na raiz do projeto e execute:
-  ```powershell
-  ./run.ps1
-  ```
+O stack acima roda o código **compilado dentro da imagem** — mexeu no código, precisa de
+`--build`. Para desenvolver, deixe só o banco no Docker:
 
-* **Opção B (IDE - VS Code ou IntelliJ)**:
-  Abra a classe principal `src/main/java/com/barberbot/BarberBotApplication.java` e clique no botão **Run** (Executar método main).
+```powershell
+docker compose up -d postgres        # só o banco, em 5433
+.\dev.ps1                            # backend em 8081, fora do Docker
+cd web; npm run dev                  # painel em http://localhost:5173
+```
 
-> [!IMPORTANT]
-> Na primeira execução, o **Flyway** criará de forma automática todas as tabelas (incluindo fidelidade e lista de espera) no banco. Acompanhe os logs no console para confirmar se iniciou na porta **8081** sem erros.
+Nesse modo o painel fala com a API pelo proxy do Vite; o `.env.local` (não o `.env`) é quem
+alimenta o backend. Veja a seção 7.2 do `README.md`.
 
----
-
-### 📲 Passo 4: Criar a Instância na Evolution API
-Precisamos criar o perfil de conexão com o WhatsApp na Evolution API.
-1. Abra o **Evolution Manager** no seu navegador: `http://localhost:8080` (ou utilize o Postman).
-2. Crie uma nova Instância com as informações:
-   * **Instance Name**: `BarberBotOficial` (Exatamente como configurado no `application.yml`).
-   * **Integration**: `WHATSAPP-BAILEYS`
-   * **Token/ApiKey**: O token gerado para segurança da sua instância.
-
----
-
-### 🔗 Passo 5: Configurar o Webhook na Instância
-Para que a Evolution envie as mensagens recebidas de volta ao Spring Boot, configure o Webhook dentro do Manager ou via API:
-
-1. Acesse as configurações da instância `BarberBotOficial` no Manager.
-2. Ative a seção **Webhook**.
-3. Configure a **URL do Webhook** apontando para o seu backend local:
-   ```
-   http://host.docker.internal:8081/api/webhook
-   ```
-   *(Ou `http://localhost:8081/api/webhook` caso esteja rodando fora de container)*.
-4. Marque os eventos que deseja escutar:
-   * [x] **`messages.upsert`** / **`MESSAGES_UPSERT`** (Garante o envio e leitura das conversas).
-   * [x] **`qrcode.updated`** / **`QRCODE_UPDATED`** (Garante a sincronização de conexão).
-
----
-
-### 📷 Passo 6: Conectar o WhatsApp (Sincronizar QR Code)
-Agora, conecte o chip de teste:
-
-1. No Evolution Manager, clique em **Connect** na instância `BarberBotOficial`.
-2. O QR Code será gerado na tela. Abra o WhatsApp no celular, vá em **Aparelhos Conectados > Conectar um aparelho** e escaneie o código.
-3. **Bug do Manager fallback**: Se o painel do Evolution Manager travar e não exibir o QR Code, abra no seu navegador:
-   ```
-   http://localhost:8081/api/webhook/qrcode
-   ```
-   *(Nosso backend intercepta o QR Code enviado via webhook, salva localmente como `qrcode-evolution.png` e exibe nessa URL para facilitar a sua vida!)*
-
----
-
-## 📈 Verificação de Sucesso
-
-Para ter certeza de que tudo está rodando perfeitamente:
-1. Acesse a URL no navegador: `http://localhost:8081/api/webhook/health`. A resposta deve ser: `"BarberBot Assist está online!"`.
-2. Mande um `"Oi"` ou `"Menu"` do celular do cliente para o número conectado. O bot deve responder com o menu interativo contendo o botão **"Ver Opções 📋"**.
-3. Acesse o console e confirme se a aplicação Spring Boot está registrando logs no console.
-
-*Tudo pronto! Seu MVP está inicializado e pronto para operar.* ✂️💈
+*Pronto! ✂️💈*

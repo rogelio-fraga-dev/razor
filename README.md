@@ -192,13 +192,59 @@ usuário OWNER) · conexão de WhatsApp por QR no painel.
 
 ## 7. Rodando localmente
 
-### 7.1. Pré-requisitos
-Docker · JDK 17+ · Node 18+
+Há dois caminhos. O **A** é um comando só e não exige nada instalado além do Docker — use para
+testar o sistema rodando. O **B** deixa o backend e o painel em modo de desenvolvimento com
+recarga automática — use para escrever código.
 
-### 7.2. Configuração
+### 7.1. Caminho A — tudo no Docker
+
+Pré-requisito: **Docker**.
+
+```bash
+docker compose up -d --build
+```
+
+Sobe banco, API e painel juntos:
+
+| | Endereço |
+|---|---|
+| Painel | http://localhost:3000 |
+| API | http://localhost:8081 |
+| Postgres | localhost:5433 |
+
+O Flyway cria o schema inteiro no primeiro boot; o banco fica num volume e sobrevive ao
+`docker compose down`. Sem nenhum arquivo de configuração o stack já sobe — apenas com a IA
+desligada. Para ligar a IA e usar o seu telefone como admin:
+
+```bash
+cp .env.docker.example .env    # e preencha OPENAI_API_KEY e ADMIN_PHONES
+docker compose up -d
+```
+
+A Evolution API (gateway do WhatsApp) fica fora por padrão, porque só faz sentido quando você
+vai parear um número de verdade. Quando for:
+
+```bash
+docker compose --profile bot up -d    # + Evolution em http://localhost:8080
+```
+
+Comandos do dia a dia:
+
+```bash
+docker compose logs -f backend   # acompanhar o boot do Spring
+docker compose down              # parar tudo (o banco sobrevive)
+docker compose down -v           # parar e APAGAR o banco
+docker compose up -d --build     # rebuild depois de mexer no código
+```
+
+### 7.2. Caminho B — desenvolvimento com recarga
+
+Pré-requisitos: **Docker · JDK 17+ · Node 18+**
+
 ```bash
 cp .env.local.example .env.local   # e preencha
 ```
+
 | Variável | Para quê |
 |---|---|
 | `OPENAI_API_KEY` | **obrigatória** — sem chave real a IA não responde |
@@ -207,15 +253,35 @@ cp .env.local.example .env.local   # e preencha
 | `RAZOR_JWT_SECRET` | assina os JWT do painel |
 | `SPRING_DATASOURCE_URL` | banco (o dev local usa a porta **5433**) |
 
-### 7.3. Subir
 ```powershell
-.\dev.ps1            # containers (Postgres 5433 + Evolution 8080) + backend 8081
-cd web; npm install; npm run dev    # painel em http://localhost:5173
+docker compose up -d postgres       # só o banco
+.\dev.ps1                           # backend em 8081, fora do Docker
+cd web; npm install; npm run dev     # painel em http://localhost:5173
 ```
 
-A Evolution precisa apontar o webhook para `http://host.docker.internal:8081/api/webhook?token=<WEBHOOK_TOKEN>`.
+Nesse modo o painel fala com a API pelo proxy do Vite, não pelo nginx. A Evolution precisa
+apontar o webhook para `http://host.docker.internal:8081/api/webhook?token=<WEBHOOK_TOKEN>`.
 
-### 7.4. Criar a primeira barbearia
+### 7.3. Popular o banco
+
+O banco nasce vazio nos dois caminhos. Há duas formas de dar conteúdo a ele.
+
+**a) Seed de demonstração** — uma barbearia fictícia com ~60 dias de movimento (comandas, caixa,
+estoque, comissões, cupons, planos), para o painel ter gráfico e relatório de verdade:
+
+```powershell
+.\scripts\seed.ps1
+```
+
+Login: `dono@navalhademo.local` / `demo12345`.
+
+O script só mexe no tenant da demo (`demo-navalha`) — rodar de novo regenera os dados fictícios
+sem tocar em nenhuma outra barbearia. É um script avulso de propósito, **nunca** uma migração
+Flyway: migração roda em produção e injetaria movimento financeiro falso no banco de um cliente
+real.
+
+**b) Barbearia vazia** — o fluxo real de provisionamento, se você quer começar do zero:
+
 ```bash
 curl -X POST http://localhost:8081/api/onboarding \
   -H "Content-Type: application/json" -H "X-Onboarding-Key: $ONBOARDING_API_KEY" \
@@ -225,7 +291,7 @@ curl -X POST http://localhost:8081/api/onboarding \
 ```
 Depois entre no painel → **Configurações → Conexão do WhatsApp → Conectar** e escaneie o QR.
 
-### 7.5. Backup
+### 7.4. Backup
 ```powershell
 .\scripts\backup-db.ps1     # dump comprimido + retenção de 14 dias
 ```
