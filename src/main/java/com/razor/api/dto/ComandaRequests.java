@@ -16,7 +16,7 @@ public final class ComandaRequests {
      * o financeiro nao conta o servico duas vezes.
      */
     public record Open(String customerName, String customerPhone, UUID professionalId,
-                       UUID appointmentId) {}
+                       Long appointmentId) {}
 
     /** Item entrando na conta. O tipo vem da rota (servico ou produto). */
     public record AddItem(

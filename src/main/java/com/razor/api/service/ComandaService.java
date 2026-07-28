@@ -94,7 +94,7 @@ public class ComandaService {
      */
     @Transactional
     public Comanda open(String customerName, String customerPhone, UUID professionalId,
-                        UUID appointmentId) {
+                        Long appointmentId) {
         UUID shop = TenantContext.getCurrent();
         requireProfessionalOfThisShop(professionalId, shop);
 

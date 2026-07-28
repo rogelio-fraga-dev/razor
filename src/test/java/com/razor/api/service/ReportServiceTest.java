@@ -232,7 +232,7 @@ class ReportServiceTest {
 
     // --- Servico lancado em comanda (V28) ---
 
-    private Comanda comanda(java.util.UUID appointmentId, LocalDate dia) {
+    private Comanda comanda(Long appointmentId, LocalDate dia) {
         return Comanda.builder()
                 .id(java.util.UUID.randomUUID()).status(Comanda.Status.FECHADA)
                 .appointmentId(appointmentId).comandaDate(dia).build();
@@ -267,7 +267,7 @@ class ReportServiceTest {
         // O agendamento ja responde por 35,00
         when(appointmentRepository.findByBarbershopId(any()))
                 .thenReturn(List.of(appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(9, 0), null)));
-        Comanda c = comanda(java.util.UUID.randomUUID(), hoje); // vinculada
+        Comanda c = comanda(99L, hoje); // vinculada
         when(comandaRepository.findByBarbershopIdAndComandaDateBetween(any(), any(), any()))
                 .thenReturn(List.of(c));
         when(comandaItemRepository.findByComandaIdOrderByCreatedAtAsc(c.getId()))

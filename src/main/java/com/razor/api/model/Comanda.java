@@ -64,7 +64,7 @@ public class Comanda {
      * conta duas vezes.
      */
     @Column(name = "appointment_id")
-    private UUID appointmentId;
+    private Long appointmentId;
 
     @Column(name = "comanda_date", nullable = false)
     private LocalDate comandaDate;

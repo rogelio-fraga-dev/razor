@@ -13,7 +13,8 @@
 -- o cliente que chega sem marcar, que e metade do movimento de uma barbearia de bairro.
 
 ALTER TABLE comandas
-    ADD COLUMN appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL;
+    -- BIGINT, e nao UUID: a PK de appointments e identity bigint desde a V2_1.
+    ADD COLUMN appointment_id BIGINT REFERENCES appointments(id) ON DELETE SET NULL;
 
 -- Uma comanda por agendamento: duas comandas para o mesmo atendimento seria cobranca dupla.
 CREATE UNIQUE INDEX uq_comanda_appointment

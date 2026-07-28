@@ -19,7 +19,7 @@ public record ComandaResponse(
         UUID professionalId,
         String professionalName,
         /** Agendamento que originou a comanda (V28); nulo = atendimento de balcao. */
-        UUID appointmentId,
+        Long appointmentId,
         Comanda.Status status,
         LocalDateTime openedAt,
         LocalDateTime closedAt,

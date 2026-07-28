@@ -331,8 +331,8 @@ export interface Comanda {
   customerPhone: string | null;
   professionalId: string | null;
   professionalName: string | null;
-  /** Agendamento que originou a comanda (V28). null = atendimento de balcao. */
-  appointmentId: string | null;
+  /** Agendamento que originou a comanda (V28). null = atendimento de balcão. */
+  appointmentId: number | null;
   status: ComandaStatus;
   openedAt: string;
   closedAt: string | null;
