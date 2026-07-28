@@ -16,6 +16,9 @@ public interface ComandaRepository extends JpaRepository<Comanda, UUID> {
 
     List<Comanda> findByBarbershopIdAndComandaDateOrderByOpenedAtDesc(UUID barbershopId, LocalDate date);
 
+    /** Comandas de um intervalo — base do faturamento de servico avulso (V28). */
+    List<Comanda> findByBarbershopIdAndComandaDateBetween(UUID barbershopId, LocalDate from, LocalDate to);
+
     /** Leitura escopada no tenant: nao le comanda de outra barbearia por id adivinhado. */
     Optional<Comanda> findByIdAndBarbershopId(UUID id, UUID barbershopId);
 }

@@ -84,6 +84,16 @@ public class ComandaService {
 
     @Transactional
     public Comanda open(String customerName, String customerPhone, UUID professionalId) {
+        return open(customerName, customerPhone, professionalId, null);
+    }
+
+    /**
+     * Abre a comanda, opcionalmente vinculada ao agendamento que a originou (V28). Com vinculo,
+     * o financeiro sabe que o servico ja esta representado pelo agendamento e nao soma de novo.
+     */
+    @Transactional
+    public Comanda open(String customerName, String customerPhone, UUID professionalId,
+                        UUID appointmentId) {
         UUID shop = TenantContext.getCurrent();
         requireProfessionalOfThisShop(professionalId, shop);
 
@@ -92,6 +102,7 @@ public class ComandaService {
                 .customerName(blankToNull(customerName))
                 .customerPhone(blankToNull(customerPhone))
                 .professionalId(professionalId)
+                .appointmentId(appointmentId)
                 .status(Comanda.Status.ABERTA)
                 .openedAt(LocalDateTime.now())
                 .comandaDate(AppointmentDates.today())

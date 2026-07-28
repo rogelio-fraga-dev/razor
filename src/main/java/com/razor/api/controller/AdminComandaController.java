@@ -57,7 +57,8 @@ public class AdminComandaController {
 
     @PostMapping
     public ResponseEntity<ComandaResponse> open(@Valid @RequestBody ComandaRequests.Open req) {
-        Comanda comanda = comandaService.open(req.customerName(), req.customerPhone(), req.professionalId());
+        Comanda comanda = comandaService.open(
+                req.customerName(), req.customerPhone(), req.professionalId(), req.appointmentId());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(comanda, professionalNames()));
     }
 

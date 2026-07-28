@@ -58,6 +58,14 @@ public class Comanda {
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
 
+    /**
+     * Agendamento que originou a comanda (V28). Nulo = atendimento de balcao, sem marcacao.
+     * Com vinculo, o financeiro sabe que o servico ja esta representado pelo agendamento e nao
+     * conta duas vezes.
+     */
+    @Column(name = "appointment_id")
+    private UUID appointmentId;
+
     @Column(name = "comanda_date", nullable = false)
     private LocalDate comandaDate;
 

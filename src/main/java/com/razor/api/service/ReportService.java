@@ -7,10 +7,14 @@ import com.razor.api.dto.FinancialSummaryResponse.CategoryBreakdown;
 import com.razor.api.dto.FinancialSummaryResponse.PaymentBreakdown;
 import com.razor.api.dto.RevenuePoint;
 import com.razor.api.model.Appointment;
+import com.razor.api.model.Comanda;
+import com.razor.api.model.ComandaItem;
 import com.razor.api.model.PaymentStatus;
 import com.razor.api.model.ProductSale;
 import com.razor.api.model.Professional;
 import com.razor.api.repository.AppointmentRepository;
+import com.razor.api.repository.ComandaItemRepository;
+import com.razor.api.repository.ComandaRepository;
 import com.razor.api.repository.ProductSaleRepository;
 import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.service.PricingService.ServiceCategory;
@@ -45,6 +49,8 @@ public class ReportService {
     private final AppointmentRepository appointmentRepository;
     private final ProfessionalRepository professionalRepository;
     private final ProductSaleRepository productSaleRepository;
+    private final ComandaRepository comandaRepository;
+    private final ComandaItemRepository comandaItemRepository;
     private final PricingService pricingService;
     private final CustomerService customerService;
 
@@ -101,6 +107,12 @@ public class ReportService {
             productsRevenue = productsRevenue.add(venda.getTotal());
         }
 
+        // Servicos lancados em comanda SEM agendamento vinculado (V28): sao receita real que o
+        // laco de agendamentos acima nao viu. Comanda COM vinculo e ignorada de proposito — o
+        // servico ja foi contado pelo agendamento, e somar de novo seria contar duas vezes.
+        BigDecimal comandaServices = comandaServiceRevenue(shop, from, to);
+        total = total.add(comandaServices);
+
         return new FinancialSummaryResponse(from, to, count,
                 new CategoryBreakdown(combo, barba, simples),
                 new PaymentBreakdown(
@@ -109,6 +121,24 @@ public class ReportService {
                         new Bucket(pendCount, scale(pendVal))),
                 scale(total), productsSold, scale(productsRevenue),
                 scale(total.add(productsRevenue)), averageTicket);
+    }
+
+    /**
+     * Receita de servico lancada em comandas <b>fechadas e sem agendamento vinculado</b> no
+     * periodo. Comanda com vinculo fica de fora: aquele servico ja foi contado pelo agendamento.
+     */
+    private BigDecimal comandaServiceRevenue(UUID shop, LocalDate from, LocalDate to) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (Comanda c : comandaRepository.findByBarbershopIdAndComandaDateBetween(shop, from, to)) {
+            if (c.getStatus() != Comanda.Status.FECHADA) continue;
+            if (c.getAppointmentId() != null) continue;
+            for (ComandaItem item : comandaItemRepository.findByComandaIdOrderByCreatedAtAsc(c.getId())) {
+                if (item.getKind() == ComandaItem.Kind.SERVICO) {
+                    total = total.add(item.getTotal());
+                }
+            }
+        }
+        return total;
     }
 
     /** Periodos do grafico de faturamento do painel. O backend e quem define as faixas. */

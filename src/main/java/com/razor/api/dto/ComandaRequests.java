@@ -10,8 +10,13 @@ public final class ComandaRequests {
 
     private ComandaRequests() {}
 
-    /** Abertura: tudo opcional (comanda de balcao pode nao ter nome nem barbeiro). */
-    public record Open(String customerName, String customerPhone, UUID professionalId) {}
+    /**
+     * Abertura: tudo opcional (comanda de balcao pode nao ter nome nem barbeiro).
+     * {@code appointmentId} vincula a comanda ao agendamento que a originou (V28) — com vinculo,
+     * o financeiro nao conta o servico duas vezes.
+     */
+    public record Open(String customerName, String customerPhone, UUID professionalId,
+                       UUID appointmentId) {}
 
     /** Item entrando na conta. O tipo vem da rota (servico ou produto). */
     public record AddItem(

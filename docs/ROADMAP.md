@@ -488,18 +488,21 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
 > **A ordem abaixo é de dependência, não de preferência** — cada item destrava o seguinte.
 > Construir fora de ordem gera retrabalho.
 
-- [~] **1. Motor de benefícios de plano + comissão por serviço (V27)** — *em curso*
+- [x] **1. Motor de benefícios de plano + comissão por serviço (V27)**
       `plan_benefits` (alvo = item específico **ou** todos de um tipo, desconto %, cota mensal,
       dias da semana) e `services.commission_percent` (o dono define a comissão de cada serviço;
       nulo = usa o percentual geral do barbeiro, V23). `PlanPricingService` resolve o preço do
       item para o cliente: benefício específico ganha do geral, respeita dia e cota.
       _Cota só é verificada em serviço (contando atendimentos do mês); venda de produto não
       guarda o cliente, e no modelo real produto ganha percentual, não cota._
-- [ ] **2. Três planos realistas** (Bronze / Prata / Ouro) com corte ilimitado e valores de
-      mercado, usando o motor acima. Servem de exemplo pronto e de teste do motor.
-- [ ] **3. Comanda ↔ agendamento** — vincular a comanda ao agendamento que a originou. Fecha a
-      lacuna conhecida (serviço em comanda fora do `/reports/financial`) **sem** risco de contar
-      duas vezes, porque passa a existir o vínculo que hoje falta.
+- [x] **2. Três planos realistas** (Bronze R$ 89,90 / Prata R$ 129,90 / Ouro R$ 189,90) com corte
+      ilimitado, criados por `POST /plans/suggested` (idempotente, nunca automático). Tela de
+      benefícios em Planos, espelhando o app do cliente. Landing ligada ao painel no mesmo commit.
+- [x] **3. Comanda ↔ agendamento (V28)** — `comandas.appointment_id`, opcional e com índice único
+      parcial (uma comanda por agendamento; duas seria cobrança dupla). O financeiro passou a somar
+      o serviço de comandas **sem** vínculo — receita real que o laço de agendamentos não via — e a
+      **ignorar** as com vínculo, porque aquele serviço já foi contado pelo agendamento. Fecha a
+      lacuna registrada na V21 sem risco de contar duas vezes.
 - [ ] **4. Contas do cliente final** (`customer_accounts`) — login próprio, vínculo ao telefone
       do WhatsApp, histórico. **Opcional**: quem só quer marcar um corte continua sem cadastro.
 - [ ] **5. Pagamento pelo cliente** — escolher entre **pagar no app** ou **pagar ao barbeiro**.

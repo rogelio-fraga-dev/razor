@@ -18,6 +18,8 @@ public record ComandaResponse(
         String customerPhone,
         UUID professionalId,
         String professionalName,
+        /** Agendamento que originou a comanda (V28); nulo = atendimento de balcao. */
+        UUID appointmentId,
         Comanda.Status status,
         LocalDateTime openedAt,
         LocalDateTime closedAt,
@@ -47,7 +49,7 @@ public record ComandaResponse(
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return new ComandaResponse(
                 c.getId(), c.getCustomerName(), c.getCustomerPhone(),
-                c.getProfessionalId(), professionalName, c.getStatus(),
+                c.getProfessionalId(), professionalName, c.getAppointmentId(), c.getStatus(),
                 c.getOpenedAt(), c.getClosedAt(), current, c.getTotal(), c.getPaymentMethod(),
                 items.stream().map(Item::from).toList());
     }

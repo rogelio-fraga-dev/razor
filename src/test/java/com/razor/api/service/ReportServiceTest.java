@@ -11,6 +11,10 @@ import com.razor.api.model.PaymentStatus;
 import com.razor.api.model.ProductSale;
 import com.razor.api.model.Professional;
 import com.razor.api.repository.AppointmentRepository;
+import com.razor.api.model.Comanda;
+import com.razor.api.model.ComandaItem;
+import com.razor.api.repository.ComandaItemRepository;
+import com.razor.api.repository.ComandaRepository;
 import com.razor.api.repository.ProductSaleRepository;
 import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.service.PricingService.ServiceCategory;
@@ -39,6 +43,8 @@ class ReportServiceTest {
     @Mock private AppointmentRepository appointmentRepository;
     @Mock private ProfessionalRepository professionalRepository;
     @Mock private ProductSaleRepository productSaleRepository;
+    @Mock private ComandaRepository comandaRepository;
+    @Mock private ComandaItemRepository comandaItemRepository;
     @Mock private PricingService pricingService;
     @Mock private CustomerService customerService;
 
@@ -222,5 +228,84 @@ class ReportServiceTest {
         assertThat(serie.get(5).from()).isEqualTo(LocalDate.of(2026, 7, 1));
         assertThat(serie.get(5).to()).isEqualTo(hoje);
         assertThat(serie.get(0).from()).isEqualTo(LocalDate.of(2026, 2, 1));
+    }
+
+    // --- Servico lancado em comanda (V28) ---
+
+    private Comanda comanda(java.util.UUID appointmentId, LocalDate dia) {
+        return Comanda.builder()
+                .id(java.util.UUID.randomUUID()).status(Comanda.Status.FECHADA)
+                .appointmentId(appointmentId).comandaDate(dia).build();
+    }
+
+    private ComandaItem comandaItem(ComandaItem.Kind kind, String total) {
+        return ComandaItem.builder()
+                .id(java.util.UUID.randomUUID()).kind(kind).total(new BigDecimal(total)).build();
+    }
+
+    @Test
+    @DisplayName("serviço de comanda SEM agendamento entra no faturamento")
+    void comandaWithoutAppointment_addsServiceRevenue() {
+        LocalDate hoje = AppointmentDates.today();
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        Comanda c = comanda(null, hoje);
+        when(comandaRepository.findByBarbershopIdAndComandaDateBetween(any(), any(), any()))
+                .thenReturn(List.of(c));
+        when(comandaItemRepository.findByComandaIdOrderByCreatedAtAsc(c.getId()))
+                .thenReturn(List.of(comandaItem(ComandaItem.Kind.SERVICO, "40.00")));
+        givenPrices();
+
+        FinancialSummaryResponse s = service.financialSummary(hoje, hoje);
+
+        assertThat(s.servicesRevenue()).isEqualByComparingTo("40.00");
+    }
+
+    @Test
+    @DisplayName("serviço de comanda COM agendamento não conta duas vezes")
+    void comandaWithAppointment_isNotDoubleCounted() {
+        LocalDate hoje = AppointmentDates.today();
+        // O agendamento ja responde por 35,00
+        when(appointmentRepository.findByBarbershopId(any()))
+                .thenReturn(List.of(appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(9, 0), null)));
+        Comanda c = comanda(java.util.UUID.randomUUID(), hoje); // vinculada
+        when(comandaRepository.findByBarbershopIdAndComandaDateBetween(any(), any(), any()))
+                .thenReturn(List.of(c));
+        when(comandaItemRepository.findByComandaIdOrderByCreatedAtAsc(c.getId()))
+                .thenReturn(List.of(comandaItem(ComandaItem.Kind.SERVICO, "35.00")));
+        givenPrices();
+
+        FinancialSummaryResponse s = service.financialSummary(hoje, hoje);
+
+        assertThat(s.servicesRevenue()).isEqualByComparingTo("35.00"); // e nao 70,00
+    }
+
+    @Test
+    @DisplayName("produto da comanda nao e somado como servico — ja conta em product_sales")
+    void comandaProductItem_isNotCountedAsService() {
+        LocalDate hoje = AppointmentDates.today();
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        Comanda c = comanda(null, hoje);
+        when(comandaRepository.findByBarbershopIdAndComandaDateBetween(any(), any(), any()))
+                .thenReturn(List.of(c));
+        when(comandaItemRepository.findByComandaIdOrderByCreatedAtAsc(c.getId()))
+                .thenReturn(List.of(comandaItem(ComandaItem.Kind.PRODUTO, "29.90")));
+        givenPrices();
+
+        assertThat(service.financialSummary(hoje, hoje).servicesRevenue()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    @DisplayName("comanda ainda aberta nao entra no faturamento")
+    void openComanda_isNotCounted() {
+        LocalDate hoje = AppointmentDates.today();
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        Comanda aberta = Comanda.builder()
+                .id(java.util.UUID.randomUUID()).status(Comanda.Status.ABERTA)
+                .comandaDate(hoje).build();
+        when(comandaRepository.findByBarbershopIdAndComandaDateBetween(any(), any(), any()))
+                .thenReturn(List.of(aberta));
+        givenPrices();
+
+        assertThat(service.financialSummary(hoje, hoje).servicesRevenue()).isEqualByComparingTo("0.00");
     }
 }
