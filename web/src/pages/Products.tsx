@@ -8,6 +8,7 @@ import { EmptyState } from "../components/EmptyState";
 import { SkeletonRows } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { SellProductModal } from "../components/SellProductModal";
+import { StockModal } from "../components/StockModal";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { Product, ProductSale } from "../api/types";
@@ -29,6 +30,7 @@ export function Products() {
   const toast = useToast();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [selling, setSelling] = useState<Product | null>(null);
+  const [stockOf, setStockOf] = useState<Product | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [salesVersion, setSalesVersion] = useState(0);
@@ -101,6 +103,7 @@ export function Products() {
                 <tr>
                   <th>Produto</th>
                   <th>Preço</th>
+                  <th>Estoque</th>
                   <th>Status</th>
                   <th></th>
                 </tr>
@@ -110,6 +113,16 @@ export function Products() {
                   <tr key={p.id}>
                     <td style={{ fontWeight: 550 }}>{p.name}</td>
                     <td>{money(p.price)}</td>
+                    <td>
+                      {p.trackStock ? (
+                        <>
+                          <span className="mono">{p.stockQuantity}</span>
+                          {p.lowStock && <span className="badge badge-amber" style={{ marginLeft: 8 }}>Repor</span>}
+                        </>
+                      ) : (
+                        <span className="faint">não controlado</span>
+                      )}
+                    </td>
                     <td>
                       {p.active ? (
                         <span className="badge badge-green">Ativo</span>
@@ -123,6 +136,7 @@ export function Products() {
                           Vender
                         </button>
                       )}
+                      <button className="btn btn-ghost btn-sm" onClick={() => setStockOf(p)}>Estoque</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>Editar</button>
                     </td>
                   </tr>
@@ -183,11 +197,22 @@ export function Products() {
         )}
       </div>
 
+      {stockOf && (
+        <StockModal
+          product={stockOf}
+          onClose={() => setStockOf(null)}
+          onChanged={reload}
+        />
+      )}
+
       {selling && (
         <SellProductModal
           product={selling}
           onClose={() => setSelling(null)}
-          onSold={() => setSalesVersion((v) => v + 1)}
+          onSold={() => {
+            setSalesVersion((v) => v + 1);
+            reload(); // a venda deu baixa no estoque
+          }}
         />
       )}
 

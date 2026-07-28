@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +41,7 @@ class ProductSaleServiceTest {
     @Mock private ProductRepository productRepository;
     @Mock private ProfessionalRepository professionalRepository;
     @Mock private CashRegisterService cashRegisterService;
+    @Mock private StockService stockService;
 
     @InjectMocks private ProductSaleService service;
 
@@ -134,6 +136,33 @@ class ProductSaleServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
 
         verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("venda dá baixa no estoque, amarrada à venda gravada (V24)")
+    void sell_registersStockExit() {
+        Product p = givenActiveProduct("Pomada", "29.90");
+        givenCashRegisterAccepts();
+
+        ProductSale sale = service.sell(productId, 2, null, CashPaymentMethod.DINHEIRO);
+
+        verify(stockService).requireAvailable(p, 2);
+        verify(stockService).registerSale(p, 2, sale.getId());
+    }
+
+    @Test
+    @DisplayName("estoque insuficiente recusa a venda antes de tocar no caixa")
+    void sell_insufficientStock_isRejectedBeforeCharging() {
+        Product p = givenActiveProduct("Pomada", "29.90");
+        doThrow(new IllegalArgumentException("Estoque insuficiente de \"Pomada\": restam 1 unidade(s)."))
+                .when(stockService).requireAvailable(p, 5);
+
+        assertThatThrownBy(() -> service.sell(productId, 5, null, CashPaymentMethod.DINHEIRO))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Estoque insuficiente");
+
+        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any());
+        verify(productSaleRepository, never()).save(any());
     }
 
     @Test

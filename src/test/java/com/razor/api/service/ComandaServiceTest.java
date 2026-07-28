@@ -3,6 +3,7 @@ package com.razor.api.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -56,6 +57,7 @@ class ComandaServiceTest {
     @Mock private ServiceOfferingRepository serviceOfferingRepository;
     @Mock private ProfessionalRepository professionalRepository;
     @Mock private CashRegisterService cashRegisterService;
+    @Mock private StockService stockService;
 
     @InjectMocks private ComandaService service;
 
@@ -194,6 +196,30 @@ class ComandaServiceTest {
                 });
         // e o caixa recebeu apenas UM lançamento, com o total da comanda
         verify(cashRegisterService, times(1)).recordMovement(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("fechar comanda dá baixa no estoque só dos itens de produto (V24)")
+    void close_registersStockExitForProductsOnly() {
+        openComanda(null);
+        ComandaItem servico = item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1);
+        ComandaItem produto = item(ComandaItem.Kind.PRODUTO, "Pomada", "29.90", 2);
+        givenItems(servico, produto);
+        givenCashAccepts();
+        when(productSaleRepository.save(any(ProductSale.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Product p = Product.builder()
+                .id(produto.getReferenceId()).barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)
+                .name("Pomada").price(new BigDecimal("29.90")).active(true)
+                .trackStock(true).stockQuantity(10).build();
+        when(productRepository.findByIdAndBarbershopId(eq(produto.getReferenceId()), any()))
+                .thenReturn(Optional.of(p));
+
+        service.close(comandaId, CashPaymentMethod.DINHEIRO);
+
+        verify(stockService).registerSale(eq(p), eq(2), any());
+        // serviço não tem estoque para baixar
+        verify(stockService, times(1)).registerSale(any(), anyInt(), any());
     }
 
     @Test

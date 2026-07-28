@@ -47,6 +47,7 @@ public class ComandaService {
     private final ServiceOfferingRepository serviceOfferingRepository;
     private final ProfessionalRepository professionalRepository;
     private final CashRegisterService cashRegisterService;
+    private final StockService stockService;
 
     // ---------- consultas ----------
 
@@ -125,6 +126,9 @@ public class ComandaService {
         if (!product.isActive()) {
             throw new IllegalArgumentException("O produto \"" + product.getName() + "\" esta inativo.");
         }
+        // Aviso cedo: melhor barrar aqui do que deixar o item entrar e o fechamento falhar
+        // depois, com o cliente ja esperando para pagar.
+        stockService.requireAvailable(product, quantity);
         return saveItem(comanda, ComandaItem.Kind.PRODUTO, product.getId(), product.getName(),
                 product.getPrice(), quantity);
     }
@@ -195,7 +199,7 @@ public class ComandaService {
                                       CashPaymentMethod method, UUID movementId, LocalDateTime now) {
         for (ComandaItem item : items) {
             if (item.getKind() != ComandaItem.Kind.PRODUTO) continue;
-            productSaleRepository.save(ProductSale.builder()
+            ProductSale sale = productSaleRepository.save(ProductSale.builder()
                     .barbershopId(comanda.getBarbershopId())
                     .productId(item.getReferenceId())
                     .productName(item.getDescription())
@@ -209,6 +213,11 @@ public class ComandaService {
                     .saleDate(comanda.getComandaDate())
                     .soldAt(now)
                     .build());
+
+            // Baixa no estoque pelo mesmo caminho da venda de balcao. O produto pode ter saido
+            // do catalogo entre a entrada do item e o fechamento — nesse caso nao ha o que baixar.
+            productRepository.findByIdAndBarbershopId(item.getReferenceId(), comanda.getBarbershopId())
+                    .ifPresent(product -> stockService.registerSale(product, item.getQuantity(), sale.getId()));
         }
     }
 

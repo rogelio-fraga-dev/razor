@@ -261,6 +261,22 @@ export interface Product {
   name: string;
   price: number;
   active: boolean;
+  /** Estoque é opt-in (V24): desligado, a venda nunca é bloqueada por saldo. */
+  trackStock: boolean;
+  stockQuantity: number;
+  minStock: number;
+  lowStock: boolean;
+}
+
+export type StockMovementType = "ENTRADA" | "SAIDA" | "AJUSTE";
+
+export interface StockMovement {
+  id: string;
+  type: StockMovementType;
+  quantity: number;
+  resultingStock: number;
+  note: string | null;
+  createdAt: string;
 }
 
 /** Venda de balcão (V21). Nome e preço são os congelados no momento da venda. */

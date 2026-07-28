@@ -237,7 +237,13 @@ uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Impleme
       painel). _(Falta: identificação assinante x avulso no agendamento e cobrança recorrente — Fase 4.)_
 - [~] **Relatórios/DRE**: financeiro estruturado e comissões prontos no painel.
       _(Falta: DRE e dashboard de retenção — "quem some", frequência.)_
-- [ ] **Estoque** (opcional): reposição e saídas dos produtos do balcão.
+- [x] **Estoque (V24)** — reposição, perda, ajuste por contagem física, **baixa automática** na
+      venda (balcão e comanda passam pelo mesmo caminho) e alerta de nível de reposição.
+      **Opt-in por produto** (`track_stock`, padrão desligado): barbearia que não conta estoque
+      vende exatamente como antes, e nada bloqueia por saldo. Ligado, a venda só passa se houver
+      saldo — a conferência acontece **antes de cobrar**, para não deixar saldo negativo.
+      Toda mudança grava linha em `stock_movements` com o saldo resultante: sem histórico,
+      "meu estoque está errado" não tem como ser investigado.
 - [ ] **Textos e dados do bot por tenant (ampliar)** 🎯 *em andamento*: hoje só há 5 campos
       (endereço, mapa, serviços, agendamento, Instagram) e **muita coisa continua hardcoded**
       — nome "Barbearia Ficticia" em 6 pontos, **chave PIX falsa**, horário 09–19h e a
@@ -283,7 +289,8 @@ assinaturas) sem sair do Razor.
       decidir. Ocupação = horas vendidas / horas disponíveis por barbeiro.
 - [ ] **Contas a pagar e contas recorrentes** (aluguel, produtos, energia) — fecha o
       financeiro de verdade, não só a receita.
-- [ ] **Estoque**: produtos, estoque mínimo com alerta, **baixa automática** na venda.
+- [x] **Estoque**: produtos, estoque mínimo com alerta e **baixa automática** na venda — feito na
+      V24 (ver Fase 2).
 - [ ] **Vales e adiantamentos** dos profissionais, descontados na comissão.
 - [~] **Comissão por produto** ✅ (V23: `product_commission_percent` por barbeiro) + **por serviço
       avulso** e **comissões pagas** (histórico de quitação) — estes dois ainda pendentes.

@@ -41,6 +41,28 @@ public class Product {
     @Column(nullable = false)
     private boolean active = true;
 
+    // --- Estoque (V24). Opt-in: o produto so e controlado se o dono ligar. ---
+
+    /** Controla estoque deste produto? Desligado, a venda nunca e bloqueada por saldo. */
+    @Builder.Default
+    @Column(name = "track_stock", nullable = false)
+    private boolean trackStock = false;
+
+    /** Saldo atual. So tem significado com {@link #trackStock} ligado. */
+    @Builder.Default
+    @Column(name = "stock_quantity", nullable = false)
+    private Integer stockQuantity = 0;
+
+    /** Abaixo disto o painel avisa que e hora de repor. 0 = sem alerta. */
+    @Builder.Default
+    @Column(name = "min_stock", nullable = false)
+    private Integer minStock = 0;
+
+    /** True quando o produto e controlado e o saldo caiu no nivel de reposicao. */
+    public boolean isLowStock() {
+        return trackStock && minStock > 0 && stockQuantity <= minStock;
+    }
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

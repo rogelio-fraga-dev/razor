@@ -36,6 +36,7 @@ public class ProductSaleService {
     private final ProductRepository productRepository;
     private final ProfessionalRepository professionalRepository;
     private final CashRegisterService cashRegisterService;
+    private final StockService stockService;
 
     @Transactional
     public ProductSale sell(UUID productId, int quantity, UUID professionalId, CashPaymentMethod method) {
@@ -54,6 +55,9 @@ public class ProductSaleService {
             throw new IllegalArgumentException("O produto \"" + product.getName() + "\" esta inativo.");
         }
         requireProfessionalOfThisShop(professionalId, shop);
+        // Confere o saldo antes de cobrar: venda sem estoque falha inteira, em vez de cobrar
+        // o cliente e deixar o saldo negativo.
+        stockService.requireAvailable(product, quantity);
 
         BigDecimal unitPrice = product.getPrice();
         BigDecimal total = unitPrice.multiply(BigDecimal.valueOf(quantity));
@@ -77,6 +81,8 @@ public class ProductSaleService {
                 .saleDate(AppointmentDates.today())
                 .soldAt(now)
                 .build());
+
+        stockService.registerSale(product, quantity, sale.getId());
 
         log.info("[VENDA] {} por {} ({}) no tenant {}", description, total, method, shop);
         return sale;

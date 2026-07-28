@@ -5,9 +5,11 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /** Produto do balcao como o painel consome. */
-public record ProductResponse(UUID id, String name, BigDecimal price, boolean active) {
+public record ProductResponse(UUID id, String name, BigDecimal price, boolean active,
+                              boolean trackStock, int stockQuantity, int minStock, boolean lowStock) {
 
     public static ProductResponse from(Product p) {
-        return new ProductResponse(p.getId(), p.getName(), p.getPrice(), p.isActive());
+        return new ProductResponse(p.getId(), p.getName(), p.getPrice(), p.isActive(),
+                p.isTrackStock(), p.getStockQuantity(), p.getMinStock(), p.isLowStock());
     }
 }
