@@ -11,6 +11,7 @@ import com.razor.api.model.ProductSale;
 import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.repository.ProductSaleRepository;
 import com.razor.api.repository.ProfessionalRepository;
+import com.razor.api.repository.ServiceOfferingRepository;
 import com.razor.api.service.CommissionService.ProfessionalCommission;
 import com.razor.api.service.PricingService.ServiceCategory;
 import com.razor.api.util.AppointmentDates;
@@ -40,6 +41,7 @@ class CommissionServiceTest {
     @Mock private AppointmentRepository appointmentRepository;
     @Mock private ProfessionalRepository professionalRepository;
     @Mock private ProductSaleRepository productSaleRepository;
+    @Mock private ServiceOfferingRepository serviceOfferingRepository;
     @Mock private PricingService pricingService;
 
     @InjectMocks private CommissionService service;
@@ -142,6 +144,59 @@ class CommissionServiceTest {
         assertThat(out).contains("Rafael").contains("50%")
                 .contains(String.format("%.2f", 17.50)) // 35 * 50%
                 .contains("Total de comissões");
+    }
+
+    // --- Comissao por servico (V27) ---
+
+    @Test
+    @DisplayName("serviço com percentual próprio usa o dele; os demais usam o do barbeiro")
+    void serviceCommission_ownPercent_overridesProfessional() {
+        LocalDate hoje = AppointmentDates.today();
+        UUID rafael = UUID.randomUUID();
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+                appt(rafael, "Corte", hoje),    // 35, com percentual próprio de 20%
+                appt(rafael, "Barba", hoje)));  // 30, sem percentual próprio -> 50% do barbeiro
+        when(serviceOfferingRepository.findByBarbershopId(any())).thenReturn(List.of(
+                com.razor.api.model.ServiceOffering.builder()
+                        .id(UUID.randomUUID()).name("Corte")
+                        .commissionPercent(new BigDecimal("20")).build()));
+        givenPrices();
+
+        ProfessionalCommission c = service.commissionsForDay(hoje).get(0);
+
+        // Corte 35 × 20% = 7,00  +  Barba 30 × 50% = 15,00
+        assertThat(c.comissao()).isEqualByComparingTo("22.00");
+        assertThat(c.faturamento()).isEqualByComparingTo("65.00");
+    }
+
+    @Test
+    @DisplayName("sem percentual por serviço, tudo continua no percentual do barbeiro")
+    void serviceCommission_noneConfigured_keepsProfessionalPercent() {
+        LocalDate hoje = AppointmentDates.today();
+        UUID rafael = UUID.randomUUID();
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        when(serviceOfferingRepository.findByBarbershopId(any())).thenReturn(List.of());
+        givenPrices();
+
+        assertThat(service.commissionsForDay(hoje).get(0).comissao()).isEqualByComparingTo("17.50");
+    }
+
+    @Test
+    @DisplayName("serviço com 0% não paga comissão — diferente de não ter percentual próprio")
+    void serviceCommission_zeroPercent_paysNothing() {
+        LocalDate hoje = AppointmentDates.today();
+        UUID rafael = UUID.randomUUID();
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        when(serviceOfferingRepository.findByBarbershopId(any())).thenReturn(List.of(
+                com.razor.api.model.ServiceOffering.builder()
+                        .id(UUID.randomUUID()).name("Corte")
+                        .commissionPercent(BigDecimal.ZERO).build()));
+        givenPrices();
+
+        assertThat(service.commissionsForDay(hoje).get(0).comissao()).isEqualByComparingTo("0.00");
     }
 
     // --- Comissao de produto vendido no balcao (V21) ---

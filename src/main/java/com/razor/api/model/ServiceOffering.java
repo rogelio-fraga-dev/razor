@@ -44,6 +44,14 @@ public class ServiceOffering {
     @Column(nullable = false)
     private boolean active = true;
 
+    /**
+     * Percentual de comissao do barbeiro NESTE servico (V27). {@code null} = usa o percentual
+     * geral do profissional (V23), preservando o comportamento de quem nunca configurou por
+     * servico. {@code 0} e diferente de nulo: significa "este servico nao paga comissao".
+     */
+    @Column(name = "commission_percent", precision = 5, scale = 2)
+    private BigDecimal commissionPercent;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

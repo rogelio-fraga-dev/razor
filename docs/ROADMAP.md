@@ -470,7 +470,54 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
 
 ---
 
-### 👤 Contas do CLIENTE FINAL (nível 3) — *nova frente, Fase 3/4*
+### 🎯 Frente do CLIENTE FINAL — sequência de execução *(definida em 2026-07-27)*
+
+> **Por que esta frente existe:** hoje todo o valor do Razor está no painel do dono. O cliente
+> final só existe como telefone no WhatsApp. O concorrente (CashBarber) tem app do cliente com
+> plano visível, agendamento self-service e pagamento — é a maior lacuna competitiva.
+>
+> **Referência analisada:** 13 telas do app do cliente do CashBarber (celular). O modelo de
+> plano deles é mais rico do que o nosso `subscription_plans` atual:
+> - Benefício **por serviço**: `100% OFF` + cota (`999 gratuitos por mês`) + restrição de dia
+>   (`Segunda, terça ou quarta`)
+> - Benefício **por categoria**: `Extras 10% OFF`, `Cosméticos 10% OFF` (produtos)
+> - **Regra de agenda**: `Agenda liberada com 7 dias de antecedência`
+> - Preço sempre exibido como `De ~~R$ 35,00~~ / Por R$ 0,00`; total do agendamento já com desconto
+> - Upsell no agendamento: *"Sentimos sua falta! Você realizou X faz tempo, deseja adicionar?"*
+>
+> **A ordem abaixo é de dependência, não de preferência** — cada item destrava o seguinte.
+> Construir fora de ordem gera retrabalho.
+
+- [~] **1. Motor de benefícios de plano + comissão por serviço (V27)** — *em curso*
+      `plan_benefits` (alvo = item específico **ou** todos de um tipo, desconto %, cota mensal,
+      dias da semana) e `services.commission_percent` (o dono define a comissão de cada serviço;
+      nulo = usa o percentual geral do barbeiro, V23). `PlanPricingService` resolve o preço do
+      item para o cliente: benefício específico ganha do geral, respeita dia e cota.
+      _Cota só é verificada em serviço (contando atendimentos do mês); venda de produto não
+      guarda o cliente, e no modelo real produto ganha percentual, não cota._
+- [ ] **2. Três planos realistas** (Bronze / Prata / Ouro) com corte ilimitado e valores de
+      mercado, usando o motor acima. Servem de exemplo pronto e de teste do motor.
+- [ ] **3. Comanda ↔ agendamento** — vincular a comanda ao agendamento que a originou. Fecha a
+      lacuna conhecida (serviço em comanda fora do `/reports/financial`) **sem** risco de contar
+      duas vezes, porque passa a existir o vínculo que hoje falta.
+- [ ] **4. Contas do cliente final** (`customer_accounts`) — login próprio, vínculo ao telefone
+      do WhatsApp, histórico. **Opcional**: quem só quer marcar um corte continua sem cadastro.
+- [ ] **5. Pagamento pelo cliente** — escolher entre **pagar no app** ou **pagar ao barbeiro**.
+      Cartão **tokenizado no gateway**; o número **nunca** toca nosso banco nem nossos logs.
+      Idempotência na cobrança, verificação de assinatura no webhook do gateway, e o pagamento
+      no app entra no caixa como venda igual aos demais.
+- [ ] **6. Bot reconhece e recomenda** — cliente novo agenda normalmente e, ao final, o bot
+      convida a criar conta para ver planos e descontos. Assinante é reconhecido pelo telefone
+      e já recebe o preço com benefício na conversa.
+- [ ] **7. Três sites white-label** — templates prontos (ver *Sistema de templates* acima),
+      com vitrine de planos e agendamento online ligado à mesma agenda do bot.
+- [ ] **8. Melhorias sobre a base** — upsell "sentimos sua falta" no agendamento, seleção de
+      múltiplos serviços numa marcação, "sem preferência" de barbeiro, e agenda liberada por
+      antecedência do plano (`booking_window_days`, já criado na V27).
+
+---
+
+### 👤 Contas do CLIENTE FINAL (nível 3) — *detalhamento do item 4 acima*
 
 > Hoje o cliente final só existe como telefone no WhatsApp. Para **assinar planos, salvar
 > cartão e se identificar no site**, ele precisa de conta própria — sem nunca virar

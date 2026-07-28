@@ -3,9 +3,11 @@ package com.razor.api.service;
 import com.razor.api.model.Appointment;
 import com.razor.api.model.Professional;
 import com.razor.api.model.ProductSale;
+import com.razor.api.model.ServiceOffering;
 import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.repository.ProductSaleRepository;
 import com.razor.api.repository.ProfessionalRepository;
+import com.razor.api.repository.ServiceOfferingRepository;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
 import java.math.BigDecimal;
@@ -15,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -37,6 +40,7 @@ public class CommissionService {
     private final AppointmentRepository appointmentRepository;
     private final ProfessionalRepository professionalRepository;
     private final ProductSaleRepository productSaleRepository;
+    private final ServiceOfferingRepository serviceOfferingRepository;
     private final PricingService pricingService;
 
     /**
@@ -73,6 +77,14 @@ public class CommissionService {
                 .collect(Collectors.toMap(Professional::getId, p -> p, (a, b) -> a));
         Map<PricingService.ServiceCategory, BigDecimal> precos = pricingService.resolvePrices();
 
+        // Percentual proprio de cada servico (V27), por nome — o agendamento guarda o nome.
+        Map<String, BigDecimal> pctPorServico = serviceOfferingRepository.findByBarbershopId(shop).stream()
+                .filter(s -> s.getCommissionPercent() != null)
+                .collect(Collectors.toMap(
+                        s -> s.getName().trim().toLowerCase(Locale.ROOT),
+                        ServiceOffering::getCommissionPercent,
+                        (a, b) -> a));
+
         Map<UUID, Acumulador> porProf = new LinkedHashMap<>();
         for (Appointment ag : appointmentRepository.findByBarbershopId(shop)) {
             UUID pid = ag.getProfessionalId();
@@ -84,6 +96,15 @@ public class CommissionService {
             Acumulador acc = porProf.computeIfAbsent(pid, k -> new Acumulador());
             acc.atendimentos++;
             acc.faturamento = acc.faturamento.add(valor);
+
+            // A comissao do servico e apurada aqui, atendimento a atendimento, porque cada
+            // servico pode ter percentual proprio (V27). Sem percentual proprio, vale o do
+            // barbeiro — o comportamento anterior.
+            Professional prof = profs.get(pid);
+            BigDecimal servicePct = pctPorServico.get(nomeServico(ag));
+            BigDecimal pct = servicePct != null ? servicePct : percentOf(prof);
+            acc.comissaoServicos = acc.comissaoServicos.add(
+                    valor.multiply(pct).divide(CEM, 2, RoundingMode.HALF_UP));
         }
 
         // Vendas de balcao atribuidas a um barbeiro (V21). Venda sem barbeiro nao gera comissao.
@@ -106,9 +127,9 @@ public class CommissionService {
             BigDecimal faturamento = entry.getValue().faturamento.setScale(2, RoundingMode.HALF_UP);
             BigDecimal faturamentoProdutos = entry.getValue().faturamentoProdutos.setScale(2, RoundingMode.HALF_UP);
 
-            // Cada parcela arredonda por conta propria, como linha de nota — somar antes de
-            // arredondar mudaria o centavo dependendo do mix de servico e produto.
-            BigDecimal comissaoServicos = faturamento.multiply(pct).divide(CEM, 2, RoundingMode.HALF_UP);
+            // Servicos ja vieram apurados atendimento a atendimento (cada servico pode ter o
+            // seu percentual, V27). Produtos usam a taxa de produto do barbeiro (V23).
+            BigDecimal comissaoServicos = entry.getValue().comissaoServicos.setScale(2, RoundingMode.HALF_UP);
             BigDecimal comissaoProdutos = faturamentoProdutos.multiply(produtoPct).divide(CEM, 2, RoundingMode.HALF_UP);
 
             resultado.add(new ProfessionalCommission(entry.getKey(), nome, pct,
@@ -149,6 +170,14 @@ public class CommissionService {
         return sb.toString();
     }
 
+    private String nomeServico(com.razor.api.model.Appointment a) {
+        return a.getService() == null ? "" : a.getService().trim().toLowerCase(Locale.ROOT);
+    }
+
+    private BigDecimal percentOf(Professional p) {
+        return (p != null && p.getCommissionPercent() != null) ? p.getCommissionPercent() : BigDecimal.ZERO;
+    }
+
     private String formatPercent(BigDecimal pct) {
         return pct.stripTrailingZeros().toPlainString();
     }
@@ -156,6 +185,7 @@ public class CommissionService {
     private static final class Acumulador {
         private int atendimentos = 0;
         private BigDecimal faturamento = BigDecimal.ZERO;
+        private BigDecimal comissaoServicos = BigDecimal.ZERO;
         private int produtos = 0;
         private BigDecimal faturamentoProdutos = BigDecimal.ZERO;
     }
