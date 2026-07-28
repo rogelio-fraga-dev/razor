@@ -15,7 +15,10 @@ export function SpeechModePicker({
 
   return (
     <div className="stack" style={{ gap: 12 }}>
-      <div className="mode-grid">
+      {/* O grupo precisa de nome acessível: quem navega pela lista de botões do leitor de tela
+          ouvia cinco modos soltos, sem saber que estava escolhendo o tom de voz do assistente —
+          esse contexto vive fora do componente. */}
+      <div className="mode-grid" role="group" aria-label="Modo de fala do assistente">
         {SPEECH_MODES.map((m) => (
           <button
             key={m.id}

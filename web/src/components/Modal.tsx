@@ -11,23 +11,40 @@ export function Modal({
   onClose,
   children,
   footer,
+  size = "md",
+  onRequestClose,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** `wide` para formulários com colunas, QR code e o assistente de configuração. */
+  size?: "md" | "wide";
+  /**
+   * Interceptador de fechamento por clique fora, Esc e ✕ — se devolver `false`, o diálogo
+   * NÃO fecha. Existe para quem tem trabalho não salvo dentro: o assistente de configuração
+   * só grava no último passo, e um clique fora do diálogo descartava tudo em silêncio.
+   */
+  onRequestClose?: () => boolean;
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
+  const tryClose = () => {
+    if (onRequestClose && !onRequestClose()) return;
+    onClose();
+  };
 
   // Foco entra no diálogo ao abrir e volta para onde estava ao fechar — sem isso, quem navega
   // por teclado continua "na página de trás" depois que o modal aparece.
+  //
+  // O foco vai para o TÍTULO, não para o primeiro focável. O primeiro focável no DOM é sempre o
+  // botão ✕ (ele vem antes do corpo), então o primeiro Enter de quem navega por teclado fechava
+  // o diálogo sem querer. Focar o título também faz o leitor de tela anunciar do que se trata.
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
-    const first = dialogRef.current?.querySelector<HTMLElement>(
-      'input, select, textarea, button, [href], [tabindex]:not([tabindex="-1"])',
-    );
-    (first ?? dialogRef.current)?.focus();
+    (titleRef.current ?? dialogRef.current)?.focus();
     return () => previouslyFocused?.focus?.();
   }, []);
 
@@ -35,7 +52,7 @@ export function Modal({
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.stopPropagation();
-      onClose();
+      tryClose();
       return;
     }
     if (e.key !== "Tab" || !dialogRef.current) return;
@@ -59,10 +76,10 @@ export function Modal({
   };
 
   return (
-    <div className="modal-overlay" onMouseDown={onClose}>
+    <div className="modal-overlay" onMouseDown={tryClose}>
       <div
         ref={dialogRef}
-        className="modal"
+        className={`modal${size === "wide" ? " modal-wide" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -71,8 +88,10 @@ export function Modal({
         onKeyDown={onKeyDown}
       >
         <div className="modal-head">
-          <h3 id={titleId}>{title}</h3>
-          <button className="iconbtn" onClick={onClose} aria-label="Fechar">
+          <h3 id={titleId} ref={titleRef} tabIndex={-1} style={{ outline: "none" }}>
+            {title}
+          </h3>
+          <button className="iconbtn" onClick={tryClose} aria-label="Fechar">
             ✕
           </button>
         </div>

@@ -3,6 +3,7 @@
 // Substitui o campo de texto livre "Dias de funcionamento". O texto parecia inofensivo mas era a
 // causa de um bug real: ninguém interpretava a frase, então a agenda ignorava o dia da semana e o
 // bot oferecia horário no domingo enquanto dizia ao cliente que abre de segunda a sábado.
+import { useId } from "react";
 import type { Weekday } from "../api/types";
 
 /** ISO: 1=segunda … 7=domingo, igual a java.time.DayOfWeek. */
@@ -23,6 +24,9 @@ interface Props {
 }
 
 export function WeekdayPicker({ value, onChange, label = "Dias de funcionamento" }: Props) {
+  const errorId = useId();
+  const vazio = value.length === 0;
+
   const toggle = (day: Weekday) => {
     const next = value.includes(day) ? value.filter((d) => d !== day) : [...value, day];
     onChange([...next].sort((a, b) => a - b));
@@ -30,10 +34,15 @@ export function WeekdayPicker({ value, onChange, label = "Dias de funcionamento"
 
   return (
     <div className="field">
-      {/* fieldset/legend em vez de <label>: um rótulo só não pode descrever sete controles. */}
-      <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+      {/* fieldset/legend em vez de <label>: um rótulo só não pode descrever sete controles.
+          O role="group" interno saiu: o fieldset já expõe agrupamento nativo, e os dois juntos
+          faziam alguns leitores anunciarem "grupo, grupo". */}
+      <fieldset
+        style={{ border: 0, padding: 0, margin: 0 }}
+        aria-describedby={vazio ? errorId : undefined}
+      >
         <legend className="field-legend">{label}</legend>
-        <div className="chip-row" role="group">
+        <div className="chip-row">
           {DAYS.map((d) => {
             const on = value.includes(d.value);
             return (
@@ -51,8 +60,10 @@ export function WeekdayPicker({ value, onChange, label = "Dias de funcionamento"
           })}
         </div>
       </fieldset>
-      {value.length === 0 && (
-        <p className="error" style={{ marginTop: 8 }}>
+      {vazio && (
+        // role="alert" para quem desmarca o último dia ser avisado na hora, e não só ao navegar
+        // de volta ao campo.
+        <p id={errorId} className="error" role="alert" style={{ marginTop: 8 }}>
           Sem nenhum dia marcado o bot não oferece horário nenhum. Marque ao menos um.
         </p>
       )}

@@ -47,26 +47,33 @@ export function AdminsEditor({ reloadKey = 0 }: { reloadKey?: number }) {
         Telefones tratados como admin no WhatsApp (recebem avisos e usam os comandos de gestão).
         Use o número <strong>pessoal</strong> do dono — não o número do bot.
       </p>
-      <div className="row wrap" style={{ marginBottom: 16 }}>
-        <input
-          className="input grow"
-          style={{ maxWidth: 220 }}
-          placeholder="Telefone (com DDD)"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
-        <input
-          className="input grow"
-          style={{ maxWidth: 200 }}
-          placeholder="Nome (opcional)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+      {/* Rótulos de verdade, não placeholder.
+          Estes dois eram os únicos campos do painel sem <label> nenhum — placeholder some ao
+          digitar e nem todo leitor de tela o expõe como nome do campo. */}
+      <div className="row wrap end" style={{ marginBottom: 16 }}>
+        <div className="field grow" style={{ maxWidth: 220 }}>
+          <label>Telefone (com DDD)
+            <input
+              className="input"
+              inputMode="tel"
+              placeholder="Ex.: 11987654321"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="field grow" style={{ maxWidth: 200 }}>
+          <label>Nome (opcional)
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+        </div>
         <button className="btn btn-primary btn-sm" onClick={add} disabled={busy || !phone.trim()}>
           Adicionar
         </button>
       </div>
-      {formError && <div className="error" style={{ marginBottom: 12 }}>{formError}</div>}
+      {formError && (
+        <div className="error" role="alert" style={{ marginBottom: 12 }}>{formError}</div>
+      )}
 
       {loading ? (
         <div className="muted">Carregando…</div>
@@ -86,7 +93,14 @@ export function AdminsEditor({ reloadKey = 0 }: { reloadKey?: number }) {
                 <div style={{ fontWeight: 550 }}>{a.phone}</div>
                 {a.name && <div className="faint" style={{ fontSize: 13 }}>{a.name}</div>}
               </div>
-              <button className="btn btn-danger btn-sm" onClick={() => remove(a.id)}>Remover</button>
+              {/* Vários "Remover" idênticos na lista de botões do leitor de tela sem o número. */}
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={() => remove(a.id)}
+                aria-label={`Remover admin ${a.phone}`}
+              >
+                Remover
+              </button>
             </div>
           ))}
         </div>

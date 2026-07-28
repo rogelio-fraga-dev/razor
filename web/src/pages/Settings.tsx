@@ -166,10 +166,11 @@ function ProfileCard({ reloadKey }: { reloadKey: number }) {
     () => api.get("/api/admin/barbershop"),
     [reloadKey],
   );
+  const toast = useToast();
   const [name, setName] = useState("");
   const [instance, setInstance] = useState("");
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (data) {
@@ -178,15 +179,17 @@ function ProfileCard({ reloadKey }: { reloadKey: number }) {
     }
   }, [data]);
 
+  // Sucesso é toast, como em todos os outros cards. Este era o único que deixava um "Perfil
+  // salvo." fixo na tela — e, por herdar `.badge`, saía em CAIXA ALTA por acidente de cascata.
   const save = async () => {
     setSaving(true);
-    setMsg(null);
+    setSaveError(null);
     try {
       await api.put("/api/admin/barbershop", { name: name.trim(), whatsappInstance: instance.trim() || null });
-      setMsg({ ok: true, text: "Perfil salvo." });
+      toast.success("Perfil salvo ✓");
       reload();
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof ApiError ? e.message : "Erro ao salvar." });
+      setSaveError(e instanceof ApiError ? e.message : "Erro ao salvar.");
     } finally {
       setSaving(false);
     }
@@ -220,7 +223,7 @@ function ProfileCard({ reloadKey }: { reloadKey: number }) {
               <button className="btn btn-primary" onClick={save} disabled={saving || !name.trim()}>
                 {saving ? "Salvando…" : "Salvar"}
               </button>
-              {msg && <span className={msg.ok ? "badge badge-green" : "error"}>{msg.text}</span>}
+              {saveError && <span className="error" role="alert">{saveError}</span>}
             </div>
           </div>
         )}
@@ -265,20 +268,37 @@ const EMPTY_BOT: BotSettings = {
 
 /** Bloco colapsável — progressive disclosure: só "Identidade" e "Pagamento" abrem por padrão. */
 function Section({
+  index,
   title,
   hint,
   open,
+  done,
   children,
 }: {
+  /** Numeração editorial (01/, 02/…) — dá ritmo a seis seções hoje indistinguíveis. */
+  index?: number;
   title: string;
   hint?: string;
   open?: boolean;
+  /** Preenchida? Sem isto, "Pagamento" cheio e "Pagamento" vazio são visualmente idênticos. */
+  done?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <details className="cfg-section" open={open}>
       <summary>
+        {index !== undefined && (
+          <span className="cfg-section-n mono" aria-hidden="true">
+            {String(index).padStart(2, "0")}/
+          </span>
+        )}
         <span>{title}</span>
+        {done !== undefined && (
+          <span
+            className={`cfg-section-dot ${done ? "done" : ""}`}
+            aria-label={done ? "preenchida" : "em branco"}
+          />
+        )}
         {hint && <span className="faint">{hint}</span>}
       </summary>
       <div className="stack" style={{ paddingTop: 14 }}>{children}</div>
@@ -440,14 +460,13 @@ function BotCard({
     <div className="card">
       <div className="card-head">
         <h3>O que o bot fala</h3>
-        <button className="btn btn-primary btn-sm" onClick={onOpenWizard} disabled={loading || !!error}>
-          ✨ Abrir assistente
+        <button className="btn btn-ghost btn-sm" onClick={onOpenWizard} disabled={loading || !!error}>
+          Abrir assistente
         </button>
       </div>
       <div className="card-pad">
         <p className="muted" style={{ margin: "0 0 14px", fontSize: 14 }}>
-          Use o <strong>assistente</strong> para configurar passo a passo, ou ajuste campo a
-          campo abaixo. Campo vazio usa o padrão do sistema.
+          Campo vazio usa o padrão do sistema.
         </p>
         {loading ? (
           <div className="stack" style={{ gap: 10 }}>
@@ -457,20 +476,20 @@ function BotCard({
           <div className="error">{error}</div>
         ) : (
           <div className="stack" style={{ gap: 10 }}>
-            <Section title="Identidade" hint="como a barbearia se apresenta" open>
+            <Section index={1} title="Identidade" hint="como a barbearia se apresenta" open done={!!(form.displayName ?? "").trim()}>
               {field("displayName", "Nome da barbearia", "Como o bot chama sua barbearia")}
               {field("addressText", "Endereço")}
               {field("addressMapsUrl", "Link do mapa")}
               {field("instagramUrl", "Instagram")}
             </Section>
 
-            <Section title="Pagamento" hint="PIX enviado ao cliente" open>
+            <Section index={2} title="Pagamento" hint="PIX enviado ao cliente" open done={!!(form.pixKey ?? "").trim()}>
               {field("pixKey", "Chave PIX", "CNPJ, e-mail, telefone ou aleatória")}
               {area("pixCopyPaste", "PIX copia-e-cola (opcional)", 3, "Cole aqui o código do seu banco")}
               {area("paymentInfo", "Formas de pagamento", 2, "Ex.: PIX, dinheiro, débito e crédito")}
             </Section>
 
-            <Section title="Funcionamento" hint="horários que a IA oferece">
+            <Section index={3} title="Funcionamento" hint="horários que a IA oferece" done={(form.workingWeekdays ?? []).length > 0}>
               <div className="form-grid">
                 {field("openingTime", "Abre às", "09:00")}
                 {field("closingTime", "Fecha às", "19:00")}
@@ -482,19 +501,19 @@ function BotCard({
               {area("cancellationPolicy", "Política de cancelamento/atraso", 2, "Ex.: cancele com 2h de antecedência")}
             </Section>
 
-            <Section title="Serviços e preços" hint="tabela enviada no menu">
+            <Section index={4} title="Serviços e preços" hint="tabela enviada no menu" done={!!(form.servicesText ?? "").trim()}>
               {area("servicesText", "Tabela de serviços / preços", 5)}
               {field("scheduleUrl", "Link de agendamento (opcional)")}
             </Section>
 
-            <Section title="Mensagens automáticas" hint="saudação, lembrete, avaliação">
+            <Section index={5} title="Mensagens automáticas" hint="saudação, lembrete, avaliação" done={!!(form.welcomeText ?? "").trim()}>
               {area("welcomeText", "Saudação inicial", 2, "Primeira mensagem ao cliente novo")}
               {area("reminderText", "Lembrete (1h antes)", 2)}
               {area("reviewText", "Pedido de avaliação (após o corte)", 2)}
               {area("fidelityRewardText", "Recompensa de fidelidade (10 pontos)", 2)}
             </Section>
 
-            <Section title="Personalidade da IA" hint="tom de voz">
+            <Section index={6} title="Personalidade da IA" hint="tom de voz" done={!!(form.botPersona ?? "").trim()}>
               <SpeechModePicker value={form.botPersona ?? ""} onChange={(v) => set("botPersona", v)} />
             </Section>
 
@@ -564,42 +583,41 @@ export function Settings() {
   };
 
   return (
-    <Layout title="Configurações">
+    <Layout
+      title="Configurações"
+      actions={
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={() => openWizardAt(0)}
+          disabled={bot.loading || !!bot.error}
+        >
+          {config.ready ? "Revisar configuração" : "Continuar configuração"}
+        </button>
+      }
+    >
       {/* O que falta vem ANTES dos campos: quem abre esta tela quer saber o que está pendente,
           não caçar o campo vazio entre trinta preenchidos. */}
       {carregado && <ConfigChecklist status={config} onGoToStep={openWizardAt} />}
 
-      <div className="card cfg-block">
-        <div className="card-head">
-          <h3>Sua barbearia no automático</h3>
-          <div className="row" style={{ gap: 10 }}>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => openWizardAt(0)}
-              disabled={bot.loading || !!bot.error}
-            >
-              ✨ {config.ready ? "Revisar tudo" : "Continuar configuração"}
-            </button>
-            <span className="badge badge-muted">tudo em um lugar</span>
-          </div>
+      {/* Sem o card externo: os cards abaixo já são caixas, e envolvê-los em mais uma criava
+          quatro níveis de moldura — o input acabava a 112px da borda da tela, atravessando cinco
+          bordas de 1px. O CTA subiu para a barra de ações da tela, onde ele é procurado. */}
+      <div className="cfg-body">
+        <div className="cfg-lane">
+          <BotStatusCard reloadKey={configVersion} />
+          <BotCard
+            data={bot.data}
+            loading={bot.loading}
+            error={bot.error}
+            onSaved={refreshAll}
+            onOpenWizard={() => openWizardAt(0)}
+          />
         </div>
-        <div className="cfg-body">
-          <div className="cfg-lane">
-            <BotStatusCard reloadKey={configVersion} />
-            <BotCard
-              data={bot.data}
-              loading={bot.loading}
-              error={bot.error}
-              onSaved={refreshAll}
-              onOpenWizard={() => setWizardOpen(true)}
-            />
-          </div>
-          <div className="cfg-lane">
-            <WhatsAppCard reloadKey={configVersion} />
-            <ProfileCard reloadKey={configVersion} />
-            <GoalsCard reloadKey={configVersion} />
-            <AdminsCard reloadKey={configVersion} />
-          </div>
+        <div className="cfg-lane">
+          <WhatsAppCard reloadKey={configVersion} />
+          <ProfileCard reloadKey={configVersion} />
+          <GoalsCard reloadKey={configVersion} />
+          <AdminsCard reloadKey={configVersion} />
         </div>
       </div>
 

@@ -8,7 +8,7 @@
 //  2. Ao concluir, o back manda o resumo de boas-vindas ao dono (WelcomeBriefService) e a tela
 //     de Configurações atrás recarrega, já mostrando tudo que foi preenchido.
 import { WeekdayPicker } from "./WeekdayPicker";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Modal } from "./Modal";
 import { SpeechModePicker } from "./SpeechModePicker";
 import { WhatsAppPairing } from "./WhatsAppPairing";
@@ -43,14 +43,53 @@ export function ConfigWizard({
   const [draft, setDraft] = useState<BotSettings>(initial);
   const [step, setStep] = useState(startAt);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
-  const set = (k: BotTextKey, v: string) => setDraft((d) => ({ ...d, [k]: v }));
+  // Ao trocar de passo, o foco vai para o título do passo novo.
+  //
+  // Sem isso o foco ficava no botão "Próximo" (que não é remontado) e o conteúdo inteiro trocava
+  // sem aviso: num assistente de 8 passos, quem usa leitor de tela não percebia que a tela mudou.
+  // Focar um heading também faz o leitor anunciar o título do passo sem precisar de live region
+  // para o conteúdo principal.
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [step]);
 
-  const field = (k: BotTextKey, label: string, placeholder?: string) => (
+  const set = (k: BotTextKey, v: string) => {
+    setDirty(true);
+    setDraft((d) => ({ ...d, [k]: v }));
+  };
+
+  /**
+   * Fechar com preenchimento não salvo pede confirmação.
+   *
+   * O assistente só grava no último passo, e o clique fora do diálogo fechava tudo em silêncio —
+   * sete passos preenchidos evaporavam. É o que o UX_BLUEPRINT chama de "sair no meio não perde
+   * nada"; enquanto o salvamento por passo não existe, confirmar é o mínimo honesto.
+   */
+  const confirmClose = () => {
+    if (!dirty) return true;
+    return window.confirm(
+      "Você preencheu campos que ainda não foram salvos. Fechar o assistente agora descarta essas alterações. Deseja sair mesmo assim?",
+    );
+  };
+
+  const field = (k: BotTextKey, label: string, placeholder?: string, required = false) => (
     <div className="field">
-      <label>{label}
-      <input className="input" value={draft[k] ?? ""} placeholder={placeholder} onChange={(e) => set(k, e.target.value)} />
-            </label>
+      <label>
+        {label}
+        {/* Obrigatório precisa estar dito no campo. Antes o único sinal era o "Próximo"
+            desabilitado — o usuário via um botão morto sem saber o que faltava. */}
+        {required && <span className="field-required"> · obrigatório</span>}
+        <input
+          className="input"
+          value={draft[k] ?? ""}
+          placeholder={placeholder}
+          onChange={(e) => set(k, e.target.value)}
+          aria-required={required || undefined}
+        />
+      </label>
     </div>
   );
 
@@ -95,7 +134,7 @@ export function ConfigWizard({
       valid: () => (draft.displayName ?? "").trim() !== "",
       render: () => (
         <div className="stack" style={{ gap: 12 }}>
-          {field("displayName", "Nome da barbearia", "Como o bot chama sua barbearia")}
+          {field("displayName", "Nome da barbearia", "Como o bot chama sua barbearia", true)}
           {field("addressText", "Endereço")}
           {field("addressMapsUrl", "Link do mapa (opcional)")}
           {field("instagramUrl", "Instagram (opcional)")}
@@ -183,44 +222,62 @@ export function ConfigWizard({
 
   return (
     <Modal
-      title="Assistente de configuração"
+      title="Configurar sua barbearia"
+      size="wide"
       onClose={onClose}
+      onRequestClose={confirmClose}
       footer={
         <div className="row between" style={{ width: "100%" }}>
           <button className="btn" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0 || saving}>
             Voltar
           </button>
-          <button className="btn btn-primary" onClick={next} disabled={!canAdvance || saving}>
-            {saving ? "Salvando…" : isLast ? "Concluir" : "Próximo"}
-          </button>
+          <div className="row" style={{ gap: 10 }}>
+            {!isLast && (
+              // "Pular por agora": nenhum passo pode aprisionar o dono. A lista de pendências na
+              // tela de Configurações continua cobrando o que ficou para trás.
+              <button className="btn btn-ghost" onClick={() => setStep((s) => s + 1)} disabled={saving}>
+                Pular por agora
+              </button>
+            )}
+            <button className="btn btn-primary" onClick={next} disabled={!canAdvance || saving}>
+              {saving ? "Salvando…" : isLast ? "Concluir" : "Próximo"}
+            </button>
+          </div>
         </div>
       }
     >
-      <div className="stack" style={{ gap: 16 }}>
-        {/* Progresso */}
-        <div>
-          <div className="wiz-dots" aria-hidden="true">
-            {steps.map((_, i) => (
-              <span key={i} className={`wiz-dot ${i === step ? "active" : ""} ${i < step ? "done" : ""}`} />
-            ))}
-          </div>
-          <div className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", color: "var(--text-faint)", marginTop: 8 }}>
-            PASSO {step + 1} DE {steps.length}
-          </div>
-        </div>
+      <div className="wiz">
+        {/* Trilho de passos: rótulos, não pontinhos.
+            Com 8 passos e entrada direta a partir da lista de pendências, oito bolinhas mudas
+            não dizem onde a pessoa está nem quanto falta. */}
+        <nav className="wiz-rail" aria-label="Etapas da configuração">
+          {steps.map((s, i) => (
+            <button
+              key={s.title}
+              type="button"
+              className={`wiz-step ${i === step ? "active" : ""} ${i < step ? "done" : ""}`}
+              onClick={() => setStep(i)}
+              aria-current={i === step ? "step" : undefined}
+            >
+              <span className="wiz-step-n mono">{String(i + 1).padStart(2, "0")}</span>
+              <span className="wiz-step-label">{s.title}</span>
+            </button>
+          ))}
+        </nav>
 
-        <div>
-          <h4 style={{ margin: "0 0 2px", fontSize: 17 }}>{current.title}</h4>
-          <p className="muted" style={{ margin: "0 0 14px", fontSize: 13.5 }}>{current.hint}</p>
+        <div className="wiz-pane">
+          {/* role="status" garante o anúncio mesmo para quem lê em modo virtual, sem depender
+              da mudança de foco. */}
+          <div className="wiz-progress mono" role="status" aria-live="polite">
+            PASSO {step + 1} DE {steps.length} · {current.title}
+          </div>
+
+          <h4 ref={headingRef} tabIndex={-1} className="wiz-title">
+            {current.title}
+          </h4>
+          <p className="wiz-hint">{current.hint}</p>
           {current.render()}
         </div>
-
-        {isLast && (
-          <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>
-            Ao concluir, esta janela fecha e a tela de Configurações mostra tudo que você preencheu —
-            onde dá para ajustar campo a campo quando quiser.
-          </p>
-        )}
       </div>
     </Modal>
   );
