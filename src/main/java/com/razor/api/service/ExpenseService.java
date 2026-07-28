@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +45,20 @@ public class ExpenseService {
     /** Contas em aberto, do vencimento mais antigo para o mais novo. */
     public List<Expense> listUnpaid() {
         return expenseRepository.findByBarbershopIdAndPaidAtIsNullOrderByDueDateAsc(TenantContext.getCurrent());
+    }
+
+    /**
+     * Pagina da tela de Despesas.
+     *
+     * <p>A ordenacao vem no {@link Pageable} e nao no nome do metodo de proposito: as duas listas
+     * (todas x em aberto) ordenam por criterios diferentes — a de tudo mostra o vencimento mais
+     * recente primeiro, a de pendencias mostra quem venceu ha mais tempo.
+     */
+    public Page<Expense> page(boolean unpaidOnly, Pageable pageable) {
+        UUID shop = TenantContext.getCurrent();
+        return unpaidOnly
+                ? expenseRepository.findByBarbershopIdAndPaidAtIsNull(shop, pageable)
+                : expenseRepository.findByBarbershopId(shop, pageable);
     }
 
     /** Despesas por competencia no intervalo — a base do DRE. */

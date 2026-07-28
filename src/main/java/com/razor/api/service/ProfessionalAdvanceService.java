@@ -41,6 +41,12 @@ public class ProfessionalAdvanceService {
         return advanceRepository.findByBarbershopIdOrderByAdvanceDateDesc(TenantContext.getCurrent());
     }
 
+    /** Uma pagina do historico de vales (a ordenacao vem no {@link Pageable}). */
+    public org.springframework.data.domain.Page<ProfessionalAdvance> page(
+            org.springframework.data.domain.Pageable pageable) {
+        return advanceRepository.findByBarbershopId(TenantContext.getCurrent(), pageable);
+    }
+
     /** Quanto cada barbeiro pegou de vale no intervalo — o que o acerto vai descontar. */
     public Map<UUID, BigDecimal> advancedByProfessional(LocalDate from, LocalDate to) {
         Map<UUID, BigDecimal> byProf = new HashMap<>();

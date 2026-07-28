@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { EmptyState } from "../components/EmptyState";
+import { Pagination } from "../components/Pagination";
 import { SkeletonRows } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
-import type { Customer, SubscriptionPlan } from "../api/types";
+import type { Customer, CustomerSummary, PageMeta, SubscriptionPlan } from "../api/types";
 
 function dateShort(iso: string | null): string {
   if (!iso) return "—";
@@ -20,38 +21,61 @@ function phoneBr(p: string): string {
   return p;
 }
 
-type Filter = "all" | "subs" | "new";
+/** Espelha CustomerService.CustomerFilter no backend. */
+type Filter = "ALL" | "SUBSCRIBERS" | "NEW";
+
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: "ALL", label: "Todos" },
+  { id: "SUBSCRIBERS", label: "💎 Assinantes" },
+  { id: "NEW", label: "Novos (30d)" },
+];
 
 export function Customers() {
-  const { data, loading, error, reload } = useApi<Customer[]>(() => api.get("/api/admin/customers"), []);
-  const plans = useApi<SubscriptionPlan[]>(() => api.get("/api/admin/plans"), []);
   const toast = useToast();
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("ALL");
+  const [page, setPage] = useState(0);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+
+  // A busca vai ao servidor, então cada tecla não pode virar uma requisição. 350ms é o
+  // intervalo em que a digitação já parou mas a espera ainda não incomoda.
+  const [debouncedQ, setDebouncedQ] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQ(q.trim()), 350);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  // Buscar ou trocar de filtro tem que voltar para a primeira página: continuar na 4 depois de
+  // filtrar mostraria uma lista vazia com resultados existindo.
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedQ, filter]);
+
+  const query = useMemo(() => {
+    const p = new URLSearchParams({ page: String(page), filter });
+    if (debouncedQ) p.set("q", debouncedQ);
+    return p.toString();
+  }, [page, filter, debouncedQ]);
+
+  // Sem `reload`: recarregar é feito bumpando `version`, que também refaz os totais do topo —
+  // vincular um plano muda o contador de assinantes, e recarregar só a lista o deixaria velho.
+  const { data, loading, error } = useApi<PageMeta<Customer>>(
+    () => api.get(`/api/admin/customers?${query}`),
+    [query, version],
+  );
+  const summary = useApi<CustomerSummary>(() => api.get("/api/admin/customers/summary"), [version]);
+  const plans = useApi<SubscriptionPlan[]>(() => api.get("/api/admin/plans"), []);
 
   const activePlans = useMemo(() => (plans.data ?? []).filter((p) => p.active), [plans.data]);
-
-  const filtered = useMemo(() => {
-    let list = data ?? [];
-    if (filter === "subs") list = list.filter((c) => c.planId);
-    if (filter === "new") {
-      const cut = Date.now() - 30 * 864e5;
-      list = list.filter((c) => c.createdAt && new Date(c.createdAt).getTime() > cut);
-    }
-    const term = q.trim().toLowerCase();
-    if (term) {
-      list = list.filter((c) => (c.name ?? "").toLowerCase().includes(term) || c.phone.includes(term));
-    }
-    return list;
-  }, [data, q, filter]);
 
   const assignPlan = async (customer: Customer, planId: string) => {
     setSavingId(customer.id);
     try {
       await api.put(`/api/admin/customers/${customer.id}/plan`, { planId: planId || null });
       toast.success(planId ? "Plano vinculado ✓" : "Cliente voltou a ser avulso ✓");
-      reload();
+      // Recarrega a página atual e os totais: vincular plano muda o contador de assinantes.
+      setVersion((v) => v + 1);
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : "Erro ao atualizar o plano.");
     } finally {
@@ -59,7 +83,8 @@ export function Customers() {
     }
   };
 
-  const subscribers = data?.filter((c) => c.planId).length ?? 0;
+  const buscando = debouncedQ.length > 0 || filter !== "ALL";
+  const items = data?.items ?? [];
 
   return (
     <Layout flush title="Clientes">
@@ -71,29 +96,33 @@ export function Customers() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             style={{ maxWidth: 280 }}
+            aria-label="Buscar clientes"
           />
           <div className="chip-row">
-            <button className={`chip-btn ${filter === "all" ? "active" : ""}`} onClick={() => setFilter("all")}>
-              Todos
-            </button>
-            <button className={`chip-btn ${filter === "subs" ? "active" : ""}`} onClick={() => setFilter("subs")}>
-              💎 Assinantes
-            </button>
-            <button className={`chip-btn ${filter === "new" ? "active" : ""}`} onClick={() => setFilter("new")}>
-              Novos (30d)
-            </button>
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                className={`chip-btn ${filter === f.id ? "active" : ""}`}
+                onClick={() => setFilter(f.id)}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
+          {/* Os totais vêm do servidor, contados sobre a base inteira. Deduzir de uma página
+              daria "3 assinantes" numa base com 200 — número errado é pior que número nenhum. */}
           <span className="list-count">
-            {filtered.length} de {data?.length ?? 0} · {subscribers} assinantes
+            {data ? `${data.total} ${buscando ? "encontrado(s)" : "cliente(s)"}` : "…"}
+            {summary.data && ` · ${summary.data.subscribers} assinantes`}
           </span>
         </div>
 
-        {loading ? (
+        {loading && !data ? (
           <SkeletonRows rows={6} />
         ) : error ? (
           <div className="empty error">{error}</div>
-        ) : filtered.length === 0 ? (
-          data && data.length > 0 ? (
+        ) : items.length === 0 ? (
+          buscando ? (
             <EmptyState icon="🔎" title="Nenhum cliente encontrado." hint="Tente outro nome, telefone ou filtro." />
           ) : (
             <EmptyState
@@ -104,48 +133,51 @@ export function Customers() {
             />
           )
         ) : (
-          <div className="rowlist">
-            {filtered.map((c) => (
-              <article className="rowitem" key={c.id}>
-                <span className="rw-avatar" aria-hidden="true">
-                  {(c.name || "?").charAt(0).toUpperCase()}
-                </span>
-
-                <div className="rw-main">
-                  <span className="rw-title">
-                    {c.name || "Sem nome"}
-                    {c.planName && <span className="badge badge-plan">💎 {c.planName}</span>}
+          <>
+            <div className="rowlist">
+              {items.map((c) => (
+                <article className="rowitem" key={c.id}>
+                  <span className="rw-avatar" aria-hidden="true">
+                    {(c.name || "?").charAt(0).toUpperCase()}
                   </span>
-                  <span className="rw-meta">
-                    <span className="mono">{phoneBr(c.phone)}</span>
-                    <span>· {c.fidelityPoints}/10 pts</span>
-                    <span>· última visita {dateShort(c.lastServiceDate)}</span>
-                  </span>
-                </div>
 
-                <div className="rw-side">
-                  <div className="rw-actions">
-                    <select
-                      className="input"
-                      style={{ maxWidth: 170, padding: "7px 10px", fontSize: 13 }}
-                      value={c.planId ?? ""}
-                      disabled={savingId === c.id || plans.loading}
-                      onChange={(e) => assignPlan(c, e.target.value)}
-                      aria-label={`Plano de ${c.name ?? "cliente"}`}
-                    >
-                      <option value="">Avulso (sem plano)</option>
-                      {c.planId && !activePlans.some((p) => p.id === c.planId) && c.planName && (
-                        <option value={c.planId}>{c.planName} (inativo)</option>
-                      )}
-                      {activePlans.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
+                  <div className="rw-main">
+                    <span className="rw-title">
+                      {c.name || "Sem nome"}
+                      {c.planName && <span className="badge badge-plan">💎 {c.planName}</span>}
+                    </span>
+                    <span className="rw-meta">
+                      <span className="mono">{phoneBr(c.phone)}</span>
+                      <span>· {c.fidelityPoints}/10 pts</span>
+                      <span>· última visita {dateShort(c.lastServiceDate)}</span>
+                    </span>
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
+
+                  <div className="rw-side">
+                    <div className="rw-actions">
+                      <select
+                        className="input"
+                        style={{ maxWidth: 170, padding: "7px 10px", fontSize: 13 }}
+                        value={c.planId ?? ""}
+                        disabled={savingId === c.id || plans.loading}
+                        onChange={(e) => assignPlan(c, e.target.value)}
+                        aria-label={`Plano de ${c.name ?? "cliente"}`}
+                      >
+                        <option value="">Avulso (sem plano)</option>
+                        {c.planId && !activePlans.some((p) => p.id === c.planId) && c.planName && (
+                          <option value={c.planId}>{c.planName} (inativo)</option>
+                        )}
+                        {activePlans.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+            {data && <Pagination page={data} onChange={setPage} label="clientes" busy={loading} />}
+          </>
         )}
       </div>
     </Layout>

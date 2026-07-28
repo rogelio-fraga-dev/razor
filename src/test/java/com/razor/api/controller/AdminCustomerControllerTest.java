@@ -1,10 +1,15 @@
 package com.razor.api.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.razor.api.dto.CustomerPlanRequest;
 import com.razor.api.dto.CustomerResponse;
+import com.razor.api.dto.PageResponse;
 import com.razor.api.model.Customer;
 import com.razor.api.service.CustomerService;
 import java.util.List;
@@ -13,11 +18,15 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -31,21 +40,54 @@ class AdminCustomerControllerTest {
     }
 
     @Test
-    @DisplayName("lista os clientes do tenant ordenados por nome, com o nome do plano resolvido")
-    void list_sortedByNameWithPlan() {
+    @DisplayName("devolve a página do serviço com o nome do plano resolvido")
+    void list_returnsPageWithPlanName() {
         UUID planId = UUID.randomUUID();
         Customer ana = c("Ana");
         ana.setSubscriptionPlanId(planId);
-        when(customerService.listCustomers()).thenReturn(List.of(c("Zeca"), ana));
+        when(customerService.searchCustomers(any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(ana, c("Zeca"))));
         when(customerService.planNamesByTenant()).thenReturn(Map.of(planId, "VIP"));
 
-        List<CustomerResponse> out = controller.list();
+        PageResponse<CustomerResponse> out = controller.list(null, null, null, null);
 
-        assertThat(out).hasSize(2);
-        assertThat(out.get(0).name()).isEqualTo("Ana");
-        assertThat(out.get(0).planName()).isEqualTo("VIP");
-        assertThat(out.get(1).name()).isEqualTo("Zeca");
-        assertThat(out.get(1).planName()).isNull(); // avulso
+        assertThat(out.items()).hasSize(2);
+        assertThat(out.items().get(0).planName()).isEqualTo("VIP");
+        assertThat(out.items().get(1).planName()).isNull(); // avulso
+        assertThat(out.total()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("a ordenação por nome desce para o banco — ordenar a página já recortada mentiria")
+    void list_delegatesSortingToRepository() {
+        when(customerService.searchCustomers(any(), any(), any())).thenReturn(Page.empty());
+        when(customerService.planNamesByTenant()).thenReturn(Map.of());
+
+        controller.list(2, 15, "ana", CustomerService.CustomerFilter.SUBSCRIBERS);
+
+        ArgumentCaptor<Pageable> cap = ArgumentCaptor.forClass(Pageable.class);
+        verify(customerService).searchCustomers(
+                eq("ana"), eq(CustomerService.CustomerFilter.SUBSCRIBERS), cap.capture());
+
+        Pageable p = cap.getValue();
+        assertThat(p.getPageNumber()).isEqualTo(2);
+        assertThat(p.getPageSize()).isEqualTo(15);
+        // Sem isto, a página 2 poderia começar antes do fim da 1 — "ordenado" por pedaço.
+        assertThat(p.getSort().getOrderFor("name")).isNotNull();
+    }
+
+    @Test
+    @DisplayName("busca e filtro ausentes viram base inteira, com o padrão de paginação")
+    void list_defaults() {
+        when(customerService.searchCustomers(any(), any(), any())).thenReturn(Page.empty());
+        when(customerService.planNamesByTenant()).thenReturn(Map.of());
+
+        controller.list(null, null, null, null);
+
+        ArgumentCaptor<Pageable> cap = ArgumentCaptor.forClass(Pageable.class);
+        verify(customerService).searchCustomers(isNull(), eq(CustomerService.CustomerFilter.ALL), cap.capture());
+        assertThat(cap.getValue().getPageNumber()).isZero();
+        assertThat(cap.getValue().getPageSize()).isEqualTo(PageResponse.DEFAULT_SIZE);
     }
 
     @Test

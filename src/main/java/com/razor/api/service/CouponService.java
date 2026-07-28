@@ -44,6 +44,12 @@ public class CouponService {
         return couponRepository.findByBarbershopIdOrderByCreatedAtDesc(TenantContext.getCurrent());
     }
 
+    /** Uma pagina de cupons (a ordenacao vem no {@link org.springframework.data.domain.Pageable}). */
+    public org.springframework.data.domain.Page<Coupon> page(
+            org.springframework.data.domain.Pageable pageable) {
+        return couponRepository.findByBarbershopId(TenantContext.getCurrent(), pageable);
+    }
+
     public List<CouponRedemption> redemptions(UUID couponId) {
         requireOwned(couponId);
         return redemptionRepository.findByCouponIdOrderByRedeemedAtDesc(couponId);

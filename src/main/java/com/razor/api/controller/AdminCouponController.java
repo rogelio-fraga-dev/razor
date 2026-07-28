@@ -1,5 +1,6 @@
 package com.razor.api.controller;
 
+import com.razor.api.dto.PageResponse;
 import com.razor.api.dto.CouponRequests;
 import com.razor.api.dto.CouponResponse;
 import com.razor.api.model.Coupon;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,9 +30,13 @@ public class AdminCouponController {
     private final CouponService couponService;
 
     @GetMapping
-    public List<CouponResponse> list() {
+    public PageResponse<CouponResponse> list(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         LocalDate hoje = AppointmentDates.today();
-        return couponService.list().stream().map(c -> CouponResponse.from(c, hoje)).toList();
+        return PageResponse.of(
+                couponService.page(PageResponse.pageable(page, size, Sort.by(Sort.Order.desc("createdAt")))),
+                c -> CouponResponse.from(c, hoje));
     }
 
     @PostMapping

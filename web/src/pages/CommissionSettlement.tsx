@@ -7,9 +7,10 @@ import { Modal, Switch } from "../components/Modal";
 import { EmptyState } from "../components/EmptyState";
 import { SkeletonRows } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
+import { Pagination } from "../components/Pagination";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
-import type { Advance, CommissionPayment, CommissionSettlement, CommissionSettlementItem } from "../api/types";
+import type { Advance, CommissionPayment, CommissionSettlement, CommissionSettlementItem, PageMeta } from "../api/types";
 import { dateBr, money, todayIso } from "../lib/format";
 
 function firstDayOfMonth(): string {
@@ -41,8 +42,18 @@ export function CommissionSettlementPage() {
     () => api.get(`/api/admin/commission-payments/settlement?from=${from}&to=${to}`),
     [from, to, version],
   );
-  const history = useApi<CommissionPayment[]>(() => api.get("/api/admin/commission-payments"), [version]);
-  const advances = useApi<Advance[]>(() => api.get("/api/admin/advances"), [version]);
+  // Duas listas independentes na mesma tela, cada uma com sua própria página: navegar no
+  // histórico de acertos não pode arrastar a lista de vales junto.
+  const [historyPage, setHistoryPage] = useState(0);
+  const [advancesPage, setAdvancesPage] = useState(0);
+  const history = useApi<PageMeta<CommissionPayment>>(
+    () => api.get(`/api/admin/commission-payments?page=${historyPage}`),
+    [historyPage, version],
+  );
+  const advances = useApi<PageMeta<Advance>>(
+    () => api.get(`/api/admin/advances?page=${advancesPage}`),
+    [advancesPage, version],
+  );
 
   const openPay = (item: CommissionSettlementItem) => {
     setFormError(null);
@@ -225,11 +236,11 @@ export function CommissionSettlementPage() {
         <div className="card-head">
           <h3>Acertos registrados</h3>
         </div>
-        {history.loading ? (
+        {history.loading && !history.data ? (
           <SkeletonRows rows={2} />
         ) : history.error ? (
           <div className="empty error">{history.error}</div>
-        ) : !history.data || history.data.length === 0 ? (
+        ) : !history.data || history.data.items.length === 0 ? (
           <div className="card-pad faint">Nenhum acerto registrado ainda.</div>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -245,7 +256,7 @@ export function CommissionSettlementPage() {
                 </tr>
               </thead>
               <tbody>
-                {history.data.map((p) => (
+                {history.data.items.map((p) => (
                   <tr key={p.id}>
                     <td style={{ fontWeight: 550 }}>{p.professionalName ?? "—"}</td>
                     <td className="muted">{dateBr(p.periodStart)} – {dateBr(p.periodEnd)}</td>
@@ -265,6 +276,9 @@ export function CommissionSettlementPage() {
             </table>
           </div>
         )}
+        {history.data && (
+          <Pagination page={history.data} onChange={setHistoryPage} label="acertos" busy={history.loading} />
+        )}
       </div>
 
       {/* Vales do período — o que está sendo descontado acima */}
@@ -272,11 +286,11 @@ export function CommissionSettlementPage() {
         <div className="card-head">
           <h3>Vales e adiantamentos</h3>
         </div>
-        {advances.loading ? (
+        {advances.loading && !advances.data ? (
           <SkeletonRows rows={2} />
         ) : advances.error ? (
           <div className="empty error">{advances.error}</div>
-        ) : !advances.data || advances.data.length === 0 ? (
+        ) : !advances.data || advances.data.items.length === 0 ? (
           <div className="card-pad faint">
             Nenhum vale registrado. Use o botão “Vale” na linha do barbeiro — o valor é
             descontado do acerto do período em que a data do vale cai.
@@ -295,7 +309,7 @@ export function CommissionSettlementPage() {
                 </tr>
               </thead>
               <tbody>
-                {advances.data.map((a) => (
+                {advances.data.items.map((a) => (
                   <tr key={a.id}>
                     <td style={{ fontWeight: 550 }}>{a.professionalName ?? "—"}</td>
                     <td className="muted">{dateBr(a.advanceDate)}</td>
@@ -314,6 +328,9 @@ export function CommissionSettlementPage() {
               </tbody>
             </table>
           </div>
+        )}
+        {advances.data && (
+          <Pagination page={advances.data} onChange={setAdvancesPage} label="vales" busy={advances.loading} />
         )}
       </div>
 

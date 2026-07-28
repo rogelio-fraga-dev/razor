@@ -9,7 +9,8 @@ import { SkeletonRows } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
-import type { Coupon, CouponDiscountType } from "../api/types";
+import { Pagination } from "../components/Pagination";
+import type { Coupon, CouponDiscountType, PageMeta } from "../api/types";
 import { dateBr, money, percent, todayIso } from "../lib/format";
 
 interface Draft {
@@ -37,7 +38,12 @@ const EMPTY: Draft = {
 export function Coupons() {
   const toast = useToast();
   const [version, setVersion] = useState(0);
-  const { data, loading, error } = useApi<Coupon[]>(() => api.get("/api/admin/coupons"), [version]);
+  const [page, setPage] = useState(0);
+  const { data: pageData, loading, error } = useApi<PageMeta<Coupon>>(
+    () => api.get(`/api/admin/coupons?page=${page}`),
+    [page, version],
+  );
+  const data = pageData?.items;
   const discount = useApi<{ total: number }>(() => api.get("/api/admin/coupons/total-discount"), [version]);
 
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -183,6 +189,9 @@ export function Coupons() {
               </tbody>
             </table>
           </div>
+        )}
+        {pageData && (
+          <Pagination page={pageData} onChange={setPage} label="cupons" busy={loading} />
         )}
       </div>
 

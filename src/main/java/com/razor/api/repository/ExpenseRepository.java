@@ -4,6 +4,8 @@ import com.razor.api.model.Expense;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -15,6 +17,12 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
 
     /** Tudo do tenant, do vencimento mais recente para o mais antigo (tela de Despesas). */
     List<Expense> findByBarbershopIdOrderByDueDateDesc(UUID barbershopId);
+
+    /** Pagina da tela de Despesas — ~8 contas por mes acumulam rapido. */
+    Page<Expense> findByBarbershopId(UUID barbershopId, Pageable pageable);
+
+    /** Pagina so das contas em aberto. */
+    Page<Expense> findByBarbershopIdAndPaidAtIsNull(UUID barbershopId, Pageable pageable);
 
     /** O que esta em aberto, do mais antigo para o mais novo — quem venceu primeiro aparece antes. */
     List<Expense> findByBarbershopIdAndPaidAtIsNullOrderByDueDateAsc(UUID barbershopId);

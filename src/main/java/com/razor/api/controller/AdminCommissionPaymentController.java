@@ -1,5 +1,6 @@
 package com.razor.api.controller;
 
+import com.razor.api.dto.PageResponse;
 import com.razor.api.dto.CommissionPaymentRequest;
 import com.razor.api.dto.CommissionPaymentResponse;
 import com.razor.api.dto.CommissionSettlementResponse;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -88,11 +90,14 @@ public class AdminCommissionPaymentController {
 
     /** Historico de acertos, do mais recente para o mais antigo. */
     @GetMapping
-    public List<CommissionPaymentResponse> history() {
+    public PageResponse<CommissionPaymentResponse> history(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         Map<UUID, String> names = professionalNames();
-        return commissionPaymentService.history().stream()
-                .map(p -> CommissionPaymentResponse.from(p, names.get(p.getProfessionalId())))
-                .toList();
+        return PageResponse.of(
+                commissionPaymentService.page(
+                        PageResponse.pageable(page, size, Sort.by(Sort.Order.desc("paidAt")))),
+                p -> CommissionPaymentResponse.from(p, names.get(p.getProfessionalId())));
     }
 
     @PostMapping

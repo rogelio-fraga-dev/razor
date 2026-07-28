@@ -494,3 +494,26 @@ export interface Dre {
   result: number;
   marginPercent: number | null;
 }
+
+// ---------- Paginação ----------
+
+/**
+ * Envelope das listas paginadas. `total` é a contagem da base inteira (com o filtro aplicado),
+ * não da página — é o que permite a tela dizer "21–40 de 412" sem inventar número.
+ */
+export interface PageMeta<T = unknown> {
+  items: T[];
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+}
+
+/** Totais da base de clientes, contados no servidor (não dão para deduzir de uma página). */
+export interface CustomerSummary {
+  total: number;
+  subscribers: number;
+  newInWindow: number;
+}

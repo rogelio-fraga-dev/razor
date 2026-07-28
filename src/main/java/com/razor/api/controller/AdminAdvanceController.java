@@ -1,5 +1,6 @@
 package com.razor.api.controller;
 
+import com.razor.api.dto.PageResponse;
 import com.razor.api.dto.AdvanceRequest;
 import com.razor.api.dto.AdvanceResponse;
 import com.razor.api.model.Professional;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -35,11 +37,14 @@ public class AdminAdvanceController {
     private final AuthService authService;
 
     @GetMapping
-    public List<AdvanceResponse> history() {
+    public PageResponse<AdvanceResponse> history(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         Map<UUID, String> names = professionalNames();
-        return advanceService.history().stream()
-                .map(a -> AdvanceResponse.from(a, names.get(a.getProfessionalId())))
-                .toList();
+        return PageResponse.of(
+                advanceService.page(
+                        PageResponse.pageable(page, size, Sort.by(Sort.Order.desc("advanceDate")))),
+                a -> AdvanceResponse.from(a, names.get(a.getProfessionalId())));
     }
 
     @PostMapping

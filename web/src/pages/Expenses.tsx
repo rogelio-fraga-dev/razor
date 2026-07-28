@@ -11,7 +11,8 @@ import { SkeletonRows } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
-import type { Dre, Expense, ExpenseCategory, ExpenseCategoryOption } from "../api/types";
+import { Pagination } from "../components/Pagination";
+import type { Dre, Expense, ExpenseCategory, ExpenseCategoryOption, PageMeta } from "../api/types";
 import { dateBr, money, percent, todayIso } from "../lib/format";
 
 interface Draft {
@@ -52,11 +53,14 @@ export function Expenses() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const [page, setPage] = useState(0);
+
   const dre = useApi<Dre>(() => api.get("/api/admin/reports/dre"), [version]);
-  const list = useApi<Expense[]>(() => api.get("/api/admin/expenses"), [version]);
+  const list = useApi<PageMeta<Expense>>(() => api.get(`/api/admin/expenses?page=${page}`), [page, version]);
   const categories = useApi<ExpenseCategoryOption[]>(() => api.get("/api/admin/expenses/categories"), []);
 
   const refresh = () => setVersion((v) => v + 1);
+  const itens = list.data?.items ?? [];
 
   const openNew = () => {
     setFormError(null);
@@ -275,17 +279,18 @@ export function Expenses() {
       <div className="card">
         <div className="card-head">
           <h3>Contas</h3>
-          {list.data && list.data.length > 0 && (
-            <span className="badge badge-muted">
-              {list.data.filter((e) => !e.paid).length} em aberto de {list.data.length}
-            </span>
+          {list.data && list.data.total > 0 && (
+            // O DRE logo acima já dá "quanto está em aberto" em dinheiro, contado sobre a base
+            // inteira. Aqui basta o total de contas — contar as pendentes desta página daria um
+            // número menor que o real assim que houvesse mais de uma página.
+            <span className="badge badge-muted">{list.data.total} conta(s)</span>
           )}
         </div>
-        {list.loading ? (
+        {list.loading && !list.data ? (
           <SkeletonRows rows={4} />
         ) : list.error ? (
           <div className="empty error">{list.error}</div>
-        ) : !list.data || list.data.length === 0 ? (
+        ) : itens.length === 0 ? (
           <EmptyState
             icon="📄"
             title="Nenhuma conta lançada."
@@ -306,7 +311,7 @@ export function Expenses() {
                 </tr>
               </thead>
               <tbody>
-                {list.data.map((e) => (
+                {itens.map((e) => (
                   <tr key={e.id}>
                     <td style={{ fontWeight: 550 }}>
                       {e.description}
@@ -348,6 +353,9 @@ export function Expenses() {
               </tbody>
             </table>
           </div>
+        )}
+        {list.data && (
+          <Pagination page={list.data} onChange={setPage} label="contas" busy={list.loading} />
         )}
       </div>
 

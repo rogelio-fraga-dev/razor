@@ -2,6 +2,7 @@ package com.razor.api.controller;
 
 import com.razor.api.dto.ExpenseRequests;
 import com.razor.api.dto.ExpenseResponse;
+import com.razor.api.dto.PageResponse;
 import com.razor.api.model.Expense;
 import com.razor.api.model.ExpenseCategory;
 import com.razor.api.service.ExpenseService;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -38,12 +40,20 @@ public class AdminExpenseController {
     }
 
     @GetMapping
-    public List<ExpenseResponse> list(@RequestParam(required = false) Boolean unpaidOnly) {
+    public PageResponse<ExpenseResponse> list(
+            @RequestParam(required = false) Boolean unpaidOnly,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+
         LocalDate today = AppointmentDates.today();
-        List<Expense> found = Boolean.TRUE.equals(unpaidOnly)
-                ? expenseService.listUnpaid()
-                : expenseService.list();
-        return found.stream().map(e -> ExpenseResponse.from(e, today)).toList();
+        boolean pendentes = Boolean.TRUE.equals(unpaidOnly);
+        // Pendencias: quem venceu ha mais tempo primeiro (e o que cobra acao). Lista completa:
+        // vencimento mais recente primeiro, que e como o dono navega o historico.
+        Sort sort = pendentes ? Sort.by(Sort.Order.asc("dueDate")) : Sort.by(Sort.Order.desc("dueDate"));
+
+        return PageResponse.of(
+                expenseService.page(pendentes, PageResponse.pageable(page, size, sort)),
+                e -> ExpenseResponse.from(e, today));
     }
 
     @PostMapping

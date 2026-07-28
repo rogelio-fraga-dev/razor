@@ -9,6 +9,8 @@ import com.razor.api.state.StateStore;
 import com.razor.api.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -48,6 +50,54 @@ public class CustomerService {
     /** Todos os clientes do tenant atual (base para o painel web). */
     public List<Customer> listCustomers() {
         return customerRepository.findByBarbershopId(TenantContext.getCurrent());
+    }
+
+    /** Filtro da tela de Clientes. */
+    public enum CustomerFilter {
+        /** Todos. */
+        ALL,
+        /** So quem tem plano de assinatura. */
+        SUBSCRIBERS,
+        /** Cadastrados nos ultimos {@link #NEW_WINDOW_DAYS} dias. */
+        NEW
+    }
+
+    /** Janela do filtro "novos" — o mesmo numero que a tela exibe no rotulo. */
+    public static final int NEW_WINDOW_DAYS = 30;
+
+    /**
+     * Pagina da base de clientes, com busca e filtro resolvidos no banco.
+     *
+     * <p>O termo casa por nome (sem diferenciar maiusculas) ou por telefone. Busca vazia devolve
+     * a base inteira, paginada.
+     */
+    public Page<Customer> searchCustomers(String query, CustomerFilter filter, Pageable pageable) {
+        String term = (query == null || query.isBlank())
+                ? null
+                : "%" + query.trim().toLowerCase() + "%";
+        UUID shop = TenantContext.getCurrent();
+        boolean onlySubscribers = filter == CustomerFilter.SUBSCRIBERS;
+
+        // Duas consultas em vez de uma com data opcional — o porque esta no CustomerRepository.
+        if (filter == CustomerFilter.NEW) {
+            return customerRepository.searchCreatedSince(shop, term, onlySubscribers,
+                    LocalDateTime.now().minusDays(NEW_WINDOW_DAYS), pageable);
+        }
+        return customerRepository.search(shop, term, onlySubscribers, pageable);
+    }
+
+    /** Totais do cabecalho da tela, contados no banco — nao dava para deduzir de uma pagina so. */
+    public CustomerSummary customerSummary() {
+        UUID shop = TenantContext.getCurrent();
+        return new CustomerSummary(
+                customerRepository.countByBarbershopId(shop),
+                customerRepository.countByBarbershopIdAndSubscriptionPlanIdIsNotNull(shop),
+                customerRepository.countByBarbershopIdAndCreatedAtGreaterThanEqual(
+                        shop, LocalDateTime.now().minusDays(NEW_WINDOW_DAYS)));
+    }
+
+    /** Contadores da base inteira (nao da pagina): total, assinantes e cadastrados no mes. */
+    public record CustomerSummary(long total, long subscribers, long newInWindow) {
     }
 
     /**

@@ -924,6 +924,54 @@ criou 1 conta na 1ª vez e `[]` na 2ª; quitar duas vezes deu 400; valor negativ
 
 ---
 
+### 📄 Paginação das listas *(2026-07-28)*
+
+> As telas carregavam a lista inteira e filtravam no navegador. Com 18 clientes de demonstração
+> isso não incomoda; com a base real de uma barbearia de dois anos, a tela de Clientes baixaria
+> milhares de linhas a cada abertura. **461 testes verdes** (eram 447).
+
+**O que foi paginado — e o que não foi**
+
+| Lista | Decisão |
+|---|---|
+| Clientes, Despesas, Cupons, Vales, Acertos | **paginadas** — crescem para sempre com o uso |
+| Serviços, Produtos, Profissionais, Planos, Equipe | **não** — são catálogo/configuração, dezenas de linhas no teto |
+| Comandas, Caixa, Vendas do dia | **não** — já são recortadas por dia |
+
+Paginar catálogo seria ruído: dois botões mortos embaixo de uma lista de 7 serviços.
+
+**Decisões**
+
+- **Busca e filtro desceram para o banco junto com a paginação, não depois.** Sem isso a busca
+  de Clientes só alcançaria a página carregada — o dono digitaria um nome que existe e concluiria
+  que o cliente não está cadastrado. Foi por isso que a tela de Clientes mudou mais que as outras.
+- **Os contadores do topo viraram um endpoint próprio** (`/customers/summary`). Deduzir "quantos
+  assinantes" de uma página de 20 daria `3` numa base com 412 — número errado é pior que número
+  nenhum, e essa é a mesma regra que tirou os dados fabricados do Painel.
+- **A ordenação foi para o banco.** Ordenar a página já recortada daria uma lista "ordenada" por
+  pedaço, com a página 2 começando antes do fim da 1. Conferido contra a API: A→E, F→J, K→O, P→T.
+- **Teto de `size` (100).** Sem ele `?size=999999` devolveria a tabela inteira e anularia a
+  paginação. Pedir mais não dá erro — entrega o máximo, porque recusar só atrapalharia quem
+  integra.
+- **A navegação é anterior/próxima, não numerada.** Com 3 mil clientes, numerar daria 150 botões,
+  e ninguém procura "a página 87" — procura um nome, e a busca resolve isso.
+
+**Achado ao validar contra o Postgres real**
+
+- [x] **`could not determine data type of parameter`** — a primeira versão usava um único
+      `(:createdSince is null or c.createdAt >= :createdSince)` para tornar o filtro de data
+      opcional. O Postgres **recusa a consulta inteira**: um `LocalDateTime` nulo num `? is null`
+      não tem contexto de tipo para inferir. Os 461 testes passavam — o repositório é mockado, e
+      mock nenhum reproduz o planejador do Postgres. É a mesma classe de falha do bug de tipo da
+      V28, e de novo só apareceu porque a rota foi chamada contra o banco de verdade.
+      > **Correção e a que foi descartada:** virou duas consultas (`search` e
+      > `searchCreatedSince`). Trocar o nulo por uma data-limite "bem antiga" também resolveria o
+      > erro — mas `customers.created_at` é *nullable*, e a comparação excluiria silenciosamente
+      > quem tem a coluna vazia. Cliente sumindo da lista sem erro nenhum é exatamente o tipo de
+      > falha que este projeto trata como pior que uma exceção.
+
+---
+
 ### 🔍 Rodada de revisão por agentes *(2026-07-27)*
 
 > Quatro revisores especializados passaram no código depois da leva V19→V29: `react-reviewer`,

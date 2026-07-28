@@ -43,6 +43,12 @@ public class CommissionPaymentService {
         return paymentRepository.findByBarbershopIdOrderByPaidAtDesc(TenantContext.getCurrent());
     }
 
+    /** Uma pagina do historico (a ordenacao vem no {@link org.springframework.data.domain.Pageable}). */
+    public org.springframework.data.domain.Page<CommissionPayment> page(
+            org.springframework.data.domain.Pageable pageable) {
+        return paymentRepository.findByBarbershopId(TenantContext.getCurrent(), pageable);
+    }
+
     /**
      * Quanto ja foi pago a cada barbeiro referente ao intervalo consultado. Considera apenas
      * pagamentos <b>contidos</b> na janela — sobreposicao parcial seria palpite.
