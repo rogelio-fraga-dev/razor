@@ -323,3 +323,41 @@ export interface Comanda {
   paymentMethod: CashPaymentMethod | null;
   items: ComandaItem[];
 }
+
+// ---------- Comissões pagas (V25) ----------
+
+export interface CommissionSettlementItem {
+  professionalId: string;
+  professionalName: string;
+  atendimentos: number;
+  faturamento: number;
+  produtos: number;
+  faturamentoProdutos: number;
+  comissao: number;
+  /** Já pago referente a este intervalo (só acertos contidos nele). */
+  pago: number;
+  aReceber: number;
+}
+
+export interface CommissionSettlement {
+  from: string;
+  to: string;
+  items: CommissionSettlementItem[];
+  totalComissao: number;
+  totalPago: number;
+  totalAReceber: number;
+}
+
+export interface CommissionPayment {
+  id: string;
+  professionalId: string;
+  professionalName: string | null;
+  periodStart: string;
+  periodEnd: string;
+  amount: number;
+  /** True = saiu da gaveta (gerou sangria); false = pago por fora do caixa. */
+  fromCashRegister: boolean;
+  notes: string | null;
+  paidByName: string | null;
+  paidAt: string;
+}

@@ -37,6 +37,16 @@ export const IconTag = () => (
   </Icon>
 );
 
+/** Acerto de comissão: pagamento fechado, contas quitadas. */
+export const IconHandshake = () => (
+  <Icon>
+    <path d="M11 17 8.7 14.7a2 2 0 0 1 0-2.8l3.6-3.6a2 2 0 0 1 2.8 0L21 14.6" />
+    <path d="m3 12.6 4.3-4.3a2 2 0 0 1 2.8 0L12 10" />
+    <path d="M13 19.4 11.6 18" />
+    <path d="M16 17.4 14.6 16" />
+  </Icon>
+);
+
 /** Comanda: a conta do atendimento. */
 export const IconReceipt = () => (
   <Icon>

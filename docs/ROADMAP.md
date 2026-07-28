@@ -292,8 +292,12 @@ assinaturas) sem sair do Razor.
 - [x] **Estoque**: produtos, estoque mínimo com alerta e **baixa automática** na venda — feito na
       V24 (ver Fase 2).
 - [ ] **Vales e adiantamentos** dos profissionais, descontados na comissão.
-- [~] **Comissão por produto** ✅ (V23: `product_commission_percent` por barbeiro) + **por serviço
-      avulso** e **comissões pagas** (histórico de quitação) — estes dois ainda pendentes.
+- [~] **Comissão por produto** ✅ (V23: `product_commission_percent` por barbeiro) e **comissões
+      pagas** ✅ (V25) + **por serviço avulso** — este último ainda pendente.
+      > **Acerto (V25):** tela *Acerto* mostra, por período, o apurado × o **já pago** × o saldo —
+      > é o que impede pagar a mesma quinzena duas vezes. O valor é congelado no pagamento
+      > (correção posterior num atendimento não reescreve o recibo) e **sair do caixa é opcional**:
+      > pagamento em espécie vira sangria; PIX/transferência não mexe na conferência da gaveta.
 - [ ] **Grupos de clientes por tags** + **status do cliente** (ativo/sumido/novo) — munição
       para os disparos que já temos.
 - [ ] **Cobrança antecipada** e **controle de débitos/créditos** do cliente.

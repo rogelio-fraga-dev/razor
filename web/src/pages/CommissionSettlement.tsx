@@ -1,0 +1,277 @@
+// Acerto de comissão (V25): o que cada barbeiro apurou no período, o que já recebeu e o saldo.
+// É a tela que o dono olha antes de pagar — sem a coluna "já pago", pagar a mesma quinzena
+// duas vezes é fácil demais.
+import { useState } from "react";
+import { Layout } from "../components/Layout";
+import { Modal, Switch } from "../components/Modal";
+import { EmptyState } from "../components/EmptyState";
+import { SkeletonRows } from "../components/Skeleton";
+import { useToast } from "../components/Toast";
+import { useApi } from "../lib/useApi";
+import { api, ApiError } from "../api/client";
+import type { CommissionPayment, CommissionSettlement, CommissionSettlementItem } from "../api/types";
+import { dateBr, money, todayIso } from "../lib/format";
+
+function firstDayOfMonth(): string {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+}
+
+interface PayDraft {
+  item: CommissionSettlementItem;
+  amount: string;
+  fromCashRegister: boolean;
+  notes: string;
+}
+
+export function CommissionSettlementPage() {
+  const toast = useToast();
+  const [from, setFrom] = useState(firstDayOfMonth());
+  const [to, setTo] = useState(todayIso());
+  const [version, setVersion] = useState(0);
+  const [draft, setDraft] = useState<PayDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const settlement = useApi<CommissionSettlement>(
+    () => api.get(`/api/admin/commission-payments/settlement?from=${from}&to=${to}`),
+    [from, to, version],
+  );
+  const history = useApi<CommissionPayment[]>(() => api.get("/api/admin/commission-payments"), [version]);
+
+  const openPay = (item: CommissionSettlementItem) => {
+    setFormError(null);
+    setDraft({
+      item,
+      // Sugere o saldo, não o total apurado: pagar de novo o que já foi pago é o erro a evitar.
+      amount: item.aReceber > 0 ? String(item.aReceber) : "",
+      fromCashRegister: false,
+      notes: "",
+    });
+  };
+
+  const pay = async () => {
+    if (!draft) return;
+    const amount = Number(draft.amount.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setFormError("O valor do acerto deve ser maior que zero.");
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      await api.post("/api/admin/commission-payments", {
+        professionalId: draft.item.professionalId,
+        periodStart: from,
+        periodEnd: to,
+        amount,
+        fromCashRegister: draft.fromCashRegister,
+        notes: draft.notes.trim() || null,
+      });
+      toast.success(`Acerto de ${money(amount)} com ${draft.item.professionalName} registrado ✓`);
+      setDraft(null);
+      setVersion((v) => v + 1);
+    } catch (e) {
+      setFormError(e instanceof ApiError ? e.message : "Erro ao registrar o acerto.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const s = settlement.data;
+
+  return (
+    <Layout
+      title="Acerto de comissões"
+      actions={
+        <div className="row" style={{ gap: 8 }}>
+          <input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={{ width: 150, padding: "6px 10px" }} />
+          <span className="faint">até</span>
+          <input className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} style={{ width: 150, padding: "6px 10px" }} />
+        </div>
+      }
+    >
+      <div className="card">
+        <div className="card-head">
+          <h3>Apuração do período</h3>
+          {s && (
+            <div className="row" style={{ gap: 10 }}>
+              <span className="badge badge-muted mono">apurado {money(s.totalComissao)}</span>
+              <span className="badge badge-green mono">pago {money(s.totalPago)}</span>
+              <span className="badge badge-amber mono">a pagar {money(s.totalAReceber)}</span>
+            </div>
+          )}
+        </div>
+
+        {settlement.loading ? (
+          <SkeletonRows rows={3} />
+        ) : settlement.error ? (
+          <div className="empty error">{settlement.error}</div>
+        ) : !s || s.items.length === 0 ? (
+          <EmptyState
+            icon="✂"
+            title="Nenhuma comissão apurada no período."
+            hint="Comissões aparecem aqui quando há atendimentos com barbeiro atribuído ou vendas de produto no intervalo."
+          />
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Barbeiro</th>
+                  <th style={{ textAlign: "right" }}>Serviços</th>
+                  <th style={{ textAlign: "right" }}>Produtos</th>
+                  <th style={{ textAlign: "right" }}>Comissão</th>
+                  <th style={{ textAlign: "right" }}>Já pago</th>
+                  <th style={{ textAlign: "right" }}>A pagar</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {s.items.map((it) => (
+                  <tr key={it.professionalId}>
+                    <td style={{ fontWeight: 550 }}>
+                      {it.professionalName}
+                      <div className="faint" style={{ fontSize: 11.5 }}>{it.atendimentos} atendimento(s)</div>
+                    </td>
+                    <td className="num">{money(it.faturamento)}</td>
+                    <td className="num">
+                      {it.produtos > 0 ? money(it.faturamentoProdutos) : <span className="faint">—</span>}
+                    </td>
+                    <td className="num">{money(it.comissao)}</td>
+                    <td className="num" style={{ color: it.pago > 0 ? "var(--green)" : undefined }}>
+                      {money(it.pago)}
+                    </td>
+                    <td className="num" style={{ fontWeight: 700 }}>
+                      {it.aReceber > 0 ? money(it.aReceber) : <span className="faint">quitado</span>}
+                    </td>
+                    <td className="right">
+                      <button className="btn btn-primary btn-sm" onClick={() => openPay(it)}>
+                        Pagar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Histórico de acertos */}
+      <div className="card">
+        <div className="card-head">
+          <h3>Acertos registrados</h3>
+        </div>
+        {history.loading ? (
+          <SkeletonRows rows={2} />
+        ) : history.error ? (
+          <div className="empty error">{history.error}</div>
+        ) : !history.data || history.data.length === 0 ? (
+          <div className="card-pad faint">Nenhum acerto registrado ainda.</div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Barbeiro</th>
+                  <th>Período</th>
+                  <th>Saída</th>
+                  <th>Observação</th>
+                  <th>Registrado por</th>
+                  <th style={{ textAlign: "right" }}>Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.data.map((p) => (
+                  <tr key={p.id}>
+                    <td style={{ fontWeight: 550 }}>{p.professionalName ?? "—"}</td>
+                    <td className="muted">{dateBr(p.periodStart)} – {dateBr(p.periodEnd)}</td>
+                    <td>
+                      {p.fromCashRegister ? (
+                        <span className="badge badge-muted">Caixa</span>
+                      ) : (
+                        <span className="faint">Por fora</span>
+                      )}
+                    </td>
+                    <td className="muted">{p.notes ?? "—"}</td>
+                    <td className="faint">{p.paidByName ?? "—"}</td>
+                    <td className="num">{money(p.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {draft && (
+        <Modal
+          title={`Pagar ${draft.item.professionalName}`}
+          onClose={() => setDraft(null)}
+          footer={
+            <>
+              <button className="btn btn-ghost" onClick={() => setDraft(null)} disabled={saving}>Cancelar</button>
+              <button className="btn btn-primary" onClick={pay} disabled={saving}>
+                {saving ? "Registrando…" : "Registrar acerto"}
+              </button>
+            </>
+          }
+        >
+          <div className="stack">
+            <div className="row between">
+              <span className="muted">Período</span>
+              <strong>{dateBr(from)} – {dateBr(to)}</strong>
+            </div>
+            <div className="row between">
+              <span className="muted">Comissão apurada</span>
+              <span className="mono">{money(draft.item.comissao)}</span>
+            </div>
+            {draft.item.pago > 0 && (
+              <div className="row between">
+                <span className="muted">Já pago neste período</span>
+                <span className="mono" style={{ color: "var(--green)" }}>{money(draft.item.pago)}</span>
+              </div>
+            )}
+
+            <div className="field">
+              <label>Valor do acerto (R$)</label>
+              <input
+                className="input"
+                inputMode="decimal"
+                value={draft.amount}
+                onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
+              />
+              <span className="faint" style={{ fontSize: 12 }}>
+                Sugerido: o saldo a pagar. Dá para registrar um valor menor (acerto parcial).
+              </span>
+            </div>
+
+            <Switch
+              checked={draft.fromCashRegister}
+              onChange={(v) => setDraft({ ...draft, fromCashRegister: v })}
+              label="Pagar com dinheiro do caixa"
+            />
+            <span className="faint" style={{ fontSize: 12.5 }}>
+              Ligado, lança uma <strong>sangria</strong> no caixa aberto (e exige caixa aberto).
+              Desligado, é pagamento por fora — PIX, transferência — e não mexe na conferência
+              da gaveta.
+            </span>
+
+            <div className="field">
+              <label>Observação (opcional)</label>
+              <input
+                className="input"
+                value={draft.notes}
+                placeholder="ex.: PIX 15/07"
+                onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+              />
+            </div>
+
+            {formError && <div className="error">{formError}</div>}
+          </div>
+        </Modal>
+      )}
+    </Layout>
+  );
+}
