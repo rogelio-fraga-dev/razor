@@ -72,8 +72,21 @@ public class BarbershopSettingsService {
     }
 
     public BotSettings resolve() {
+        return resolveFor(TenantContext.getCurrent());
+    }
+
+    /**
+     * As mesmas configuracoes, para uma barbearia informada explicitamente.
+     *
+     * <p>Existe para os caminhos <b>sem tenant no contexto</b> — hoje o site white-label, que e
+     * publico e resolve a barbearia pelo slug da URL. Deixar esses caminhos chamarem
+     * {@code resolve()} os faria depender de um contexto que nao existe ali: com o
+     * {@code TenantContext} fail-closed (V30) isso estoura, o que ja e melhor que devolver o
+     * tenant errado — mas o certo e passar o id.
+     */
+    public BotSettings resolveFor(java.util.UUID barbershopId) {
         RazorProperties.Menu menu = properties.getMenu();
-        BarbershopSettings s = repository.findById(TenantContext.getCurrent()).orElse(null);
+        BarbershopSettings s = repository.findById(barbershopId).orElse(null);
         return new BotSettings(
                 pick(s == null ? null : s.getAddressText(), menu.getAddressText()),
                 pick(s == null ? null : s.getAddressMapsUrl(), menu.getAddressMapsUrl()),

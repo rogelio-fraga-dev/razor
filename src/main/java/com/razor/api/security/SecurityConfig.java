@@ -67,6 +67,11 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // O site white-label e publico por definicao — um site que so abre com
+                        // login nao e um site. O isolamento vem do slug da URL, e o que sai e
+                        // limitado pelo PublicSiteResponse: nenhum dado de cliente, faturamento
+                        // ou comissao passa por ali.
+                        .requestMatchers(HttpMethod.GET, "/api/site/**").permitAll()
                         .requestMatchers("/api/webhook/**", "/api/auth/**", "/api/onboarding",
                                 "/actuator/health", "/error").permitAll()
 
