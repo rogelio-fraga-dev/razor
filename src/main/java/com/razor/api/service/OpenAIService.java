@@ -136,7 +136,9 @@ public class OpenAIService {
 
     /** Ex.: "Seg a Sáb, das 09:00 às 19:00" — vindo das configuracoes do tenant. */
     String buildOpeningHours(BarbershopSettingsService.BotSettings cfg) {
-        return cfg.workingDays() + ", das " + cfg.openingTime() + " às " + cfg.closingTime();
+        // Frase derivada dos dias estruturados (V32): antes vinha de um texto livre a parte, que
+        // podia anunciar "Seg a Sáb" enquanto a agenda aceitava domingo.
+        return cfg.workingDaysText() + ", das " + cfg.openingTime() + " às " + cfg.closingTime();
     }
 
     public String processCustomerMessage(String userMessage, List<String> recentHistory, String agendaContext, int activeAppointments, String knownCustomerName) {

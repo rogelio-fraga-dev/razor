@@ -963,3 +963,13 @@ h1, h2, h3, h4, h5, h6 {
   min-width: 56px;
   text-align: center;
 }
+
+/* Legenda de fieldset — usada onde um rótulo só não descreve o grupo (ex.: dias da semana). */
+.field-legend {
+  display: block;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  padding: 0;
+}

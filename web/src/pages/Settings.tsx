@@ -1,3 +1,4 @@
+import { WeekdayPicker } from "../components/WeekdayPicker";
 import { useEffect, useState } from "react";
 import { Layout } from "../components/Layout";
 import { Switch } from "../components/Modal";
@@ -12,7 +13,7 @@ import { getOnce } from "../lib/dedupe";
 import { useWhatsAppConnection } from "../lib/useWhatsAppConnection";
 import { api, ApiError } from "../api/client";
 import { money } from "../lib/format";
-import type { Barbershop, BotSettings, BotStatus, Goals } from "../api/types";
+import type { Barbershop, BotSettings, BotStatus, Goals, BotTextKey, Weekday } from "../api/types";
 
 function StatusDot({ ok, warn }: { ok: boolean; warn?: boolean }) {
   const color = ok ? "var(--green)" : warn ? "var(--amber)" : "var(--red)";
@@ -251,7 +252,7 @@ const EMPTY_BOT: BotSettings = {
   paymentInfo: "",
   openingTime: "",
   closingTime: "",
-  workingDays: "",
+  workingWeekdays: [1, 2, 3, 4, 5, 6],
   welcomeText: "",
   reminderText: "",
   reviewText: "",
@@ -363,9 +364,11 @@ function GoalsCard({ reloadKey }: { reloadKey: number }) {
 function fillBot(data: BotSettings | null): BotSettings {
   const filled = { ...EMPTY_BOT };
   if (!data) return filled;
-  (Object.keys(EMPTY_BOT) as (keyof BotSettings)[]).forEach((k) => {
+  (Object.keys(EMPTY_BOT) as BotTextKey[]).forEach((k) => {
     filled[k] = data[k] ?? "";
   });
+  // A lista de dias nao pode virar string vazia: vazia significaria "fechado todo dia".
+  filled.workingWeekdays = data.workingWeekdays?.length ? data.workingWeekdays : EMPTY_BOT.workingWeekdays;
   return filled;
 }
 
@@ -390,7 +393,10 @@ function BotCard({
     setForm(fillBot(data));
   }, [data]);
 
-  const set = (k: keyof BotSettings, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  // workingWeekdays e a unica chave que nao e string: separar evita que os helpers de texto
+  // (field/area) aceitem uma lista de dias por engano.
+  const set = (k: BotTextKey, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const setWeekdays = (days: Weekday[]) => setForm((f) => ({ ...f, workingWeekdays: days }));
 
   const save = async () => {
     setSaving(true);
@@ -405,7 +411,7 @@ function BotCard({
     }
   };
 
-  const field = (k: keyof BotSettings, label: string, placeholder?: string) => (
+  const field = (k: BotTextKey, label: string, placeholder?: string) => (
     <div className="field">
       <label>{label}
       <input className="input" value={form[k] ?? ""} placeholder={placeholder} onChange={(e) => set(k, e.target.value)} />
@@ -413,7 +419,7 @@ function BotCard({
     </div>
   );
 
-  const area = (k: keyof BotSettings, label: string, rows = 4, placeholder?: string) => (
+  const area = (k: BotTextKey, label: string, rows = 4, placeholder?: string) => (
     <div className="field">
       <label>{label}
       <textarea
@@ -467,7 +473,10 @@ function BotCard({
                 {field("openingTime", "Abre às", "09:00")}
                 {field("closingTime", "Fecha às", "19:00")}
               </div>
-              {field("workingDays", "Dias de funcionamento", "Seg a Sáb")}
+              <WeekdayPicker
+                value={form.workingWeekdays ?? []}
+                onChange={setWeekdays}
+              />
               {area("cancellationPolicy", "Política de cancelamento/atraso", 2, "Ex.: cancele com 2h de antecedência")}
             </Section>
 

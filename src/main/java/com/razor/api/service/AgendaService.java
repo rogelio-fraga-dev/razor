@@ -349,6 +349,16 @@ public class AgendaService {
     private String montarHorariosLivres(LocalDate target, List<String> ocupadosDoDia, java.util.UUID professionalId) {
         List<String> livres = new ArrayList<>();
         var cfg = barbershopSettingsService.resolve();
+
+        // Dia em que a barbearia nao abre (V32). Ate aqui o expediente so tinha hora de abrir e
+        // fechar, e nada olhava o DIA: sem um bloqueio recorrente cadastrado a mao, o bot
+        // oferecia e marcava no domingo enquanto dizia ao cliente que abre de seg a sab.
+        if (!cfg.isOpenOn(target.getDayOfWeek())) {
+            log.debug("[AGENDA] {} cai em {} e a barbearia nao abre nesse dia ({}).",
+                    target, target.getDayOfWeek(), cfg.workingDaysText());
+            return "Nenhum horário disponível para este dia.";
+        }
+
         LocalTime inicio = parseHora(cfg.openingTime(), LocalTime.of(9, 0));
         LocalTime fim = parseHora(cfg.closingTime(), LocalTime.of(19, 0));
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm");

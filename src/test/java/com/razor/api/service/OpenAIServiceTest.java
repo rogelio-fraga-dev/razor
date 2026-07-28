@@ -77,10 +77,13 @@ class OpenAIServiceTest {
     @Test
     @DisplayName("funcionamento usa o expediente configurado pelo dono")
     void openingHours_useTenantConfig() {
+        // A frase dos dias é derivada dos dias estruturados (V32) — antes era texto livre que
+        // podia dizer uma coisa enquanto a agenda fazia outra.
         var cfg = new BarbershopSettingsService.BotSettings(
                 "", "", "", null, "",
                 "Barbearia do Diego", null, null, null,
-                "08:30", "20:00", "Ter a Dom",
+                "08:30", "20:00",
+                java.util.EnumSet.range(java.time.DayOfWeek.TUESDAY, java.time.DayOfWeek.SUNDAY),
                 null, null, null, null, null, null);
 
         assertThat(service.buildOpeningHours(cfg)).isEqualTo("Ter a Dom, das 08:30 às 20:00");

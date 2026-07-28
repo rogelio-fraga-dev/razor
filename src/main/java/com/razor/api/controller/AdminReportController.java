@@ -4,8 +4,10 @@ import com.razor.api.dto.AppointmentView;
 import com.razor.api.dto.CommissionReportResponse;
 import com.razor.api.dto.DreResponse;
 import com.razor.api.dto.FinancialSummaryResponse;
+import com.razor.api.dto.OccupancyResponse;
 import com.razor.api.dto.RevenuePoint;
 import com.razor.api.service.CommissionService;
+import com.razor.api.service.OccupancyService;
 import com.razor.api.service.ReportService;
 import com.razor.api.util.AppointmentDates;
 import java.time.LocalDate;
@@ -25,6 +27,7 @@ public class AdminReportController {
 
     private final CommissionService commissionService;
     private final ReportService reportService;
+    private final OccupancyService occupancyService;
 
     /** Comissoes por profissional num dia (padrao: hoje). Ex.: {@code /commissions?date=2026-07-21}. */
     @GetMapping("/commissions")
@@ -71,6 +74,22 @@ public class AdminReportController {
         LocalDate start = from != null ? from : today.withDayOfMonth(1);
         LocalDate end = to != null ? to : start.plusMonths(1).minusDays(1);
         return reportService.dre(start, end, today);
+    }
+
+    /**
+     * Taxa de ocupacao das cadeiras no periodo (padrao: mes corrente ate hoje).
+     *
+     * <p>Ate hoje, e nao ate o fim do mes: dias que ainda nao aconteceram entrariam como
+     * disponiveis e vazios, e o dono veria a ocupacao do mes despencar todo dia 1.
+     */
+    @GetMapping("/occupancy")
+    public OccupancyResponse occupancy(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        LocalDate today = AppointmentDates.today();
+        LocalDate start = from != null ? from : today.withDayOfMonth(1);
+        LocalDate end = to != null ? to : today;
+        return occupancyService.occupancy(start, end);
     }
 
     /** Agenda do dia (padrao: hoje). Ex.: {@code /agenda?date=2026-07-21}. */

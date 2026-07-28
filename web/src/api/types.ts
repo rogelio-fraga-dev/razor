@@ -124,7 +124,8 @@ export interface BotSettings {
   paymentInfo: string | null;
   openingTime: string | null;
   closingTime: string | null;
-  workingDays: string | null;
+  /** Dias abertos, ISO 1=seg…7=dom (V32). Fonte da verdade do expediente. */
+  workingWeekdays: Weekday[];
   welcomeText: string | null;
   reminderText: string | null;
   reviewText: string | null;
@@ -517,3 +518,39 @@ export interface CustomerSummary {
   subscribers: number;
   newInWindow: number;
 }
+
+// ---------- Expediente e ocupação ----------
+
+/** Dia da semana ISO: 1=segunda … 7=domingo (igual a java.time.DayOfWeek). */
+export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export interface ProfessionalOccupancy {
+  professionalId: string;
+  professionalName: string;
+  availableHours: number;
+  bookedHours: number;
+  /** Nulo quando não houve hora disponível — não é 0%, é "não há o que medir". */
+  rate: number | null;
+  appointments: number;
+}
+
+/**
+ * Taxa de ocupação das cadeiras. `availableHours` já desconta dias fechados (V32) e folgas (V16);
+ * `bookedHours` usa a duração real de cada serviço, não a contagem de atendimentos.
+ */
+export interface Occupancy {
+  from: string;
+  to: string;
+  openDays: number;
+  availableHours: number;
+  bookedHours: number;
+  rate: number | null;
+  unassignedAppointments: number;
+  professionals: ProfessionalOccupancy[];
+}
+
+/**
+ * Chaves de BotSettings que são texto. `workingWeekdays` fica de fora por ser a única lista —
+ * separar impede que os helpers de campo de texto a aceitem por engano.
+ */
+export type BotTextKey = Exclude<keyof BotSettings, "workingWeekdays">;

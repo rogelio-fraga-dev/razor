@@ -287,8 +287,8 @@ assinaturas) sem sair do Razor.
 
 - [x] **Contas a pagar e contas recorrentes (V31)** — aluguel, energia, produtos, impostos.
       Ver *Contas a pagar e DRE*, abaixo.
-- [~] **DRE** feito (V31); **taxa de ocupação e frequência de clientes** continuam abertas.
-      Ocupação = horas vendidas / horas disponíveis por barbeiro.
+- [x] **DRE** (V31) e **taxa de ocupação** (V32) feitos. **Frequência/retenção de clientes**
+      continua aberta. Ver *Expediente estruturado e taxa de ocupação*, abaixo.
 - [x] **Estoque**: produtos, estoque mínimo com alerta e **baixa automática** na venda — feito na
       V24 (ver Fase 2).
 - [x] **Vales e adiantamentos (V26)** dos profissionais, descontados na comissão. O vale pertence
@@ -796,8 +796,8 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
       (`monthly_revenue_goal` em `barbershop_settings`, endpoint próprio
       `/api/admin/settings/goals` para o PUT das configs do bot não zerar a meta). O painel
       compara com o faturamento real; sem meta definida, mostra só o convite para definir.
-- [ ] **Métricas ainda sem fonte de dados** — taxa de ocupação de cadeiras, no-show e "clientes
-      resgatados pela IA" não existem no backend. Enquanto não existirem, não entram na tela.
+- [~] **Métricas ainda sem fonte de dados** — **taxa de ocupação existe desde a V32**. No-show e
+      "clientes resgatados pela IA" continuam sem fonte; enquanto não existirem, não entram na tela.
 
 ---
 
@@ -921,6 +921,58 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 **Verificado contra a API rodando**, com o seed: DRE de julho fechou receita 8.637,00 − despesa
 2.930,50 = **5.706,50** (margem 66,1%), aluguel comendo 28,9% do faturamento; repetir recorrentes
 criou 1 conta na 1ª vez e `[]` na 2ª; quitar duas vezes deu 400; valor negativo deu 400.
+
+---
+
+### 🕒 Expediente estruturado e taxa de ocupação *(V32 — 2026-07-28)*
+
+> **482 testes verdes** (eram 461).
+
+**O bug que estava em produção**
+
+- [x] **`working_days` era texto livre que ninguém interpretava.** Era só concatenado numa frase
+      do prompt da IA. O `AgendaService` monta os horários a partir de `opening_time`/`closing_time`
+      e dos bloqueios (V16) — e de mais nada. Sem um bloqueio recorrente de domingo cadastrado à
+      mão, **o bot oferecia e marcava no domingo** enquanto dizia ao cliente que abre de segunda a
+      sábado. Prometia uma coisa e agendava outra.
+- [x] **V32: `working_weekdays`** — lista ISO (1=seg…7=dom), a mesma numeração de
+      `java.time.DayOfWeek`, para não existir conversão no meio do caminho. A frase mostrada ao
+      cliente passou a ser **derivada** dos dias: não pode mais discordar do que a agenda faz.
+- [x] **Seletor de dias no painel** (Configurações e assistente), no lugar do campo de texto.
+
+**Decisões**
+
+- **Backfill determinístico: todo mundo nasce Seg–Sáb.** Não é chute — `"Seg a Sáb"` é o próprio
+  default do sistema, ou seja, o que o bot já vinha dizendo. A migração faz a *agenda* obedecer o
+  que o bot já prometia. Parsear o texto foi descartado: `"Seg a Sáb"` é um **intervalo**, e
+  procurar tokens devolveria `{segunda, sábado}` — dois dias em vez de seis, pior que o default.
+- **Campo omitido no PUT preserva o expediente.** Cliente antigo da API não pode fechar a
+  barbearia todo dia por não conhecer um campo novo.
+- **`working_days` não foi dropado na mesma migração.** Apagar dado é irreversível; está marcado
+  como deprecado e sai numa versão futura.
+
+**Taxa de ocupação** (`/api/admin/reports/occupancy`)
+
+Horas vendidas ÷ horas disponíveis, por barbeiro e no total. Disponível = dias **abertos** ×
+jornada, menos folgas e almoços daquele barbeiro. Vendidas usam a **duração real** do serviço:
+contar "atendimentos" faria uma agenda de combos parecer mais vazia que uma de cortes.
+Agendamento sem barbeiro aparece à parte em vez de ser distribuído por chute, e a taxa vem
+**nula** (não `0%`) quando não houve hora disponível.
+
+> Conferido contra o seed: 24 dias abertos em julho (28 dias − 4 domingos) e Rafael com 260h
+> contra 264h dos colegas — exatamente as 4 horas do almoço recorrente de quarta.
+
+**Dois achados que só apareceram exercitando a API de verdade**
+
+- [x] **Jackson lia número como *ordinal* do enum.** `Set<DayOfWeek>` no payload fazia
+      `[1,2,3,4,5,6]` — Seg a Sáb em ISO — virar **Ter a Dom** em silêncio (ordinal 0=MONDAY), e
+      `7` estourar com 400. Erro de um dia que só apareceria quando o bot recusasse segunda-feira.
+      O payload passou a ser `Set<Integer>` ISO explícito, com conversão própria. É exatamente a
+      armadilha das duas convenções que o javadoc do `WorkingDays` já alertava — e ela reapareceu
+      na camada JSON, que o javadoc não cobria.
+- [x] **Teste com data não-determinística.** `AgendaServiceTest` usava `hoje + 5 dias`, que uma vez
+      por semana cai num domingo. Até a V32 não importava, porque a agenda ignorava o dia; agora
+      quebraria em 1 de cada 7 execuções. Ancorado num dia aberto.
 
 ---
 

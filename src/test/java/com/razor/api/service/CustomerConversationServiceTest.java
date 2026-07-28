@@ -73,7 +73,7 @@ class CustomerConversationServiceTest {
                 new BarbershopSettingsService.BotSettings(
                         "", "", "", null, "",
                         "Barbearia Teste", pixKey, null, null,
-                        "09:00", "19:00", "Seg a Sáb",
+                        "09:00", "19:00", com.razor.api.util.WorkingDays.DEFAULT,
                         null, null, null, null, null, null));
     }
 

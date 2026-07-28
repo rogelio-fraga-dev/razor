@@ -67,9 +67,18 @@ public class BarbershopSettings {
     @Column(name = "closing_time", length = 5)
     private String closingTime;
 
-    /** Texto livre com os dias de funcionamento (ex.: "Seg a Sáb"). */
+    /**
+     * @deprecated desde a V32 — texto livre que ninguem interpretava. Use
+     *             {@link #workingWeekdays}; a frase mostrada ao cliente e derivada dele.
+     *             Mantido so para nao apagar dado antes de uma versao de confirmacao.
+     */
+    @Deprecated
     @Column(name = "working_days", length = 120)
     private String workingDays;
+
+    /** Dias abertos, ISO 1=seg…7=dom separados por virgula (V32). Fonte da verdade do expediente. */
+    @Column(name = "working_weekdays", length = 20)
+    private String workingWeekdays;
 
     @Column(name = "welcome_text", columnDefinition = "text")
     private String welcomeText;

@@ -71,6 +71,58 @@ class AgendaServiceTest {
                 .thenReturn(new BarbershopSettingsService.BotSettings("", "", "", null, ""));
     }
 
+    @Test
+    @DisplayName("dia em que a barbearia não abre não oferece horário nenhum (V32)")
+    void horariosDisponiveis_closedDay_offersNothing() {
+        // O bug que a V32 fecha: até aqui o expediente só tinha hora de abrir e fechar, e nada
+        // olhava o DIA. Sem um bloqueio recorrente cadastrado à mão, o bot oferecia e marcava no
+        // domingo enquanto dizia ao cliente que abre de segunda a sábado.
+        LocalDate domingo = AppointmentDates.today().plusDays(1);
+        while (domingo.getDayOfWeek() != java.time.DayOfWeek.SUNDAY) domingo = domingo.plusDays(1);
+
+        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of());
+        givenDurations();
+
+        String out = service.getHorariosDisponiveisDoDia(AppointmentDates.formatDate(domingo));
+
+        assertThat(out).isEqualTo("Nenhum horário disponível para este dia.");
+    }
+
+    @Test
+    @DisplayName("tenant que abre domingo continua oferecendo domingo")
+    void horariosDisponiveis_tenantOpenOnSunday_offersSunday() {
+        LocalDate domingo = AppointmentDates.today().plusDays(1);
+        while (domingo.getDayOfWeek() != java.time.DayOfWeek.SUNDAY) domingo = domingo.plusDays(1);
+
+        // O fechamento não é uma regra do sistema, é a configuração do tenant.
+        when(barbershopSettingsService.resolve()).thenReturn(
+                new BarbershopSettingsService.BotSettings(
+                        "", "", "", null, "", "Barbearia", null, null, null,
+                        "09:00", "19:00", java.util.EnumSet.allOf(java.time.DayOfWeek.class),
+                        null, null, null, null, null, null));
+        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of());
+        givenDurations();
+
+        String out = service.getHorariosDisponiveisDoDia(AppointmentDates.formatDate(domingo));
+
+        assertThat(out).contains("09:00");
+    }
+
+    /**
+     * Uma data futura em que a barbearia ABRE.
+     *
+     * <p>Antes era `hoje + 5 dias`, que uma vez por semana caia num domingo. Ate a V32 isso nao
+     * importava porque a agenda ignorava o dia da semana; agora domingo nao oferece horario, e o
+     * teste quebraria em 1 de cada 7 execucoes — falha intermitente que custa caro para depurar.
+     */
+    private LocalDate proximoDiaAberto() {
+        LocalDate d = AppointmentDates.today().plusDays(5);
+        while (!com.razor.api.util.WorkingDays.DEFAULT.contains(d.getDayOfWeek())) {
+            d = d.plusDays(1);
+        }
+        return d;
+    }
+
     private com.razor.api.model.Professional prof() {
         return com.razor.api.model.Professional.builder().id(UUID.randomUUID()).active(true).build();
     }
@@ -131,7 +183,7 @@ class AgendaServiceTest {
     @Test
     @DisplayName("horários disponíveis excluem os ocupados do dia")
     void horariosDisponiveis_excludesOccupied() {
-        LocalDate future = AppointmentDates.today().plusDays(5);
+        LocalDate future = proximoDiaAberto();
         String dateStr = AppointmentDates.formatDate(future);
         when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
                 appt("Corte", PaymentStatus.PENDENTE, future, LocalTime.of(9, 0))));
@@ -146,7 +198,7 @@ class AgendaServiceTest {
     @Test
     @DisplayName("horário de FOLGA/almoço não é oferecido (bloqueio da V16)")
     void horariosDisponiveis_excludesBlocked() {
-        LocalDate future = AppointmentDates.today().plusDays(5);
+        LocalDate future = proximoDiaAberto();
         String dateStr = AppointmentDates.formatDate(future);
         when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of()); // agenda vazia
         givenDurations();
@@ -185,7 +237,7 @@ class AgendaServiceTest {
     @Test
     @DisplayName("serviço de 60min (combo) ocupa dois slots consecutivos na disponibilidade")
     void horariosDisponiveis_comboBlocksTwoSlots() {
-        LocalDate future = AppointmentDates.today().plusDays(5);
+        LocalDate future = proximoDiaAberto();
         String dateStr = AppointmentDates.formatDate(future);
         when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
                 appt("Combo", PaymentStatus.PENDENTE, future, LocalTime.of(9, 0))));
@@ -202,7 +254,7 @@ class AgendaServiceTest {
     @DisplayName("disponibilidade por profissional considera só os agendamentos daquele barbeiro")
     void horariosDisponiveisProfissional_excludesThatProfessionalOccupied() {
         UUID prof = UUID.randomUUID();
-        LocalDate future = AppointmentDates.today().plusDays(5);
+        LocalDate future = proximoDiaAberto();
         String dateStr = AppointmentDates.formatDate(future);
         when(appointmentRepository.findByBarbershopIdAndProfessionalIdAndAppointmentDate(
                 any(UUID.class), eq(prof), any(LocalDate.class)))

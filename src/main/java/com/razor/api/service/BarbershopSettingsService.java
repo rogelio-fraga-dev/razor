@@ -4,8 +4,11 @@ import com.razor.api.config.RazorProperties;
 import com.razor.api.model.BarbershopSettings;
 import com.razor.api.repository.BarbershopSettingsRepository;
 import com.razor.api.tenant.TenantContext;
+import com.razor.api.util.WorkingDays;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,13 +30,12 @@ public class BarbershopSettingsService {
     public static final String DEFAULT_DISPLAY_NAME = "Barbearia Ficticia";
     private static final String DEFAULT_OPENING = "09:00";
     private static final String DEFAULT_CLOSING = "19:00";
-    private static final String DEFAULT_WORKING_DAYS = "Seg a Sáb";
 
     /** Textos efetivos usados no fluxo do cliente (linha do tenant com fallback por campo). */
     public record BotSettings(
             String addressText, String addressMapsUrl, String servicesText, String scheduleUrl, String instagramUrl,
             String displayName, String pixKey, String pixCopyPaste, String paymentInfo,
-            String openingTime, String closingTime, String workingDays,
+            String openingTime, String closingTime, Set<DayOfWeek> workingWeekdays,
             String welcomeText, String reminderText, String reviewText,
             String fidelityRewardText, String cancellationPolicy, String botPersona) {
 
@@ -45,13 +47,27 @@ public class BarbershopSettingsService {
                            String scheduleUrl, String instagramUrl) {
             this(addressText, addressMapsUrl, servicesText, scheduleUrl, instagramUrl,
                     DEFAULT_DISPLAY_NAME, null, null, null,
-                    DEFAULT_OPENING, DEFAULT_CLOSING, DEFAULT_WORKING_DAYS,
+                    DEFAULT_OPENING, DEFAULT_CLOSING, WorkingDays.DEFAULT,
                     null, null, null, null, null, null);
         }
 
         /** True quando o tenant configurou a propria chave PIX (senao nao devemos enviar PIX). */
         public boolean hasPix() {
             return pixKey != null && !pixKey.isBlank();
+        }
+
+        /** A barbearia abre neste dia? Usado para nao oferecer horario em dia fechado (V32). */
+        public boolean isOpenOn(DayOfWeek day) {
+            return workingWeekdays.contains(day);
+        }
+
+        /**
+         * Frase dos dias de funcionamento ("Seg a Sáb"), <b>derivada</b> dos dias estruturados.
+         * Antes era um texto livre a parte, que podia dizer uma coisa enquanto a agenda fazia
+         * outra — foi exatamente o que aconteceu ate a V32.
+         */
+        public String workingDaysText() {
+            return WorkingDays.describe(workingWeekdays);
         }
     }
 
@@ -70,7 +86,7 @@ public class BarbershopSettingsService {
                 s == null ? null : s.getPaymentInfo(),
                 pick(s == null ? null : s.getOpeningTime(), DEFAULT_OPENING),
                 pick(s == null ? null : s.getClosingTime(), DEFAULT_CLOSING),
-                pick(s == null ? null : s.getWorkingDays(), DEFAULT_WORKING_DAYS),
+                WorkingDays.parse(s == null ? null : s.getWorkingWeekdays()),
                 s == null ? null : s.getWelcomeText(),
                 s == null ? null : s.getReminderText(),
                 s == null ? null : s.getReviewText(),
@@ -100,7 +116,12 @@ public class BarbershopSettingsService {
         s.setPaymentInfo(p.paymentInfo());
         s.setOpeningTime(p.openingTime());
         s.setClosingTime(p.closingTime());
-        s.setWorkingDays(p.workingDays());
+        // Payload sem os dias (cliente antigo da API) nao pode zerar o expediente: manter o que
+        // ja estava e mais seguro do que gravar "fechado todo dia" por omissao.
+        Set<DayOfWeek> dias = WorkingDays.fromIso(p.workingWeekdays());
+        if (!dias.isEmpty()) {
+            s.setWorkingWeekdays(WorkingDays.format(dias));
+        }
         s.setWelcomeText(p.welcomeText());
         s.setReminderText(p.reminderText());
         s.setReviewText(p.reviewText());

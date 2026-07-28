@@ -7,6 +7,7 @@
 //     registro inteiro) nunca apaga campo que o assistente não mostra.
 //  2. Ao concluir, o back manda o resumo de boas-vindas ao dono (WelcomeBriefService) e a tela
 //     de Configurações atrás recarrega, já mostrando tudo que foi preenchido.
+import { WeekdayPicker } from "./WeekdayPicker";
 import { useState, type ReactNode } from "react";
 import { Modal } from "./Modal";
 import { SpeechModePicker } from "./SpeechModePicker";
@@ -15,7 +16,7 @@ import { AdminsEditor } from "./AdminsEditor";
 import { useToast } from "./Toast";
 import { useWhatsAppConnection } from "../lib/useWhatsAppConnection";
 import { api, ApiError } from "../api/client";
-import type { BotSettings } from "../api/types";
+import type { BotSettings, BotTextKey } from "../api/types";
 
 interface Step {
   title: string;
@@ -40,9 +41,9 @@ export function ConfigWizard({
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  const set = (k: keyof BotSettings, v: string) => setDraft((d) => ({ ...d, [k]: v }));
+  const set = (k: BotTextKey, v: string) => setDraft((d) => ({ ...d, [k]: v }));
 
-  const field = (k: keyof BotSettings, label: string, placeholder?: string) => (
+  const field = (k: BotTextKey, label: string, placeholder?: string) => (
     <div className="field">
       <label>{label}
       <input className="input" value={draft[k] ?? ""} placeholder={placeholder} onChange={(e) => set(k, e.target.value)} />
@@ -50,7 +51,7 @@ export function ConfigWizard({
     </div>
   );
 
-  const area = (k: keyof BotSettings, label: string, rows = 3, placeholder?: string) => (
+  const area = (k: BotTextKey, label: string, rows = 3, placeholder?: string) => (
     <div className="field">
       <label>{label}
       <textarea
@@ -107,7 +108,10 @@ export function ConfigWizard({
             {field("openingTime", "Abre às", "09:00")}
             {field("closingTime", "Fecha às", "19:00")}
           </div>
-          {field("workingDays", "Dias de funcionamento", "Seg a Sáb")}
+          <WeekdayPicker
+            value={draft.workingWeekdays ?? []}
+            onChange={(days) => setDraft((d) => ({ ...d, workingWeekdays: days }))}
+          />
           {area("cancellationPolicy", "Política de cancelamento/atraso", 2, "Ex.: cancele com 2h de antecedência")}
         </div>
       ),
