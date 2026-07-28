@@ -42,6 +42,13 @@ public class SubscriptionPlan {
     @Column(nullable = false)
     private boolean active = true;
 
+    /**
+     * Com quantos dias de antecedencia o assinante pode agendar (V27) — a "Periodicidade"
+     * que aparece no app do cliente. {@code null} = sem regra especial.
+     */
+    @Column(name = "booking_window_days")
+    private Integer bookingWindowDays;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
