@@ -56,6 +56,7 @@ class AgendaServiceTest {
     @Mock private PricingService pricingService;
     @Mock private TenantAdminService tenantAdminService;
     @Mock private ScheduleBlockService scheduleBlockService;
+    @Mock private CouponService couponService;
 
     @InjectMocks private AgendaService service;
 
@@ -280,6 +281,14 @@ class AgendaServiceTest {
                 new BarbershopSettingsService.BotSettings("", "http://maps", "", null, ""));
         Customer c = Customer.builder().id(UUID.randomUUID()).phoneNumber(PHONE).name("João").fidelityPoints(9).build();
         when(customerRepository.findByBarbershopIdAndPhoneNumber(any(UUID.class), eq(PHONE))).thenReturn(Optional.of(c));
+        // O cupom agora e uma entidade gravada (V29), nao mais um texto solto.
+        when(couponService.issueFidelityReward(eq(PHONE))).thenReturn(
+                com.razor.api.model.Coupon.builder()
+                        .id(UUID.randomUUID()).code("FIDELIDADE-ABC12")
+                        .discountType(com.razor.api.model.Coupon.DiscountType.PERCENT)
+                        .discountValue(new java.math.BigDecimal("10"))
+                        .validUntil(java.time.LocalDate.now().plusDays(90))
+                        .build());
 
         service.adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte");
 

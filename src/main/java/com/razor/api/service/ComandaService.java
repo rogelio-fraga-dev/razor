@@ -48,6 +48,7 @@ public class ComandaService {
     private final ProfessionalRepository professionalRepository;
     private final CashRegisterService cashRegisterService;
     private final StockService stockService;
+    private final CouponService couponService;
 
     // ---------- consultas ----------
 
@@ -158,6 +159,16 @@ public class ComandaService {
      */
     @Transactional
     public Comanda close(UUID comandaId, CashPaymentMethod method) {
+        return close(comandaId, method, null);
+    }
+
+    /**
+     * Fecha a comanda aplicando um cupom, se houver (V29). O cupom e validado <b>antes</b> de
+     * lancar no caixa: cupom invalido derruba o fechamento inteiro em vez de cobrar o valor
+     * errado.
+     */
+    @Transactional
+    public Comanda close(UUID comandaId, CashPaymentMethod method, String couponCode) {
         Comanda comanda = requireOpen(comandaId);
         if (method == null) {
             throw new IllegalArgumentException("Escolha a forma de pagamento da comanda.");
@@ -167,7 +178,16 @@ public class ComandaService {
         if (items.isEmpty()) {
             throw new IllegalArgumentException("Comanda vazia: adicione ao menos um item antes de fechar.");
         }
-        BigDecimal total = items.stream().map(ComandaItem::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal subtotal = items.stream().map(ComandaItem::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal desconto = BigDecimal.ZERO;
+        CouponService.Validation cupom = null;
+        if (couponCode != null && !couponCode.isBlank()) {
+            cupom = couponService.validate(couponCode, subtotal, comanda.getCustomerPhone(),
+                    AppointmentDates.today());
+            desconto = cupom.discount();
+        }
+        BigDecimal total = subtotal.subtract(desconto);
 
         // Um unico movimento com o total. Se nao houver caixa aberto, o fechamento inteiro falha.
         String description = "Comanda" + (comanda.getCustomerName() == null
@@ -183,7 +203,17 @@ public class ComandaService {
         comanda.setPaymentMethod(method);
         comanda.setCashMovementId(movement.getId());
         comanda.setClosedAt(now);
+        if (cupom != null) {
+            comanda.setCouponId(cupom.coupon().getId());
+            comanda.setDiscountAmount(desconto);
+        }
         Comanda saved = comandaRepository.save(comanda);
+
+        // O uso e registrado depois do caixa aceitar: cupom nao pode ficar "gasto" numa
+        // comanda que falhou em cobrar.
+        if (cupom != null) {
+            couponService.redeem(cupom.coupon(), desconto, comanda.getId(), comanda.getCustomerPhone());
+        }
 
         log.info("[COMANDA] Fechada {} por {} ({}) no tenant {}",
                 comanda.getId(), total, method, comanda.getBarbershopId());

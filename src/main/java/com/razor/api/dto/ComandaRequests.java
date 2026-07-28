@@ -25,7 +25,11 @@ public final class ComandaRequests {
                     @Positive(message = "A quantidade deve ser maior que zero.")
                     Integer quantity) {}
 
-    /** Fechamento: so a forma de pagamento; o total vem dos itens. */
+    /**
+     * Fechamento: forma de pagamento e, opcionalmente, o cupom de desconto (V29). O total vem
+     * dos itens; o cupom e validado antes de lancar no caixa.
+     */
     public record Close(
-            @NotNull(message = "Escolha a forma de pagamento da comanda.") CashPaymentMethod paymentMethod) {}
+            @NotNull(message = "Escolha a forma de pagamento da comanda.") CashPaymentMethod paymentMethod,
+            String couponCode) {}
 }

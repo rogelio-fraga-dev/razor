@@ -488,6 +488,12 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
 > **A ordem abaixo é de dependência, não de preferência** — cada item destrava o seguinte.
 > Construir fora de ordem gera retrabalho.
 
+- [x] **3. Cupons de desconto e fidelidade de verdade (V29)** — o cartão fidelidade já mandava um
+      código ao cliente que **nunca era gravado**: o caixa não validava, nada impedia usar duas
+      vezes e não havia registro do desconto dado. Agora cupom é entidade com validade, limite de
+      usos, valor mínimo, cupom pessoal × campanha aberta e histórico de uso. Aplicado no
+      fechamento da comanda, validado **antes** de lançar no caixa. _(Também corrigidos dois
+      "Barbearia Ficticia" cravados: na recompensa de fidelidade e no lembrete de agendamento.)_
 - [x] **1. Motor de benefícios de plano + comissão por serviço (V27)**
       `plan_benefits` (alvo = item específico **ou** todos de um tipo, desconto %, cota mensal,
       dias da semana) e `services.commission_percent` (o dono define a comissão de cada serviço;
@@ -495,26 +501,26 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       item para o cliente: benefício específico ganha do geral, respeita dia e cota.
       _Cota só é verificada em serviço (contando atendimentos do mês); venda de produto não
       guarda o cliente, e no modelo real produto ganha percentual, não cota._
-- [x] **2. Três planos realistas** (Bronze R$ 89,90 / Prata R$ 129,90 / Ouro R$ 189,90) com corte
+- [x] **2. Três planos realistas** (Bronze R$ 69,90 / Prata R$ 94,90 / Ouro R$ 119,90) com corte
       ilimitado, criados por `POST /plans/suggested` (idempotente, nunca automático). Tela de
       benefícios em Planos, espelhando o app do cliente. Landing ligada ao painel no mesmo commit.
-- [x] **3. Comanda ↔ agendamento (V28)** — `comandas.appointment_id`, opcional e com índice único
+- [x] **4. Comanda ↔ agendamento (V28)** — `comandas.appointment_id`, opcional e com índice único
       parcial (uma comanda por agendamento; duas seria cobrança dupla). O financeiro passou a somar
       o serviço de comandas **sem** vínculo — receita real que o laço de agendamentos não via — e a
       **ignorar** as com vínculo, porque aquele serviço já foi contado pelo agendamento. Fecha a
       lacuna registrada na V21 sem risco de contar duas vezes.
-- [ ] **4. Contas do cliente final** (`customer_accounts`) — login próprio, vínculo ao telefone
+- [ ] **8. Contas do cliente final** *(movido para o fim — decisão de 2026-07-27: fechar a parte do dono e do bot primeiro)* (`customer_accounts`) — login próprio, vínculo ao telefone
       do WhatsApp, histórico. **Opcional**: quem só quer marcar um corte continua sem cadastro.
-- [ ] **5. Pagamento pelo cliente** — escolher entre **pagar no app** ou **pagar ao barbeiro**.
+- [ ] **6. Pagamento pelo cliente** *(cartão apenas VISUAL por ora; gateway a pesquisar)* — escolher entre **pagar no app** ou **pagar ao barbeiro**.
       Cartão **tokenizado no gateway**; o número **nunca** toca nosso banco nem nossos logs.
       Idempotência na cobrança, verificação de assinatura no webhook do gateway, e o pagamento
       no app entra no caixa como venda igual aos demais.
-- [ ] **6. Bot reconhece e recomenda** — cliente novo agenda normalmente e, ao final, o bot
+- [ ] **7. Bot reconhece e recomenda** — cliente novo agenda normalmente e, ao final, o bot
       convida a criar conta para ver planos e descontos. Assinante é reconhecido pelo telefone
       e já recebe o preço com benefício na conversa.
-- [ ] **7. Três sites white-label** — templates prontos (ver *Sistema de templates* acima),
+- [ ] **5. Três sites white-label** — Clássico, Estúdio e Vitrine (direção visual livre) — templates prontos (ver *Sistema de templates* acima),
       com vitrine de planos e agendamento online ligado à mesma agenda do bot.
-- [ ] **8. Melhorias sobre a base** — upsell "sentimos sua falta" no agendamento, seleção de
+- [ ] **9. Melhorias sobre a base** — upsell "sentimos sua falta" no agendamento, seleção de
       múltiplos serviços numa marcação, "sem preferência" de barbeiro, e agenda liberada por
       antecedência do plano (`booking_window_days`, já criado na V27).
 

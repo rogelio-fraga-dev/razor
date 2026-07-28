@@ -37,6 +37,14 @@ export const IconTag = () => (
   </Icon>
 );
 
+/** Cupom: bilhete com o corte no meio. */
+export const IconTicket = () => (
+  <Icon>
+    <path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4Z" />
+    <path d="M13 5v14" strokeDasharray="3 3" />
+  </Icon>
+);
+
 /** Acerto de comissão: pagamento fechado, contas quitadas. */
 export const IconHandshake = () => (
   <Icon>

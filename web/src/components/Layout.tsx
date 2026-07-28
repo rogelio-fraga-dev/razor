@@ -4,7 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { applyTheme, currentTheme, type Theme } from "../lib/theme";
 import { RazorLogo } from "./Logo";
 import { Clock } from "./Clock";
-import { IconBox, IconHandshake, IconReceipt, IconCalendar, IconCash, IconGem, IconGrid, IconPercent, IconSliders, IconTag, IconUser, IconUsers } from "./Icons";
+import { IconBox, IconHandshake, IconTicket, IconReceipt, IconCalendar, IconCash, IconGem, IconGrid, IconPercent, IconSliders, IconTag, IconUser, IconUsers } from "./Icons";
 
 // Navegação agrupada pelo que o dono faz — não por "telas do sistema".
 const NAV_GROUPS = [
@@ -23,6 +23,7 @@ const NAV_GROUPS = [
       { to: "/products", label: "Produtos", icon: <IconBox /> },
       { to: "/professionals", label: "Profissionais", icon: <IconUser /> },
       { to: "/plans", label: "Planos", icon: <IconGem /> },
+      { to: "/coupons", label: "Cupons", icon: <IconTicket /> },
     ],
   },
   {

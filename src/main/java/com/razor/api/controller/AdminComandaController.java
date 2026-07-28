@@ -82,7 +82,7 @@ public class AdminComandaController {
 
     @PostMapping("/{id}/close")
     public ComandaResponse close(@PathVariable UUID id, @Valid @RequestBody ComandaRequests.Close req) {
-        return toResponse(comandaService.close(id, req.paymentMethod()), professionalNames());
+        return toResponse(comandaService.close(id, req.paymentMethod(), req.couponCode()), professionalNames());
     }
 
     @PostMapping("/{id}/cancel")

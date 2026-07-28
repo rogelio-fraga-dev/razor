@@ -395,3 +395,27 @@ export interface Advance {
   notes: string | null;
   grantedByName: string | null;
 }
+
+// ---------- Cupons (V29) ----------
+
+export type CouponDiscountType = "PERCENT" | "FIXED";
+export type CouponOrigin = "MANUAL" | "FIDELIDADE";
+
+/** Cupom de desconto. `customerPhone` preenchido = pessoal; nulo = campanha aberta. */
+export interface Coupon {
+  id: string;
+  code: string;
+  description: string | null;
+  discountType: CouponDiscountType;
+  discountValue: number;
+  origin: CouponOrigin;
+  customerPhone: string | null;
+  validFrom: string | null;
+  validUntil: string | null;
+  maxUses: number | null;
+  usedCount: number;
+  minAmount: number | null;
+  active: boolean;
+  /** Dá para usar hoje? Junta validade, limite de usos e o liga/desliga. */
+  usable: boolean;
+}

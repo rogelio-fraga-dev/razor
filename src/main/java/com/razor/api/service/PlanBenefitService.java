@@ -91,14 +91,14 @@ public class PlanBenefitService {
 
         // BRONZE — corte ilimitado nos dias fracos. Entrada barata que enche segunda a quarta.
         SubscriptionPlan bronze = upsertPlan("Bronze — Corte ilimitado (seg a qua)",
-                new BigDecimal("89.90"),
+                new BigDecimal("69.90"),
                 "Corte ilimitado de segunda a quarta. Ideal para quem tem horario flexivel.", 7);
         benefitFor(bronze, PlanBenefit.TargetType.SERVICO, corte, "100", null, SEG_A_QUA);
         criados.add(bronze);
 
         // PRATA — corte ilimitado todo dia + desconto em produto.
         SubscriptionPlan prata = upsertPlan("Prata — Corte ilimitado (todos os dias)",
-                new BigDecimal("129.90"),
+                new BigDecimal("94.90"),
                 "Corte ilimitado qualquer dia da semana e 10% de desconto nos produtos.", 10);
         benefitFor(prata, PlanBenefit.TargetType.SERVICO, corte, "100", null, null);
         benefitFor(prata, PlanBenefit.TargetType.PRODUTO, null, "10", null, null);
@@ -106,7 +106,7 @@ public class PlanBenefitService {
 
         // OURO — corte e barba ilimitados + descontos maiores.
         SubscriptionPlan ouro = upsertPlan("Ouro — Corte e barba ilimitados",
-                new BigDecimal("189.90"),
+                new BigDecimal("119.90"),
                 "Corte e barba ilimitados todos os dias, 15% nos produtos e 10% nos demais servicos.", 15);
         benefitFor(ouro, PlanBenefit.TargetType.SERVICO, corte, "100", null, null);
         if (barba != null) {

@@ -143,9 +143,9 @@ class PlanBenefitServiceTest {
         List<SubscriptionPlan> planos = service.createSuggestedPlans();
 
         assertThat(planos).hasSize(3);
-        assertThat(planos.get(0).getPrice()).isEqualByComparingTo("89.90");
-        assertThat(planos.get(1).getPrice()).isEqualByComparingTo("129.90");
-        assertThat(planos.get(2).getPrice()).isEqualByComparingTo("189.90");
+        assertThat(planos.get(0).getPrice()).isEqualByComparingTo("69.90");
+        assertThat(planos.get(1).getPrice()).isEqualByComparingTo("94.90");
+        assertThat(planos.get(2).getPrice()).isEqualByComparingTo("119.90");
         // preço sobe junto com o benefício
         assertThat(planos.get(0).getPrice()).isLessThan(planos.get(1).getPrice());
         assertThat(planos.get(1).getPrice()).isLessThan(planos.get(2).getPrice());

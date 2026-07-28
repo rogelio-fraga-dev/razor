@@ -42,6 +42,7 @@ public class AgendaService {
     private final TenantAdminService tenantAdminService;
     private final BarbershopSettingsService barbershopSettingsService;
     private final ScheduleBlockService scheduleBlockService;
+    private final CouponService couponService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Classe auxiliar de leitura para manter a migração legada funcionando
@@ -127,7 +128,10 @@ public class AgendaService {
 
             // 1. Tarefa de LEMBRETE (1 hora antes do horário)
             LocalDateTime reminderTime = apptDateTime.minusHours(1);
-            String reminderMsg = "Olá, " + pNome + "! 💈\nLembramos que você tem um agendamento hoje às *" + AppointmentDates.formatTime(ag.getAppointmentTime()) + "* para *" + ag.getService() + "* na Barbearia Ficticia.";
+            // O nome vem do tenant: cravado, toda barbearia mandaria lembrete com o nome de outra.
+            String reminderMsg = "Olá, " + pNome + "! 💈\nLembramos que você tem um agendamento hoje às *"
+                    + AppointmentDates.formatTime(ag.getAppointmentTime()) + "* para *" + ag.getService()
+                    + "* na " + barbershopSettingsService.resolve().displayName() + ".";
 
             ScheduledTask reminderTask = ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
                     .customerPhone(ag.getCustomerPhone())
@@ -227,17 +231,27 @@ public class AgendaService {
                 customerRepository.save(customer);
                 log.info("[FIDELIDADE] Adicionado 1 ponto para {}. Total: {}", phone, newPoints);
 
-                if (newPoints >= 10) {
+                if (newPoints >= CouponService.FIDELITY_TARGET_POINTS) {
                     customer.setFidelityPoints(0);
                     customerRepository.save(customer);
 
-                    String coupon = "FIDELIDADE10-" + java.util.UUID.randomUUID().toString().substring(0, 5).toUpperCase();
-                    String fidelityRewardMsg = "🎉 *PARABÉNS!* Você completou 10 pontos no seu Cartão Fidelidade da Barbearia Ficticia! 🥳✂️\n\n" +
-                            "Como recompensa, você ganhou *10% de desconto* no seu próximo corte! Apresente o código abaixo no caixa:\n\n" +
-                            "🎟️ *" + coupon + "*\n\n" +
-                            "Obrigado pela preferência e por fazer parte da nossa história! 👊💈";
+                    // O cupom agora e gravado (V29). Antes era so um texto enviado ao cliente:
+                    // o caixa nao tinha como validar, nada impedia usar duas vezes e a barbearia
+                    // nao sabia quanto tinha dado de desconto.
+                    com.razor.api.model.Coupon coupon = couponService.issueFidelityReward(phone);
+                    String nomeBarbearia = barbershopSettingsService.resolve().displayName();
+
+                    String fidelityRewardMsg = "🎉 *PARABÉNS!* Você completou "
+                            + CouponService.FIDELITY_TARGET_POINTS + " pontos no seu Cartão Fidelidade da "
+                            + nomeBarbearia + "! 🥳✂️\n\n"
+                            + "Como recompensa, você ganhou *" + coupon.getDiscountValue().stripTrailingZeros().toPlainString()
+                            + "% de desconto* no seu próximo corte! Apresente o código abaixo no caixa:\n\n"
+                            + "🎟️ *" + coupon.getCode() + "*\n\n"
+                            + "_Válido até " + com.razor.api.util.AppointmentDates.formatDate(coupon.getValidUntil()) + "._\n\n"
+                            + "Obrigado pela preferência e por fazer parte da nossa história! 👊💈";
                     whatsAppService.sendTextMessage(phone, fidelityRewardMsg);
-                    log.info("[FIDELIDADE] Cliente {} atingiu 10 pontos e ganhou cupom: {}", phone, coupon);
+                    log.info("[FIDELIDADE] Cliente {} atingiu {} pontos e ganhou o cupom {}",
+                            phone, CouponService.FIDELITY_TARGET_POINTS, coupon.getCode());
                 }
             }
         } catch (Exception ex) {

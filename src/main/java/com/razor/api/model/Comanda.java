@@ -77,6 +77,14 @@ public class Comanda {
     @Column(name = "payment_method", length = 12)
     private CashPaymentMethod paymentMethod;
 
+    /** Cupom aplicado no fechamento (V29). Nulo = sem desconto. */
+    @Column(name = "coupon_id")
+    private UUID couponId;
+
+    /** Quanto o cupom tirou, congelado no fechamento. */
+    @Column(name = "discount_amount", precision = 12, scale = 2)
+    private BigDecimal discountAmount;
+
     /** O unico movimento de caixa desta comanda. */
     @Column(name = "cash_movement_id")
     private UUID cashMovementId;
