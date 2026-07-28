@@ -76,8 +76,9 @@ export function Profile() {
           ) : data ? (
             <div className="stack" style={{ maxWidth: 460 }}>
               <div className="field">
-                <label>E-mail (login)</label>
+                <label>E-mail (login)
                 <input className="input" value={data.email} disabled />
+            </label>
                 <span className="faint" style={{ fontSize: 12 }}>O e-mail de acesso não pode ser alterado por aqui.</span>
               </div>
               <div className="field">

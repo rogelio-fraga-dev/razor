@@ -57,6 +57,7 @@ class AgendaServiceTest {
     @Mock private TenantAdminService tenantAdminService;
     @Mock private ScheduleBlockService scheduleBlockService;
     @Mock private FidelityService fidelityService;
+    @Mock private ReportService reportService;
 
     @InjectMocks private AgendaService service;
 
@@ -317,20 +318,21 @@ class AgendaServiceTest {
     // ---------- resumo financeiro ----------
 
     @Test
-    @DisplayName("resumo financeiro do dia soma por tipo de serviço e meio de pagamento")
-    void resumoFinanceiro_computes() {
+    @DisplayName("resumo financeiro do dia formata o que o ReportService apurou")
+    void resumoFinanceiro_formatsReportServiceResult() {
         LocalDate hoje = AppointmentDates.today();
-        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
-                appt("Combo", PaymentStatus.PIX, hoje, LocalTime.of(9, 0)),
-                appt("Barba", PaymentStatus.PRESENCIAL, hoje, LocalTime.of(10, 0)),
-                appt("Corte", PaymentStatus.PENDENTE, hoje, LocalTime.of(11, 0))));
-        when(pricingService.resolvePrices()).thenReturn(java.util.Map.of(
-                PricingService.ServiceCategory.COMBO, new java.math.BigDecimal("60.00"),
-                PricingService.ServiceCategory.BARBA, new java.math.BigDecimal("30.00"),
-                PricingService.ServiceCategory.SIMPLES, new java.math.BigDecimal("35.00")));
-        when(pricingService.categorize("Combo")).thenReturn(PricingService.ServiceCategory.COMBO);
-        when(pricingService.categorize("Barba")).thenReturn(PricingService.ServiceCategory.BARBA);
-        when(pricingService.categorize("Corte")).thenReturn(PricingService.ServiceCategory.SIMPLES);
+        // O calculo vive no ReportService (mesma fonte do painel). Aqui so se verifica que o
+        // texto do WhatsApp reflete fielmente o que foi apurado.
+        when(reportService.financialSummary(eq(hoje), eq(hoje))).thenReturn(
+                new com.razor.api.dto.FinancialSummaryResponse(
+                        hoje, hoje, 3,
+                        new com.razor.api.dto.FinancialSummaryResponse.CategoryBreakdown(1, 1, 1),
+                        new com.razor.api.dto.FinancialSummaryResponse.PaymentBreakdown(
+                                new com.razor.api.dto.FinancialSummaryResponse.Bucket(1, new java.math.BigDecimal("60.00")),
+                                new com.razor.api.dto.FinancialSummaryResponse.Bucket(1, new java.math.BigDecimal("30.00")),
+                                new com.razor.api.dto.FinancialSummaryResponse.Bucket(1, new java.math.BigDecimal("35.00"))),
+                        new java.math.BigDecimal("125.00"), 0, java.math.BigDecimal.ZERO,
+                        new java.math.BigDecimal("125.00"), new java.math.BigDecimal("41.67")));
 
         String out = service.getResumoFinanceiroDetalhado();
 
@@ -339,8 +341,9 @@ class AgendaServiceTest {
                 .contains("Combos (Cabelo+Barba): 1")
                 .contains("Apenas Barba: 1")
                 .contains("Simples / Outros: 1")
-                // 60 (combo) + 30 (barba) + 35 (corte) = 125; formatado no locale default
-                .contains(String.format("%.2f", 125.0));
+                // Moeda sempre em pt-BR, independente do locale da JVM.
+                .contains("125,00")
+                .contains("41,67");
     }
 
     // ---------- tarefas agendadas ----------

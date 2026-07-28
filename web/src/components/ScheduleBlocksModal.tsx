@@ -113,7 +113,7 @@ export function ScheduleBlocksModal({ onClose, onChanged }: { onClose: () => voi
         {/* Formulário */}
         <div className="stack" style={{ gap: 12 }}>
           <div className="field">
-            <label>Quem</label>
+            <label>Quem
             <select
               className="input"
               value={draft.professionalId || ALL}
@@ -124,6 +124,7 @@ export function ScheduleBlocksModal({ onClose, onChanged }: { onClose: () => voi
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+            </label>
           </div>
 
           <div className="field">
@@ -148,17 +149,19 @@ export function ScheduleBlocksModal({ onClose, onChanged }: { onClose: () => voi
 
           {draft.kind === "date" ? (
             <div className="field">
-              <label>Data</label>
+              <label>Data
               <input className="input" type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
+            </label>
             </div>
           ) : (
             <div className="field">
-              <label>Dia da semana</label>
+              <label>Dia da semana
               <select className="input" value={draft.weekday} onChange={(e) => setDraft({ ...draft, weekday: Number(e.target.value) })}>
                 {WEEKDAYS.map((d, i) => (
                   <option key={i} value={i}>{d}</option>
                 ))}
               </select>
+            </label>
             </div>
           )}
 
@@ -167,20 +170,23 @@ export function ScheduleBlocksModal({ onClose, onChanged }: { onClose: () => voi
           {!draft.allDay && (
             <div className="form-grid">
               <div className="field">
-                <label>Início</label>
+                <label>Início
                 <input className="input" type="time" value={draft.startTime} onChange={(e) => setDraft({ ...draft, startTime: e.target.value })} />
+            </label>
               </div>
               <div className="field">
-                <label>Fim</label>
+                <label>Fim
                 <input className="input" type="time" value={draft.endTime} onChange={(e) => setDraft({ ...draft, endTime: e.target.value })} />
+            </label>
               </div>
             </div>
           )}
           {invalidRange && <div className="error">O fim precisa ser depois do início.</div>}
 
           <div className="field">
-            <label>Motivo (opcional)</label>
+            <label>Motivo (opcional)
             <input className="input" value={draft.reason} placeholder="Ex.: almoço, folga, feriado" onChange={(e) => setDraft({ ...draft, reason: e.target.value })} />
+            </label>
           </div>
         </div>
 

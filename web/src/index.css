@@ -191,7 +191,18 @@ h1, h2, h3 {
 
 /* ---------- Inputs ---------- */
 .field { display: flex; flex-direction: column; gap: 6px; }
-.field label { font-size: 13px; font-weight: 550; color: var(--text-muted); }
+/* O input vive DENTRO do label (associação implícita: leitor de tela anuncia o rótulo ao
+   focar o campo, sem precisar de id/htmlFor). O label reproduz a coluna que o .field fazia. */
+.field label {
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* Dentro do label o texto do campo volta ao tamanho normal. */
+.field label .input { font-size: 14px; font-weight: 400; color: var(--text); }
 .input {
   width: 100%;
   background: var(--bg-raise);

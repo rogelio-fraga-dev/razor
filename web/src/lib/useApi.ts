@@ -8,12 +8,21 @@ interface State<T> {
   reload: () => void;
 }
 
-/** GET com estado de carregamento/erro e recarregamento. `deps` reexecuta a busca. */
+/**
+ * GET com estado de carregamento/erro e recarregamento. `deps` reexecuta a busca.
+ *
+ * Para endpoints buscados por mais de um componente na mesma tela, use `getOnce` de
+ * `lib/dedupe` dentro do fetcher — o dedupe fica na requisição, não no hook, e assim vale
+ * também para chamadas agrupadas em `Promise.all`.
+ */
 export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[] = []): State<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // `deps` é a lista de reatividade declarada por quem chama — o fetcher é sempre uma arrow
+  // nova a cada render, então usá-lo como dependência recriaria o efeito em todo render.
+  // Quem chama precisa incluir em `deps` tudo que o fetcher captura (ex.: o id da entidade).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const run = useCallback(fetcher, deps);
 

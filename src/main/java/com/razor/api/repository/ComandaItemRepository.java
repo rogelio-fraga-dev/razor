@@ -12,5 +12,8 @@ public interface ComandaItemRepository extends JpaRepository<ComandaItem, UUID> 
 
     List<ComandaItem> findByComandaIdOrderByCreatedAtAsc(UUID comandaId);
 
+    /** Itens de varias comandas numa consulta so — evita N+1 no relatorio financeiro. */
+    List<ComandaItem> findByComandaIdIn(List<UUID> comandaIds);
+
     Optional<ComandaItem> findByIdAndComandaId(UUID id, UUID comandaId);
 }

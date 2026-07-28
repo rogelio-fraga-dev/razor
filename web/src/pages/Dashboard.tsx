@@ -12,6 +12,7 @@ import { SkeletonStats, Skeleton } from "../components/Skeleton";
 import { Tour, isTourDone, type TourStep } from "../components/Tour";
 import { useAuth } from "../auth/AuthContext";
 import { useApi } from "../lib/useApi";
+import { getOnce } from "../lib/dedupe";
 import { api } from "../api/client";
 import { fetchRevenueSeries, firstDayOfMonth, type SeriesPeriod } from "../lib/reportSeries";
 import { money, timeShort, todayIso } from "../lib/format";
@@ -67,7 +68,7 @@ export function Dashboard() {
     () => api.get(`/api/admin/reports/financial?from=${firstDayOfMonth()}&to=${todayIso()}`),
     [],
   );
-  const agenda = useApi<AppointmentView[]>(() => api.get("/api/admin/reports/agenda"), []);
+  const agenda = useApi<AppointmentView[]>(() => getOnce("/api/admin/reports/agenda"), []);
   const commissions = useApi<CommissionReport>(() => api.get("/api/admin/reports/commissions"), []);
   const goals = useApi<Goals>(() => api.get("/api/admin/settings/goals"), []);
   const series = useApi(() => fetchRevenueSeries(period), [period]);

@@ -123,17 +123,20 @@ export function Services() {
         >
           <div className="stack">
             <div className="field">
-              <label>Nome</label>
+              <label>Nome
               <input className="input" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            </label>
             </div>
             <div className="form-grid">
               <div className="field">
-                <label>Preço (R$)</label>
+                <label>Preço (R$)
                 <input className="input" inputMode="decimal" value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} />
+            </label>
               </div>
               <div className="field">
-                <label>Duração (min)</label>
+                <label>Duração (min)
                 <input className="input" inputMode="numeric" value={draft.durationMinutes} onChange={(e) => setDraft({ ...draft, durationMinutes: e.target.value })} />
+            </label>
               </div>
             </div>
             {draft.id && <Switch checked={draft.active} onChange={(v) => setDraft({ ...draft, active: v })} label="Serviço ativo" />}

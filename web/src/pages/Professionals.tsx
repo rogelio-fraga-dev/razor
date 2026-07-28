@@ -138,21 +138,24 @@ export function Professionals() {
         >
           <div className="stack">
             <div className="field">
-              <label>Nome</label>
+              <label>Nome
               <input className="input" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            </label>
             </div>
             <div className="form-grid">
               <div className="field">
-                <label>Telefone (opcional)</label>
+                <label>Telefone (opcional)
                 <input className="input" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
+            </label>
               </div>
               <div className="field">
-                <label>Comissão em serviços (%)</label>
+                <label>Comissão em serviços (%)
                 <input className="input" inputMode="decimal" value={draft.commissionPercent} onChange={(e) => setDraft({ ...draft, commissionPercent: e.target.value })} />
+            </label>
               </div>
             </div>
             <div className="field">
-              <label>Comissão em produtos (%)</label>
+              <label>Comissão em produtos (%)
               <input
                 className="input"
                 inputMode="decimal"
@@ -160,6 +163,7 @@ export function Professionals() {
                 placeholder={`Vazio = mesmo dos serviços (${draft.commissionPercent || 0}%)`}
                 onChange={(e) => setDraft({ ...draft, productCommissionPercent: e.target.value })}
               />
+            </label>
               <span className="faint" style={{ fontSize: 12 }}>
                 Muitas barbearias pagam menos em produto. Deixe <strong>vazio</strong> para usar o
                 mesmo percentual dos serviços — <strong>0</strong> é diferente: significa não pagar

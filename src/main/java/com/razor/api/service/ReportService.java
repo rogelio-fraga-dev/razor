@@ -65,9 +65,9 @@ public class ReportService {
         BigDecimal total = BigDecimal.ZERO;
         int count = 0;
 
-        for (Appointment ag : appointmentRepository.findByBarbershopId(shop)) {
-            LocalDate data = ag.getAppointmentDate();
-            if (data == null || data.isBefore(from) || data.isAfter(to)) continue;
+        // Filtro no banco: antes esta consulta trazia todos os agendamentos historicos do tenant
+        // e descartava em Java o que estivesse fora do periodo.
+        for (Appointment ag : appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(shop, from, to)) {
 
             ServiceCategory cat = pricingService.categorize(ag.getService());
             BigDecimal valor = precos.get(cat);
@@ -128,17 +128,19 @@ public class ReportService {
      * periodo. Comanda com vinculo fica de fora: aquele servico ja foi contado pelo agendamento.
      */
     private BigDecimal comandaServiceRevenue(UUID shop, LocalDate from, LocalDate to) {
-        BigDecimal total = BigDecimal.ZERO;
-        for (Comanda c : comandaRepository.findByBarbershopIdAndComandaDateBetween(shop, from, to)) {
-            if (c.getStatus() != Comanda.Status.FECHADA) continue;
-            if (c.getAppointmentId() != null) continue;
-            for (ComandaItem item : comandaItemRepository.findByComandaIdOrderByCreatedAtAsc(c.getId())) {
-                if (item.getKind() == ComandaItem.Kind.SERVICO) {
-                    total = total.add(item.getTotal());
-                }
-            }
-        }
-        return total;
+        List<UUID> elegiveis = comandaRepository.findByBarbershopIdAndComandaDateBetween(shop, from, to).stream()
+                .filter(c -> c.getStatus() == Comanda.Status.FECHADA)
+                .filter(c -> c.getAppointmentId() == null)
+                .map(Comanda::getId)
+                .toList();
+        if (elegiveis.isEmpty()) return BigDecimal.ZERO;
+
+        // Uma consulta para os itens de todas as comandas. Antes era uma por comanda — N+1 que
+        // crescia com o movimento do mes a cada carregamento do relatorio.
+        return comandaItemRepository.findByComandaIdIn(elegiveis).stream()
+                .filter(item -> item.getKind() == ComandaItem.Kind.SERVICO)
+                .map(ComandaItem::getTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /** Periodos do grafico de faturamento do painel. O backend e quem define as faixas. */
@@ -172,14 +174,15 @@ public class ReportService {
         BigDecimal[] totals = new BigDecimal[buckets.size()];
         Arrays.fill(totals, BigDecimal.ZERO);
 
-        for (Appointment ag : appointmentRepository.findByBarbershopId(shop)) {
-            LocalDate data = ag.getAppointmentDate();
-            if (data == null) continue;
-            addToBucket(buckets, totals, data, precos.get(pricingService.categorize(ag.getService())));
-        }
-
         LocalDate windowStart = buckets.get(0).from();
         LocalDate windowEnd = buckets.get(buckets.size() - 1).to();
+
+        // So a janela do grafico vem do banco — o resto do historico do tenant nao interessa aqui.
+        for (Appointment ag : appointmentRepository
+                .findByBarbershopIdAndAppointmentDateBetween(shop, windowStart, windowEnd)) {
+            addToBucket(buckets, totals, ag.getAppointmentDate(),
+                    precos.get(pricingService.categorize(ag.getService())));
+        }
         for (ProductSale venda : productSaleRepository.findByBarbershopIdAndSaleDateBetween(shop, windowStart, windowEnd)) {
             addToBucket(buckets, totals, venda.getSaleDate(), venda.getTotal());
         }
@@ -246,8 +249,7 @@ public class ReportService {
         Set<String> assinantes = customerService.subscriberPhones();
         Map<ServiceCategory, Integer> duracoes = pricingService.resolveDurations();
 
-        return appointmentRepository.findByBarbershopId(shop).stream()
-                .filter(a -> date.equals(a.getAppointmentDate()))
+        return appointmentRepository.findByBarbershopIdAndAppointmentDate(shop, date).stream()
                 .sorted(Comparator.comparing(Appointment::getAppointmentTime,
                         Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(a -> new AppointmentView(

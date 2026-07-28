@@ -79,22 +79,24 @@ export function SellProductModal({
       <div className="stack">
         <div className="form-grid">
           <div className="field">
-            <label>Quantidade</label>
+            <label>Quantidade
             <input
               className="input"
               inputMode="numeric"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
             />
+            </label>
           </div>
           <div className="field">
-            <label>Preço unitário</label>
+            <label>Preço unitário
             <input className="input" value={money(product.price)} readOnly disabled />
+            </label>
           </div>
         </div>
 
         <div className="field">
-          <label>Forma de pagamento</label>
+          <label>Forma de pagamento
           <select
             className="input"
             value={method}
@@ -104,10 +106,11 @@ export function SellProductModal({
               <option key={m.value} value={m.value}>{m.label}</option>
             ))}
           </select>
+            </label>
         </div>
 
         <div className="field">
-          <label>Barbeiro (opcional)</label>
+          <label>Barbeiro (opcional)
           <select
             className="input"
             value={professionalId}
@@ -118,6 +121,7 @@ export function SellProductModal({
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
+            </label>
           <span className="faint" style={{ fontSize: 12 }}>
             Com barbeiro escolhido, a venda entra na comissão dele no relatório do dia.
           </span>

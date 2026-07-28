@@ -162,15 +162,17 @@ export function Plans() {
         >
           <div className="stack">
             <div className="field">
-              <label>Nome do plano</label>
+              <label>Nome do plano
               <input className="input" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="ex.: VIP" />
+            </label>
             </div>
             <div className="field">
-              <label>Preço mensal (R$)</label>
+              <label>Preço mensal (R$)
               <input className="input" inputMode="decimal" value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} />
+            </label>
             </div>
             <div className="field">
-              <label>Descrição (opcional)</label>
+              <label>Descrição (opcional)
               <textarea
                 className="input"
                 rows={3}
@@ -178,6 +180,7 @@ export function Plans() {
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
                 style={{ resize: "vertical", fontFamily: "inherit" }}
               />
+            </label>
             </div>
             {draft.id && <Switch checked={draft.active} onChange={(v) => setDraft({ ...draft, active: v })} label="Plano ativo" />}
             {formError && <div className="error">{formError}</div>}

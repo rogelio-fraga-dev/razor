@@ -18,6 +18,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     List<Appointment> findByBarbershopIdAndAppointmentDate(UUID barbershopId, LocalDate appointmentDate);
 
+    /** Intervalo filtrado no banco. Sem isto os relatorios liam a tabela inteira do tenant. */
+    List<Appointment> findByBarbershopIdAndAppointmentDateBetween(UUID barbershopId, LocalDate from, LocalDate to);
+
     // Agenda multiprofissional: ocupacao por profissional (Fase 1).
     List<Appointment> findByBarbershopIdAndProfessionalId(UUID barbershopId, UUID professionalId);
 

@@ -35,7 +35,7 @@ export function SpeechModePicker({
       </div>
 
       <div className="field">
-        <label>Texto da personalidade</label>
+        <label>Texto da personalidade
         <textarea
           className="input"
           rows={3}
@@ -44,6 +44,7 @@ export function SpeechModePicker({
           onChange={(e) => onChange(e.target.value)}
           style={{ resize: "vertical", fontFamily: "inherit" }}
         />
+            </label>
         <span className="faint" style={{ fontSize: 12.5 }}>
           Escolha um modo acima para começar — depois é só ajustar o texto se quiser.
         </span>

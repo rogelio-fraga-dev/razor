@@ -80,7 +80,7 @@ function ClosedCash({ onOpened }: { onOpened: () => void }) {
           hint="Informe o fundo de troco para começar o dia. Todo movimento fica registrado até o fechamento."
         />
         <div className="field" style={{ marginTop: 8 }}>
-          <label>Fundo de troco (R$)</label>
+          <label>Fundo de troco (R$)
           <input
             className="input"
             type="number"
@@ -90,6 +90,7 @@ function ClosedCash({ onOpened }: { onOpened: () => void }) {
             onChange={(e) => setOpening(e.target.value)}
             style={{ maxWidth: 200 }}
           />
+            </label>
         </div>
         <button className="btn btn-primary" onClick={open} disabled={saving} style={{ marginTop: 12 }}>
           {saving ? "Abrindo…" : "Abrir caixa"}
@@ -222,21 +223,24 @@ function MovementForm({ onAdded }: { onAdded: () => void }) {
         <div className="form-grid">
           {type === "VENDA" && (
             <div className="field">
-              <label>Forma de pagamento</label>
+              <label>Forma de pagamento
               <select className="input" value={method} onChange={(e) => setMethod(e.target.value as CashPaymentMethod)}>
                 {(Object.keys(METHOD_LABEL) as CashPaymentMethod[]).map((mth) => (
                   <option key={mth} value={mth}>{METHOD_LABEL[mth]}</option>
                 ))}
               </select>
+            </label>
             </div>
           )}
           <div className="field">
-            <label>Valor (R$)</label>
+            <label>Valor (R$)
             <input className="input" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </label>
           </div>
           <div className="field">
-            <label>Descrição (opcional)</label>
+            <label>Descrição (opcional)
             <input className="input" value={description} placeholder="Ex.: corte do João, troco, depósito" onChange={(e) => setDescription(e.target.value)} />
+            </label>
           </div>
         </div>
         <button className="btn btn-primary" onClick={submit} disabled={!valid || saving} style={{ marginTop: 12 }}>
@@ -292,8 +296,9 @@ function CloseCashModal({ summary, onClose, onClosed }: { summary: CashSessionSu
           <span className="mono" style={{ fontWeight: 600 }}>{money(summary.expectedDrawer)}</span>
         </div>
         <div className="field">
-          <label>Valor contado na gaveta (R$)</label>
+          <label>Valor contado na gaveta (R$)
           <input className="input" type="number" min="0" step="0.01" value={counted} autoFocus onChange={(e) => setCounted(e.target.value)} />
+            </label>
         </div>
         {diff !== null && (
           <div className={`row between ${diff === 0 ? "" : ""}`} style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}>
@@ -304,8 +309,9 @@ function CloseCashModal({ summary, onClose, onClosed }: { summary: CashSessionSu
           </div>
         )}
         <div className="field">
-          <label>Observações (opcional)</label>
+          <label>Observações (opcional)
           <input className="input" value={notes} placeholder="Ex.: falta por troco a mais" onChange={(e) => setNotes(e.target.value)} />
+            </label>
         </div>
       </div>
     </Modal>

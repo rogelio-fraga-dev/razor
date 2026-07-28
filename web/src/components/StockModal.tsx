@@ -114,13 +114,14 @@ export function StockModal({
         <div className="card-pad" style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}>
           <Switch checked={trackStock} onChange={setTrackStock} label="Controlar estoque deste produto" />
           <div className="field" style={{ marginTop: 10 }}>
-            <label>Avisar quando restar (unidades)</label>
+            <label>Avisar quando restar (unidades)
             <input
               className="input"
               inputMode="numeric"
               value={minStock}
               onChange={(e) => setMinStock(e.target.value)}
             />
+            </label>
             <span className="faint" style={{ fontSize: 12 }}>
               0 = sem alerta. Com o controle desligado, o saldo nunca bloqueia uma venda.
             </span>
@@ -148,22 +149,24 @@ export function StockModal({
 
         <div className="form-grid">
           <div className="field">
-            <label>{action === "ajuste" ? "Quantidade contada" : "Quantidade"}</label>
+            <label>{action === "ajuste" ? "Quantidade contada" : "Quantidade"}
             <input
               className="input"
               inputMode="numeric"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
             />
+            </label>
           </div>
           <div className="field">
-            <label>Observação (opcional)</label>
+            <label>Observação (opcional)
             <input
               className="input"
               value={note}
               placeholder={action === "entrada" ? "ex.: Nota 123" : action === "saida" ? "ex.: quebrou" : "ex.: contagem do mês"}
               onChange={(e) => setNote(e.target.value)}
             />
+            </label>
           </div>
         </div>
 

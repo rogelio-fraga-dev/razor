@@ -233,16 +233,17 @@ export function Products() {
         >
           <div className="stack">
             <div className="field">
-              <label>Nome</label>
+              <label>Nome
               <input
                 className="input"
                 value={draft.name}
                 placeholder="ex.: Pomada modeladora"
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               />
+            </label>
             </div>
             <div className="field">
-              <label>Preço (R$)</label>
+              <label>Preço (R$)
               <input
                 className="input"
                 inputMode="decimal"
@@ -250,6 +251,7 @@ export function Products() {
                 placeholder="ex.: 30,00"
                 onChange={(e) => setDraft({ ...draft, price: e.target.value })}
               />
+            </label>
             </div>
             {draft.id && (
               <Switch

@@ -43,6 +43,7 @@ public class AgendaService {
     private final BarbershopSettingsService barbershopSettingsService;
     private final ScheduleBlockService scheduleBlockService;
     private final FidelityService fidelityService;
+    private final ReportService reportService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Classe auxiliar de leitura para manter a migração legada funcionando
@@ -481,18 +482,11 @@ public class AgendaService {
     public String getResumoDoDia() {
         LocalDate hoje = AppointmentDates.today();
         String dataHoje = AppointmentDates.formatDate(hoje);
-        int totalCortes = 0;
-        double faturamentoEstimado = 0.0;
-
-        java.util.Map<PricingService.ServiceCategory, java.math.BigDecimal> precos = pricingService.resolvePrices();
-        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
-        for (Appointment ag : agendaAtiva) {
-            if (hoje.equals(ag.getAppointmentDate())) {
-                totalCortes++;
-                faturamentoEstimado += precos.get(pricingService.categorize(ag.getService())).doubleValue();
-            }
-        }
-        return String.format("📈 *Fechamento de %s*\n\n✂️ Cortes realizados hoje: %d\n💰 Faturamento estimado: R$ %.2f", dataHoje, totalCortes, faturamentoEstimado);
+        // Mesma apuração do painel, em BigDecimal — ver o extrato financeiro abaixo.
+        com.razor.api.dto.FinancialSummaryResponse resumo = reportService.financialSummary(hoje, hoje);
+        return String.format(java.util.Locale.forLanguageTag("pt-BR"),
+                "📈 *Fechamento de %s*\n\n✂️ Cortes realizados hoje: %d\n💰 Faturamento estimado: R$ %.2f",
+                dataHoje, resumo.totalAppointments(), resumo.totalRevenue());
     }
 
     public int getAgendamentosHojeCount() {
@@ -577,53 +571,28 @@ public class AgendaService {
         LocalDate hoje = AppointmentDates.today();
         String dataHoje = AppointmentDates.formatDate(hoje);
 
-        int totalCortes = 0;
-        int totalCombo = 0;
-        int totalBarba = 0;
-        int totalSimples = 0;
+        // Uma fonte de verdade só: o mesmo cálculo que o painel usa. Esta conta era refeita aqui
+        // em `double`, então o resumo do WhatsApp podia divergir do painel por arredondamento de
+        // ponto flutuante — dois números diferentes para o mesmo dia, e o dono sem saber qual crer.
+        com.razor.api.dto.FinancialSummaryResponse resumo = reportService.financialSummary(hoje, hoje);
 
-        double faturamentoTotal = 0.0;
-        double pixVal = 0.0;
-        double presencialVal = 0.0;
-        double pendenteVal = 0.0;
+        int totalCortes = resumo.totalAppointments();
+        int totalCombo = resumo.categories().combo();
+        int totalBarba = resumo.categories().barba();
+        int totalSimples = resumo.categories().simples();
 
-        int pixCount = 0;
-        int presencialCount = 0;
-        int pendenteCount = 0;
+        java.math.BigDecimal faturamentoTotal = resumo.totalRevenue();
+        java.math.BigDecimal pixVal = resumo.payments().pix().value();
+        java.math.BigDecimal presencialVal = resumo.payments().presencial().value();
+        java.math.BigDecimal pendenteVal = resumo.payments().pendente().value();
 
-        java.util.Map<PricingService.ServiceCategory, java.math.BigDecimal> precos = pricingService.resolvePrices();
-        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
-        for (Appointment ag : agendaAtiva) {
-            if (hoje.equals(ag.getAppointmentDate())) {
-                totalCortes++;
-                PricingService.ServiceCategory categoria = pricingService.categorize(ag.getService());
-                double valorServico = precos.get(categoria).doubleValue();
+        int pixCount = resumo.payments().pix().count();
+        int presencialCount = resumo.payments().presencial().count();
+        int pendenteCount = resumo.payments().pendente().count();
 
-                switch (categoria) {
-                    case COMBO -> totalCombo++;
-                    case BARBA -> totalBarba++;
-                    case SIMPLES -> totalSimples++;
-                }
+        java.math.BigDecimal ticketMedio = resumo.averageTicket();
 
-                faturamentoTotal += valorServico;
-
-                PaymentStatus status = ag.getPaymentStatus();
-                if (status == PaymentStatus.PIX) {
-                    pixCount++;
-                    pixVal += valorServico;
-                } else if (status == PaymentStatus.PRESENCIAL) {
-                    presencialCount++;
-                    presencialVal += valorServico;
-                } else {
-                    pendenteCount++;
-                    pendenteVal += valorServico;
-                }
-            }
-        }
-
-        double ticketMedio = totalCortes > 0 ? faturamentoTotal / totalCortes : 0.0;
-
-        return String.format("""
+        return String.format(java.util.Locale.forLanguageTag("pt-BR"), """
                 📊 *EXTRATO FINANCEIRO DO DIA*
                 🗓️ Data: *%s*
                 ━━━━━━━━━━━━━━━━━━━━━━
@@ -739,58 +708,28 @@ public class AgendaService {
         LocalDate hoje = AppointmentDates.today();
         LocalDate inicioSemana = hoje.with(java.time.DayOfWeek.MONDAY);
 
-        int totalCortes = 0;
-        int totalCombo = 0;
-        int totalBarba = 0;
-        int totalSimples = 0;
+        // Mesma fonte de verdade do painel — ver o extrato diário acima.
+        com.razor.api.dto.FinancialSummaryResponse resumo =
+                reportService.financialSummary(inicioSemana, hoje);
 
-        double faturamentoTotal = 0.0;
-        double pixVal = 0.0;
-        double presencialVal = 0.0;
-        double pendenteVal = 0.0;
+        int totalCortes = resumo.totalAppointments();
+        int totalCombo = resumo.categories().combo();
+        int totalBarba = resumo.categories().barba();
+        int totalSimples = resumo.categories().simples();
 
-        int pixCount = 0;
-        int presencialCount = 0;
-        int pendenteCount = 0;
+        java.math.BigDecimal faturamentoTotal = resumo.totalRevenue();
+        java.math.BigDecimal pixVal = resumo.payments().pix().value();
+        java.math.BigDecimal presencialVal = resumo.payments().presencial().value();
+        java.math.BigDecimal pendenteVal = resumo.payments().pendente().value();
 
-        java.util.Map<PricingService.ServiceCategory, java.math.BigDecimal> precos = pricingService.resolvePrices();
-        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
-        for (Appointment ag : agendaAtiva) {
-            LocalDate agDate = ag.getAppointmentDate();
-            if (agDate == null) continue;
+        int pixCount = resumo.payments().pix().count();
+        int presencialCount = resumo.payments().presencial().count();
+        int pendenteCount = resumo.payments().pendente().count();
+        java.math.BigDecimal ticketMedio = resumo.averageTicket();
 
-            // Só conta até "hoje" na semana atual!
-            if (!agDate.isBefore(inicioSemana) && !agDate.isAfter(hoje)) {
-                totalCortes++;
-                PricingService.ServiceCategory categoria = pricingService.categorize(ag.getService());
-                double valorServico = precos.get(categoria).doubleValue();
-
-                switch (categoria) {
-                    case COMBO -> totalCombo++;
-                    case BARBA -> totalBarba++;
-                    case SIMPLES -> totalSimples++;
-                }
-
-                faturamentoTotal += valorServico;
-
-                PaymentStatus status = ag.getPaymentStatus();
-                if (status == PaymentStatus.PIX) {
-                    pixCount++;
-                    pixVal += valorServico;
-                } else if (status == PaymentStatus.PRESENCIAL) {
-                    presencialCount++;
-                    presencialVal += valorServico;
-                } else {
-                    pendenteCount++;
-                    pendenteVal += valorServico;
-                }
-            }
-        }
-
-        double ticketMedio = totalCortes > 0 ? faturamentoTotal / totalCortes : 0.0;
         String periodo = AppointmentDates.formatDate(inicioSemana) + " até " + AppointmentDates.formatDate(hoje);
 
-        return String.format("""
+        return String.format(java.util.Locale.forLanguageTag("pt-BR"), """
                 📊 *RESUMO FINANCEIRO DA SEMANA*
                 _Acumulado de %s (Até hoje)_
 

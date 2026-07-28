@@ -44,14 +44,15 @@ export function ConfigWizard({
 
   const field = (k: keyof BotSettings, label: string, placeholder?: string) => (
     <div className="field">
-      <label>{label}</label>
+      <label>{label}
       <input className="input" value={draft[k] ?? ""} placeholder={placeholder} onChange={(e) => set(k, e.target.value)} />
+            </label>
     </div>
   );
 
   const area = (k: keyof BotSettings, label: string, rows = 3, placeholder?: string) => (
     <div className="field">
-      <label>{label}</label>
+      <label>{label}
       <textarea
         className="input"
         rows={rows}
@@ -60,6 +61,7 @@ export function ConfigWizard({
         onChange={(e) => set(k, e.target.value)}
         style={{ resize: "vertical", fontFamily: "inherit" }}
       />
+            </label>
     </div>
   );
 

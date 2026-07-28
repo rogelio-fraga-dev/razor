@@ -52,6 +52,11 @@ export function Comandas() {
     }
   };
 
+  // O catálogo alimenta o select de itens e a lista de barbeiros. Se ele falha, o select
+  // fica vazio — e vazio é indistinguível de "não há nada cadastrado". Sem este aviso o
+  // operador iria cadastrar serviço de novo em vez de recarregar a página.
+  const catalogError = services.error ?? products.error ?? professionals.error;
+
   const closedToday = (today.data ?? []).filter((c) => c.status !== "ABERTA");
   const closedTotal = closedToday
     .filter((c) => c.status === "FECHADA")
@@ -66,6 +71,13 @@ export function Comandas() {
         </button>
       }
     >
+      {catalogError && (
+        <div className="card error">
+          Não foi possível carregar o catálogo de serviços e produtos ({catalogError}). A lista de
+          itens pode aparecer incompleta — recarregue a página antes de lançar algo.
+        </div>
+      )}
+
       {open.loading ? (
         <SkeletonRows rows={3} />
       ) : open.error ? (
@@ -154,16 +166,17 @@ export function Comandas() {
         >
           <div className="stack">
             <div className="field">
-              <label>Cliente (opcional)</label>
+              <label>Cliente (opcional)
               <input
                 className="input"
                 value={name}
                 placeholder="ex.: João"
                 onChange={(e) => setName(e.target.value)}
               />
+            </label>
             </div>
             <div className="field">
-              <label>Barbeiro (opcional)</label>
+              <label>Barbeiro (opcional)
               <select
                 className="input"
                 value={professionalId}
@@ -174,6 +187,7 @@ export function Comandas() {
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
+            </label>
             </div>
             <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>
               Os itens entram depois, um a um. Ao fechar, a comanda lança <strong>um único</strong>{" "}

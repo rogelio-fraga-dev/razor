@@ -79,11 +79,12 @@ class ReportServiceTest {
     @DisplayName("resumo financeiro agrega categoria, meio de pagamento, faturamento e ticket médio")
     void financialSummary_aggregates() {
         LocalDate hoje = AppointmentDates.today();
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of(
                 appt("Combo", PaymentStatus.PIX, hoje, LocalTime.of(9, 0), null),         // 60
                 appt("Barba", PaymentStatus.PRESENCIAL, hoje, LocalTime.of(10, 0), null), // 30
-                appt("Corte", PaymentStatus.PENDENTE, hoje, LocalTime.of(11, 0), null),   // 35
-                appt("Corte", PaymentStatus.PIX, hoje.minusDays(30), LocalTime.of(9, 0), null))); // fora do período
+                appt("Corte", PaymentStatus.PENDENTE, hoje, LocalTime.of(11, 0), null)));  // 35
+        // O recorte de período agora é feito pelo banco (consulta ),
+        // não descartado em Java depois de ler a tabela inteira do tenant.
         givenPrices();
 
         FinancialSummaryResponse s = service.financialSummary(hoje, hoje);
@@ -105,7 +106,7 @@ class ReportServiceTest {
     @DisplayName("produtos entram no total sem inflar o ticket médio do atendimento")
     void financialSummary_addsProductsToTotalOnly() {
         LocalDate hoje = AppointmentDates.today();
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of(
                 appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(9, 0), null),   // 35
                 appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(10, 0), null))); // 35
         when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
@@ -127,7 +128,7 @@ class ReportServiceTest {
     @DisplayName("venda de produto sem atendimento nenhum aparece no total, com ticket médio zero")
     void financialSummary_productsWithoutAppointments() {
         LocalDate hoje = AppointmentDates.today();
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of());
         when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
                 .thenReturn(List.of(sale("29.90", 1, hoje)));
         givenPrices();
@@ -143,7 +144,7 @@ class ReportServiceTest {
     @Test
     @DisplayName("período sem atendimentos: tudo zerado, ticket médio 0")
     void financialSummary_empty() {
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of());
         givenPrices();
 
         FinancialSummaryResponse s = service.financialSummary(AppointmentDates.today(), AppointmentDates.today());
@@ -161,7 +162,7 @@ class ReportServiceTest {
         when(professionalRepository.findByBarbershopId(any()))
                 .thenReturn(List.of(Professional.builder().id(rafael).name("Rafael").build()));
         when(customerService.subscriberPhones()).thenReturn(Set.of("5511888"));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDate(any(), any())).thenReturn(List.of(
                 appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(10, 0), rafael, "5511888"),  // assinante
                 appt("Barba", PaymentStatus.PENDENTE, hoje, LocalTime.of(9, 0), null, "5511777"))); // avulso
 
@@ -183,7 +184,7 @@ class ReportServiceTest {
     void revenueSeries_last7Days_bucketsByDay() {
         LocalDate hoje = LocalDate.of(2026, 7, 27);
         givenPrices();
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of(
                 appt("Combo", PaymentStatus.PIX, hoje, LocalTime.of(10, 0), null),            // 60 hoje
                 appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(11, 0), null),            // 35 hoje
                 appt("Corte", PaymentStatus.PIX, hoje.minusDays(3), LocalTime.of(9, 0), null) // 35 ha 3 dias
@@ -205,7 +206,7 @@ class ReportServiceTest {
     void revenueSeries_outsideWindow_ignored() {
         LocalDate hoje = LocalDate.of(2026, 7, 27);
         givenPrices();
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of(
                 appt("Combo", PaymentStatus.PIX, hoje.minusDays(40), LocalTime.of(10, 0), null)));
 
         List<com.razor.api.dto.RevenuePoint> serie =
@@ -219,7 +220,7 @@ class ReportServiceTest {
     void revenueSeries_last6Months_currentMonthEndsToday() {
         LocalDate hoje = LocalDate.of(2026, 7, 27);
         givenPrices();
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of());
 
         List<com.razor.api.dto.RevenuePoint> serie =
                 service.revenueSeries(ReportService.SeriesPeriod.LAST_6_MONTHS, hoje);
@@ -247,11 +248,11 @@ class ReportServiceTest {
     @DisplayName("serviço de comanda SEM agendamento entra no faturamento")
     void comandaWithoutAppointment_addsServiceRevenue() {
         LocalDate hoje = AppointmentDates.today();
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of());
         Comanda c = comanda(null, hoje);
         when(comandaRepository.findByBarbershopIdAndComandaDateBetween(any(), any(), any()))
                 .thenReturn(List.of(c));
-        when(comandaItemRepository.findByComandaIdOrderByCreatedAtAsc(c.getId()))
+        when(comandaItemRepository.findByComandaIdIn(any()))
                 .thenReturn(List.of(comandaItem(ComandaItem.Kind.SERVICO, "40.00")));
         givenPrices();
 
@@ -265,12 +266,12 @@ class ReportServiceTest {
     void comandaWithAppointment_isNotDoubleCounted() {
         LocalDate hoje = AppointmentDates.today();
         // O agendamento ja responde por 35,00
-        when(appointmentRepository.findByBarbershopId(any()))
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any()))
                 .thenReturn(List.of(appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(9, 0), null)));
         Comanda c = comanda(99L, hoje); // vinculada
         when(comandaRepository.findByBarbershopIdAndComandaDateBetween(any(), any(), any()))
                 .thenReturn(List.of(c));
-        when(comandaItemRepository.findByComandaIdOrderByCreatedAtAsc(c.getId()))
+        when(comandaItemRepository.findByComandaIdIn(any()))
                 .thenReturn(List.of(comandaItem(ComandaItem.Kind.SERVICO, "35.00")));
         givenPrices();
 
@@ -283,11 +284,11 @@ class ReportServiceTest {
     @DisplayName("produto da comanda nao e somado como servico — ja conta em product_sales")
     void comandaProductItem_isNotCountedAsService() {
         LocalDate hoje = AppointmentDates.today();
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of());
         Comanda c = comanda(null, hoje);
         when(comandaRepository.findByBarbershopIdAndComandaDateBetween(any(), any(), any()))
                 .thenReturn(List.of(c));
-        when(comandaItemRepository.findByComandaIdOrderByCreatedAtAsc(c.getId()))
+        when(comandaItemRepository.findByComandaIdIn(any()))
                 .thenReturn(List.of(comandaItem(ComandaItem.Kind.PRODUTO, "29.90")));
         givenPrices();
 
@@ -298,7 +299,7 @@ class ReportServiceTest {
     @DisplayName("comanda ainda aberta nao entra no faturamento")
     void openComanda_isNotCounted() {
         LocalDate hoje = AppointmentDates.today();
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of());
         Comanda aberta = Comanda.builder()
                 .id(java.util.UUID.randomUUID()).status(Comanda.Status.ABERTA)
                 .comandaDate(hoje).build();

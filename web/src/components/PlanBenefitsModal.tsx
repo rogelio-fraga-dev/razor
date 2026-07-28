@@ -169,7 +169,7 @@ export function PlanBenefitsModal({
 
         {/* Novo benefício */}
         <div className="field">
-          <label>Item</label>
+          <label>Item
           <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
             <option value="SERVICO:">Todos os serviços</option>
             {(services.data ?? []).filter((s) => s.active).map((s) => (
@@ -180,16 +180,18 @@ export function PlanBenefitsModal({
               <option key={p.id} value={`PRODUTO:${p.id}`}>{p.name} — {money(p.price)}</option>
             ))}
           </select>
+            </label>
         </div>
 
         <div className="form-grid">
           <div className="field">
-            <label>Desconto (%)</label>
+            <label>Desconto (%)
             <input className="input" inputMode="decimal" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+            </label>
             <span className="faint" style={{ fontSize: 12 }}>100 = grátis.</span>
           </div>
           <div className="field">
-            <label>Cota mensal</label>
+            <label>Cota mensal
             <input
               className="input"
               inputMode="numeric"
@@ -197,6 +199,7 @@ export function PlanBenefitsModal({
               placeholder="vazio = ilimitado"
               onChange={(e) => setQuota(e.target.value)}
             />
+            </label>
           </div>
         </div>
 

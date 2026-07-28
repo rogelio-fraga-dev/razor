@@ -201,31 +201,33 @@ export function Coupons() {
         >
           <div className="stack">
             <div className="field">
-              <label>Código</label>
+              <label>Código
               <input
                 className="input mono"
                 value={draft.code}
                 placeholder="ex.: VOLTA10"
                 onChange={(e) => setDraft({ ...draft, code: e.target.value })}
               />
+            </label>
               <span className="faint" style={{ fontSize: 12 }}>
                 É o que o cliente informa no caixa. Vira maiúsculo automaticamente.
               </span>
             </div>
 
             <div className="field">
-              <label>Descrição (opcional)</label>
+              <label>Descrição (opcional)
               <input
                 className="input"
                 value={draft.description}
                 placeholder="ex.: campanha de reativação"
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
               />
+            </label>
             </div>
 
             <div className="form-grid">
               <div className="field">
-                <label>Tipo</label>
+                <label>Tipo
                 <select
                   className="input"
                   value={draft.discountType}
@@ -234,21 +236,23 @@ export function Coupons() {
                   <option value="PERCENT">Percentual (%)</option>
                   <option value="FIXED">Valor fixo (R$)</option>
                 </select>
+            </label>
               </div>
               <div className="field">
-                <label>Desconto</label>
+                <label>Desconto
                 <input
                   className="input"
                   inputMode="decimal"
                   value={draft.discountValue}
                   onChange={(e) => setDraft({ ...draft, discountValue: e.target.value })}
                 />
+            </label>
               </div>
             </div>
 
             <div className="form-grid">
               <div className="field">
-                <label>Válido até (opcional)</label>
+                <label>Válido até (opcional)
                 <input
                   className="input"
                   type="date"
@@ -256,9 +260,10 @@ export function Coupons() {
                   value={draft.validUntil}
                   onChange={(e) => setDraft({ ...draft, validUntil: e.target.value })}
                 />
+            </label>
               </div>
               <div className="field">
-                <label>Limite de usos</label>
+                <label>Limite de usos
                 <input
                   className="input"
                   inputMode="numeric"
@@ -266,12 +271,13 @@ export function Coupons() {
                   placeholder="vazio = ilimitado"
                   onChange={(e) => setDraft({ ...draft, maxUses: e.target.value })}
                 />
+            </label>
               </div>
             </div>
 
             <div className="form-grid">
               <div className="field">
-                <label>Valor mínimo da conta</label>
+                <label>Valor mínimo da conta
                 <input
                   className="input"
                   inputMode="decimal"
@@ -279,15 +285,17 @@ export function Coupons() {
                   placeholder="vazio = sem mínimo"
                   onChange={(e) => setDraft({ ...draft, minAmount: e.target.value })}
                 />
+            </label>
               </div>
               <div className="field">
-                <label>Telefone do cliente</label>
+                <label>Telefone do cliente
                 <input
                   className="input"
                   value={draft.customerPhone}
                   placeholder="vazio = qualquer cliente"
                   onChange={(e) => setDraft({ ...draft, customerPhone: e.target.value })}
                 />
+            </label>
               </div>
             </div>
             <span className="faint" style={{ fontSize: 12 }}>

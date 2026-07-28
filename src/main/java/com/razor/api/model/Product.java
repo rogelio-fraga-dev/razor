@@ -63,6 +63,15 @@ public class Product {
         return trackStock && minStock > 0 && stockQuantity <= minStock;
     }
 
+    /**
+     * Lock otimista (V30). Duas vendas simultaneas do mesmo produto podiam passar na
+     * conferencia de saldo antes de qualquer commit e deixar o estoque negativo; agora a
+     * segunda transacao a gravar falha em vez de sobrescrever a primeira.
+     */
+    @jakarta.persistence.Version
+    @Column(nullable = false)
+    private Long version;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

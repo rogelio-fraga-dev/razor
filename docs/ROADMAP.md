@@ -230,9 +230,9 @@ uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Impleme
       também passou a incluir produtos, para bater com o KPI. O `payments` (PIX/presencial/
       pendente) segue descrevendo só os agendamentos — a forma de pagamento das vendas vive no
       caixa, com outro vocabulário.
-      > ⚠️ **Lacuna conhecida:** serviço lançado numa **comanda** não entra no `/reports/financial`,
-      > que conta agendamentos. Ligar comanda ↔ agendamento resolveria, mas hoje não há esse
-      > vínculo e somar direto arriscaria contar duas vezes quando o dono registra os dois.
+      > ✅ **Lacuna fechada na V28:** serviço lançado em comanda **sem** vínculo com agendamento
+      > agora entra no `/reports/financial`; comanda **com** vínculo é ignorada porque o serviço
+      > já foi contado pelo agendamento. Ver item 4 da frente do cliente final.
 - [~] **Clube de assinatura**: catálogo de **planos configuráveis** pronto (`subscription_plans`,
       painel). _(Falta: identificação assinante x avulso no agendamento e cobrança recorrente — Fase 4.)_
 - [~] **Relatórios/DRE**: financeiro estruturado e comissões prontos no painel.
@@ -296,8 +296,9 @@ assinaturas) sem sair do Razor.
       dessincronizar. Sair do caixa é opcional (igual ao acerto V25): vale em espécie vira sangria,
       vale por fora não mexe na gaveta. O saldo **pode ficar negativo** quando o vale passa da
       comissão: o barbeiro deve à barbearia, e zerar o número esconderia isso.
-- [~] **Comissão por produto** ✅ (V23: `product_commission_percent` por barbeiro) e **comissões
-      pagas** ✅ (V25) + **por serviço avulso** — este último ainda pendente.
+- [x] **Comissão por produto** (V23: `product_commission_percent` por barbeiro), **comissões
+      pagas** (V25) e **por serviço avulso** (V27: `services.commission_percent`, nulo = usa o
+      percentual geral do barbeiro).
       > **Acerto (V25):** tela *Acerto* mostra, por período, o apurado × o **já pago** × o saldo —
       > é o que impede pagar a mesma quinzena duas vezes. O valor é congelado no pagamento
       > (correção posterior num atendimento não reescreve o recibo) e **sair do caixa é opcional**:
@@ -799,6 +800,69 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ---
 
-_Última atualização: 2026-07-27 (painel religado a dados reais; removidos auto-login demo e números
-fabricados; checklist de ativação corrigido) · Documento vivo._
+### 🔍 Rodada de revisão por agentes *(2026-07-27)*
+
+> Quatro revisores especializados passaram no código depois da leva V19→V29: `react-reviewer`,
+> `silent-failure-hunter`, `security-reviewer` e `java-reviewer`. O que valia corrigir foi
+> corrigido nesta rodada; o que ficou está listado como débito, com o motivo.
+
+**Corrigido**
+
+- [x] **Dinheiro em `double` no `AgendaService`** — três resumos financeiros do bot (dia, semana e
+      detalhado) somavam com `double`. Erro de arredondamento em ponto flutuante é invisível no
+      teste e aparece no fim do mês, no valor que o dono compara com a gaveta. Os três passaram a
+      delegar ao `ReportService.financialSummary`, que já usa `BigDecimal`, e a formatação virou
+      `Locale.forLanguageTag("pt-BR")` explícito — sem locale, `String.format` seguia o do servidor
+      e podia emitir `R$ 35.00` em vez de `R$ 35,00`.
+- [x] **Estoque podia ficar negativo sob concorrência (V30)** — a checagem "tem saldo?" e a baixa
+      eram duas operações separadas; duas vendas simultâneas do último item passavam nas duas.
+      Agora `products.version` dá **lock otimista** (a segunda transação falha e refaz a leitura) e
+      um `CHECK stock_quantity >= 0` no banco fecha a porta mesmo se um caminho novo esquecer a
+      validação. Defesa redundante de propósito: a aplicação erra, o banco não deixa passar.
+- [x] **Fidelidade emitindo cupom que se perdia** — a emissão ficava fora da transação que zerava
+      os pontos: falha na emissão zerava os pontos do cliente sem entregar a recompensa. Extraído
+      para `FidelityService.registerVisit`, com o cupom criado **antes** de zerar, na mesma
+      transação — ou as duas coisas acontecem, ou nenhuma.
+- [x] **Varreduras de tabela cheia nos relatórios** — `ReportService` carregava **todos** os
+      agendamentos do tenant para filtrar por data em memória (três pontos), e buscava os itens de
+      cada comanda numa consulta por comanda (N+1). Trocado por consulta com intervalo de datas e
+      `findByComandaIdIn`. Mesmo problema no `PlanPricingService`, que relia benefícios e histórico
+      do mês por item do catálogo — agora carrega uma vez só.
+- [x] **Erro de catálogo engolido nas Comandas** — se `/services` ou `/products` falhasse, o select
+      de itens ficava vazio, indistinguível de "nada cadastrado". Agora a tela avisa que o catálogo
+      não carregou, em vez de deixar o operador recadastrar o que já existia.
+- [x] **Requisições duplicadas no painel** — `Cockpit`, `ActivationChecklist`, `Dashboard` e
+      `Settings` pediam os mesmos dois endpoints ao montar. `lib/dedupe.getOnce` reaproveita a
+      requisição em voo pelo caminho. Não é cache — sai do mapa assim que assenta, todo reload bate
+      no servidor; só elimina a duplicação simultânea (que também podia mostrar números diferentes
+      em dois cards por terem lido o banco em instantes distintos).
+- [x] **Acessibilidade dos formulários** — 57 rótulos em 16 telas eram `<label>` solto ao lado do
+      campo, sem associação: leitor de tela anunciava "caixa de texto", sem dizer qual, e clicar no
+      rótulo não focava o campo. Passaram a envolver o input (associação implícita, que dispensa
+      `id` e portanto não colide quando o mesmo formulário aparece duas vezes na página).
+- [x] **Modal sem semântica de diálogo** — base de ~10 fluxos de formulário do painel. Ganhou
+      `role="dialog"`, `aria-modal`, título ligado por `aria-labelledby`, foco movido para dentro ao
+      abrir e **devolvido ao elemento anterior** ao fechar, Esc fecha e Tab fica preso dentro. Sem o
+      trap, o Tab caminhava para a página atrás do overlay — que o leitor de tela continuava lendo.
+
+**Débitos aceitos (com prazo)**
+
+- [ ] **RBAC não é aplicado em `/api/admin/**`** — o JWT carrega o papel, mas nenhum endpoint
+      distingue `OWNER` de `BARBER`. Hoje só há dono usando; vira bloqueador **antes** de liberar
+      acesso a funcionário.
+- [ ] **JWT no `localStorage`** — vulnerável a XSS. A troca por cookie `httpOnly` + CSRF vai junto
+      com a autenticação do cliente final (que exige contexto separado de qualquer forma).
+- [ ] **`TenantContext` com default fail-open** — sem tenant no contexto, cai numa barbearia padrão
+      em vez de recusar. Aceitável enquanto é mono-tenant na prática; **bloqueador** antes do
+      segundo cliente em produção.
+- [ ] **`.env.prod-example` com credenciais fracas de exemplo** — trocar por placeholders que não
+      funcionam se copiados sem edição.
+- [ ] **`AgendaService.java` passou de 800 linhas** e `ConfigWizard` × `Settings > BotCard`
+      compartilham ~150 linhas quase idênticas. Dívida de organização, não de comportamento.
+
+---
+
+_Última atualização: 2026-07-27 (V19→V30: meta mensal, produtos, venda de balcão, comanda, estoque,
+acerto de comissões, vales, motor de benefícios de plano, cupons/fidelidade, comanda ↔ agendamento;
+rodada de revisão por agentes) · 419 testes · Documento vivo._
 

@@ -2,7 +2,7 @@
 // cards (cara de template), o dono vê o estado do negócio dele agora — saudação, data
 // em mono, e o pulso do sistema (IA ativa / desligada).
 import { useApi } from "../lib/useApi";
-import { api } from "../api/client";
+import { getOnce } from "../lib/dedupe";
 import type { BotStatus } from "../api/types";
 
 function greeting(): string {
@@ -19,7 +19,7 @@ const DATE_FMT = new Intl.DateTimeFormat("pt-BR", {
 });
 
 export function Cockpit({ name }: { name: string }) {
-  const { data } = useApi<BotStatus>(() => api.get("/api/admin/settings/bot/status"), []);
+  const { data } = useApi<BotStatus>(() => getOnce("/api/admin/settings/bot/status"), []);
   const live = !!data && data.whatsappConnected && data.botEnabled;
   const firstName = (name || "").split(" ")[0] || "chefe";
   const today = DATE_FMT.format(new Date());

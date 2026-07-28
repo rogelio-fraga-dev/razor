@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApi } from "../lib/useApi";
+import { getOnce } from "../lib/dedupe";
 import { api } from "../api/client";
 import type { AppointmentView, BotSettings, BotStatus, Customer, Professional } from "../api/types";
 import { Skeleton } from "./Skeleton";
@@ -77,11 +78,11 @@ export function ActivationChecklist() {
 
   const { data, loading, error } = useApi<ChecklistData>(async () => {
     const [status, botTexts, professionals, customers, agenda] = await Promise.all([
-      api.get<BotStatus>("/api/admin/settings/bot/status"),
+      getOnce<BotStatus>("/api/admin/settings/bot/status"),
       api.get<BotSettings>("/api/admin/settings/bot"),
       api.get<Professional[]>("/api/admin/professionals"),
       api.get<Customer[]>("/api/admin/customers"),
-      api.get<AppointmentView[]>("/api/admin/reports/agenda"),
+      getOnce<AppointmentView[]>("/api/admin/reports/agenda"),
     ]);
     return { status, botTexts, professionals, customers, agenda };
   }, []);

@@ -343,7 +343,7 @@ export function CommissionSettlementPage() {
             )}
 
             <div className="field">
-              <label>Valor do vale (R$)</label>
+              <label>Valor do vale (R$)
               <input
                 className="input"
                 inputMode="decimal"
@@ -351,6 +351,7 @@ export function CommissionSettlementPage() {
                 placeholder="ex.: 100"
                 onChange={(e) => setAdvanceAmount(e.target.value)}
               />
+            </label>
               <span className="faint" style={{ fontSize: 12 }}>
                 O vale entra com a data de hoje e é descontado do acerto do período que a contém.
               </span>
@@ -368,13 +369,14 @@ export function CommissionSettlementPage() {
             </span>
 
             <div className="field">
-              <label>Observação (opcional)</label>
+              <label>Observação (opcional)
               <input
                 className="input"
                 value={advanceNotes}
                 placeholder="ex.: pediu adiantado"
                 onChange={(e) => setAdvanceNotes(e.target.value)}
               />
+            </label>
             </div>
 
             {formError && <div className="error">{formError}</div>}
@@ -418,13 +420,14 @@ export function CommissionSettlementPage() {
             )}
 
             <div className="field">
-              <label>Valor do acerto (R$)</label>
+              <label>Valor do acerto (R$)
               <input
                 className="input"
                 inputMode="decimal"
                 value={draft.amount}
                 onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
               />
+            </label>
               <span className="faint" style={{ fontSize: 12 }}>
                 Sugerido: o saldo a pagar. Dá para registrar um valor menor (acerto parcial).
               </span>
@@ -442,13 +445,14 @@ export function CommissionSettlementPage() {
             </span>
 
             <div className="field">
-              <label>Observação (opcional)</label>
+              <label>Observação (opcional)
               <input
                 className="input"
                 value={draft.notes}
                 placeholder="ex.: PIX 15/07"
                 onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
               />
+            </label>
             </div>
 
             {formError && <div className="error">{formError}</div>}

@@ -8,6 +8,7 @@ import { WhatsAppPairing } from "../components/WhatsAppPairing";
 import { AdminsEditor } from "../components/AdminsEditor";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
+import { getOnce } from "../lib/dedupe";
 import { useWhatsAppConnection } from "../lib/useWhatsAppConnection";
 import { api, ApiError } from "../api/client";
 import { money } from "../lib/format";
@@ -33,7 +34,7 @@ function StatusDot({ ok, warn }: { ok: boolean; warn?: boolean }) {
 /** Saúde do bot: a resposta imediata de "está tudo funcionando?" + o liga/desliga geral. */
 function BotStatusCard({ reloadKey }: { reloadKey: number }) {
   const { data, loading, error, reload } = useApi<BotStatus>(
-    () => api.get("/api/admin/settings/bot/status"),
+    () => getOnce("/api/admin/settings/bot/status"),
     [reloadKey],
   );
   const [toggling, setToggling] = useState(false);
@@ -202,12 +203,14 @@ function ProfileCard({ reloadKey }: { reloadKey: number }) {
         ) : (
           <div className="stack">
             <div className="field">
-              <label>Nome da barbearia</label>
+              <label>Nome da barbearia
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+            </label>
             </div>
             <div className="field">
-              <label>Instância do WhatsApp</label>
+              <label>Instância do WhatsApp
               <input className="input" value={instance} onChange={(e) => setInstance(e.target.value)} placeholder="ex.: minha-barbearia-wa" />
+            </label>
               <span className="faint" style={{ fontSize: 12 }}>Nome da instância na Evolution API por onde o bot envia as mensagens.</span>
             </div>
             <div className="row">
@@ -334,7 +337,7 @@ function GoalsCard({ reloadKey }: { reloadKey: number }) {
         ) : (
           <div className="stack">
             <div className="field">
-              <label>Meta de faturamento mensal (R$)</label>
+              <label>Meta de faturamento mensal (R$)
               <input
                 className="input"
                 inputMode="decimal"
@@ -342,6 +345,7 @@ function GoalsCard({ reloadKey }: { reloadKey: number }) {
                 placeholder="ex.: 20000"
                 onChange={(e) => setValue(e.target.value)}
               />
+            </label>
             </div>
             <div className="row">
               <button className="btn btn-primary" onClick={save} disabled={saving}>
@@ -403,14 +407,15 @@ function BotCard({
 
   const field = (k: keyof BotSettings, label: string, placeholder?: string) => (
     <div className="field">
-      <label>{label}</label>
+      <label>{label}
       <input className="input" value={form[k] ?? ""} placeholder={placeholder} onChange={(e) => set(k, e.target.value)} />
+            </label>
     </div>
   );
 
   const area = (k: keyof BotSettings, label: string, rows = 4, placeholder?: string) => (
     <div className="field">
-      <label>{label}</label>
+      <label>{label}
       <textarea
         className="input"
         rows={rows}
@@ -419,6 +424,7 @@ function BotCard({
         onChange={(e) => set(k, e.target.value)}
         style={{ resize: "vertical", fontFamily: "inherit" }}
       />
+            </label>
     </div>
   );
 
