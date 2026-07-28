@@ -839,6 +839,13 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
       `demo-navalha`) com ~60 dias de movimento: 3 barbeiros, 7 serviços, 5 produtos, 3 planos com
       benefícios, 18 clientes, 335 comandas, 52 caixas fechados, cupons, vales e comissões pagas.
       Login `dono@navalhademo.local` / `demo12345` (e um `RECEPTION` e um `BARBER`).
+      **Desde a V31, também 4 meses de contas a pagar** (~R$ 5 mil/mês de custo fixo contra
+      ~R$ 8,6 mil de receita → margem de ~39%). Sem elas o DRE da demo mostraria
+      "sobrou = faturamento", que é exatamente a leitura enganosa que a V31 corrige.
+      As despesas nascem **pagas por fora do caixa**: gerar sangria quebraria a invariante
+      `closing_expected` que o seed garante — e é o realista, já que aluguel e imposto saem por
+      transferência, não da gaveta. A conta "a vencer" é ancorada em `CURRENT_DATE`, não num dia
+      fixo: com dia fixo, rodar o seed no fim do mês deixaria a tela sem esse estado.
 - [x] **Escopo travado num tenant de UUID fixo** — o script começa apagando **esse** tenant e só
       ele, então é re-executável e não encosta em nenhuma outra barbearia. É o que o torna seguro
       de rodar num banco que já tenha dados.

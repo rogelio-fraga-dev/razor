@@ -85,6 +85,7 @@ BEGIN
     -- -----------------------------------------------------------------------------------------
     -- 0. Limpeza do tenant demo (ordem que respeita as FKs)
     -- -----------------------------------------------------------------------------------------
+    DELETE FROM expenses              WHERE barbershop_id = v_shop;
     DELETE FROM stock_movements       WHERE barbershop_id = v_shop;
     DELETE FROM coupon_redemptions    WHERE barbershop_id = v_shop;
     DELETE FROM product_sales         WHERE barbershop_id = v_shop;
@@ -538,6 +539,76 @@ BEGIN
              WHERE barbershop_id = v_shop AND status = 'FECHADA'
              GROUP BY customer_phone) sub
      WHERE c.barbershop_id = v_shop AND c.phone_number = sub.customer_phone;
+
+    -- -----------------------------------------------------------------------------------------
+    -- 14. Contas a pagar (V31): o outro lado do caixa
+    --     Sem despesa, o DRE da demo mostraria "sobrou = faturamento" — exatamente a leitura
+    --     enganosa que a V31 existe para corrigir. Uma barbearia com ~R$ 8-9 mil de receita
+    --     mensal paga cerca de R$ 5 mil de custo fixo; e essa proporcao que faz o relatorio
+    --     parecer o de um negocio de verdade.
+    --
+    --     TUDO PAGO "POR FORA DO CAIXA" (cash_movement_id NULL), de proposito: gerar sangria
+    --     aqui quebraria a invariante que o seed ja garante e verifica —
+    --     closing_expected = fundo + suprimentos - sangrias + vendas em dinheiro. Alem disso e o
+    --     realista: aluguel, energia e imposto saem por transferencia, nao da gaveta.
+    -- -----------------------------------------------------------------------------------------
+    FOR v_i IN 0..3 LOOP
+        DECLARE
+            v_mes  DATE := (date_trunc('month', CURRENT_DATE) - (v_i || ' months')::interval)::date;
+            -- Meses passados quitados; o corrente fica em aberto. Como todos os vencimentos
+            -- fixos caem entre os dias 4 e 19, do meio do mes em diante eles ja estao vencidos —
+            -- por isso a conta "a vencer" e criada a parte, ancorada em CURRENT_DATE.
+            v_fech BOOLEAN := v_i > 0;
+        BEGIN
+            INSERT INTO expenses (id, barbershop_id, description, category, amount, due_date, paid_at, recurring, notes, created_at)
+            VALUES
+              (gen_random_uuid(), v_shop, 'Aluguel da loja',      'ALUGUEL',   2500.00, v_mes + 4,
+               CASE WHEN v_fech THEN v_mes + 4 ELSE NULL END, true, 'Contrato ate dez/2027', now()),
+
+              (gen_random_uuid(), v_shop, 'Energia eletrica',     'ENERGIA',   380.00 + (v_i * 17), v_mes + 9,
+               CASE WHEN v_fech THEN v_mes + 9 ELSE NULL END, true, NULL, now()),
+
+              (gen_random_uuid(), v_shop, 'Agua',                 'AGUA',      118.00, v_mes + 9,
+               CASE WHEN v_fech THEN v_mes + 9 ELSE NULL END, true, NULL, now()),
+
+              (gen_random_uuid(), v_shop, 'Internet e telefone',  'INTERNET',  199.90, v_mes + 14,
+               CASE WHEN v_fech THEN v_mes + 14 ELSE NULL END, true, NULL, now()),
+
+              (gen_random_uuid(), v_shop, 'Sistema Razor',        'SOFTWARE',  139.90, v_mes + 19,
+               CASE WHEN v_fech THEN v_mes + 19 ELSE NULL END, true, 'Plano Equipe', now()),
+
+              (gen_random_uuid(), v_shop, 'Reposicao de produtos','PRODUTOS',  760.00 + (v_i * 40), v_mes + 11,
+               CASE WHEN v_fech THEN v_mes + 11 ELSE NULL END, true, NULL, now()),
+
+              (gen_random_uuid(), v_shop, 'Simples Nacional',     'IMPOSTOS',  610.00 + (v_i * 25), v_mes + 19,
+               CASE WHEN v_fech THEN v_mes + 19 ELSE NULL END, true, NULL, now());
+
+            -- Despesas eventuais: nem todo mes tem, e nenhuma e recorrente. Sao elas que fazem o
+            -- resultado oscilar de um mes para o outro — se tudo fosse fixo, o grafico seria reta.
+            IF v_i % 2 = 0 THEN
+                INSERT INTO expenses (id, barbershop_id, description, category, amount, due_date, paid_at, recurring, notes, created_at)
+                -- Sempre paga: e servico pre-pago, nao roda no boleto.
+                VALUES (gen_random_uuid(), v_shop, 'Impulsionamento no Instagram', 'MARKETING', 300.00,
+                        v_mes + 7, v_mes + 7, false, NULL, now());
+            END IF;
+            IF v_i = 1 THEN
+                INSERT INTO expenses (id, barbershop_id, description, category, amount, due_date, paid_at, recurring, notes, created_at)
+                VALUES (gen_random_uuid(), v_shop, 'Conserto da cadeira 2', 'MANUTENCAO', 450.00, v_mes + 21,
+                        v_mes + 21, false, 'Pistao hidraulico', now());
+            END IF;
+
+            -- Uma conta que ainda VAI vencer, so no mes corrente. Ancorada em CURRENT_DATE (e
+            -- nao num dia fixo) porque o seed roda em qualquer dia do mes: com dia fixo, rodar
+            -- no fim do mes deixaria a tela sem o estado "em aberto, a vencer".
+            IF v_i = 0 THEN
+                INSERT INTO expenses (id, barbershop_id, description, category, amount, due_date, paid_at, recurring, notes, created_at)
+                VALUES (gen_random_uuid(), v_shop, 'Toalhas e descartaveis', 'PRODUTOS', 240.00,
+                        LEAST((date_trunc('month', CURRENT_DATE) + interval '1 month - 1 day')::date,
+                              CURRENT_DATE + 5),
+                        NULL, false, NULL, now());
+            END IF;
+        END;
+    END LOOP;
 
     RAISE NOTICE 'Seed da demo concluido para a barbearia % (slug demo-navalha).', v_shop;
 END
