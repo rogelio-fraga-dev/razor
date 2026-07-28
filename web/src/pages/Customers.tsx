@@ -24,6 +24,10 @@ function phoneBr(p: string): string {
 /** Espelha CustomerService.CustomerFilter no backend. */
 type Filter = "ALL" | "SUBSCRIBERS" | "NEW";
 
+/** Linhas por página. Menor que o padrão de 20: a linha de cliente é alta (avatar, duas
+ *  linhas de texto e um seletor), e 20 delas não cabem numa tela sem rolar. */
+const PAGE_SIZE = 12;
+
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "ALL", label: "Todos" },
   { id: "SUBSCRIBERS", label: "💎 Assinantes" },
@@ -53,7 +57,7 @@ export function Customers() {
   }, [debouncedQ, filter]);
 
   const query = useMemo(() => {
-    const p = new URLSearchParams({ page: String(page), filter });
+    const p = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE), filter });
     if (debouncedQ) p.set("q", debouncedQ);
     return p.toString();
   }, [page, filter, debouncedQ]);

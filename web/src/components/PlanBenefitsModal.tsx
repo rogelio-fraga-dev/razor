@@ -111,7 +111,7 @@ export function PlanBenefitsModal({
     setWeekdays((prev) => (prev.includes(value) ? prev.filter((d) => d !== value) : [...prev, value]));
 
   return (
-    <Modal title={`Benefícios — ${plan.name}`} onClose={onClose}>
+    <Modal title={`Benefícios — ${plan.name}`} size="wide" onClose={onClose}>
       <div className="stack">
         <p className="muted" style={{ marginTop: 0, fontSize: 13.5 }}>
           É isto que o assinante vê no preço: <strong>De</strong> valor cheio{" "}

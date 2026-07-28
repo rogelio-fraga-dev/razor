@@ -34,7 +34,10 @@ const NAV_GROUPS = [
       { to: "/comandas", label: "Comandas", icon: <IconReceipt /> },
       { to: "/caixa", label: "Caixa", icon: <IconCash /> },
       { to: "/expenses", label: "Despesas", icon: <IconTrendDown /> },
-      { to: "/commissions", label: "Comissões", icon: <IconPercent /> },
+      // `end` obrigatório aqui: "/commissions" é PREFIXO de "/commissions/settlement", e o
+      // NavLink casa por prefixo. Sem isto, estando no Acerto os dois itens acendem juntos e o
+      // menu deixa de dizer onde a pessoa está.
+      { to: "/commissions", label: "Comissões", icon: <IconPercent />, end: true },
       { to: "/commissions/settlement", label: "Acerto", icon: <IconHandshake /> },
     ],
   },

@@ -97,7 +97,7 @@ export function StockModal({
   };
 
   return (
-    <Modal title={`Estoque — ${product.name}`} onClose={onClose}>
+    <Modal title={`Estoque — ${product.name}`} size="wide" onClose={onClose}>
       <div className="stack">
         {/* Saldo atual */}
         <div className="row between" style={{ paddingBottom: 4 }}>

@@ -98,6 +98,7 @@ export function ScheduleBlocksModal({ onClose, onChanged }: { onClose: () => voi
   return (
     <Modal
       title="Folgas e bloqueios"
+      size="wide"
       onClose={onClose}
       footer={
         <button className="btn btn-primary" onClick={create} disabled={saving || invalidRange}>

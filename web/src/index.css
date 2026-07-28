@@ -1812,3 +1812,17 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 /* Classe usada no AdminsEditor que nunca existiu: sem ela o botão "Adicionar" flutuava no meio
    da altura dos campos, que têm rótulo em cima. */
 .row.end { align-items: flex-end; }
+
+/* Lista de página flush rola POR DENTRO.
+   Sem isto a página inteira rolava: a barra de busca subia junto e a paginação ficava abaixo da
+   dobra — dava a impressão de que a lista não tinha paginação nenhuma. Agora o topo (busca e
+   filtros) e o rodapé (paginação) ficam fixos, e só as linhas rolam. */
+.page-panel > .rowlist {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.page-panel > .pagination {
+  flex-shrink: 0;
+  background: var(--bg-raise);
+}

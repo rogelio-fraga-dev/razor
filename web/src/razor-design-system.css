@@ -451,7 +451,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* KPI Cards */
+/* Padding proprio.
+   O .card deixou de trazer padding embutido (ele empurrava cabecalho e tabela 20px para dentro
+   em todo o painel), e o KPI era um dos que dependiam dele: sem isto o rotulo "EM RISCO" e o
+   valor encostam — e sao CORTADOS — na borda esquerda do card. */
 .kpi-card {
+  padding: 18px;
   grid-column: span 3;
   display: flex;
   flex-direction: column;
@@ -1170,6 +1175,8 @@ h1, h2, h3, h4, h5, h6 {
    progresso 20px para dentro em todo o painel). Quem monta o conteúdo direto no card — sem
    .card-head nem .card-pad — precisa do seu próprio respiro. */
 .card.error,
+.card.checklist > .cl-head,
+.card.checklist > .cl-items,
 .card.checklist > .cfg-hero,
 .card.checklist > .cfg-checklist,
 .card.checklist > .cfg-done {
