@@ -130,3 +130,11 @@ export const IconCash = () => (
     <path d="M6 9.5v5M18 9.5v5" />
   </Icon>
 );
+
+/** Seta descendente — despesas (o que sai). Contraponto visual ao caixa (o que entra). */
+export const IconTrendDown = () => (
+  <Icon>
+    <polyline points="3 7 10 14 14 10 21 17" />
+    <polyline points="15 17 21 17 21 11" />
+  </Icon>
+);

@@ -5,7 +5,7 @@ import { canAccess } from "../lib/access";
 import { applyTheme, currentTheme, type Theme } from "../lib/theme";
 import { RazorLogo } from "./Logo";
 import { Clock } from "./Clock";
-import { IconBox, IconHandshake, IconTicket, IconReceipt, IconCalendar, IconCash, IconGem, IconGrid, IconPercent, IconSliders, IconTag, IconUser, IconUsers } from "./Icons";
+import { IconBox, IconHandshake, IconTicket, IconReceipt, IconCalendar, IconCash, IconGem, IconGrid, IconPercent, IconSliders, IconTag, IconTrendDown, IconUser, IconUsers } from "./Icons";
 
 // Navegação agrupada pelo que o dono faz — não por "telas do sistema".
 const NAV_GROUPS = [
@@ -32,6 +32,7 @@ const NAV_GROUPS = [
     items: [
       { to: "/comandas", label: "Comandas", icon: <IconReceipt /> },
       { to: "/caixa", label: "Caixa", icon: <IconCash /> },
+      { to: "/expenses", label: "Despesas", icon: <IconTrendDown /> },
       { to: "/commissions", label: "Comissões", icon: <IconPercent /> },
       { to: "/commissions/settlement", label: "Acerto", icon: <IconHandshake /> },
     ],

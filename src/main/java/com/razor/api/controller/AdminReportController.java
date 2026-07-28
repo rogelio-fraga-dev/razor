@@ -2,6 +2,7 @@ package com.razor.api.controller;
 
 import com.razor.api.dto.AppointmentView;
 import com.razor.api.dto.CommissionReportResponse;
+import com.razor.api.dto.DreResponse;
 import com.razor.api.dto.FinancialSummaryResponse;
 import com.razor.api.dto.RevenuePoint;
 import com.razor.api.service.CommissionService;
@@ -55,6 +56,21 @@ public class AdminReportController {
             @RequestParam(required = false) ReportService.SeriesPeriod period) {
         ReportService.SeriesPeriod target = period != null ? period : ReportService.SeriesPeriod.LAST_7_DAYS;
         return reportService.revenueSeries(target, AppointmentDates.today());
+    }
+
+    /**
+     * DRE do periodo [from, to] — padrao: o mes corrente inteiro, que e a pergunta real ("como
+     * fechou o mes?"). Um dia so de DRE nao diz nada: a receita e diaria, mas o aluguel vence
+     * uma vez.
+     */
+    @GetMapping("/dre")
+    public DreResponse dre(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        LocalDate today = AppointmentDates.today();
+        LocalDate start = from != null ? from : today.withDayOfMonth(1);
+        LocalDate end = to != null ? to : start.plusMonths(1).minusDays(1);
+        return reportService.dre(start, end, today);
     }
 
     /** Agenda do dia (padrao: hoje). Ex.: {@code /agenda?date=2026-07-21}. */

@@ -419,3 +419,78 @@ export interface Coupon {
   /** Dá para usar hoje? Junta validade, limite de usos e o liga/desliga. */
   usable: boolean;
 }
+
+// ---------- Contas a pagar e DRE (V31) ----------
+
+export type ExpenseCategory =
+  | "ALUGUEL"
+  | "ENERGIA"
+  | "AGUA"
+  | "INTERNET"
+  | "PRODUTOS"
+  | "SALARIOS"
+  | "IMPOSTOS"
+  | "MARKETING"
+  | "MANUTENCAO"
+  | "SOFTWARE"
+  | "OUTROS";
+
+/** Opção de categoria com o rótulo pronto — vem do backend para não duplicar a lista aqui. */
+export interface ExpenseCategoryOption {
+  value: ExpenseCategory;
+  label: string;
+}
+
+/**
+ * Conta a pagar. `paid` e `overdue` vêm calculados do servidor de propósito: são a mesma
+ * pergunta que o DRE responde, e deixar o navegador decidir "está vencida?" abriria espaço
+ * para as duas telas discordarem por causa do fuso.
+ *
+ * `fromCashRegister` = o pagamento saiu da gaveta; é o que explica por que a conta não pode
+ * mais ser editada nem apagada.
+ */
+export interface Expense {
+  id: string;
+  description: string;
+  category: ExpenseCategory;
+  categoryLabel: string;
+  amount: number;
+  dueDate: string;
+  paidAt: string | null;
+  paid: boolean;
+  overdue: boolean;
+  recurring: boolean;
+  fromCashRegister: boolean;
+  notes: string | null;
+}
+
+export interface DreExpenseLine {
+  category: ExpenseCategory;
+  label: string;
+  amount: number;
+  /** Quanto essa categoria come do faturamento. Nulo quando não houve receita. */
+  shareOfRevenue: number | null;
+}
+
+/**
+ * DRE do período. Despesa entra por **competência** (vencimento), não por desembolso — por
+ * isso `expensesPaid` e `expensesUnpaid` somam o mesmo `totalExpenses`, mas dizem quanto
+ * daquilo já saiu de fato.
+ *
+ * `marginPercent` é nulo sem receita: mostrar 0% sugeriria margem nula quando o certo é
+ * "não há o que medir".
+ */
+export interface Dre {
+  from: string;
+  to: string;
+  servicesRevenue: number;
+  productsRevenue: number;
+  totalRevenue: number;
+  expenses: DreExpenseLine[];
+  totalExpenses: number;
+  expensesPaid: number;
+  expensesUnpaid: number;
+  overdueAmount: number;
+  result: number;
+  marginPercent: number | null;
+}

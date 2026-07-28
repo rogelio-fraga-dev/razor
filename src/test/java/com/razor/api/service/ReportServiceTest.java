@@ -47,6 +47,7 @@ class ReportServiceTest {
     @Mock private ComandaItemRepository comandaItemRepository;
     @Mock private PricingService pricingService;
     @Mock private CustomerService customerService;
+    @Mock private ExpenseService expenseService;
 
     @InjectMocks private ReportService service;
 
@@ -308,5 +309,158 @@ class ReportServiceTest {
         givenPrices();
 
         assertThat(service.financialSummary(hoje, hoje).servicesRevenue()).isEqualByComparingTo("0.00");
+    }
+
+    // =========================================================================================
+    // DRE (V31): receita do resumo financeiro menos as despesas por competência.
+    // =========================================================================================
+
+    private static final LocalDate JUL_1 = LocalDate.of(2026, 7, 1);
+    private static final LocalDate JUL_31 = LocalDate.of(2026, 7, 31);
+
+    /** Receita fixa de 3 combos = R$ 180,00, para o foco dos testes ficar nas despesas. */
+    private void givenRevenue180() {
+        givenPrices();
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any()))
+                .thenReturn(List.of(
+                        appt("Combo", PaymentStatus.PIX, JUL_1, LocalTime.of(9, 0), null),
+                        appt("Combo", PaymentStatus.PIX, JUL_1, LocalTime.of(10, 0), null),
+                        appt("Combo", PaymentStatus.PIX, JUL_1, LocalTime.of(11, 0), null)));
+        when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
+                .thenReturn(List.of());
+        when(comandaRepository.findByBarbershopIdAndComandaDateBetween(any(), any(), any()))
+                .thenReturn(List.of());
+    }
+
+    private com.razor.api.model.Expense despesa(String valor, com.razor.api.model.ExpenseCategory cat,
+                                                LocalDate vencimento, LocalDate pagoEm) {
+        return com.razor.api.model.Expense.builder()
+                .id(UUID.randomUUID()).description(cat.label()).category(cat)
+                .amount(new BigDecimal(valor)).dueDate(vencimento).paidAt(pagoEm).build();
+    }
+
+    @Test
+    @DisplayName("DRE: resultado é receita menos despesa, com margem em pontos percentuais")
+    void dre_resultAndMargin() {
+        givenRevenue180();
+        var aluguel = despesa("45.00", com.razor.api.model.ExpenseCategory.ALUGUEL, LocalDate.of(2026, 7, 5), null);
+        when(expenseService.totalsByCategory(JUL_1, JUL_31)).thenReturn(
+                Map.of(com.razor.api.model.ExpenseCategory.ALUGUEL, new BigDecimal("45.00")));
+        when(expenseService.betweenDueDates(JUL_1, JUL_31)).thenReturn(List.of(aluguel));
+
+        var dre = service.dre(JUL_1, JUL_31, LocalDate.of(2026, 7, 20));
+
+        assertThat(dre.totalRevenue()).isEqualByComparingTo("180.00");
+        assertThat(dre.totalExpenses()).isEqualByComparingTo("45.00");
+        assertThat(dre.result()).isEqualByComparingTo("135.00");
+        assertThat(dre.marginPercent()).isEqualByComparingTo("75.0");
+        assertThat(dre.expenses()).singleElement()
+                .satisfies(l -> assertThat(l.shareOfRevenue()).isEqualByComparingTo("25.0"));
+    }
+
+    @Test
+    @DisplayName("DRE: prejuízo aparece como resultado negativo, não zerado")
+    void dre_lossIsNegative() {
+        givenRevenue180();
+        var aluguel = despesa("500.00", com.razor.api.model.ExpenseCategory.ALUGUEL, LocalDate.of(2026, 7, 5), null);
+        when(expenseService.totalsByCategory(any(), any())).thenReturn(
+                Map.of(com.razor.api.model.ExpenseCategory.ALUGUEL, new BigDecimal("500.00")));
+        when(expenseService.betweenDueDates(any(), any())).thenReturn(List.of(aluguel));
+
+        var dre = service.dre(JUL_1, JUL_31, LocalDate.of(2026, 7, 20));
+
+        // Mês no vermelho tem que aparecer no vermelho — é a informação mais importante do relatório.
+        assertThat(dre.result()).isEqualByComparingTo("-320.00");
+        assertThat(dre.marginPercent().signum()).isNegative();
+    }
+
+    @Test
+    @DisplayName("DRE: sem receita, a margem vem nula em vez de 0% ou divisão por zero")
+    void dre_noRevenue_nullMargin() {
+        givenPrices();
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any()))
+                .thenReturn(List.of());
+        when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any())).thenReturn(List.of());
+        when(comandaRepository.findByBarbershopIdAndComandaDateBetween(any(), any(), any())).thenReturn(List.of());
+        var aluguel = despesa("2500.00", com.razor.api.model.ExpenseCategory.ALUGUEL, LocalDate.of(2026, 7, 5), null);
+        when(expenseService.totalsByCategory(any(), any())).thenReturn(
+                Map.of(com.razor.api.model.ExpenseCategory.ALUGUEL, new BigDecimal("2500.00")));
+        when(expenseService.betweenDueDates(any(), any())).thenReturn(List.of(aluguel));
+
+        var dre = service.dre(JUL_1, JUL_31, LocalDate.of(2026, 7, 20));
+
+        assertThat(dre.marginPercent()).isNull();
+        assertThat(dre.expenses()).singleElement()
+                .satisfies(l -> assertThat(l.shareOfRevenue()).isNull());
+        assertThat(dre.result()).isEqualByComparingTo("-2500.00");
+    }
+
+    @Test
+    @DisplayName("DRE: pago, em aberto e vencido somam o total, e vencido só conta o que passou do prazo")
+    void dre_splitsPaidUnpaidOverdue() {
+        givenRevenue180();
+        LocalDate hoje = LocalDate.of(2026, 7, 20);
+        var paga = despesa("100.00", com.razor.api.model.ExpenseCategory.ENERGIA, LocalDate.of(2026, 7, 3), LocalDate.of(2026, 7, 4));
+        var vencida = despesa("60.00", com.razor.api.model.ExpenseCategory.AGUA, LocalDate.of(2026, 7, 10), null);
+        var aVencer = despesa("40.00", com.razor.api.model.ExpenseCategory.INTERNET, LocalDate.of(2026, 7, 28), null);
+        when(expenseService.totalsByCategory(any(), any())).thenReturn(Map.of());
+        when(expenseService.betweenDueDates(any(), any())).thenReturn(List.of(paga, vencida, aVencer));
+
+        var dre = service.dre(JUL_1, JUL_31, hoje);
+
+        assertThat(dre.totalExpenses()).isEqualByComparingTo("200.00");
+        assertThat(dre.expensesPaid()).isEqualByComparingTo("100.00");
+        assertThat(dre.expensesUnpaid()).isEqualByComparingTo("100.00");
+        // A que ainda vai vencer está em aberto, mas não está vencida.
+        assertThat(dre.overdueAmount()).isEqualByComparingTo("60.00");
+    }
+
+    @Test
+    @DisplayName("DRE: despesa em aberto entra no resultado — competência, não desembolso")
+    void dre_unpaidStillCounts() {
+        givenRevenue180();
+        var emAberto = despesa("80.00", com.razor.api.model.ExpenseCategory.ALUGUEL, LocalDate.of(2026, 7, 5), null);
+        when(expenseService.totalsByCategory(any(), any())).thenReturn(
+                Map.of(com.razor.api.model.ExpenseCategory.ALUGUEL, new BigDecimal("80.00")));
+        when(expenseService.betweenDueDates(any(), any())).thenReturn(List.of(emAberto));
+
+        var dre = service.dre(JUL_1, JUL_31, LocalDate.of(2026, 7, 20));
+
+        // Atrasar o boleto não pode fazer o mês parecer mais lucrativo.
+        assertThat(dre.result()).isEqualByComparingTo("100.00");
+        assertThat(dre.expensesPaid()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    @DisplayName("DRE: as linhas vêm da maior despesa para a menor")
+    void dre_linesSortedByAmountDesc() {
+        givenRevenue180();
+        when(expenseService.totalsByCategory(any(), any())).thenReturn(Map.of(
+                com.razor.api.model.ExpenseCategory.MARKETING, new BigDecimal("20.00"),
+                com.razor.api.model.ExpenseCategory.ALUGUEL, new BigDecimal("90.00"),
+                com.razor.api.model.ExpenseCategory.ENERGIA, new BigDecimal("45.00")));
+        when(expenseService.betweenDueDates(any(), any())).thenReturn(List.of());
+
+        var dre = service.dre(JUL_1, JUL_31, LocalDate.of(2026, 7, 20));
+
+        assertThat(dre.expenses()).extracting(l -> l.category().name())
+                .containsExactly("ALUGUEL", "ENERGIA", "MARKETING");
+    }
+
+    @Test
+    @DisplayName("DRE e resumo financeiro mostram o mesmo faturamento para o mesmo período")
+    void dre_revenueMatchesFinancialSummary() {
+        givenRevenue180();
+        when(expenseService.totalsByCategory(any(), any())).thenReturn(Map.of());
+        when(expenseService.betweenDueDates(any(), any())).thenReturn(List.of());
+
+        var dre = service.dre(JUL_1, JUL_31, LocalDate.of(2026, 7, 20));
+        var resumo = service.financialSummary(JUL_1, JUL_31);
+
+        // Duas telas mostrando faturamentos diferentes para o mesmo mês destruiria a confiança
+        // no painel inteiro — por isso o DRE reusa o resumo em vez de recalcular.
+        assertThat(dre.totalRevenue()).isEqualByComparingTo(resumo.totalRevenue());
+        assertThat(dre.servicesRevenue()).isEqualByComparingTo(resumo.servicesRevenue());
+        assertThat(dre.productsRevenue()).isEqualByComparingTo(resumo.productsRevenue());
     }
 }

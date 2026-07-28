@@ -1,6 +1,7 @@
 package com.razor.api.service;
 
 import com.razor.api.dto.AppointmentView;
+import com.razor.api.dto.DreResponse;
 import com.razor.api.dto.FinancialSummaryResponse;
 import com.razor.api.dto.FinancialSummaryResponse.Bucket;
 import com.razor.api.dto.FinancialSummaryResponse.CategoryBreakdown;
@@ -9,6 +10,8 @@ import com.razor.api.dto.RevenuePoint;
 import com.razor.api.model.Appointment;
 import com.razor.api.model.Comanda;
 import com.razor.api.model.ComandaItem;
+import com.razor.api.model.Expense;
+import com.razor.api.model.ExpenseCategory;
 import com.razor.api.model.PaymentStatus;
 import com.razor.api.model.ProductSale;
 import com.razor.api.model.Professional;
@@ -53,6 +56,56 @@ public class ReportService {
     private final ComandaItemRepository comandaItemRepository;
     private final PricingService pricingService;
     private final CustomerService customerService;
+    private final ExpenseService expenseService;
+
+    /**
+     * DRE do intervalo: receita do {@link #financialSummary} menos as despesas por competencia
+     * (V31). Reusa o resumo financeiro de proposito — DRE e resumo mostrando faturamentos
+     * diferentes para o mesmo mes seria o tipo de divergencia que destroi a confianca no painel.
+     *
+     * <p>A regra de competencia x desembolso e a razao de {@code marginPercent} poder vir nulo
+     * estao documentadas no {@link DreResponse}.
+     */
+    public DreResponse dre(LocalDate from, LocalDate to, LocalDate today) {
+        FinancialSummaryResponse receita = financialSummary(from, to);
+        BigDecimal totalRevenue = receita.totalRevenue();
+
+        Map<ExpenseCategory, BigDecimal> porCategoria = expenseService.totalsByCategory(from, to);
+
+        List<DreResponse.ExpenseLine> linhas = porCategoria.entrySet().stream()
+                .map(e -> new DreResponse.ExpenseLine(
+                        e.getKey(), e.getKey().label(), scale(e.getValue()),
+                        share(e.getValue(), totalRevenue)))
+                // Maior primeiro: o dono quer ver o que mais pesa, nao a ordem do enum.
+                .sorted(Comparator.comparing(DreResponse.ExpenseLine::amount).reversed())
+                .toList();
+
+        BigDecimal totalExpenses = BigDecimal.ZERO;
+        BigDecimal paid = BigDecimal.ZERO;
+        BigDecimal unpaid = BigDecimal.ZERO;
+        BigDecimal overdue = BigDecimal.ZERO;
+        for (Expense e : expenseService.betweenDueDates(from, to)) {
+            totalExpenses = totalExpenses.add(e.getAmount());
+            if (e.isPaid()) {
+                paid = paid.add(e.getAmount());
+            } else {
+                unpaid = unpaid.add(e.getAmount());
+                if (e.isOverdue(today)) overdue = overdue.add(e.getAmount());
+            }
+        }
+
+        BigDecimal result = totalRevenue.subtract(totalExpenses);
+        return new DreResponse(from, to,
+                receita.servicesRevenue(), receita.productsRevenue(), scale(totalRevenue),
+                linhas, scale(totalExpenses), scale(paid), scale(unpaid), scale(overdue),
+                scale(result), share(result, totalRevenue));
+    }
+
+    /** {@code parte / total} em pontos percentuais, ou nulo quando nao ha total para comparar. */
+    private BigDecimal share(BigDecimal part, BigDecimal total) {
+        if (total == null || total.signum() == 0) return null;
+        return part.multiply(BigDecimal.valueOf(100)).divide(total, 1, RoundingMode.HALF_UP);
+    }
 
     /** Resumo financeiro do intervalo [from, to] (inclusive) do tenant atual. */
     public FinancialSummaryResponse financialSummary(LocalDate from, LocalDate to) {

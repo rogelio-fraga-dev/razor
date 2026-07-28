@@ -235,8 +235,8 @@ uma da outra, **cada uma com seu WhatsApp**, serviços e barbeiros. ✅ *Impleme
       > já foi contado pelo agendamento. Ver item 4 da frente do cliente final.
 - [~] **Clube de assinatura**: catálogo de **planos configuráveis** pronto (`subscription_plans`,
       painel). _(Falta: identificação assinante x avulso no agendamento e cobrança recorrente — Fase 4.)_
-- [~] **Relatórios/DRE**: financeiro estruturado e comissões prontos no painel.
-      _(Falta: DRE e dashboard de retenção — "quem some", frequência.)_
+- [~] **Relatórios/DRE**: financeiro estruturado, comissões e **DRE (V31)** prontos no painel.
+      _(Falta: dashboard de retenção — "quem some", frequência — e taxa de ocupação.)_
 - [x] **Estoque (V24)** — reposição, perda, ajuste por contagem física, **baixa automática** na
       venda (balcão e comanda passam pelo mesmo caminho) e alerta de nível de reposição.
       **Opt-in por produto** (`track_stock`, padrão desligado): barbearia que não conta estoque
@@ -285,10 +285,10 @@ assinaturas) sem sair do Razor.
 
 **🟠 Alto valor (diferenciam na venda)**
 
-- [ ] **DRE + taxa de ocupação + frequência de clientes** — as métricas que o dono usa para
-      decidir. Ocupação = horas vendidas / horas disponíveis por barbeiro.
-- [ ] **Contas a pagar e contas recorrentes** (aluguel, produtos, energia) — fecha o
-      financeiro de verdade, não só a receita.
+- [x] **Contas a pagar e contas recorrentes (V31)** — aluguel, energia, produtos, impostos.
+      Ver *Contas a pagar e DRE*, abaixo.
+- [~] **DRE** feito (V31); **taxa de ocupação e frequência de clientes** continuam abertas.
+      Ocupação = horas vendidas / horas disponíveis por barbeiro.
 - [x] **Estoque**: produtos, estoque mínimo com alerta e **baixa automática** na venda — feito na
       V24 (ver Fase 2).
 - [x] **Vales e adiantamentos (V26)** dos profissionais, descontados na comissão. O vale pertence
@@ -867,6 +867,53 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
       `AgendaService.montarHorariosLivres` gera os horários livres dentro do expediente configurado
       e o painel expõe os campos em *Configurações* e no `ConfigWizard`. Não é preciso uma V31 para
       isso — **a próxima tarefa da frente do cliente final é o item 5 (sites white-label)**.
+
+---
+
+### 💸 Contas a pagar e DRE *(V31 — 2026-07-28)*
+
+> Até aqui o sistema só sabia o que **entra**. Fechar o mês com metade da conta é pior do que não
+> fechar: o dono olha R$ 18 mil de faturamento e acha que teve R$ 18 mil de resultado. **447
+> testes verdes** (eram 427).
+
+- [x] **`expenses` (V31)** — descrição, categoria, valor, vencimento, pagamento, recorrência e
+      observação, escopado por tenant. Migração **validada no Postgres real** (Flyway aplicou,
+      Hibernate validou o mapeamento, `\d expenses` conferido) — o passo que faltou na V28.
+- [x] **Tela *Despesas e resultado*** — DRE no topo, contas abaixo. Ficam juntos de propósito: o
+      número que o dono quer ("quanto sobrou?") só existe por causa das contas logo abaixo.
+- [x] **Endpoints** `/api/admin/expenses` (CRUD, quitação, repetição) e
+      `/api/admin/reports/dre`. Nasceram **OWNER-only sem eu tocar no `SecurityConfig`** — é o
+      fecho fail-closed do RBAC funcionando como projetado.
+
+**Decisões**
+
+- **"A pagar" × "pago" é derivado de `paid_at IS NULL`, não um enum de status** — mesmo critério
+  do vale (V26): estado paralelo ao fato é mais uma coisa para dessincronizar.
+- **Vencimento e pagamento são datas separadas.** O aluguel vence dia 5 e às vezes é pago dia 8:
+  o DRE precisa da competência, a conferência do caixa precisa do desembolso. Uma coluna só
+  obrigaria a escolher qual dos dois mentir.
+- **O DRE conta por competência (vencimento).** Sem isso, um mês em que o dono atrasou dois
+  boletos apareceria lucrativo e o seguinte no prejuízo, sem nada ter mudado na operação. Por
+  isso `expensesPaid` e `expensesUnpaid` vêm separados: somam o mesmo total, mas dizem quanto já
+  saiu de fato.
+- **Sair do caixa é opcional** — despesa paga em espécie vira sangria; boleto ou PIX não mexe na
+  gaveta. Mesmo padrão do acerto (V25) e do vale (V26).
+- **Conta paga pelo caixa não pode ser editada nem apagada** — o valor já virou sangria com aquele
+  número; reescrever a despesa sem reescrever o movimento faria a gaveta discordar do relatório
+  em silêncio. A correção é um suprimento explícito, e a mensagem de erro diz isso.
+- **Recorrência é marcador, não gerador automático.** Criar as parcelas futuras sozinho encheria
+  a tela de dívida que ninguém conferiu — "o sistema criou uma conta que eu não reconheço" é pior
+  do que digitar de novo. A repetição é comando do dono e **idempotente** (índice único parcial no
+  banco, além da checagem na aplicação), mesmo critério do `POST /plans/suggested`.
+- **`marginPercent` é nulo sem receita**, nunca `0%`: zero sugere margem nula quando o certo é
+  "não há o que medir". Mesma regra para o `% do faturamento` de cada categoria.
+- **O DRE reusa o `financialSummary`** em vez de recalcular a receita — duas telas mostrando
+  faturamentos diferentes para o mesmo mês destruiria a confiança no painel inteiro. Há teste
+  específico para isso.
+
+**Verificado contra a API rodando**, com o seed: DRE de julho fechou receita 8.637,00 − despesa
+2.930,50 = **5.706,50** (margem 66,1%), aluguel comendo 28,9% do faturamento; repetir recorrentes
+criou 1 conta na 1ª vez e `[]` na 2ª; quitar duas vezes deu 400; valor negativo deu 400.
 
 ---
 

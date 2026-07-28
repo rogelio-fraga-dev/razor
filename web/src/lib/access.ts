@@ -31,6 +31,7 @@ export const ROUTE_ROLES: Record<string, UserRole[]> = {
   "/coupons": OWNER_ONLY,
   "/commissions": OWNER_ONLY,
   "/commissions/settlement": OWNER_ONLY,
+  "/expenses": OWNER_ONLY, // contas a pagar e DRE: o resultado do negócio é do dono
   "/settings": OWNER_ONLY,
 };
 
