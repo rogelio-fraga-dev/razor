@@ -10,6 +10,7 @@ import com.razor.api.security.TenantUserPrincipal;
 import com.razor.api.service.AuthService;
 import com.razor.api.service.CommissionPaymentService;
 import com.razor.api.service.CommissionService;
+import com.razor.api.service.ProfessionalAdvanceService;
 import com.razor.api.service.CommissionService.ProfessionalCommission;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
@@ -39,6 +40,7 @@ public class AdminCommissionPaymentController {
 
     private final CommissionPaymentService commissionPaymentService;
     private final CommissionService commissionService;
+    private final ProfessionalAdvanceService advanceService;
     private final ProfessionalRepository professionalRepository;
     private final AuthService authService;
 
@@ -56,24 +58,31 @@ public class AdminCommissionPaymentController {
 
         List<ProfessionalCommission> apurado = commissionService.commissionsForPeriod(start, end);
         Map<UUID, BigDecimal> pagoPorProf = commissionPaymentService.paidByProfessional(start, end);
+        Map<UUID, BigDecimal> valePorProf = advanceService.advancedByProfessional(start, end);
 
         List<CommissionSettlementResponse.Item> items = new ArrayList<>();
         BigDecimal totalComissao = BigDecimal.ZERO;
         BigDecimal totalPago = BigDecimal.ZERO;
+        BigDecimal totalVales = BigDecimal.ZERO;
         BigDecimal totalAReceber = BigDecimal.ZERO;
 
         for (ProfessionalCommission c : apurado) {
             BigDecimal pago = pagoPorProf.getOrDefault(c.professionalId(), BigDecimal.ZERO);
-            BigDecimal aReceber = c.comissao().subtract(pago);
+            BigDecimal vales = valePorProf.getOrDefault(c.professionalId(), BigDecimal.ZERO);
+            // Pode ficar negativo quando o vale passa da comissao: o barbeiro deve a barbearia,
+            // e zerar o numero esconderia isso.
+            BigDecimal aReceber = c.comissao().subtract(pago).subtract(vales);
             items.add(new CommissionSettlementResponse.Item(
                     c.professionalId(), c.professionalName(), c.atendimentos(), c.faturamento(),
-                    c.produtos(), c.faturamentoProdutos(), c.comissao(), pago, aReceber));
+                    c.produtos(), c.faturamentoProdutos(), c.comissao(), pago, vales, aReceber));
             totalComissao = totalComissao.add(c.comissao());
             totalPago = totalPago.add(pago);
+            totalVales = totalVales.add(vales);
             totalAReceber = totalAReceber.add(aReceber);
         }
 
-        return new CommissionSettlementResponse(start, end, items, totalComissao, totalPago, totalAReceber);
+        return new CommissionSettlementResponse(
+                start, end, items, totalComissao, totalPago, totalVales, totalAReceber);
     }
 
     /** Historico de acertos, do mais recente para o mais antigo. */

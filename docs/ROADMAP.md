@@ -291,7 +291,11 @@ assinaturas) sem sair do Razor.
       financeiro de verdade, não só a receita.
 - [x] **Estoque**: produtos, estoque mínimo com alerta e **baixa automática** na venda — feito na
       V24 (ver Fase 2).
-- [ ] **Vales e adiantamentos** dos profissionais, descontados na comissão.
+- [x] **Vales e adiantamentos (V26)** dos profissionais, descontados na comissão. O vale pertence
+      a uma **data** e é descontado no acerto do período que a contém — sem estado "quitado" para
+      dessincronizar. Sair do caixa é opcional (igual ao acerto V25): vale em espécie vira sangria,
+      vale por fora não mexe na gaveta. O saldo **pode ficar negativo** quando o vale passa da
+      comissão: o barbeiro deve à barbearia, e zerar o número esconderia isso.
 - [~] **Comissão por produto** ✅ (V23: `product_commission_percent` por barbeiro) e **comissões
       pagas** ✅ (V25) + **por serviço avulso** — este último ainda pendente.
       > **Acerto (V25):** tela *Acerto* mostra, por período, o apurado × o **já pago** × o saldo —

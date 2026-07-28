@@ -336,6 +336,9 @@ export interface CommissionSettlementItem {
   comissao: number;
   /** Já pago referente a este intervalo (só acertos contidos nele). */
   pago: number;
+  /** Vales com data dentro do intervalo (V26). */
+  vales: number;
+  /** comissão − pago − vales. **Pode ser negativo**: o barbeiro deve à barbearia. */
   aReceber: number;
 }
 
@@ -345,6 +348,7 @@ export interface CommissionSettlement {
   items: CommissionSettlementItem[];
   totalComissao: number;
   totalPago: number;
+  totalVales: number;
   totalAReceber: number;
 }
 
@@ -360,4 +364,16 @@ export interface CommissionPayment {
   notes: string | null;
   paidByName: string | null;
   paidAt: string;
+}
+
+/** Vale/adiantamento ao barbeiro (V26), descontado da comissão no acerto do período. */
+export interface Advance {
+  id: string;
+  professionalId: string;
+  professionalName: string | null;
+  amount: number;
+  advanceDate: string;
+  fromCashRegister: boolean;
+  notes: string | null;
+  grantedByName: string | null;
 }

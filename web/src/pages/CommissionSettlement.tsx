@@ -9,7 +9,7 @@ import { SkeletonRows } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
-import type { CommissionPayment, CommissionSettlement, CommissionSettlementItem } from "../api/types";
+import type { Advance, CommissionPayment, CommissionSettlement, CommissionSettlementItem } from "../api/types";
 import { dateBr, money, todayIso } from "../lib/format";
 
 function firstDayOfMonth(): string {
@@ -32,12 +32,17 @@ export function CommissionSettlementPage() {
   const [draft, setDraft] = useState<PayDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [advanceDraft, setAdvanceDraft] = useState<CommissionSettlementItem | null>(null);
+  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [advanceFromCash, setAdvanceFromCash] = useState(false);
+  const [advanceNotes, setAdvanceNotes] = useState("");
 
   const settlement = useApi<CommissionSettlement>(
     () => api.get(`/api/admin/commission-payments/settlement?from=${from}&to=${to}`),
     [from, to, version],
   );
   const history = useApi<CommissionPayment[]>(() => api.get("/api/admin/commission-payments"), [version]);
+  const advances = useApi<Advance[]>(() => api.get("/api/admin/advances"), [version]);
 
   const openPay = (item: CommissionSettlementItem) => {
     setFormError(null);
@@ -48,6 +53,41 @@ export function CommissionSettlementPage() {
       fromCashRegister: false,
       notes: "",
     });
+  };
+
+  const openAdvance = (item: CommissionSettlementItem) => {
+    setFormError(null);
+    setAdvanceAmount("");
+    setAdvanceFromCash(false);
+    setAdvanceNotes("");
+    setAdvanceDraft(item);
+  };
+
+  const grantAdvance = async () => {
+    if (!advanceDraft) return;
+    const amount = Number(advanceAmount.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setFormError("O valor do vale deve ser maior que zero.");
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      await api.post("/api/admin/advances", {
+        professionalId: advanceDraft.professionalId,
+        amount,
+        date: null, // hoje — é a data que define em qual acerto o vale entra
+        fromCashRegister: advanceFromCash,
+        notes: advanceNotes.trim() || null,
+      });
+      toast.success(`Vale de ${money(amount)} para ${advanceDraft.professionalName} registrado ✓`);
+      setAdvanceDraft(null);
+      setVersion((v) => v + 1);
+    } catch (e) {
+      setFormError(e instanceof ApiError ? e.message : "Erro ao registrar o vale.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const pay = async () => {
@@ -98,6 +138,9 @@ export function CommissionSettlementPage() {
             <div className="row" style={{ gap: 10 }}>
               <span className="badge badge-muted mono">apurado {money(s.totalComissao)}</span>
               <span className="badge badge-green mono">pago {money(s.totalPago)}</span>
+              {s.totalVales > 0 && (
+                <span className="badge badge-plasma mono">vales {money(s.totalVales)}</span>
+              )}
               <span className="badge badge-amber mono">a pagar {money(s.totalAReceber)}</span>
             </div>
           )}
@@ -123,6 +166,7 @@ export function CommissionSettlementPage() {
                   <th style={{ textAlign: "right" }}>Produtos</th>
                   <th style={{ textAlign: "right" }}>Comissão</th>
                   <th style={{ textAlign: "right" }}>Já pago</th>
+                  <th style={{ textAlign: "right" }}>Vales</th>
                   <th style={{ textAlign: "right" }}>A pagar</th>
                   <th></th>
                 </tr>
@@ -142,10 +186,28 @@ export function CommissionSettlementPage() {
                     <td className="num" style={{ color: it.pago > 0 ? "var(--green)" : undefined }}>
                       {money(it.pago)}
                     </td>
+                    <td className="num">
+                      {it.vales > 0 ? (
+                        <span style={{ color: "var(--amber)" }}>−{money(it.vales)}</span>
+                      ) : (
+                        <span className="faint">—</span>
+                      )}
+                    </td>
                     <td className="num" style={{ fontWeight: 700 }}>
-                      {it.aReceber > 0 ? money(it.aReceber) : <span className="faint">quitado</span>}
+                      {it.aReceber > 0 ? (
+                        money(it.aReceber)
+                      ) : it.aReceber < 0 ? (
+                        <span style={{ color: "var(--red)" }} title="O vale passou da comissão: o barbeiro deve à barbearia">
+                          {money(it.aReceber)}
+                        </span>
+                      ) : (
+                        <span className="faint">quitado</span>
+                      )}
                     </td>
                     <td className="right">
+                      <button className="btn btn-ghost btn-sm" onClick={() => openAdvance(it)}>
+                        Vale
+                      </button>
                       <button className="btn btn-primary btn-sm" onClick={() => openPay(it)}>
                         Pagar
                       </button>
@@ -205,6 +267,121 @@ export function CommissionSettlementPage() {
         )}
       </div>
 
+      {/* Vales do período — o que está sendo descontado acima */}
+      <div className="card">
+        <div className="card-head">
+          <h3>Vales e adiantamentos</h3>
+        </div>
+        {advances.loading ? (
+          <SkeletonRows rows={2} />
+        ) : advances.error ? (
+          <div className="empty error">{advances.error}</div>
+        ) : !advances.data || advances.data.length === 0 ? (
+          <div className="card-pad faint">
+            Nenhum vale registrado. Use o botão “Vale” na linha do barbeiro — o valor é
+            descontado do acerto do período em que a data do vale cai.
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Barbeiro</th>
+                  <th>Data</th>
+                  <th>Saída</th>
+                  <th>Observação</th>
+                  <th>Liberado por</th>
+                  <th style={{ textAlign: "right" }}>Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {advances.data.map((a) => (
+                  <tr key={a.id}>
+                    <td style={{ fontWeight: 550 }}>{a.professionalName ?? "—"}</td>
+                    <td className="muted">{dateBr(a.advanceDate)}</td>
+                    <td>
+                      {a.fromCashRegister ? (
+                        <span className="badge badge-muted">Caixa</span>
+                      ) : (
+                        <span className="faint">Por fora</span>
+                      )}
+                    </td>
+                    <td className="muted">{a.notes ?? "—"}</td>
+                    <td className="faint">{a.grantedByName ?? "—"}</td>
+                    <td className="num" style={{ color: "var(--amber)" }}>{money(a.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {advanceDraft && (
+        <Modal
+          title={`Vale para ${advanceDraft.professionalName}`}
+          onClose={() => setAdvanceDraft(null)}
+          footer={
+            <>
+              <button className="btn btn-ghost" onClick={() => setAdvanceDraft(null)} disabled={saving}>Cancelar</button>
+              <button className="btn btn-primary" onClick={grantAdvance} disabled={saving}>
+                {saving ? "Registrando…" : "Registrar vale"}
+              </button>
+            </>
+          }
+        >
+          <div className="stack">
+            <div className="row between">
+              <span className="muted">Comissão apurada no período</span>
+              <span className="mono">{money(advanceDraft.comissao)}</span>
+            </div>
+            {advanceDraft.vales > 0 && (
+              <div className="row between">
+                <span className="muted">Vales já dados no período</span>
+                <span className="mono" style={{ color: "var(--amber)" }}>{money(advanceDraft.vales)}</span>
+              </div>
+            )}
+
+            <div className="field">
+              <label>Valor do vale (R$)</label>
+              <input
+                className="input"
+                inputMode="decimal"
+                value={advanceAmount}
+                placeholder="ex.: 100"
+                onChange={(e) => setAdvanceAmount(e.target.value)}
+              />
+              <span className="faint" style={{ fontSize: 12 }}>
+                O vale entra com a data de hoje e é descontado do acerto do período que a contém.
+              </span>
+            </div>
+
+            <Switch
+              checked={advanceFromCash}
+              onChange={setAdvanceFromCash}
+              label="Tirar o dinheiro do caixa"
+            />
+            <span className="faint" style={{ fontSize: 12.5 }}>
+              Ligado, lança uma <strong>sangria</strong> no caixa aberto (e exige caixa aberto).
+              Desligado, é vale por fora — PIX, dinheiro do bolso — e não mexe na conferência
+              da gaveta.
+            </span>
+
+            <div className="field">
+              <label>Observação (opcional)</label>
+              <input
+                className="input"
+                value={advanceNotes}
+                placeholder="ex.: pediu adiantado"
+                onChange={(e) => setAdvanceNotes(e.target.value)}
+              />
+            </div>
+
+            {formError && <div className="error">{formError}</div>}
+          </div>
+        </Modal>
+      )}
+
       {draft && (
         <Modal
           title={`Pagar ${draft.item.professionalName}`}
@@ -231,6 +408,12 @@ export function CommissionSettlementPage() {
               <div className="row between">
                 <span className="muted">Já pago neste período</span>
                 <span className="mono" style={{ color: "var(--green)" }}>{money(draft.item.pago)}</span>
+              </div>
+            )}
+            {draft.item.vales > 0 && (
+              <div className="row between">
+                <span className="muted">Vales descontados</span>
+                <span className="mono" style={{ color: "var(--amber)" }}>−{money(draft.item.vales)}</span>
               </div>
             )}
 
