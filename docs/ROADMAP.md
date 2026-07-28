@@ -917,18 +917,96 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 **Débitos aceitos (com prazo)**
 
-- [ ] **RBAC não é aplicado em `/api/admin/**`** — o JWT carrega o papel, mas nenhum endpoint
-      distingue `OWNER` de `BARBER`. Hoje só há dono usando; vira bloqueador **antes** de liberar
-      acesso a funcionário.
+- [x] **RBAC aplicado em `/api/admin/**` (2026-07-28)** — ver *Fechamento das pontas soltas*, abaixo.
+- [x] **`TenantContext` fail-closed (2026-07-28)** — idem.
+- [x] **`.env.prod-example` com placeholders inúteis se copiados (2026-07-28)** — idem.
 - [ ] **JWT no `localStorage`** — vulnerável a XSS. A troca por cookie `httpOnly` + CSRF vai junto
       com a autenticação do cliente final (que exige contexto separado de qualquer forma).
-- [ ] **`TenantContext` com default fail-open** — sem tenant no contexto, cai numa barbearia padrão
-      em vez de recusar. Aceitável enquanto é mono-tenant na prática; **bloqueador** antes do
-      segundo cliente em produção.
-- [ ] **`.env.prod-example` com credenciais fracas de exemplo** — trocar por placeholders que não
-      funcionam se copiados sem edição.
 - [ ] **`AgendaService.java` passou de 800 linhas** e `ConfigWizard` × `Settings > BotCard`
       compartilham ~150 linhas quase idênticas. Dívida de organização, não de comportamento.
+
+---
+
+### 🔒 Fechamento das pontas soltas *(2026-07-28)*
+
+> Rodada dedicada aos bloqueadores que separavam "funciona na minha máquina" de "pode entrar
+> um segundo usuário". Nenhum deles era feature; todos eram coisa que só apareceria como
+> incidente. **427 testes verdes** (eram 419).
+
+**A landing entrou no stack local**
+
+- [x] **`site/` virou serviço do compose** (`http://localhost:8000`) — `Dockerfile` de estágio
+      único (não há build: é HTML/CSS/JS escrito à mão) servido por nginx. Sobe junto com
+      `docker compose up -d --build`, sem passo extra.
+- [x] **O endereço do painel saiu do código** — estava adivinhado pelo `location.hostname`
+      (`localhost` → `:5173`), o que só valia para quem roda o Vite. Agora vem de
+      `RAZOR_PANEL_URL`, que um script em `/docker-entrypoint.d/` transforma em `config.js` no
+      boot do container. Mesmo arquivo serve dev, Docker e produção; o fallback antigo continua
+      para quem abre o `index.html` direto do disco.
+- [x] **Volta do painel para o site** — link "← Voltar para o site" no login, com o endereço
+      injetado como **build arg** (`VITE_SITE_URL`): o Vite congela `import.meta.env` no bundle,
+      então variável de runtime no compose não alcançaria. Vazio esconde o link, em vez de
+      deixar um caminho quebrado.
+- [x] **Cabeçalhos de segurança na landing** (CSP, frame-deny, nosniff, referrer, permissions).
+      > **Achado ao validar:** a primeira versão pôs os cabeçalhos no bloco `server` e eles
+      > **não saíam na resposta**. No nginx, um `location` que declara qualquer `add_header`
+      > próprio descarta *todos* os herdados — e todos os locations aqui definem `Cache-Control`.
+      > Corrigido com um snippet `include` em cada bloco. Conferido por resposta HTTP real, não
+      > por leitura do arquivo: a config *parecia* certa.
+- [x] **CNPJ falso removido do rodapé** — `00.000.000/0001-00` num site público não é placeholder
+      de layout, é declaração falsa de identidade jurídica. Volta quando a empresa existir.
+
+**Segurança**
+
+- [x] **RBAC em `/api/admin/**`** — centralizado no `SecurityConfig`, não espalhado em
+      `@PreAuthorize`: a regra de quem enxerga dinheiro precisa caber numa tela só.
+      | Papel | Alcança |
+      |---|---|
+      | **BARBER** | agenda do dia e o próprio perfil |
+      | **RECEPTION** | + comandas, caixa, clientes, bloqueios e **leitura** do catálogo |
+      | **OWNER** | tudo: comissões, acerto, vales, financeiro, planos, cupons, estoque, config |
+      A separação leitura/escrita no catálogo é o ponto fino: sem ela, dar a tela de comanda à
+      recepção daria junto o poder de reajustar a tabela de preços. O fecho de `/api/admin/**` é
+      `hasRole(OWNER)`, então **controller novo nasce restrito ao dono** — o sintoma de esquecer
+      de classificar é "a recepção não consegue usar a tela nova", visível e reversível, não um
+      vazamento. Verificado contra a API rodando, com os três usuários do seed.
+- [x] **403 com corpo `{"error": ...}`** — sem isso o painel exibiria "Erro 403" seco,
+      indistinguível de bug.
+- [x] **Menu e barra de comandos filtrados por papel** (`web/src/lib/access.ts`) — **espelho** da
+      tabela do backend, declaradamente não a fonte da verdade: esconder item de menu não protege
+      nada (a URL é digitável), só evita que o usuário clique em algo que vai recusar. Quem não vê
+      financeiro entra direto na tela que usa, não no Painel.
+- [x] **`TenantContext` fail-closed** — `getCurrent()` sem tenant definido agora **lança** em vez
+      de recair na barbearia padrão. O silêncio era o problema: um caminho que esquecesse de
+      resolver o tenant não quebrava — passava a ler e **gravar** na barbearia padrão, e com dois
+      clientes o sintoma seria dado de um aparecendo no painel do outro, sem uma linha de log.
+      > **Como foi feito sem reescrever 30 arquivos de teste:** a mudança quebrou **227 dos 419
+      > testes** de uma vez — prova de que o fallback era carregado por toda a suíte. O conserto
+      > não foi afrouxar a regra, e sim mover a conveniência para onde ela é verdade: uma
+      > `DefaultTenantExtension` registrada por ServiceLoader define o tenant padrão antes de cada
+      > teste. Produção ficou fail-closed, teste continuou legível, e teste novo já nasce com
+      > tenant. Sobrou **1** ajuste real — um teste que usava `clear()` significando "volta pro
+      > padrão", exatamente a confusão que a mudança elimina.
+- [x] **Rate limiting geral da API** — até aqui só o login tinha freio. `RateLimitFilter` roda
+      **antes** da cadeia do Spring Security (mil requisições com token inválido não devem custar
+      mil validações de JWT), com cotas separadas para `/api/admin/**` (240/min) e webhook
+      (120/min), por IP, e `Retry-After` na resposta. Janela fixa e em memória, pelos mesmos
+      critérios já documentados no `LoginRateLimiter`. Verificado com rajada real: 238 passaram,
+      o resto tomou 429.
+- [x] **`.env.prod-example` reescrito** — tinha credenciais de exemplo *que funcionavam*, um
+      **telefone real** commitado e faltavam os segredos novos (`RAZOR_JWT_SECRET`,
+      `WEBHOOK_TOKEN`, `ONBOARDING_API_KEY`). Agora todo valor é `TROCAR_...`, escolhido para a
+      aplicação recusar ou desabilitar o recurso se copiado sem editar, com o comando de geração
+      de segredo ao lado.
+
+**Bot falando o nome certo**
+
+- [x] **Os 3 últimos "Barbearia Ficticia" cravados** — sobreviveram à rodada da V29 porque estavam
+      em caminhos que ela não varreu: **disparo de aviso/promoção** (`AdminCommandService`),
+      **reengajamento de 15 dias** (`RazorScheduler`) e **cartão fidelidade**
+      (`CustomerConversationService`). Os três mandavam o nome de outra barbearia para o cliente
+      final. Agora vêm do tenant; o `DEFAULT_DISPLAY_NAME` segue como default de quem não
+      configurou nome, que é uso legítimo.
 
 ---
 

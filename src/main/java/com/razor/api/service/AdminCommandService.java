@@ -51,6 +51,7 @@ public class AdminCommandService {
     private final WhatsAppMessenger messenger;
     private final EvolutionMediaService evolutionMediaService;
     private final StateStore stateStore;
+    private final BarbershopSettingsService barbershopSettingsService;
 
     /** Fluxo do admin abandonado no meio expira sozinho. */
     private static final Duration ADMIN_TTL = Duration.ofMinutes(30);
@@ -432,11 +433,17 @@ public class AdminCommandService {
         List<Customer> allCustomers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
         sendMsg(adminPhone, "🚀 Iniciando disparo para " + allCustomers.size() + " contatos...", "ADMIN");
 
+        // Nome resolvido uma vez, fora do laco: o disparo percorre a base inteira e nao ha
+        // motivo para reler as configuracoes do tenant a cada contato.
+        String barbershopName = barbershopSettingsService.resolve().displayName();
+
         List<String> contatosSucesso = new ArrayList<>();
         for (Customer customer : allCustomers) {
             try {
                 if (customer.getPhoneNumber().contains(adminPhone)) continue;
-                String header = isProspecting ? "💈 *Barbearia Ficticia - Promoção* 💈\n\n" : "📢 *Aviso da Barbearia Ficticia*\n\n";
+                String header = isProspecting
+                        ? "💈 *" + barbershopName + " - Promoção* 💈\n\n"
+                        : "📢 *Aviso da " + barbershopName + "*\n\n";
                 sendMsg(customer.getPhoneNumber(), header + message, "DISPARO");
                 contatosSucesso.add("✅ " + customer.getName());
                 Thread.sleep(3000);

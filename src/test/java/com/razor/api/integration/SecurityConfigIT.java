@@ -58,14 +58,20 @@ class SecurityConfigIT {
     @Autowired private ObjectMapper objectMapper;
 
     @BeforeEach
-    void seedOwner() {
-        if (tenantUserRepository.findByEmail("it@loja.com").isEmpty()) {
+    void seedUsers() {
+        seedUser("it@loja.com", "IT Owner", UserRole.OWNER);
+        seedUser("recepcao@loja.com", "IT Recepção", UserRole.RECEPTION);
+        seedUser("barbeiro@loja.com", "IT Barbeiro", UserRole.BARBER);
+    }
+
+    private void seedUser(String email, String name, UserRole role) {
+        if (tenantUserRepository.findByEmail(email).isEmpty()) {
             tenantUserRepository.save(TenantUser.builder()
                     .barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)
-                    .email("it@loja.com")
+                    .email(email)
                     .passwordHash(passwordEncoder.encode("senha1234"))
-                    .name("IT Owner")
-                    .role(UserRole.OWNER)
+                    .name(name)
+                    .role(role)
                     .active(true)
                     .build());
         }
@@ -130,12 +136,99 @@ class SecurityConfigIT {
     }
 
     private String login() throws Exception {
-        String body = "{\"email\":\"it@loja.com\",\"password\":\"senha1234\"}";
+        return login("it@loja.com");
+    }
+
+    private String login(String email) throws Exception {
+        String body = "{\"email\":\"" + email + "\",\"password\":\"senha1234\"}";
         MvcResult login = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andReturn();
         return objectMapper.readTree(login.getResponse().getContentAsString()).get("token").asText();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // RBAC: token valido nao basta — o papel decide. Enquanto so o dono usava o painel isso era
+    // teoria; deixa de ser no instante em que um funcionario ganha login.
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("RECEPÇÃO opera o balcão (comandas, caixa) mas não vê comissão nem financeiro")
+    void reception_operatesCounter_butNotMoneyReports() throws Exception {
+        String token = login("recepcao@loja.com");
+
+        mockMvc.perform(get("/api/admin/comandas/today").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/admin/cash-register").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        // Comissao de colega e faturamento da casa nao sao assunto da recepcao.
+        mockMvc.perform(get("/api/admin/reports/commissions").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/admin/reports/financial").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/admin/commission-payments").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("RECEPÇÃO lê o catálogo para montar a comanda, mas não altera preço")
+    void reception_readsCatalog_butCannotWritePrices() throws Exception {
+        String token = login("recepcao@loja.com");
+
+        mockMvc.perform(get("/api/admin/services").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        // A separacao leitura/escrita e o ponto: sem ela, dar acesso a tela de comanda daria
+        // junto o poder de reajustar a tabela de precos.
+        mockMvc.perform(post("/api/admin/services")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Corte\",\"price\":35.00,\"durationMinutes\":30}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("BARBEIRO vê a agenda do dia e o próprio perfil, e nada além disso")
+    void barber_seesAgendaAndOwnProfile_only() throws Exception {
+        String token = login("barbeiro@loja.com");
+
+        mockMvc.perform(get("/api/admin/reports/agenda").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/admin/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/admin/comandas/today").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/admin/reports/commissions").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/admin/customers").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("DONO alcança configuração e dinheiro")
+    void owner_reachesConfigAndMoney() throws Exception {
+        String token = login();
+
+        mockMvc.perform(get("/api/admin/reports/commissions").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/admin/professionals").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/admin/settings/bot").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("403 sai com corpo {error} — o painel precisa distinguir 'sem permissão' de bug")
+    void forbidden_hasJsonBody() throws Exception {
+        String token = login("barbeiro@loja.com");
+
+        mockMvc.perform(get("/api/admin/reports/financial").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.error").isString());
     }
 
     @Test

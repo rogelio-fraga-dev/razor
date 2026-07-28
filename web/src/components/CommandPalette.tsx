@@ -3,6 +3,8 @@
 // um problema real: o dono chega em qualquer tela em 1 atalho.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
+import { canAccess } from "../lib/access";
 import { applyTheme, currentTheme } from "../lib/theme";
 
 interface Cmd {
@@ -10,24 +12,26 @@ interface Cmd {
   label: string;
   hint: string;
   group: "Ir para" | "Ações";
+  /** Rota de destino, quando houver — usada para esconder do papel que não a alcança. */
+  to?: string;
   run: (nav: ReturnType<typeof useNavigate>) => void;
 }
 
 const COMMANDS: Cmd[] = [
-  { id: "go-home", label: "Painel", hint: "visão do dia", group: "Ir para", run: (n) => n("/") },
-  { id: "go-agenda", label: "Agenda", hint: "calendário por barbeiro", group: "Ir para", run: (n) => n("/agenda") },
-  { id: "go-customers", label: "Clientes", hint: "base e assinantes", group: "Ir para", run: (n) => n("/customers") },
-  { id: "go-services", label: "Serviços", hint: "preços e duração", group: "Ir para", run: (n) => n("/services") },
-  { id: "go-comandas", label: "Comandas", hint: "conta do atendimento", group: "Ir para", run: (n) => n("/comandas") },
-  { id: "go-products", label: "Produtos", hint: "catálogo do balcão", group: "Ir para", run: (n) => n("/products") },
-  { id: "go-pros", label: "Profissionais", hint: "equipe e comissão", group: "Ir para", run: (n) => n("/professionals") },
-  { id: "go-plans", label: "Planos", hint: "clube de assinatura", group: "Ir para", run: (n) => n("/plans") },
-  { id: "go-coupons", label: "Cupons", hint: "descontos e fidelidade", group: "Ir para", run: (n) => n("/coupons") },
-  { id: "go-caixa", label: "Caixa", hint: "abrir, fechar e movimentos", group: "Ir para", run: (n) => n("/caixa") },
-  { id: "go-comm", label: "Comissões", hint: "fechamento por barbeiro", group: "Ir para", run: (n) => n("/commissions") },
-  { id: "go-settlement", label: "Acerto de comissões", hint: "o que já foi pago", group: "Ir para", run: (n) => n("/commissions/settlement") },
-  { id: "go-settings", label: "Configurações", hint: "bot, WhatsApp e equipe", group: "Ir para", run: (n) => n("/settings") },
-  { id: "go-profile", label: "Meu perfil", hint: "nome e senha", group: "Ir para", run: (n) => n("/profile") },
+  { id: "go-home", label: "Painel", hint: "visão do dia", group: "Ir para", to: "/", run: (n) => n("/") },
+  { id: "go-agenda", label: "Agenda", hint: "calendário por barbeiro", group: "Ir para", to: "/agenda", run: (n) => n("/agenda") },
+  { id: "go-customers", label: "Clientes", hint: "base e assinantes", group: "Ir para", to: "/customers", run: (n) => n("/customers") },
+  { id: "go-services", label: "Serviços", hint: "preços e duração", group: "Ir para", to: "/services", run: (n) => n("/services") },
+  { id: "go-comandas", label: "Comandas", hint: "conta do atendimento", group: "Ir para", to: "/comandas", run: (n) => n("/comandas") },
+  { id: "go-products", label: "Produtos", hint: "catálogo do balcão", group: "Ir para", to: "/products", run: (n) => n("/products") },
+  { id: "go-pros", label: "Profissionais", hint: "equipe e comissão", group: "Ir para", to: "/professionals", run: (n) => n("/professionals") },
+  { id: "go-plans", label: "Planos", hint: "clube de assinatura", group: "Ir para", to: "/plans", run: (n) => n("/plans") },
+  { id: "go-coupons", label: "Cupons", hint: "descontos e fidelidade", group: "Ir para", to: "/coupons", run: (n) => n("/coupons") },
+  { id: "go-caixa", label: "Caixa", hint: "abrir, fechar e movimentos", group: "Ir para", to: "/caixa", run: (n) => n("/caixa") },
+  { id: "go-comm", label: "Comissões", hint: "fechamento por barbeiro", group: "Ir para", to: "/commissions", run: (n) => n("/commissions") },
+  { id: "go-settlement", label: "Acerto de comissões", hint: "o que já foi pago", group: "Ir para", to: "/commissions/settlement", run: (n) => n("/commissions/settlement") },
+  { id: "go-settings", label: "Configurações", hint: "bot, WhatsApp e equipe", group: "Ir para", to: "/settings", run: (n) => n("/settings") },
+  { id: "go-profile", label: "Meu perfil", hint: "nome e senha", group: "Ir para", to: "/profile", run: (n) => n("/profile") },
   {
     id: "act-theme",
     label: "Alternar tema claro/escuro",
@@ -35,9 +39,9 @@ const COMMANDS: Cmd[] = [
     group: "Ações",
     run: () => applyTheme(currentTheme() === "dark" ? "light" : "dark"),
   },
-  { id: "act-wpp", label: "Conectar WhatsApp", hint: "QR code", group: "Ações", run: (n) => n("/settings") },
-  { id: "act-new-service", label: "Novo serviço", hint: "catálogo", group: "Ações", run: (n) => n("/services") },
-  { id: "act-new-product", label: "Novo produto", hint: "balcão", group: "Ações", run: (n) => n("/products") },
+  { id: "act-wpp", label: "Conectar WhatsApp", hint: "QR code", group: "Ações", to: "/settings", run: (n) => n("/settings") },
+  { id: "act-new-service", label: "Novo serviço", hint: "catálogo", group: "Ações", to: "/services", run: (n) => n("/services") },
+  { id: "act-new-product", label: "Novo produto", hint: "balcão", group: "Ações", to: "/products", run: (n) => n("/products") },
 ];
 
 function norm(s: string) {
@@ -46,16 +50,24 @@ function norm(s: string) {
 
 export function CommandPalette() {
   const nav = useNavigate();
+  const { session } = useAuth();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [idx, setIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Mesmo critério do menu lateral: comando que leva a uma tela fora do papel não aparece.
+  // Sem isso a barra viraria o caminho aberto para telas que o menu já esconde.
+  const allowed = useMemo(
+    () => COMMANDS.filter((c) => !c.to || canAccess(c.to, session?.role)),
+    [session?.role],
+  );
+
   const results = useMemo(() => {
     const term = norm(q.trim());
-    if (!term) return COMMANDS;
-    return COMMANDS.filter((c) => norm(c.label).includes(term) || norm(c.hint).includes(term));
-  }, [q]);
+    if (!term) return allowed;
+    return allowed.filter((c) => norm(c.label).includes(term) || norm(c.hint).includes(term));
+  }, [q, allowed]);
 
   const close = useCallback(() => {
     setOpen(false);

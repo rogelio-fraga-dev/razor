@@ -54,6 +54,31 @@ public class RazorProperties {
         /** Origens permitidas no CORS do painel (SPA). */
         private java.util.List<String> corsAllowedOrigins =
                 new java.util.ArrayList<>(java.util.List.of("http://localhost:5173", "http://localhost:3000"));
+
+        private RateLimit rateLimit = new RateLimit();
+    }
+
+    /**
+     * Freio geral da API, por IP e por janela. Ate aqui so o login tinha limite — o resto de
+     * {@code /api/admin/**} e o webhook aceitavam quantas requisicoes viessem, o que deixa
+     * varredura de dados e abuso do webhook sem custo nenhum para quem tenta.
+     */
+    @Data
+    public static class RateLimit {
+        /** Desligar so faz sentido em teste; em producao um limite alto e melhor que nenhum. */
+        private boolean enabled = true;
+        /** Tamanho da janela, em segundos. */
+        private int windowSeconds = 60;
+        /**
+         * Requisicoes por janela em {@code /api/admin/**}. Folgado de proposito: o painel abre
+         * varias chamadas ao montar uma tela, e o objetivo aqui e barrar varredura, nao uso.
+         */
+        private int adminPerMinute = 240;
+        /**
+         * Requisicoes por janela no webhook. A Evolution manda uma por mensagem recebida; uma
+         * barbearia movimentada nao chega perto disso, um laco de injecao passa facil.
+         */
+        private int webhookPerMinute = 120;
     }
 
     @Data

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { canAccess } from "../lib/access";
 import { applyTheme, currentTheme, type Theme } from "../lib/theme";
 import { RazorLogo } from "./Logo";
 import { Clock } from "./Clock";
@@ -75,6 +76,13 @@ export function Layout({
 
   const initial = (session?.name || session?.email || "?").charAt(0).toUpperCase();
 
+  // Menu filtrado pelo papel, com o grupo inteiro sumindo quando nada dentro dele sobra —
+  // senão a recepção veria o rótulo "Dinheiro" sobre um espaço vazio.
+  const visibleGroups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((n) => canAccess(n.to, session?.role)),
+  })).filter((g) => g.items.length > 0);
+
   return (
     <div className={`app${collapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
@@ -92,7 +100,7 @@ export function Layout({
         </div>
         <span className="brand-tag mono">SISTEMA OPERACIONAL</span>
         <nav className="nav">
-          {NAV_GROUPS.map((g) => (
+          {visibleGroups.map((g) => (
             <div className="nav-group" key={g.label}>
               <span className="nav-label">{g.label}</span>
               {g.items.map((n) => (

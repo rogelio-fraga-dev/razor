@@ -101,8 +101,9 @@ class CustomerServiceTest {
         assertThat(service.isCustomerPaused("555")).isFalse();
         assertThat(service.getPausedPhones()).isEmpty();
 
-        // de volta ao tenant padrão, a pausa continua valendo
-        TenantContext.clear();
+        // de volta ao tenant padrão, a pausa continua valendo. `set` explícito, não `clear`:
+        // limpar deixa a thread SEM tenant, que agora é erro — não "volta pro padrão".
+        TenantContext.set(TenantContext.DEFAULT_BARBERSHOP_ID);
         assertThat(service.isCustomerPaused("555")).isTrue();
     }
 

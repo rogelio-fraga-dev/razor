@@ -32,6 +32,7 @@ public class RazorScheduler {
     private final BarbershopRepository barbershopRepository;
     private final TenantAdminService tenantAdminService;
     private final com.razor.api.service.AgendaService agendaService;
+    private final com.razor.api.service.BarbershopSettingsService barbershopSettingsService;
 
     /**
      * Executa a acao para cada barbearia ativa com o {@link TenantContext} escopado no tenant e
@@ -144,8 +145,12 @@ public class RazorScheduler {
                 if (daysSince > 0 && daysSince % 15 == 0) {
                     if (!agendaService.hasAgendamentoFuturo(c.getPhoneNumber())) {
                         String first = c.getName() != null ? c.getName().split(" ")[0] : "amigo";
+                        // Resolvido so aqui dentro: a base inteira passa pelo laco, mas poucos
+                        // clientes caem na janela de 15 dias e recebem mensagem de fato.
+                        String barbershopName = barbershopSettingsService.resolve().displayName();
                         String reminderMsg = "Fala, " + first + "! 💈\n\n" +
-                                "Já faz " + daysSince + " dias desde o seu último corte na Barbearia Ficticia. O cabelo já está pedindo aquele trato, hein? ✂️\n\n" +
+                                "Já faz " + daysSince + " dias desde o seu último corte na " + barbershopName +
+                                ". O cabelo já está pedindo aquele trato, hein? ✂️\n\n" +
                                 "Quer garantir seu horário para essa semana? Digite **Menu** para ver as opções!";
                         
                         whatsAppService.sendTextMessage(c.getPhoneNumber(), reminderMsg);

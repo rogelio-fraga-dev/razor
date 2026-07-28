@@ -366,7 +366,7 @@ public class CustomerConversationService {
 
     private void trataExibirFidelidade(Customer customer, String phoneNumber) {
         int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
-        String resp = "🎫 *Seu Cartão Fidelidade - Barbearia Ficticia*\n\n" +
+        String resp = "🎫 *Seu Cartão Fidelidade - " + barbershopSettingsService.resolve().displayName() + "*\n\n" +
                       "Você possui *" + points + "* de *10* pontos! 🌟\n\n" +
                       "A cada corte você ganha 1 ponto. Ao completar 10 pontos, você ganha *10% de desconto* no seu próximo corte! ✂️🔥";
         saveAndSend(customer, resp, phoneNumber);

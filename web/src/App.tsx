@@ -1,5 +1,6 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
+import { canAccess, homeFor } from "./lib/access";
 import { CommandPalette } from "./components/CommandPalette";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
@@ -19,7 +20,13 @@ import { Profile } from "./pages/Profile";
 
 function Protected() {
   const { session } = useAuth();
+  const location = useLocation();
   if (!session) return <Navigate to="/login" replace />;
+  // Rota que não é do papel devolve o usuário à sua tela inicial. É conveniência de navegação,
+  // não segurança: quem recusa de verdade é a API (ver lib/access.ts).
+  if (!canAccess(location.pathname, session.role)) {
+    return <Navigate to={homeFor(session.role)} replace />;
+  }
   return (
     <>
       <CommandPalette />
@@ -30,9 +37,10 @@ function Protected() {
 
 export default function App() {
   const { session } = useAuth();
+  const home = homeFor(session?.role);
   return (
     <Routes>
-      <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/login" element={session ? <Navigate to={home} replace /> : <Login />} />
       <Route element={<Protected />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/agenda" element={<Agenda />} />
@@ -49,7 +57,7 @@ export default function App() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to={home} replace />} />
     </Routes>
   );
 }
