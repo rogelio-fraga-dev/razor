@@ -29,6 +29,7 @@ const COMMANDS: Cmd[] = [
   { id: "go-coupons", label: "Cupons", hint: "descontos e fidelidade", group: "Ir para", to: "/coupons", run: (n) => n("/coupons") },
   { id: "go-caixa", label: "Caixa", hint: "abrir, fechar e movimentos", group: "Ir para", to: "/caixa", run: (n) => n("/caixa") },
   { id: "go-expenses", label: "Despesas e resultado", hint: "contas a pagar e DRE", group: "Ir para", to: "/expenses", run: (n) => n("/expenses") },
+  { id: "go-retention", label: "Ocupação e retenção", hint: "cadeiras vazias e quem sumiu", group: "Ir para", to: "/retention", run: (n) => n("/retention") },
   { id: "go-comm", label: "Comissões", hint: "fechamento por barbeiro", group: "Ir para", to: "/commissions", run: (n) => n("/commissions") },
   { id: "go-settlement", label: "Acerto de comissões", hint: "o que já foi pago", group: "Ir para", to: "/commissions/settlement", run: (n) => n("/commissions/settlement") },
   { id: "go-settings", label: "Configurações", hint: "bot, WhatsApp e equipe", group: "Ir para", to: "/settings", run: (n) => n("/settings") },

@@ -143,3 +143,10 @@ export const IconTrendDown = () => (
     <polyline points="15 17 21 17 21 11" />
   </Icon>
 );
+
+/** Retenção — batimento: a base viva, e onde ela falha. */
+export const IconPulse = () => (
+  <Icon>
+    <path d="M3 12h4l2.5-6 4 12 2.5-6h5" />
+  </Icon>
+);

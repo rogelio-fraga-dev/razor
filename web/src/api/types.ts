@@ -554,3 +554,35 @@ export interface Occupancy {
  * separar impede que os helpers de campo de texto a aceitem por engano.
  */
 export type BotTextKey = Exclude<keyof BotSettings, "workingWeekdays">;
+
+// ---------- Retenção ----------
+
+/** Cliente que merece um contato. O ritmo esperado é o dele, não um prazo fixo da casa. */
+export interface CustomerAtRisk {
+  customerId: string;
+  name: string | null;
+  phone: string;
+  lastVisit: string | null;
+  daysSinceLastVisit: number;
+  expectedIntervalDays: number;
+  visits: number;
+  subscriber: boolean;
+}
+
+/**
+ * Retenção da base. O status é relativo ao ritmo de cada cliente: quem corta a cada 15 dias e
+ * sumiu há 40 é um problema; quem corta a cada 60 e sumiu há 40 está em dia.
+ *
+ * `medianIntervalDays` é nulo quando ninguém da base tem ritmo utilizável; aí vale
+ * `defaultIntervalDays`.
+ */
+export interface Retention {
+  referenceDate: string;
+  totalCustomers: number;
+  counts: { novo: number; ativo: number; emRisco: number; sumido: number };
+  medianIntervalDays: number | null;
+  defaultIntervalDays: number;
+  returnRate: number | null;
+  atRisk: CustomerAtRisk[];
+  lost: CustomerAtRisk[];
+}

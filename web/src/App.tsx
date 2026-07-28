@@ -15,6 +15,7 @@ import { Plans } from "./pages/Plans";
 import { Caixa } from "./pages/Caixa";
 import { Commissions } from "./pages/Commissions";
 import { Expenses } from "./pages/Expenses";
+import { RetentionPage } from "./pages/Retention";
 import { CommissionSettlementPage } from "./pages/CommissionSettlement";
 import { Settings } from "./pages/Settings";
 import { Profile } from "./pages/Profile";
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/commissions" element={<Commissions />} />
         <Route path="/commissions/settlement" element={<CommissionSettlementPage />} />
         <Route path="/expenses" element={<Expenses />} />
+        <Route path="/retention" element={<RetentionPage />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/profile" element={<Profile />} />
       </Route>

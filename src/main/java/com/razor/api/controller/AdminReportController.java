@@ -5,9 +5,11 @@ import com.razor.api.dto.CommissionReportResponse;
 import com.razor.api.dto.DreResponse;
 import com.razor.api.dto.FinancialSummaryResponse;
 import com.razor.api.dto.OccupancyResponse;
+import com.razor.api.dto.RetentionResponse;
 import com.razor.api.dto.RevenuePoint;
 import com.razor.api.service.CommissionService;
 import com.razor.api.service.OccupancyService;
+import com.razor.api.service.RetentionService;
 import com.razor.api.service.ReportService;
 import com.razor.api.util.AppointmentDates;
 import java.time.LocalDate;
@@ -28,6 +30,7 @@ public class AdminReportController {
     private final CommissionService commissionService;
     private final ReportService reportService;
     private final OccupancyService occupancyService;
+    private final RetentionService retentionService;
 
     /** Comissoes por profissional num dia (padrao: hoje). Ex.: {@code /commissions?date=2026-07-21}. */
     @GetMapping("/commissions")
@@ -90,6 +93,18 @@ public class AdminReportController {
         LocalDate start = from != null ? from : today.withDayOfMonth(1);
         LocalDate end = to != null ? to : today;
         return occupancyService.occupancy(start, end);
+    }
+
+    /**
+     * Retencao da base: quem volta, quem esta prestes a sumir e quem ja sumiu.
+     *
+     * <p>Sem parametro de periodo de proposito — retencao e uma foto do estado atual da base,
+     * nao um intervalo. "Quantos clientes sumiram em marco" nao e uma pergunta que se responda:
+     * sumir e um estado que se descobre hoje.
+     */
+    @GetMapping("/retention")
+    public RetentionResponse retention() {
+        return retentionService.retention(AppointmentDates.today());
     }
 
     /** Agenda do dia (padrao: hoje). Ex.: {@code /agenda?date=2026-07-21}. */
