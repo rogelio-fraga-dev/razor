@@ -1,0 +1,14 @@
+# Contexto do build do painel. node_modules e dist saem porque sao refeitos dentro da imagem;
+# o tsbuildinfo local sai porque faria o tsc pular a checagem achando que ja compilou.
+
+node_modules/
+dist/
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+Dockerfile
+.dockerignore
+README.md

@@ -51,7 +51,9 @@ razor:
   admin:
     phones: "${ADMIN_PHONES}"
   evolution:
-    base-url: "http://localhost:8080"
+    # Fora do Docker a Evolution atende em localhost:8080; dentro do compose o nome do servico
+    # e evolution-api, por isso o endereco e configuravel.
+    base-url: "${EVOLUTION_BASE_URL:http://localhost:8080}"
     instance-name: "BarberBotOficial"
     api-key: "${EVOLUTION_API_KEY:barberbot}"
   onboarding:

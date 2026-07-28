@@ -1,66 +1,137 @@
-version: "3.8"
+# Razor — stack local completo.
+#
+#   docker compose up -d --build          banco + API + painel
+#   docker compose --profile bot up -d    o mesmo, mais a Evolution API (gateway do WhatsApp)
+#   docker compose logs -f backend        acompanhar o boot do Spring
+#   docker compose down                   parar tudo (o banco sobrevive, e volume nomeado)
+#   docker compose down -v                parar e APAGAR o banco
+#
+#   painel    http://localhost:3000
+#   API       http://localhost:8081
+#   postgres  localhost:5433
+#
+# A Evolution fica fora por padrao porque so faz sentido quando voce vai parear um WhatsApp
+# de verdade; sem ela o painel e a API funcionam inteiros.
+#
+# Variaveis: copie .env.docker.example para .env e ajuste. Sem .env o stack sobe com os
+# defaults abaixo — IA desligada e telefone admin ficticio, o suficiente para mexer no painel.
+
+name: razor
 
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: barberbot-postgres
-    restart: always
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-barberbot_db}
+      POSTGRES_USER: ${POSTGRES_USER:-barberbot_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-barberbot_pass}
     ports:
-      - "5432:5432"
+      # 5433 no host para nao brigar com um Postgres ja instalado na maquina.
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      # O backend so pode subir depois que o Postgres aceita conexao, senao o Flyway morre.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-barberbot_user} -d ${POSTGRES_DB:-barberbot_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # Dentro da rede do compose o banco atende em postgres:5432 (a porta 5433 e so no host).
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-barberbot_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-barberbot_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-barberbot_pass}
+
+      # Placeholder nao-vazio de proposito: o cliente da OpenAI recusa chave em branco no boot,
+      # e o painel ja trata chave com "dummy" como IA nao configurada. Ponha a chave real no
+      # .env quando quiser que o bot responda.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-dummy-local}
+      ADMIN_PHONES: ${ADMIN_PHONES:-5511999999999}
+
+      RAZOR_JWT_SECRET: ${RAZOR_JWT_SECRET:-dev-jwt-secret-local-troque-em-producao-0123456789}
+      ONBOARDING_API_KEY: ${ONBOARDING_API_KEY:-dev-onboarding-key}
+      WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:-dev-webhook-token}
+
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-barberbot}
+      EVOLUTION_BASE_URL: http://evolution-api:8080
+
+      # O painel chega pelo nginx (mesma origem), entao o CORS so importa para o `npm run dev`
+      # rodando fora do Docker em 5173.
+      RAZOR_CORS_ORIGINS: ${RAZOR_CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+    ports:
+      - "${BACKEND_PORT:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 12
+      # O Flyway roda 30 migracoes no primeiro boot; sem esse respiro o container seria dado
+      # como doente antes de terminar.
+      start_period: 60s
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    depends_on:
+      # service_started basta: o nginx resolve o backend por DNS a cada requisicao, entao ele
+      # pode subir antes da API estar pronta sem quebrar.
+      backend:
+        condition: service_started
 
   evolution-api:
+    # Fora do `up` padrao. Suba com: docker compose --profile bot up -d
+    profiles: ["bot"]
     image: evoapicloud/evolution-api:v2.3.7
-    container_name: barberbot-evolution-api
-    restart: always
+    restart: unless-stopped
     environment:
       SERVER_URL: http://localhost:8080
       PORT: 8080
 
-      # Banco de Dados
+      # Mesmo Postgres do Razor, em schema separado.
       DATABASE_ENABLED: "true"
       DATABASE_PROVIDER: postgresql
-      DATABASE_CONNECTION_URI: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=evolution"
+      DATABASE_CONNECTION_URI: "postgresql://${POSTGRES_USER:-barberbot_user}:${POSTGRES_PASSWORD:-barberbot_pass}@postgres:5432/${POSTGRES_DB:-barberbot_db}?schema=evolution"
 
-      # Sessão
       CONFIG_SESSION_PHONE_CLIENT: "Evolution API"
       CONFIG_SESSION_PHONE_NAME: "BarberBot"
-      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-barberbot}
       CACHE_REDIS_ENABLED: "false"
       CACHE_LOCAL_ENABLED: "true"
 
-      # --- WEBHOOKS OTIMIZADOS E COM BASE64 ---
+      # O webhook do Razor e fail-closed: sem o token na URL ele recusa tudo que chega.
       WEBHOOK_GLOBAL_ENABLED: "true"
-      WEBHOOK_GLOBAL_URL: "http://host.docker.internal:8081/api/webhook"
+      WEBHOOK_GLOBAL_URL: "http://backend:8081/api/webhook?token=${WEBHOOK_TOKEN:-dev-webhook-token}"
       WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS: "false"
-      WEBHOOK_GLOBAL_BASE64: "true" # <-- A MÁGICA ESTÁ AQUI
+      # Manda a midia ja em base64, o backend nao precisa buscar o arquivo depois.
+      WEBHOOK_GLOBAL_BASE64: "true"
 
-      # Habilitamos APENAS o necessário para o bot não travar
+      # So os eventos que o bot usa — o resto so gera ruido e trava a fila.
       WEBHOOK_EVENTS_APPLICATION_STARTUP: "false"
       WEBHOOK_EVENTS_QRCODE_UPDATED: "true"
       WEBHOOK_EVENTS_MESSAGES_UPSERT: "true"
       WEBHOOK_EVENTS_CONNECTION_UPDATE: "true"
-
     ports:
-      - "8080:8080"
+      - "${EVOLUTION_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
-      - ./evolution_store:/evolution/store # <-- ISSO IMPEDE O QR CODE DE DESCONECTAR SOZINHO
+      # Sessao do WhatsApp em disco: sem isso o QR Code cai a cada restart.
+      - ./evolution_store:/evolution/store
 
 volumes:
-  postgres_data:
-
+  pgdata:

@@ -1,0 +1,28 @@
+# Contexto do build do backend. Tudo que nao for pom.xml ou src/ so deixa o build mais lento
+# (e o target/ da maquina ainda quebraria o build, porque tem classes compiladas por outro JDK).
+
+.git
+.github
+.mvn
+target/
+web/
+site/
+docs/
+backups/
+scripts/
+evolution_store/
+postgres_data/
+
+*.md
+*.png
+*.log
+*.ps1
+*.sh
+
+.env
+.env.*
+!.env.docker.example
+
+.idea/
+.vscode/
+*.iml
