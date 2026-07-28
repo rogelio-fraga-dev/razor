@@ -178,7 +178,7 @@ export function Dashboard() {
           {series.loading ? (
             <Skeleton h={210} />
           ) : series.error ? (
-            <div className="error">{series.error}</div>
+            <div className="error" role="alert">{series.error}</div>
           ) : (
             <RevenueChart points={series.data ?? []} />
           )}
@@ -198,7 +198,7 @@ export function Dashboard() {
               ))}
             </div>
           ) : agenda.error ? (
-            <div className="empty error">{agenda.error}</div>
+            <div className="empty error" role="alert">{agenda.error}</div>
           ) : !agenda.data || agenda.data.length === 0 ? (
             <EmptyState
               icon="📅"
@@ -246,7 +246,7 @@ export function Dashboard() {
             {[0, 1, 2].map((i) => <Skeleton key={i} h={38} />)}
           </div>
         ) : commissions.error ? (
-          <div className="empty error">{commissions.error}</div>
+          <div className="empty error" role="alert">{commissions.error}</div>
         ) : !commissions.data || commissions.data.items.length === 0 ? (
           <EmptyState
             icon="✂"
@@ -254,7 +254,7 @@ export function Dashboard() {
             hint="Assim que um atendimento for concluído, a comissão do barbeiro aparece aqui."
           />
         ) : (
-          <div className="table-container">
+          <div style={{ overflowX: "auto" }}>
             <table className="table">
               <thead>
                 <tr>

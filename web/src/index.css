@@ -51,6 +51,10 @@
   --space: 20px;
 }
 
+/* Este bloco parece redundante com o `:root[data-theme="light"]` logo abaixo — e é, DEPOIS que
+   o JS roda e define o atributo. Ele existe para a janela antes disso: sem ele, quem usa tema
+   claro veria o painel pintado de escuro até o `applyTheme` do boot executar. É o custo de uma
+   duplicação contra um flash de tema errado em todo carregamento. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     --bg: #f6f7f9;
@@ -223,10 +227,12 @@ select.input { cursor: pointer; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.3s;
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
 :root[data-theme="light"] .card { background: var(--surface); }
-.card:hover { border-color: var(--border-hi); }
+/* Borda acende no acento e o glow acompanha a mesma transicao — antes o glow vinha do design
+   system sem transition e a borda ia para cinza-neutro, cada um no seu tempo. */
+.card:hover { border-color: rgba(62, 99, 255, 0.4); box-shadow: 0 0 24px rgba(62, 99, 255, 0.08); }
 .card-pad { padding: var(--space); }
 .card-head {
   display: flex;
@@ -748,7 +754,10 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: none; }
 }
-.content > * {
+/* Overlays fixos ficam de fora: o Tour de primeiro acesso é filho do Layout e recebia
+   delay de 260ms + translateY, e o `transform` cria containing block que desalinha o recorte
+   em relação ao getBoundingClientRect do alvo. */
+.content > *:not(.tour-root):not(.cmdk-overlay) {
   animation: rz-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 .content > *:nth-child(1) { animation-delay: 0.02s; }
@@ -1561,7 +1570,7 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .mode-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .mode-card.active { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 8%, transparent); }
 .mode-name { font-size: 14px; font-weight: 600; color: var(--text); }
-.mode-card.active .mode-name { color: var(--accent); }
+.mode-card.active .mode-name { color: var(--accent-hover); } /* --accent puro dava 3,65:1 em 13px */
 .mode-tag { font-size: 12px; color: var(--text-muted); }
 .mode-custom { cursor: default; border-style: dashed; }
 
@@ -1796,3 +1805,10 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   .form-grid { grid-template-columns: 1fr; }
   .modal { max-width: 100%; }
 }
+
+/* Botões de ação numa célula de tabela ficavam encostados: o JSX come o espaço entre elementos
+   em linhas separadas, e 4 telas têm 2-3 botões por linha (Produtos, Despesas, Planos, Acerto). */
+.table td.right { display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
+/* Classe usada no AdminsEditor que nunca existiu: sem ela o botão "Adicionar" flutuava no meio
+   da altura dos campos, que têm rótulo em cima. */
+.row.end { align-items: flex-end; }

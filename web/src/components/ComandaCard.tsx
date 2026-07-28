@@ -133,8 +133,12 @@ export function ComandaCard({
 
         {/* Adicionar item */}
         <div className="row wrap" style={{ gap: 8, marginBottom: 14 }}>
+          {/* Rótulo obrigatório: eram os dois únicos controles do painel sem <label> nem
+              aria-label — e cada comanda aberta renderiza o seu, então o problema se
+              multiplicava por comanda na tela. */}
           <select
             className="input grow"
+            aria-label="Adicionar serviço ou produto à comanda"
             style={{ minWidth: 200 }}
             value={pick}
             onChange={(e) => setPick(e.target.value)}
@@ -152,7 +156,7 @@ export function ComandaCard({
             onChange={(e) => setQuantity(e.target.value)}
             aria-label="Quantidade"
           />
-          <button className="btn btn-sm" onClick={addItem} disabled={busy || !pick}>
+          <button className="btn btn-ghost btn-sm" onClick={addItem} disabled={busy || !pick}>
             Adicionar
           </button>
         </div>
@@ -165,6 +169,7 @@ export function ComandaCard({
         <div className="row wrap" style={{ gap: 8 }}>
           <select
             className="input"
+            aria-label="Forma de pagamento"
             style={{ maxWidth: 150 }}
             value={method}
             onChange={(e) => setMethod(e.target.value as CashPaymentMethod)}

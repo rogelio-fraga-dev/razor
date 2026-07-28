@@ -123,7 +123,7 @@ export function PlanBenefitsModal({
         {benefits.loading ? (
           <div className="muted">Carregando…</div>
         ) : benefits.error ? (
-          <div className="error">{benefits.error}</div>
+          <div className="error" role="alert">{benefits.error}</div>
         ) : !benefits.data || benefits.data.length === 0 ? (
           <div className="faint" style={{ fontSize: 13 }}>
             Nenhum benefício ainda — este plano não dá desconto nenhum.
@@ -226,7 +226,7 @@ export function PlanBenefitsModal({
           {busy ? "Salvando…" : "Salvar benefício"}
         </button>
 
-        {error && <div className="error">{error}</div>}
+        {error && <div className="error" role="alert">{error}</div>}
       </div>
     </Modal>
   );

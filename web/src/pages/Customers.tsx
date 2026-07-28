@@ -120,7 +120,7 @@ export function Customers() {
         {loading && !data ? (
           <SkeletonRows rows={6} />
         ) : error ? (
-          <div className="empty error">{error}</div>
+          <div className="empty error" role="alert">{error}</div>
         ) : items.length === 0 ? (
           buscando ? (
             <EmptyState icon="🔎" title="Nenhum cliente encontrado." hint="Tente outro nome, telefone ou filtro." />

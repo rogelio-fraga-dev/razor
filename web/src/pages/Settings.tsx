@@ -83,7 +83,7 @@ function BotStatusCard({ reloadKey }: { reloadKey: number }) {
         {loading ? (
           <div className="muted">Verificando…</div>
         ) : error ? (
-          <div className="error">{error}</div>
+          <div className="error" role="alert">{error}</div>
         ) : data ? (
           <div className="stack" style={{ gap: 10 }}>
             <div style={rowStyle}>
@@ -126,7 +126,7 @@ function BotStatusCard({ reloadKey }: { reloadKey: number }) {
               />
             </div>
 
-            {toggleError && <div className="error">{toggleError}</div>}
+            {toggleError && <div className="error" role="alert">{toggleError}</div>}
           </div>
         ) : null}
       </div>
@@ -205,7 +205,7 @@ function ProfileCard({ reloadKey }: { reloadKey: number }) {
         {loading ? (
           <div className="muted">Carregando…</div>
         ) : error ? (
-          <div className="error">{error}</div>
+          <div className="error" role="alert">{error}</div>
         ) : (
           <div className="stack">
             <div className="field">
@@ -356,7 +356,7 @@ function GoalsCard({ reloadKey }: { reloadKey: number }) {
         {loading ? (
           <div className="muted">Carregando…</div>
         ) : error ? (
-          <div className="error">{error}</div>
+          <div className="error" role="alert">{error}</div>
         ) : (
           <div className="stack">
             <div className="field">
@@ -473,7 +473,7 @@ function BotCard({
             {[0, 1, 2].map((i) => <Skeleton key={i} h={38} />)}
           </div>
         ) : error ? (
-          <div className="error">{error}</div>
+          <div className="error" role="alert">{error}</div>
         ) : (
           <div className="stack" style={{ gap: 10 }}>
             <Section index={1} title="Identidade" hint="como a barbearia se apresenta" open done={!!(form.displayName ?? "").trim()}>

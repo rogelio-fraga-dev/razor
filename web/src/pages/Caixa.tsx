@@ -41,7 +41,7 @@ export function Caixa() {
           {[0, 1, 2].map((i) => <Skeleton key={i} h={46} />)}
         </div></div>
       ) : error ? (
-        <div className="card"><div className="card-pad"><div className="error">{error}</div></div></div>
+        <div className="card"><div className="card-pad"><div className="error" role="alert">{error}</div></div></div>
       ) : data ? (
         <OpenCash summary={data} onChanged={reload} />
       ) : (

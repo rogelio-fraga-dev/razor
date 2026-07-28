@@ -72,7 +72,7 @@ export function Profile() {
           {loading ? (
             <div className="muted">Carregando…</div>
           ) : error ? (
-            <div className="error">{error}</div>
+            <div className="error" role="alert">{error}</div>
           ) : data ? (
             <div className="stack" style={{ maxWidth: 460 }}>
               <div className="field">
@@ -89,7 +89,7 @@ export function Profile() {
                 <button className="btn btn-primary" onClick={saveName} disabled={savingName || !name.trim()}>
                   {savingName ? "Salvando…" : "Salvar nome"}
                 </button>
-                {nameMsg && <span className={nameMsg.ok ? "badge badge-green" : "error"}>{nameMsg.text}</span>}
+                {nameMsg && <span className={nameMsg.ok ? "badge badge-green" : "error"} role="status">{nameMsg.text}</span>}
               </div>
             </div>
           ) : null}
@@ -123,7 +123,7 @@ export function Profile() {
               >
                 {savingPass ? "Alterando…" : "Alterar senha"}
               </button>
-              {passMsg && <span className={passMsg.ok ? "badge badge-green" : "error"}>{passMsg.text}</span>}
+              {passMsg && <span className={passMsg.ok ? "badge badge-green" : "error"} role="status">{passMsg.text}</span>}
             </div>
           </div>
         </div>

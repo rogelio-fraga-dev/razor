@@ -30,7 +30,8 @@
   --edge: #37e2ff;
   --edge-glow: rgba(55, 226, 255, 0.3);
 
-  --plasma: #8a63ff;
+  /* --plasma e definido pelo index.css (#a78bfa), que importa este arquivo e vence. Manter um
+     segundo valor aqui com o MESMO nome so fazia o gradiente e o badge divergirem do resto. */
   --plasma-soft: rgba(138, 99, 255, 0.14);
 
   /* Semantics */
@@ -88,6 +89,11 @@
   --border-voltage: rgba(47, 81, 230, 0.4);
 
   --dark-mesh: radial-gradient(800px 400px at 50% -100px, rgba(47, 81, 230, 0.05), transparent 80%);
+
+  /* Faltavam no tema claro: o verde e o vermelho ficavam com o valor do tema escuro e
+     reprovavam contraste sobre branco (--signal dava 2,2:1 na coluna de comissao do Painel). */
+  --signal: #128c3f;
+  --danger: #dc2626;
 }
 
 /* ============================================================================
@@ -141,7 +147,10 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Sidebar */
 .sidebar {
-  width: 240px;
+  /* O layout virou grid (.app define a trilha via --sidebar-w). Uma largura fixa aqui fazia o
+     <aside> estourar a trilha: em <=860px a trilha e 64px e a barra ficava com 240px, cobrindo
+     176px do conteudo em TODAS as telas. */
+  width: 100%;
   background-color: var(--graphite);
   border-right: 1px solid var(--border-subtle);
   display: flex;
@@ -158,7 +167,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Collapsed Sidebar State */
 .app.sidebar-collapsed .sidebar {
-  width: 72px;
+  /* Largura vem da trilha do grid, como acima. */
   padding: 20px 8px;
 }
 
@@ -284,7 +293,8 @@ h1, h2, h3, h4, h5, h6 {
   height: 32px;
   border-radius: 50%;
   background: var(--voltage-soft);
-  border: 1px solid var(--voltage);
+  /* Sem borda: o index.css troca o fundo por um gradiente e reescreve raio e tamanho, mas nao
+     o border — sobrava um anel azul em volta de um quadrado com gradiente. */
   color: var(--voltage);
   display: flex;
   align-items: center;
@@ -315,7 +325,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .topbar {
-  height: 64px;
+  /* Sem altura fixa: o padding do index.css define a altura, e a barra pode quebrar em duas
+     linhas no celular. Com height:64px o conteudo (botoes de 36px) estourava a caixa de 32px
+     e a segunda linha era cortada em <=480px. */
   padding: 0 28px;
   display: flex;
   align-items: center;
@@ -409,16 +421,17 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--graphite);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: 20px;
+  /* Sem padding: quem precisa usa .card-pad. O padding aqui era herdado por TODO card do painel
+     (o .card do index.css nao o declara), e empurrava .card-head, tabela e barra de progresso
+     20px para dentro — a linha divisoria do cabecalho flutuava no meio do card. */
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   position: relative;
   overflow: hidden;
 }
 
-.card:hover {
-  border-color: var(--border-voltage);
-  box-shadow: 0 0 24px rgba(62, 99, 255, 0.08);
-}
+/* O hover do card vive no index.css. Aqui sobrevivia so o box-shadow (o index nao o declara),
+   entao o glow azul piscava sem transicao enquanto a borda fazia fade de 300ms para cinza —
+   dois efeitos discordando no mesmo hover. */
 
 /* Edge Cut Signature Card */
 .card-edge {
@@ -692,7 +705,9 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--steel);
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-subtle);
-  background: rgba(0, 0, 0, 0.2);
+  /* Sem background: o th do index.css reescreve fonte/cor/padding mas nao o fundo, entao esta
+     lavagem sobrevivia em 15 tabelas — e no tema claro virava cinza-chumbo sobre branco,
+     contrastando mais que os proprios dados. */
 }
 
 .table td {
@@ -739,7 +754,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .badge-plasma {
   background: var(--plasma-soft);
-  color: #c4b5fd;
+  color: var(--plasma); /* era #c4b5fd: 1,9:1 sobre plasma-soft no tema claro */
   border: 1px solid rgba(138, 99, 255, 0.3);
 }
 
@@ -1048,7 +1063,7 @@ h1, h2, h3, h4, h5, h6 {
 .wiz-step.active { background: var(--surface-2); color: var(--text); font-weight: 600; }
 .wiz-step.done { color: var(--text); }
 .wiz-step-n { font-size: 10.5px; color: var(--text-faint); flex-shrink: 0; }
-.wiz-step.active .wiz-step-n { color: var(--accent); }
+.wiz-step.active .wiz-step-n { color: var(--accent-hover); } /* --accent puro dava 3,60:1 em 10,5px */
 .wiz-step.done .wiz-step-n::after { content: "✓"; margin-left: 3px; color: var(--green); }
 .wiz-step-label { min-width: 0; }
 
@@ -1136,7 +1151,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Numeração editorial das seções de configuração (01/ 02/ …) — o padrão que o brand book já
    define para carrossel. Custa um <span> e dá ritmo a seis <details> antes idênticos. */
 .cfg-section-n { font-size: 10.5px; color: var(--text-faint); flex-shrink: 0; }
-.cfg-section[open] > summary .cfg-section-n { color: var(--accent); }
+.cfg-section[open] > summary .cfg-section-n { color: var(--accent-hover); } /* 3,89:1 em 10,5px */
 
 /* Estado da seção: preenchida x em branco. Antes eram indistinguíveis numa tela cuja função
    é justamente mostrar o que falta. */
@@ -1149,3 +1164,38 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 0 8px var(--amber);
 }
 .cfg-section-dot.done { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+/* ---------- Cards sem .card-pad ----------
+   O .card deixou de trazer padding embutido (ele empurrava cabeçalho, tabela e barra de
+   progresso 20px para dentro em todo o painel). Quem monta o conteúdo direto no card — sem
+   .card-head nem .card-pad — precisa do seu próprio respiro. */
+.card.error,
+.card.checklist > .cfg-hero,
+.card.checklist > .cfg-checklist,
+.card.checklist > .cfg-done {
+  padding-left: var(--space);
+  padding-right: var(--space);
+}
+.card.error { padding-top: var(--space); padding-bottom: var(--space); }
+.card.checklist > .cfg-hero { padding-top: var(--space); }
+.card.checklist > .cfg-done { padding-bottom: var(--space); }
+/* A barra de progresso é a exceção: ela FOI desenhada para atravessar o card de ponta a ponta,
+   e era justamente o padding herdado que a deixava recuada como uma ilha. */
+
+/* O bloco da agenda agora recebe foco por teclado (era inalcançável e toda a informação
+   estava só no `title`, que só existe no hover do mouse). */
+.cal-event:focus-visible { outline: none; box-shadow: var(--focus-ring); z-index: 5; }
+
+/* Texto só para leitor de tela — usado em rótulos de tabela, contagem de resultados da barra
+   de comandos e alternativa textual do gráfico. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

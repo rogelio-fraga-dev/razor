@@ -93,7 +93,7 @@ export function Login() {
               required
             />
           </div>
-          {error && <div className="error">{error}</div>}
+          {error && <div className="error" role="alert">{error}</div>}
           <button className="btn btn-primary" type="submit" disabled={busy} style={{ marginTop: 4 }}>
             {busy ? "Entrando…" : "Entrar"}
           </button>

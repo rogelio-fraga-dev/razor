@@ -102,7 +102,7 @@ export function Plans() {
         {loading ? (
           <SkeletonRows rows={3} />
         ) : error ? (
-          <div className="empty error">{error}</div>
+          <div className="empty error" role="alert">{error}</div>
         ) : !data || data.length === 0 ? (
           <EmptyState
             icon="💎"
@@ -126,7 +126,7 @@ export function Plans() {
                 {data.map((p) => (
                   <tr key={p.id}>
                     <td style={{ fontWeight: 550 }}>{p.name}</td>
-                    <td>{money(p.price)}</td>
+                    <td className="num">{money(p.price)}</td>
                     <td className="muted">{p.description || "—"}</td>
                     <td>
                       {p.active ? <span className="badge badge-green">Ativo</span> : <span className="badge badge-muted">Inativo</span>}
@@ -183,7 +183,7 @@ export function Plans() {
             </label>
             </div>
             {draft.id && <Switch checked={draft.active} onChange={(v) => setDraft({ ...draft, active: v })} label="Plano ativo" />}
-            {formError && <div className="error">{formError}</div>}
+            {formError && <div className="error" role="alert">{formError}</div>}
           </div>
         </Modal>
       )}

@@ -160,7 +160,7 @@ export function CommissionSettlementPage() {
         {settlement.loading ? (
           <SkeletonRows rows={3} />
         ) : settlement.error ? (
-          <div className="empty error">{settlement.error}</div>
+          <div className="empty error" role="alert">{settlement.error}</div>
         ) : !s || s.items.length === 0 ? (
           <EmptyState
             icon="✂"
@@ -239,7 +239,7 @@ export function CommissionSettlementPage() {
         {history.loading && !history.data ? (
           <SkeletonRows rows={2} />
         ) : history.error ? (
-          <div className="empty error">{history.error}</div>
+          <div className="empty error" role="alert">{history.error}</div>
         ) : !history.data || history.data.items.length === 0 ? (
           <div className="card-pad faint">Nenhum acerto registrado ainda.</div>
         ) : (
@@ -289,7 +289,7 @@ export function CommissionSettlementPage() {
         {advances.loading && !advances.data ? (
           <SkeletonRows rows={2} />
         ) : advances.error ? (
-          <div className="empty error">{advances.error}</div>
+          <div className="empty error" role="alert">{advances.error}</div>
         ) : !advances.data || advances.data.items.length === 0 ? (
           <div className="card-pad faint">
             Nenhum vale registrado. Use o botão “Vale” na linha do barbeiro — o valor é
@@ -396,7 +396,7 @@ export function CommissionSettlementPage() {
             </label>
             </div>
 
-            {formError && <div className="error">{formError}</div>}
+            {formError && <div className="error" role="alert">{formError}</div>}
           </div>
         </Modal>
       )}
@@ -472,7 +472,7 @@ export function CommissionSettlementPage() {
             </label>
             </div>
 
-            {formError && <div className="error">{formError}</div>}
+            {formError && <div className="error" role="alert">{formError}</div>}
           </div>
         </Modal>
       )}

@@ -68,7 +68,7 @@ export function Services() {
         {loading ? (
           <SkeletonRows rows={4} />
         ) : error ? (
-          <div className="empty error">{error}</div>
+          <div className="empty error" role="alert">{error}</div>
         ) : !data || data.length === 0 ? (
           <EmptyState
             icon="✂"
@@ -92,7 +92,7 @@ export function Services() {
                 {data.map((s) => (
                   <tr key={s.id}>
                     <td style={{ fontWeight: 550 }}>{s.name}</td>
-                    <td>{money(s.price)}</td>
+                    <td className="num">{money(s.price)}</td>
                     <td className="muted">{s.durationMinutes} min</td>
                     <td>
                       {s.active ? <span className="badge badge-green">Ativo</span> : <span className="badge badge-muted">Inativo</span>}
@@ -140,7 +140,7 @@ export function Services() {
               </div>
             </div>
             {draft.id && <Switch checked={draft.active} onChange={(v) => setDraft({ ...draft, active: v })} label="Serviço ativo" />}
-            {formError && <div className="error">{formError}</div>}
+            {formError && <div className="error" role="alert">{formError}</div>}
           </div>
         </Modal>
       )}

@@ -32,7 +32,22 @@ export function RevenueChart({ points }: { points: SeriesPoint[] }) {
 
   return (
     <div style={{ width: "100%", position: "relative" }}>
-      <svg width="100%" height="210" viewBox={`0 0 ${SVG_W} ${SVG_H}`} preserveAspectRatio="none" role="img">
+      {/* `role="img"` faz o leitor de tela tratar o SVG como uma imagem única e ignorar os
+          <text> internos. Sem aria-label o gráfico era anunciado como "imagem", sem nome — e o
+          dado, que é a razão de ele existir, ficava inacessível. A tabela abaixo é a alternativa
+          completa; o rótulo aqui é o resumo. */}
+      <svg
+        width="100%"
+        height="210"
+        viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={
+          hasMovement
+            ? `Gráfico de evolução do faturamento, de ${money(Math.min(...points.map((p) => p.value)))} a ${money(maxVal)} no período.`
+            : "Gráfico de evolução do faturamento. Nenhum faturamento registrado no período."
+        }
+      >
         <defs>
           <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#3E63FF" stopOpacity="0.45" />
@@ -61,6 +76,26 @@ export function RevenueChart({ points }: { points: SeriesPoint[] }) {
           </g>
         ))}
       </svg>
+
+      {/* Alternativa textual completa: o resumo no aria-label diz a faixa, mas quem usa leitor
+          de tela também precisa dos valores ponto a ponto — que é o que o gráfico mostra. */}
+      <table className="sr-only">
+        <caption>Faturamento por período</caption>
+        <thead>
+          <tr>
+            <th scope="col">Período</th>
+            <th scope="col">Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {points.map((p) => (
+            <tr key={p.label}>
+              <td>{p.label}</td>
+              <td>{money(p.value)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       {!hasMovement && (
         <p className="faint" style={{ textAlign: "center", fontSize: 13, margin: "4px 0 0" }}>

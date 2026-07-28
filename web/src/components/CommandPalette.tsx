@@ -125,6 +125,10 @@ export function CommandPalette() {
       <div className="cmdk" onMouseDown={(e) => e.stopPropagation()}>
         <div className="cmdk-input">
           <span className="cmdk-ico" aria-hidden="true">⌘</span>
+          {/* Padrão de combobox do WAI-ARIA.
+              As setas movem só um índice de estado e o foco nunca sai do input — sem
+              aria-activedescendant o leitor de tela não anuncia nada enquanto a pessoa navega,
+              e ela aperta Enter às cegas. */}
           <input
             ref={inputRef}
             value={q}
@@ -132,10 +136,19 @@ export function CommandPalette() {
             onKeyDown={onKeyDown}
             placeholder="Buscar telas e ações…"
             aria-label="Buscar comandos"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="cmdk-listbox"
+            aria-autocomplete="list"
+            aria-activedescendant={results[idx] ? `cmdk-opt-${results[idx].id}` : undefined}
           />
           <kbd>esc</kbd>
         </div>
-        <div className="cmdk-list">
+        {/* Contagem anunciada sem mover o foco: quem digita precisa saber se sobrou algo. */}
+        <span className="sr-only" role="status" aria-live="polite">
+          {results.length} resultado(s){q ? ` para ${q}` : ""}
+        </span>
+        <div className="cmdk-list" id="cmdk-listbox" role="listbox">
           {results.length === 0 && <div className="cmdk-empty">Nada encontrado para “{q}”.</div>}
           {results.map((c, i) => {
             const head = c.group !== lastGroup ? ((lastGroup = c.group), c.group) : null;
@@ -143,6 +156,9 @@ export function CommandPalette() {
               <div key={c.id}>
                 {head && <div className="cmdk-group mono">{head}</div>}
                 <button
+                  id={`cmdk-opt-${c.id}`}
+                  role="option"
+                  aria-selected={i === idx}
                   className={`cmdk-item ${i === idx ? "active" : ""}`}
                   onMouseEnter={() => setIdx(i)}
                   onClick={() => runAt(i)}

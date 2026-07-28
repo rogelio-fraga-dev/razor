@@ -62,7 +62,7 @@ export function Commissions() {
         </div>
       }
     >
-      <div className="stat-grid">
+      <div className="stat-grid" style={{ gridTemplateColumns: "minmax(260px, 340px)" }}>
         <div className="stat">
           <div className="label">Total de comissões no dia</div>
           <div className="value">{data ? money(data.total) : "—"}</div>
@@ -77,7 +77,7 @@ export function Commissions() {
         {loading ? (
           <SkeletonRows rows={3} />
         ) : error ? (
-          <div className="empty error">{error}</div>
+          <div className="empty error" role="alert">{error}</div>
         ) : !data || data.items.length === 0 ? (
           <EmptyState
             icon="％"
@@ -102,7 +102,7 @@ export function Commissions() {
                   <tr key={c.professionalId}>
                     <td style={{ fontWeight: 550 }}>{c.professionalName}</td>
                     <td>{c.atendimentos}</td>
-                    <td>{money(c.faturamento)}</td>
+                    <td className="num">{money(c.faturamento)}</td>
                     <td>
                       {c.produtos > 0 ? (
                         <>
@@ -121,7 +121,7 @@ export function Commissions() {
                         </span>
                       )}
                     </td>
-                    <td className="right" style={{ fontWeight: 600 }}>{money(c.comissao)}</td>
+                    <td className="num" style={{ fontWeight: 600 }}>{money(c.comissao)}</td>
                   </tr>
                 ))}
               </tbody>

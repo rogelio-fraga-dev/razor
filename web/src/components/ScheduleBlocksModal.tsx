@@ -181,7 +181,7 @@ export function ScheduleBlocksModal({ onClose, onChanged }: { onClose: () => voi
               </div>
             </div>
           )}
-          {invalidRange && <div className="error">O fim precisa ser depois do início.</div>}
+          {invalidRange && <div className="error" role="alert">O fim precisa ser depois do início.</div>}
 
           <div className="field">
             <label>Motivo (opcional)
@@ -198,7 +198,7 @@ export function ScheduleBlocksModal({ onClose, onChanged }: { onClose: () => voi
           {blocks.loading ? (
             <SkeletonRows rows={2} />
           ) : blocks.error ? (
-            <div className="error">{blocks.error}</div>
+            <div className="error" role="alert">{blocks.error}</div>
           ) : !blocks.data || blocks.data.length === 0 ? (
             <EmptyState icon="🌴" title="Nenhuma folga cadastrada." hint="A agenda está aberta em todo o expediente." />
           ) : (

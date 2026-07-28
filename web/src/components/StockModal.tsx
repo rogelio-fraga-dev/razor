@@ -126,7 +126,7 @@ export function StockModal({
               0 = sem alerta. Com o controle desligado, o saldo nunca bloqueia uma venda.
             </span>
           </div>
-          <button className="btn btn-sm" onClick={saveConfig} disabled={busy}>
+          <button className="btn btn-ghost btn-sm" onClick={saveConfig} disabled={busy}>
             Salvar configuração
           </button>
         </div>
@@ -174,7 +174,7 @@ export function StockModal({
           {busy ? "Registrando…" : "Registrar"}
         </button>
 
-        {error && <div className="error">{error}</div>}
+        {error && <div className="error" role="alert">{error}</div>}
 
         {/* Extrato */}
         <div>
@@ -182,7 +182,7 @@ export function StockModal({
           {movements.loading ? (
             <div className="muted">Carregando…</div>
           ) : movements.error ? (
-            <div className="error">{movements.error}</div>
+            <div className="error" role="alert">{movements.error}</div>
           ) : !movements.data || movements.data.length === 0 ? (
             <div className="faint" style={{ fontSize: 13 }}>
               Nenhum movimento ainda. Reposições, vendas e ajustes aparecem aqui.

@@ -88,7 +88,7 @@ export function Products() {
         {loading ? (
           <SkeletonRows rows={4} />
         ) : error ? (
-          <div className="empty error">{error}</div>
+          <div className="empty error" role="alert">{error}</div>
         ) : !data || data.length === 0 ? (
           <EmptyState
             icon="🧴"
@@ -160,7 +160,7 @@ export function Products() {
         {sales.loading ? (
           <SkeletonRows rows={2} />
         ) : sales.error ? (
-          <div className="empty error">{sales.error}</div>
+          <div className="empty error" role="alert">{sales.error}</div>
         ) : !sales.data || sales.data.length === 0 ? (
           <EmptyState
             icon="🧾"
@@ -266,7 +266,7 @@ export function Products() {
                 mantêm a referência.
               </p>
             )}
-            {formError && <div className="error">{formError}</div>}
+            {formError && <div className="error" role="alert">{formError}</div>}
           </div>
         </Modal>
       )}

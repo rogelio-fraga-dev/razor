@@ -228,7 +228,7 @@ export function ConfigWizard({
       onRequestClose={confirmClose}
       footer={
         <div className="row between" style={{ width: "100%" }}>
-          <button className="btn" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0 || saving}>
+          <button className="btn btn-ghost" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0 || saving}>
             Voltar
           </button>
           <div className="row" style={{ gap: 10 }}>

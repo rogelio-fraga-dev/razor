@@ -77,7 +77,7 @@ export function Professionals() {
         {loading ? (
           <div className="empty">Carregando…</div>
         ) : error ? (
-          <div className="empty error">{error}</div>
+          <div className="empty error" role="alert">{error}</div>
         ) : !data || data.length === 0 ? (
           <div className="empty">Nenhum barbeiro cadastrado.</div>
         ) : (
@@ -171,7 +171,7 @@ export function Professionals() {
               </span>
             </div>
             {draft.id && <Switch checked={draft.active} onChange={(v) => setDraft({ ...draft, active: v })} label="Barbeiro ativo" />}
-            {formError && <div className="error">{formError}</div>}
+            {formError && <div className="error" role="alert">{formError}</div>}
           </div>
         </Modal>
       )}

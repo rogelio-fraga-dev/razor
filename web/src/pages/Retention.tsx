@@ -78,7 +78,7 @@ export function RetentionPage() {
         {occupancy.loading ? (
           <SkeletonRows rows={3} />
         ) : occupancy.error ? (
-          <div className="empty error">{occupancy.error}</div>
+          <div className="empty error" role="alert">{occupancy.error}</div>
         ) : o ? (
           <>
             <div className="cfg-hero">
@@ -148,7 +148,7 @@ export function RetentionPage() {
         {retention.loading ? (
           <SkeletonRows rows={3} />
         ) : retention.error ? (
-          <div className="empty error">{retention.error}</div>
+          <div className="empty error" role="alert">{retention.error}</div>
         ) : !r || r.totalCustomers === 0 ? (
           <EmptyState
             icon="👥"

@@ -57,7 +57,7 @@ export function WhatsAppPairing({ conn }: { conn: WhatsAppConnection }) {
         </button>
       )}
 
-      {conn.error && <div className="error">{conn.error}</div>}
+      {conn.error && <div className="error" role="alert">{conn.error}</div>}
     </div>
   );
 }

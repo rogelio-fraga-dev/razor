@@ -94,7 +94,8 @@ export function Layout({
             className="iconbtn sidebar-toggle-btn"
             onClick={toggleSidebar}
             title={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
-            aria-label="Recolher/Expandir menu"
+            aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+            aria-expanded={!collapsed}
             style={{ width: 28, height: 28, padding: 0, fontSize: 13, flexShrink: 0 }}
           >
             {collapsed ? "⇥" : "⇤"}

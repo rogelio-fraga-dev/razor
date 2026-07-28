@@ -193,7 +193,7 @@ export function Comandas() {
               Os itens entram depois, um a um. Ao fechar, a comanda lança <strong>um único</strong>{" "}
               movimento no caixa com o total — por isso o caixa precisa estar aberto.
             </p>
-            {formError && <div className="error">{formError}</div>}
+            {formError && <div className="error" role="alert">{formError}</div>}
           </div>
         </Modal>
       )}

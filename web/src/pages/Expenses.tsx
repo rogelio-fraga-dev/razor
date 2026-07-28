@@ -199,7 +199,7 @@ export function Expenses() {
         {dre.loading ? (
           <SkeletonRows rows={3} />
         ) : dre.error ? (
-          <div className="empty error">{dre.error}</div>
+          <div className="empty error" role="alert">{dre.error}</div>
         ) : dre.data ? (
           <>
             <div className="bento-grid" style={{ marginBottom: 18 }}>
@@ -289,7 +289,7 @@ export function Expenses() {
         {list.loading && !list.data ? (
           <SkeletonRows rows={4} />
         ) : list.error ? (
-          <div className="empty error">{list.error}</div>
+          <div className="empty error" role="alert">{list.error}</div>
         ) : itens.length === 0 ? (
           <EmptyState
             icon="📄"
@@ -434,7 +434,7 @@ export function Expenses() {
               </label>
             </div>
             {categories.error && (
-              <div className="error">
+              <div className="error" role="alert">
                 Não foi possível carregar as categorias. Salvar agora pode gravar a categoria errada.
               </div>
             )}
@@ -496,7 +496,7 @@ export function Expenses() {
                 />
               </label>
             </div>
-            {formError && <div className="error">{formError}</div>}
+            {formError && <div className="error" role="alert">{formError}</div>}
           </div>
         </Modal>
       )}

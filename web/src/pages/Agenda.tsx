@@ -99,7 +99,7 @@ export function Agenda() {
             {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} h={42} />)}
           </div>
         ) : agenda.error ? (
-          <div className="empty error">{agenda.error}</div>
+          <div className="empty error" role="alert">{agenda.error}</div>
         ) : total === 0 ? (
           <EmptyState
             icon="📅"
@@ -157,6 +157,27 @@ export function Agenda() {
                           className={`cal-event ${st ? `ev-${st.toLowerCase()}` : ""}`}
                           style={{ top, height }}
                           title={`${a.time?.slice(0, 5)} · ${a.customerName} · ${a.service}`}
+                          // Alcançável por teclado e com rótulo completo.
+                          //
+                          // Antes toda a informação do agendamento vivia só no `title`, que
+                          // aparece no hover do mouse e nada mais: quem navega por teclado ou usa
+                          // leitor de tela não conseguia ler UM agendamento sequer — numa das
+                          // telas centrais do produto. O bloco também não recebia foco.
+                          //
+                          // O nome do barbeiro entra no rótulo porque na tela ele é dado pela
+                          // POSIÇÃO da coluna, que não existe para quem não enxerga.
+                          tabIndex={0}
+                          role="group"
+                          aria-label={[
+                            a.time?.slice(0, 5),
+                            a.customerName || "cliente sem nome",
+                            a.subscriber ? "assinante do clube" : null,
+                            a.service,
+                            st ? PAYMENT_LABEL[st] : null,
+                            `com ${c.name}`,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
                         >
                           <span className="ev-time mono">{a.time?.slice(0, 5)}</span>
                           <span className="ev-name">

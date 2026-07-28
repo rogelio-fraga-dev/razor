@@ -78,7 +78,7 @@ export function AdminsEditor({ reloadKey = 0 }: { reloadKey?: number }) {
       {loading ? (
         <div className="muted">Carregando…</div>
       ) : error ? (
-        <div className="error">{error}</div>
+        <div className="error" role="alert">{error}</div>
       ) : !data || data.length === 0 ? (
         <div className="faint">Nenhum admin cadastrado — o sistema usa os telefones da configuração global.</div>
       ) : (

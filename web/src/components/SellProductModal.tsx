@@ -137,7 +137,7 @@ export function SellProductModal({
           estiver fechado, abra-o antes — senão o dinheiro não aparece na conferência da gaveta.
         </p>
 
-        {error && <div className="error">{error}</div>}
+        {error && <div className="error" role="alert">{error}</div>}
       </div>
     </Modal>
   );
