@@ -258,7 +258,13 @@ public class ComandaService {
             // Baixa no estoque pelo mesmo caminho da venda de balcao. O produto pode ter saido
             // do catalogo entre a entrada do item e o fechamento — nesse caso nao ha o que baixar.
             productRepository.findByIdAndBarbershopId(item.getReferenceId(), comanda.getBarbershopId())
-                    .ifPresent(product -> stockService.registerSale(product, item.getQuantity(), sale.getId()));
+                    .ifPresentOrElse(
+                            product -> stockService.registerSale(product, item.getQuantity(), sale.getId()),
+                            // Sem aviso, o saldo divergiria em silencio e o dono nao teria como
+                            // investigar depois por que o estoque nao bate.
+                            () -> log.warn("[ESTOQUE] Produto {} ('{}') sumiu do catalogo entre a entrada na "
+                                            + "comanda {} e o fechamento — a baixa NAO foi feita",
+                                    item.getReferenceId(), item.getDescription(), comanda.getId()));
         }
     }
 

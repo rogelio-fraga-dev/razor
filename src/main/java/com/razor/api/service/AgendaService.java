@@ -42,7 +42,7 @@ public class AgendaService {
     private final TenantAdminService tenantAdminService;
     private final BarbershopSettingsService barbershopSettingsService;
     private final ScheduleBlockService scheduleBlockService;
-    private final CouponService couponService;
+    private final FidelityService fidelityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Classe auxiliar de leitura para manter a migração legada funcionando
@@ -220,43 +220,39 @@ public class AgendaService {
 
         criarTarefasAgendadas(app);
 
+        // Ponto do cartao fidelidade. Zerar a cartela e emitir o cupom acontecem na mesma
+        // transacao dentro do FidelityService: se a emissao falhar, o cliente nao perde os pontos.
+        java.util.Optional<com.razor.api.model.Coupon> recompensa;
         try {
-            com.razor.api.model.Customer customer = customerRepository
-                    .findByBarbershopIdAndPhoneNumber(TenantContext.getCurrent(), phone).orElse(null);
-            if (customer != null) {
-                int currentPoints = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
-                int newPoints = currentPoints + 1;
-                customer.setFidelityPoints(newPoints);
-                customer.setLastServiceDate(LocalDateTime.now());
-                customerRepository.save(customer);
-                log.info("[FIDELIDADE] Adicionado 1 ponto para {}. Total: {}", phone, newPoints);
-
-                if (newPoints >= CouponService.FIDELITY_TARGET_POINTS) {
-                    customer.setFidelityPoints(0);
-                    customerRepository.save(customer);
-
-                    // O cupom agora e gravado (V29). Antes era so um texto enviado ao cliente:
-                    // o caixa nao tinha como validar, nada impedia usar duas vezes e a barbearia
-                    // nao sabia quanto tinha dado de desconto.
-                    com.razor.api.model.Coupon coupon = couponService.issueFidelityReward(phone);
-                    String nomeBarbearia = barbershopSettingsService.resolve().displayName();
-
-                    String fidelityRewardMsg = "🎉 *PARABÉNS!* Você completou "
-                            + CouponService.FIDELITY_TARGET_POINTS + " pontos no seu Cartão Fidelidade da "
-                            + nomeBarbearia + "! 🥳✂️\n\n"
-                            + "Como recompensa, você ganhou *" + coupon.getDiscountValue().stripTrailingZeros().toPlainString()
-                            + "% de desconto* no seu próximo corte! Apresente o código abaixo no caixa:\n\n"
-                            + "🎟️ *" + coupon.getCode() + "*\n\n"
-                            + "_Válido até " + com.razor.api.util.AppointmentDates.formatDate(coupon.getValidUntil()) + "._\n\n"
-                            + "Obrigado pela preferência e por fazer parte da nossa história! 👊💈";
-                    whatsAppService.sendTextMessage(phone, fidelityRewardMsg);
-                    log.info("[FIDELIDADE] Cliente {} atingiu {} pontos e ganhou o cupom {}",
-                            phone, CouponService.FIDELITY_TARGET_POINTS, coupon.getCode());
-                }
-            }
+            recompensa = fidelityService.registerVisit(phone);
         } catch (Exception ex) {
-            log.error("[FIDELIDADE] Erro ao atualizar pontos para {}: {}", phone, ex.getMessage());
+            // Fidelidade nao pode derrubar o agendamento, que ja esta salvo. Mas o erro precisa
+            // aparecer inteiro no log: antes so a mensagem era registrada, sem stack trace.
+            log.error("[FIDELIDADE] Falha ao registrar ponto de {} — pontos preservados pelo rollback", phone, ex);
+            return;
         }
+
+        // O envio fica fora da transacao: e chamada de rede, e falha de rede nao pode desfazer
+        // uma recompensa ja conquistada. Se a mensagem nao sair, o cupom continua valido e o
+        // codigo fica no log para a barbearia reenviar.
+        recompensa.ifPresent(coupon -> {
+            try {
+                String nomeBarbearia = barbershopSettingsService.resolve().displayName();
+                String msg = "🎉 *PARABÉNS!* Você completou "
+                        + CouponService.FIDELITY_TARGET_POINTS + " pontos no seu Cartão Fidelidade da "
+                        + nomeBarbearia + "! 🥳✂️\n\n"
+                        + "Como recompensa, você ganhou *"
+                        + coupon.getDiscountValue().stripTrailingZeros().toPlainString()
+                        + "% de desconto* no seu próximo corte! Apresente o código abaixo no caixa:\n\n"
+                        + "🎟️ *" + coupon.getCode() + "*\n\n"
+                        + "_Válido até " + AppointmentDates.formatDate(coupon.getValidUntil()) + "._\n\n"
+                        + "Obrigado pela preferência e por fazer parte da nossa história! 👊💈";
+                whatsAppService.sendTextMessage(phone, msg);
+            } catch (Exception ex) {
+                log.error("[FIDELIDADE] Cupom {} foi emitido para {} mas a mensagem nao saiu — "
+                        + "informe o codigo ao cliente manualmente", coupon.getCode(), phone, ex);
+            }
+        });
     }
 
     public String getHorariosOcupadosParaIA() {

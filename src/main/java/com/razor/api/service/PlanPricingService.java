@@ -3,8 +3,10 @@ package com.razor.api.service;
 import com.razor.api.model.Appointment;
 import com.razor.api.model.Customer;
 import com.razor.api.model.PlanBenefit;
+import com.razor.api.model.ServiceOffering;
 import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.repository.PlanBenefitRepository;
+import com.razor.api.repository.ServiceOfferingRepository;
 import com.razor.api.tenant.TenantContext;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -37,6 +39,7 @@ public class PlanPricingService {
 
     private final PlanBenefitRepository benefitRepository;
     private final AppointmentRepository appointmentRepository;
+    private final ServiceOfferingRepository serviceOfferingRepository;
 
     /**
      * O preco de um item para o cliente na data informada.
@@ -62,12 +65,83 @@ public class PlanPricingService {
             return PricedItem.fullPrice(itemName, original);
         }
 
-        BigDecimal discount = original.multiply(benefit.getDiscountPercent())
-                .divide(CEM, 2, RoundingMode.HALF_UP);
-        // 100% OFF zera; nunca inverte o sinal.
-        BigDecimal finalPrice = original.subtract(discount).max(BigDecimal.ZERO);
+        return applyDiscount(itemName, original, benefit.getDiscountPercent());
+    }
 
-        return new PricedItem(itemName, original, finalPrice, benefit.getDiscountPercent(), true);
+    private PricedItem applyDiscount(String name, BigDecimal original, BigDecimal percent) {
+        BigDecimal discount = original.multiply(percent).divide(CEM, 2, RoundingMode.HALF_UP);
+        // 100% OFF zera; nunca inverte o sinal.
+        return new PricedItem(name, original, original.subtract(discount).max(BigDecimal.ZERO), percent, true);
+    }
+
+    private BigDecimal scale(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** Atendimentos do cliente no mes corrente — base da cota, lida uma vez so. */
+    private List<Appointment> appointmentsThisMonth(Customer customer, LocalDate date) {
+        if (customer == null || customer.getPhoneNumber() == null) return List.<Appointment>of();
+        LocalDate monthStart = date.withDayOfMonth(1);
+        return appointmentRepository
+                .findByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), customer.getPhoneNumber())
+                .stream()
+                .filter(a -> a.getAppointmentDate() != null)
+                .filter(a -> !a.getAppointmentDate().isBefore(monthStart)
+                        && !a.getAppointmentDate().isAfter(date))
+                .toList();
+    }
+
+    /**
+     * O catalogo de servicos ativos ja precificado para este cliente. E o que o bot usa para
+     * responder "quais os precos?" — assinante ouve o preco dele, nao o de tabela.
+     */
+    public List<PricedItem> priceCatalogFor(Customer customer, LocalDate date) {
+        List<ServiceOffering> catalogo =
+                serviceOfferingRepository.findByBarbershopIdAndActiveTrue(TenantContext.getCurrent());
+        if (catalogo.isEmpty()) return List.<PricedItem>of();
+
+        UUID planId = customer == null ? null : customer.getSubscriptionPlanId();
+        if (planId == null) {
+            return catalogo.stream()
+                    .map(s -> PricedItem.fullPrice(s.getName(), scale(s.getPrice())))
+                    .toList();
+        }
+
+        // Beneficios e historico sao lidos UMA vez para o catalogo inteiro. Chamar priceFor por
+        // item faria uma consulta de beneficios (e outra de agendamentos, quando ha cota) por
+        // servico — N+1 num caminho que o bot executa a cada "quais os precos?".
+        List<PlanBenefit> benefits = benefitRepository.findByPlanId(planId).stream()
+                .filter(b -> b.getTargetType() == PlanBenefit.TargetType.SERVICO)
+                .filter(b -> b.appliesOn(date.getDayOfWeek()))
+                .toList();
+        List<Appointment> historicoDoMes = benefits.stream().anyMatch(b -> b.getMonthlyQuota() != null)
+                ? appointmentsThisMonth(customer, date)
+                : List.<Appointment>of();
+
+        return catalogo.stream()
+                .map(s -> priceWith(benefits, historicoDoMes, s.getId(), s.getName(), scale(s.getPrice())))
+                .toList();
+    }
+
+    /** Precifica um item com os beneficios e o historico ja carregados. */
+    private PricedItem priceWith(List<PlanBenefit> benefits, List<Appointment> historicoDoMes,
+                                 UUID targetId, String name, BigDecimal original) {
+        PlanBenefit benefit = benefits.stream()
+                .filter(b -> targetId != null && targetId.equals(b.getTargetId()))
+                .findFirst()
+                .orElseGet(() -> benefits.stream()
+                        .filter(b -> b.getTargetId() == null)
+                        .findFirst()
+                        .orElse(null));
+        if (benefit == null) return PricedItem.fullPrice(name, original);
+
+        if (benefit.getMonthlyQuota() != null) {
+            long usados = historicoDoMes.stream()
+                    .filter(a -> name.equalsIgnoreCase(serviceOf(a)))
+                    .count();
+            if (usados >= benefit.getMonthlyQuota()) return PricedItem.fullPrice(name, original);
+        }
+        return applyDiscount(name, original, benefit.getDiscountPercent());
     }
 
     /** Beneficio que vale para o item: o especifico ganha do geral; ambos respeitam o dia. */

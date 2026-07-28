@@ -56,7 +56,7 @@ class AgendaServiceTest {
     @Mock private PricingService pricingService;
     @Mock private TenantAdminService tenantAdminService;
     @Mock private ScheduleBlockService scheduleBlockService;
-    @Mock private CouponService couponService;
+    @Mock private FidelityService fidelityService;
 
     @InjectMocks private AgendaService service;
 
@@ -260,40 +260,49 @@ class AgendaServiceTest {
     // ---------- agendamento via IA + fidelidade ----------
 
     @Test
-    @DisplayName("adicionarAgendamentoViaIA salva o agendamento e soma 1 ponto de fidelidade")
-    void adicionar_savesAndAddsPoint() {
+    @DisplayName("adicionarAgendamentoViaIA salva o agendamento e registra a visita na fidelidade")
+    void adicionar_savesAndRegistersVisit() {
         when(barbershopSettingsService.resolve()).thenReturn(
                 new BarbershopSettingsService.BotSettings("", "http://maps", "", null, ""));
-        Customer c = Customer.builder().id(UUID.randomUUID()).phoneNumber(PHONE).name("João").fidelityPoints(3).build();
-        when(customerRepository.findByBarbershopIdAndPhoneNumber(any(UUID.class), eq(PHONE))).thenReturn(Optional.of(c));
+        // Sem cartela fechada, nada e enviado ao cliente.
+        when(fidelityService.registerVisit(eq(PHONE))).thenReturn(Optional.empty());
 
         service.adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte");
 
         verify(appointmentRepository).save(any(Appointment.class));
-        assertThat(c.getFidelityPoints()).isEqualTo(4);
+        verify(fidelityService).registerVisit(eq(PHONE));
         verify(whatsAppService, never()).sendTextMessage(eq(PHONE), contains("PARABÉNS"));
     }
 
     @Test
-    @DisplayName("ao completar 10 pontos, zera e envia cupom de fidelidade")
-    void adicionar_tenthPoint_sendsCoupon() {
+    @DisplayName("cartela fechada: envia o cupom emitido ao cliente")
+    void adicionar_rewardIssued_sendsCoupon() {
         when(barbershopSettingsService.resolve()).thenReturn(
                 new BarbershopSettingsService.BotSettings("", "http://maps", "", null, ""));
-        Customer c = Customer.builder().id(UUID.randomUUID()).phoneNumber(PHONE).name("João").fidelityPoints(9).build();
-        when(customerRepository.findByBarbershopIdAndPhoneNumber(any(UUID.class), eq(PHONE))).thenReturn(Optional.of(c));
-        // O cupom agora e uma entidade gravada (V29), nao mais um texto solto.
-        when(couponService.issueFidelityReward(eq(PHONE))).thenReturn(
+        when(fidelityService.registerVisit(eq(PHONE))).thenReturn(Optional.of(
                 com.razor.api.model.Coupon.builder()
                         .id(UUID.randomUUID()).code("FIDELIDADE-ABC12")
                         .discountType(com.razor.api.model.Coupon.DiscountType.PERCENT)
                         .discountValue(new java.math.BigDecimal("10"))
                         .validUntil(java.time.LocalDate.now().plusDays(90))
-                        .build());
+                        .build()));
 
         service.adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte");
 
-        assertThat(c.getFidelityPoints()).isZero();
-        verify(whatsAppService).sendTextMessage(eq(PHONE), contains("PARABÉNS"));
+        verify(whatsAppService).sendTextMessage(eq(PHONE), contains("FIDELIDADE-ABC12"));
+    }
+
+    @Test
+    @DisplayName("falha na fidelidade nao derruba o agendamento ja salvo")
+    void adicionar_fidelityFails_appointmentSurvives() {
+        when(barbershopSettingsService.resolve()).thenReturn(
+                new BarbershopSettingsService.BotSettings("", "http://maps", "", null, ""));
+        when(fidelityService.registerVisit(eq(PHONE)))
+                .thenThrow(new RuntimeException("banco fora do ar"));
+
+        service.adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte");
+
+        verify(appointmentRepository).save(any(Appointment.class));
     }
 
     @Test

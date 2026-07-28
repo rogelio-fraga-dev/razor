@@ -8,7 +8,9 @@ import com.razor.api.model.Appointment;
 import com.razor.api.model.Customer;
 import com.razor.api.model.PlanBenefit;
 import com.razor.api.repository.AppointmentRepository;
+import com.razor.api.model.ServiceOffering;
 import com.razor.api.repository.PlanBenefitRepository;
+import com.razor.api.repository.ServiceOfferingRepository;
 import com.razor.api.service.PlanPricingService.PricedItem;
 import com.razor.api.tenant.TenantContext;
 import java.math.BigDecimal;
@@ -35,6 +37,7 @@ class PlanPricingServiceTest {
 
     @Mock private PlanBenefitRepository benefitRepository;
     @Mock private AppointmentRepository appointmentRepository;
+    @Mock private ServiceOfferingRepository serviceOfferingRepository;
 
     @InjectMocks private PlanPricingService service;
 
@@ -228,5 +231,31 @@ class PlanPricingServiceTest {
 
     private Appointment appt(String service, LocalDate date) {
         return Appointment.builder().service(service).appointmentDate(date).build();
+    }
+
+    // --- Catalogo precificado para o bot ---
+
+    @Test
+    @DisplayName("catálogo do assinante sai com o preço do plano; o de quem não assina, cheio")
+    void priceCatalog_appliesPlanToSubscriberOnly() {
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(
+                ServiceOffering.builder().id(corteId).name("Corte").price(new BigDecimal("35.00")).active(true).build(),
+                ServiceOffering.builder().id(UUID.randomUUID()).name("Barba").price(new BigDecimal("30.00")).active(true).build()));
+        givenBenefits(benefit(PlanBenefit.TargetType.SERVICO, corteId, "100", null, null));
+
+        List<PricedItem> doAssinante = service.priceCatalogFor(assinante(), segunda);
+        List<PricedItem> doVisitante = service.priceCatalogFor(null, segunda);
+
+        assertThat(doAssinante.get(0).isFree()).isTrue();          // corte gratis pelo plano
+        assertThat(doAssinante.get(1).finalPrice()).isEqualByComparingTo("30.00"); // barba sem beneficio
+        assertThat(doVisitante).allSatisfy(i -> assertThat(i.discounted()).isFalse());
+    }
+
+    @Test
+    @DisplayName("catálogo vazio devolve lista vazia — o bot cai no texto livre das configurações")
+    void priceCatalog_emptyCatalog_returnsEmpty() {
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of());
+
+        assertThat(service.priceCatalogFor(assinante(), segunda)).isEmpty();
     }
 }

@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
  * Vales e adiantamentos do barbeiro (V26) no painel web (tenant vem do JWT). O desconto na
  * comissao acontece na tela de acerto — ver {@code /commission-payments/settlement}.
  */
+@lombok.extern.slf4j.Slf4j
 @RestController
 @RequestMapping("/api/admin/advances")
 @RequiredArgsConstructor
@@ -62,8 +63,11 @@ public class AdminAdvanceController {
         try {
             String name = authService.getUser(principal.userId()).getName();
             if (name != null && !name.isBlank()) return name;
-        } catch (Exception ignored) {
-            // sem nome resolvido: usa o e-mail do token
+        } catch (Exception e) {
+            // Cai no e-mail do token, mas com rastro: engolir sem log tornaria "usuario sem nome"
+            // indistinguivel de "banco fora do ar" num registro de quem mexeu em dinheiro.
+            log.warn("[AUTH] Nao foi possivel resolver o nome do usuario {}: {}",
+                    principal.userId(), e.toString());
         }
         return principal.email();
     }

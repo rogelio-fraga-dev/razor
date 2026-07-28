@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
  * Caixa no painel (V18): abertura, movimentos e fechamento. Tenant e usuário vêm do JWT — o
  * usuário é registrado como quem abriu/fechou a sessão.
  */
+@lombok.extern.slf4j.Slf4j
 @RestController
 @RequestMapping("/api/admin/cash-register")
 @RequiredArgsConstructor
@@ -52,8 +53,11 @@ public class AdminCashRegisterController {
         try {
             String name = authService.getUser(principal.userId()).getName();
             if (name != null && !name.isBlank()) return name;
-        } catch (Exception ignored) {
-            // sem nome resolvido: usa o e-mail do token
+        } catch (Exception e) {
+            // Cai no e-mail do token, mas com rastro: engolir sem log tornaria "usuario sem nome"
+            // indistinguivel de "banco fora do ar" num registro de quem mexeu em dinheiro.
+            log.warn("[AUTH] Nao foi possivel resolver o nome do usuario {}: {}",
+                    principal.userId(), e.toString());
         }
         return principal.email();
     }

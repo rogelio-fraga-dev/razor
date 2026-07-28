@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.*;
  * Acerto de comissao com o barbeiro (V25) no painel web (tenant vem do JWT): a apuracao do
  * periodo com o que ja foi pago, o registro do pagamento e o historico.
  */
+@lombok.extern.slf4j.Slf4j
 @RestController
 @RequestMapping("/api/admin/commission-payments")
 @RequiredArgsConstructor
@@ -116,8 +117,11 @@ public class AdminCommissionPaymentController {
         try {
             String name = authService.getUser(principal.userId()).getName();
             if (name != null && !name.isBlank()) return name;
-        } catch (Exception ignored) {
-            // sem nome resolvido: usa o e-mail do token
+        } catch (Exception e) {
+            // Cai no e-mail do token, mas com rastro: engolir sem log tornaria "usuario sem nome"
+            // indistinguivel de "banco fora do ar" num registro de quem mexeu em dinheiro.
+            log.warn("[AUTH] Nao foi possivel resolver o nome do usuario {}: {}",
+                    principal.userId(), e.toString());
         }
         return principal.email();
     }

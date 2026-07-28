@@ -51,6 +51,7 @@ public class CustomerConversationService {
     private final ProfessionalService professionalService;
     private final TenantAdminService tenantAdminService;
     private final BarbershopSettingsService barbershopSettingsService;
+    private final PlanPricingService planPricingService;
     private final StateStore stateStore;
 
     // Publicas + construtor vazio: sao serializadas em JSON pelo StateStore.
@@ -325,7 +326,7 @@ public class CustomerConversationService {
             saveAndSend(customer, endMsg, phoneNumber);
             return;
         } else if (msgLower.equals("5") || msgLower.contains("servicos") || msgLower.contains("serviços") || msgLower.contains("precos") || msgLower.contains("preços") || msgLower.contains("planos vip")) {
-            saveAndSend(customer, barbershopSettingsService.resolve().servicesText(), phoneNumber);
+            saveAndSend(customer, tabelaDePrecos(customer), phoneNumber);
             return;
         } else if (msgLower.equals("6") || msgLower.contains("cartao fidelidade") || msgLower.contains("cartão fidelidade") || msgLower.contains("fidelidade")) {
             int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
@@ -582,6 +583,51 @@ public class CustomerConversationService {
             log.info("[LISTA ESPERA] {} ja estava cadastrado na lista", phoneNumber);
         }
         return le.cleanedResponse();
+    }
+
+    /**
+     * Tabela de precos <b>daquele cliente</b>: assinante ve o preco com o beneficio do plano,
+     * como no app do concorrente ("De R$ 35,00 / Por R$ 0,00"). Ate aqui o bot mandava o texto
+     * fixo das configuracoes, entao quem pagava plano ouvia o preco cheio na conversa.
+     *
+     * <p>Sem catalogo cadastrado, cai no texto livre das configuracoes — barbearia que ainda nao
+     * montou o catalogo continua respondendo o que respondia antes.
+     */
+    /**
+     * Moeda em pt-BR, sempre. Concatenar {@code BigDecimal} direto imprimiria "R$ 35.00" com
+     * ponto, destoando do resto das mensagens do bot — e o cliente final le isso.
+     */
+    private String brl(java.math.BigDecimal value) {
+        return String.format(java.util.Locale.forLanguageTag("pt-BR"), "R$ %.2f", value);
+    }
+
+    private String tabelaDePrecos(Customer customer) {
+        List<PlanPricingService.PricedItem> itens =
+                planPricingService.priceCatalogFor(customer, AppointmentDates.today());
+        if (itens.isEmpty()) {
+            return barbershopSettingsService.resolve().servicesText();
+        }
+
+        StringBuilder sb = new StringBuilder("💈 *Nossos serviços*\n━━━━━━━━━━━━━━━━━━\n");
+        boolean temDesconto = false;
+        for (PlanPricingService.PricedItem item : itens) {
+            sb.append("• *").append(item.name()).append("* — ");
+            if (item.isFree()) {
+                sb.append("~").append(brl(item.originalPrice())).append("~ *GRÁTIS pelo seu plano* 🎉");
+                temDesconto = true;
+            } else if (item.discounted()) {
+                sb.append("~").append(brl(item.originalPrice())).append("~ *")
+                        .append(brl(item.finalPrice())).append("*");
+                temDesconto = true;
+            } else {
+                sb.append(brl(item.finalPrice()));
+            }
+            sb.append("\n");
+        }
+        if (temDesconto) {
+            sb.append("\n_Os valores acima já consideram os benefícios do seu plano._");
+        }
+        return sb.toString();
     }
 
     private void saveAndSend(Customer customer, String content, String phone) {

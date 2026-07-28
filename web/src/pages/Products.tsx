@@ -199,7 +199,9 @@ export function Products() {
 
       {stockOf && (
         <StockModal
-          product={stockOf}
+          // Reencontra o produto na lista recarregada: sem isso o modal continuaria mostrando
+          // o saldo de antes do movimento, enquanto o extrato logo abaixo já viria atualizado.
+          product={data?.find((p) => p.id === stockOf.id) ?? stockOf}
           onClose={() => setStockOf(null)}
           onChanged={reload}
         />

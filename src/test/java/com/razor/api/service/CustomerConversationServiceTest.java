@@ -58,6 +58,7 @@ class CustomerConversationServiceTest {
     @Mock private ProfessionalService professionalService;
     @Mock private TenantAdminService tenantAdminService;
     @Mock private BarbershopSettingsService barbershopSettingsService;
+    @Mock private PlanPricingService planPricingService;
 
     // Store REAL (nao mock): a maquina de estados da conversa precisa gravar/ler de verdade.
     @org.mockito.Spy
