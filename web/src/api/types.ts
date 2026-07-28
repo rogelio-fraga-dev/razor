@@ -586,3 +586,37 @@ export interface Retention {
   atRisk: CustomerAtRisk[];
   lost: CustomerAtRisk[];
 }
+
+// ---------- Site white-label (V33) ----------
+
+export type SiteTemplate = "CLASSICO" | "ESTUDIO" | "VITRINE";
+export type SiteTheme = "LIGHT" | "DARK" | "AUTO";
+
+/**
+ * O site como o VISITANTE o recebe — espelha PublicSiteResponse.
+ *
+ * `price` nulo quando o dono optou por não publicar preços. `team` traz só o nome: telefone e
+ * comissão do barbeiro não existem nesta rota, por decisão do backend.
+ */
+export interface PublicSite {
+  slug: string;
+  barbershopName: string;
+  template: SiteTemplate;
+  theme: SiteTheme;
+  accentColor: string;
+  headline: string | null;
+  subheadline: string | null;
+  aboutText: string | null;
+  logoUrl: string | null;
+  heroImageUrl: string | null;
+  gallery: string[];
+  whatsappNumber: string | null;
+  instagramUrl: string | null;
+  mapsUrl: string | null;
+  addressText: string | null;
+  /** Derivado dos dias estruturados (V32) — o site nunca anuncia expediente que a agenda recusa. */
+  openingHours: string | null;
+  services: { name: string; price: number | null; durationMinutes: number | null }[];
+  team: { name: string }[];
+  plans: { name: string; price: number; description: string | null }[];
+}

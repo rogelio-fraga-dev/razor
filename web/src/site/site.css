@@ -1,0 +1,194 @@
+/* ============================================================================
+   Site white-label — folha compartilhada pelos três templates.
+
+   Uma única cor vem do dono (--accent). Tudo o mais é DERIVADO dela ou dos
+   tokens neutros de cada tema. É o que garante que nenhum site saia ilegível:
+   o dono não tem como escolher texto cinza-claro sobre fundo branco.
+   ========================================================================== */
+
+.rzsite {
+  --radius: 14px;
+  --radius-sm: 10px;
+  --maxw: 1140px;
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+
+  /* Derivados da cor do dono. color-mix faz o trabalho que o dono não deveria ter:
+     o realce claro, a sombra e o estado de hover saem todos da mesma matiz. */
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-hover: color-mix(in srgb, var(--accent) 82%, #000);
+  --accent-glow: color-mix(in srgb, var(--accent) 30%, transparent);
+  /* Texto sobre o acento: preto ou branco conforme a luminância da cor escolhida.
+     Sem isto, um acento amarelo receberia texto branco e sumiria. */
+  --on-accent: oklch(from var(--accent) calc((l - 0.62) * -1000) 0 0);
+
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Paletas neutras ---------- */
+.rzsite.theme-light {
+  --bg: #ffffff;
+  --bg-2: #f6f7f9;
+  --surface: #ffffff;
+  --text: #14161a;
+  --text-muted: #5c6470;
+  --border: #e4e7ec;
+  --shadow: 0 12px 40px rgba(16, 24, 40, 0.08);
+}
+.rzsite.theme-dark {
+  --bg: #0b0c0f;
+  --bg-2: #131519;
+  --surface: #16181d;
+  --text: #f2f4f7;
+  --text-muted: #9aa2b1;
+  --border: #24272f;
+  --shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+}
+/* AUTO: segue o aparelho do visitante. */
+@media (prefers-color-scheme: dark) {
+  .rzsite.theme-auto {
+    --bg: #0b0c0f;
+    --bg-2: #131519;
+    --surface: #16181d;
+    --text: #f2f4f7;
+    --text-muted: #9aa2b1;
+    --border: #24272f;
+    --shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+  }
+}
+@media (prefers-color-scheme: light) {
+  .rzsite.theme-auto {
+    --bg: #ffffff;
+    --bg-2: #f6f7f9;
+    --surface: #ffffff;
+    --text: #14161a;
+    --text-muted: #5c6470;
+    --border: #e4e7ec;
+    --shadow: 0 12px 40px rgba(16, 24, 40, 0.08);
+  }
+}
+
+/* ---------- Blocos comuns ---------- */
+.rzsite * { box-sizing: border-box; }
+.rz-wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+.rz-section { padding: clamp(56px, 8vw, 104px) 0; }
+.rz-section-alt { background: var(--bg-2); }
+
+.rz-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 12px;
+}
+.rz-h2 {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 14px;
+}
+.rz-lead { font-size: 17px; color: var(--text-muted); max-width: 62ch; margin: 0; line-height: 1.6; }
+
+.rz-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 26px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+}
+.rz-btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 8px 30px var(--accent-glow);
+}
+.rz-btn-primary:hover { background: var(--accent-hover); transform: translateY(-2px); }
+.rz-btn-ghost { border-color: var(--border); color: var(--text); }
+.rz-btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.rz-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
+
+.rz-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+}
+
+/* Lista de serviços — a mesma nos três templates, com preço à direita ligado por pontilhado.
+   Sem preço (o dono desligou), a linha vira só o nome e a duração. */
+.rz-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.rz-price-row:last-child { border-bottom: 0; }
+.rz-price-name { font-weight: 600; font-size: 16px; }
+.rz-price-dur { font-size: 13px; color: var(--text-muted); }
+.rz-price-fill { flex: 1; }
+.rz-price-value { font-weight: 700; font-size: 17px; white-space: nowrap; }
+
+.rz-grid { display: grid; gap: 18px; }
+.rz-grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.rz-grid-4 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+
+/* Membro da equipe: inicial em disco de acento, porque ainda não há upload de foto. */
+.rz-member { text-align: center; }
+.rz-member-badge {
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+.rz-member-name { font-weight: 600; }
+
+.rz-plan-price { font-family: var(--font-display); font-size: 32px; font-weight: 800; margin: 6px 0 2px; }
+.rz-plan-price small { font-size: 14px; font-weight: 500; color: var(--text-muted); }
+.rz-plan-featured { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+
+.rz-foot {
+  border-top: 1px solid var(--border);
+  padding: 34px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.rz-foot a { color: var(--accent); text-decoration: none; }
+.rz-foot a:hover { text-decoration: underline; }
+
+/* Galeria: retrato do corte. Sem foto o quadro não aparece — quadrado cinza vazio comunica
+   "site quebrado", não "sem conteúdo". */
+.rz-shot {
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.rz-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rzsite * { animation: none !important; transition: none !important; }
+}
