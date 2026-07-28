@@ -121,8 +121,11 @@ BEGIN
 
     INSERT INTO barbershop_settings (
         barbershop_id, display_name, address_text, address_maps_url, schedule_url, instagram_url,
-        bot_enabled, pix_key, pix_copy_paste, payment_info,
-        opening_time, closing_time, working_days,
+        bot_enabled, pix_key, pix_copy_paste, payment_info, services_text,
+        -- working_weekdays (V32) e nao mais o working_days de texto livre: e a coluna que a
+        -- agenda le de verdade. Sem ela o seed dependeria do fallback e a demo nao exercitaria
+        -- o campo novo.
+        opening_time, closing_time, working_weekdays,
         welcome_text, reminder_text, review_text, fidelity_reward_text, cancellation_policy,
         bot_persona, monthly_revenue_goal, created_at, updated_at)
     VALUES (
@@ -135,7 +138,10 @@ BEGIN
         'demo@navalhadeprata.com.br',
         '00020126580014BR.GOV.BCB.PIX0136demo-chave-ficticia-nao-funcional5204000053039865802BR',
         'Aceitamos PIX, dinheiro, débito e crédito em até 3x.',
-        '09:00', '20:00', 'SEG,TER,QUA,QUI,SEX,SAB',
+        -- Tabela de precos: sem ela o bot responde que nao sabe quanto custa (nunca inventa
+        -- preco), e a demo mostraria um assistente incapaz de responder a pergunta mais comum.
+        E'✂️ *Nossos serviços*\n\nCorte — R$ 45\nBarba — R$ 35\nCorte + Barba — R$ 70\nCorte infantil — R$ 40\nPezinho — R$ 20\nPlatinado — R$ 150',
+        '09:00', '20:00', '1,2,3,4,5,6',
         'Fala! Aqui é a Navalha de Prata. Quer agendar um horário?',
         'Passando pra lembrar do seu horário amanhã. Confirma pra mim?',
         'E aí, curtiu o corte? Se puder deixar uma avaliação ajuda demais!',

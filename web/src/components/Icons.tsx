@@ -46,12 +46,17 @@ export const IconTicket = () => (
 );
 
 /** Acerto de comissão: pagamento fechado, contas quitadas. */
+/**
+ * Acerto de comissões — cédula com visto: "pagamento conferido".
+ *
+ * Substitui um aperto de mão que estava incompleto: dois dos seus paths eram traços de 2px
+ * soltos, fragmentos de um ícone maior sem as curvas que os ligavam. A 18px viravam riscos
+ * desconexos no menu. Formas fechadas e grandes leem melhor nesse tamanho.
+ */
 export const IconHandshake = () => (
   <Icon>
-    <path d="M11 17 8.7 14.7a2 2 0 0 1 0-2.8l3.6-3.6a2 2 0 0 1 2.8 0L21 14.6" />
-    <path d="m3 12.6 4.3-4.3a2 2 0 0 1 2.8 0L12 10" />
-    <path d="M13 19.4 11.6 18" />
-    <path d="M16 17.4 14.6 16" />
+    <rect x="2" y="6" width="20" height="12" rx="2" />
+    <path d="m8 12 2.5 2.5L16 9.5" />
   </Icon>
 );
 

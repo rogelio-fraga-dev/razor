@@ -973,3 +973,55 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 8px;
   padding: 0;
 }
+
+/* ---------- Checklist de configuração ---------- */
+.cfg-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin-top: 4px;
+}
+.cfg-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--plasma));
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cfg-checklist {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cfg-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.cfg-check-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.cfg-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 550;
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+.cfg-check-hint { font-size: 12.5px; color: var(--text-faint); }
+
+.cfg-done { margin-top: 14px; font-size: 13px; color: var(--text-muted); }
+.cfg-done summary { cursor: pointer; }
+.cfg-done ul { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cfg-done li { color: var(--text-faint); font-size: 12.5px; }
+
+@media (max-width: 620px) {
+  .cfg-checklist li { flex-direction: column; align-items: stretch; gap: 10px; }
+}

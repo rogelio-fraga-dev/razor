@@ -88,7 +88,7 @@ export function Customers() {
 
   return (
     <Layout flush title="Clientes">
-      <div className="page-panel">
+      <div className="page-panel readable">
         <div className="list-toolbar">
           <input
             className="input"

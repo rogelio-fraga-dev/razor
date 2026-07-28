@@ -487,6 +487,24 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   flex: 1;
   min-height: 0;
 }
+
+/* Largura máxima de leitura.
+   O problema nunca foi o lado estreito — há media query para 620px desde sempre. Era o LARGO,
+   que não tinha teto: num monitor de 1920px+ a linha da lista se esticava inteira, nome e
+   telefone ficavam colados à esquerda e abria um vazio de mais de mil pixels até a ação da
+   direita. Tabela e card também ficavam com linhas longas demais para acompanhar com o olho. */
+.content:not(.flush) {
+  max-width: 1440px;
+  margin-inline: auto;
+}
+
+/* Listas em página flush (Clientes). A Agenda também é flush mas NÃO recebe esta classe: um
+   calendário com uma coluna por barbeiro quer toda a largura que houver. */
+.page-panel.readable {
+  max-width: 1280px;
+  width: 100%;
+  margin-inline: auto;
+}
 /* Cada bloco da página guarda a altura do próprio conteúdo. Sem isto os cards são espremidos:
    `.card` tem `overflow: hidden` (design system), o que zera o min-height automático do item
    flex e libera o flex-shrink a esmagá-lo — era o que cortava o checklist e o card de meta.
@@ -1191,11 +1209,11 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 .rw-meta .mono { font-size: 12px; }
 .rw-side { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
-/* ações aparecem no hover (contextuais), mas continuam acessíveis por teclado */
-.rw-actions { opacity: 0; transition: opacity 0.15s; }
-.rowitem:hover .rw-actions,
-.rw-actions:focus-within { opacity: 1; }
-@media (hover: none) { .rw-actions { opacity: 1; } }
+/* Ações SEMPRE visíveis.
+   Eram reveladas só no hover, como ação contextual. Numa lista em que toda linha tem a mesma
+   ação (o plano do cliente), o efeito era o contrário do pretendido: 17 linhas com o lado
+   direito vazio e uma só preenchida — a tela lia como quebrada, não como discreta. */
+.rw-actions { transition: opacity 0.15s; }
 
 /* barra de ferramentas da lista */
 .list-toolbar {

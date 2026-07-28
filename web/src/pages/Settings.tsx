@@ -5,6 +5,8 @@ import { Switch } from "../components/Modal";
 import { Skeleton } from "../components/Skeleton";
 import { SpeechModePicker } from "../components/SpeechModePicker";
 import { ConfigWizard } from "../components/ConfigWizard";
+import { ConfigChecklist } from "../components/ConfigChecklist";
+import { evaluateConfig } from "../lib/configCompleteness";
 import { WhatsAppPairing } from "../components/WhatsAppPairing";
 import { AdminsEditor } from "../components/AdminsEditor";
 import { useToast } from "../components/Toast";
@@ -13,7 +15,7 @@ import { getOnce } from "../lib/dedupe";
 import { useWhatsAppConnection } from "../lib/useWhatsAppConnection";
 import { api, ApiError } from "../api/client";
 import { money } from "../lib/format";
-import type { Barbershop, BotSettings, BotStatus, Goals, BotTextKey, Weekday } from "../api/types";
+import type { AdminContact, Barbershop, BotSettings, BotStatus, Goals, BotTextKey, Weekday } from "../api/types";
 
 function StatusDot({ ok, warn }: { ok: boolean; warn?: boolean }) {
   const color = ok ? "var(--green)" : warn ? "var(--amber)" : "var(--red)";
@@ -508,25 +510,53 @@ function BotCard({
   );
 }
 
+/** Marca que o assistente já se abriu sozinho nesta sessão do navegador. */
+const WIZARD_SEEN_KEY = "razor.config_wizard_autoopened";
+
 export function Settings() {
   // Bloco único: um card só, com as caixas por assunto lado a lado.
   // O assistente é o tutorial da tela: passa por todas as configurações e, ao fechar, faz a
   // tela inteira recarregar — os cards atrás já aparecem com o que foi preenchido.
   const [configVersion, setConfigVersion] = useState(0);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState(0);
   const [autoOpened, setAutoOpened] = useState(false);
 
   const bot = useApi<BotSettings>(() => api.get("/api/admin/settings/bot"), [configVersion]);
+  const status = useApi<BotStatus>(() => api.get("/api/admin/settings/bot/status"), [configVersion]);
+  const admins = useApi<AdminContact[]>(() => api.get("/api/admin/admins"), [configVersion]);
 
   const refreshAll = () => setConfigVersion((v) => v + 1);
 
-  // Barbearia ainda sem identidade configurada: o assistente abre sozinho, uma vez por visita.
+  const config = evaluateConfig(bot.data, status.data, admins.data);
+  // Só decide depois que as três consultas responderam: avaliar com dados pela metade abriria o
+  // assistente na cara de quem já configurou tudo.
+  const carregado = !bot.loading && !status.loading && !admins.loading && !bot.error;
+
+  // Falta algo OBRIGATÓRIO: o assistente abre sozinho — uma vez por sessão do navegador.
+  //
+  // O gatilho antigo era "displayName vazio": uma barbearia com nome preenchido e o WhatsApp
+  // desconectado, sem PIX e sem tabela de preços passava por pronta, e ninguém avisava o dono.
+  //
+  // O limite por sessão importa tanto quanto o gatilho. Sem ele, quem entra em Configurações
+  // para mexer numa coisa só levaria o assistente na cara toda vez — e um tutorial que insiste
+  // vira obstáculo. Depois da primeira vez, a lista de pendências acima já diz o que falta.
   useEffect(() => {
-    if (!autoOpened && bot.data && !(bot.data.displayName ?? "").trim()) {
-      setWizardOpen(true);
+    if (autoOpened || !carregado || config.ready) return;
+    if (sessionStorage.getItem(WIZARD_SEEN_KEY) === "1") {
       setAutoOpened(true);
+      return;
     }
-  }, [bot.data, autoOpened]);
+    sessionStorage.setItem(WIZARD_SEEN_KEY, "1");
+    setWizardStep(0);
+    setWizardOpen(true);
+    setAutoOpened(true);
+  }, [carregado, config.ready, autoOpened]);
+
+  const openWizardAt = (step: number) => {
+    setWizardStep(Math.max(0, step));
+    setWizardOpen(true);
+  };
 
   const closeWizard = () => {
     setWizardOpen(false);
@@ -535,16 +565,20 @@ export function Settings() {
 
   return (
     <Layout title="Configurações">
+      {/* O que falta vem ANTES dos campos: quem abre esta tela quer saber o que está pendente,
+          não caçar o campo vazio entre trinta preenchidos. */}
+      {carregado && <ConfigChecklist status={config} onGoToStep={openWizardAt} />}
+
       <div className="card cfg-block">
         <div className="card-head">
           <h3>Sua barbearia no automático</h3>
           <div className="row" style={{ gap: 10 }}>
             <button
               className="btn btn-primary btn-sm"
-              onClick={() => setWizardOpen(true)}
+              onClick={() => openWizardAt(0)}
               disabled={bot.loading || !!bot.error}
             >
-              ✨ Abrir assistente
+              ✨ {config.ready ? "Revisar tudo" : "Continuar configuração"}
             </button>
             <span className="badge badge-muted">tudo em um lugar</span>
           </div>
@@ -570,7 +604,7 @@ export function Settings() {
       </div>
 
       {wizardOpen && (
-        <ConfigWizard initial={fillBot(bot.data)} onClose={closeWizard} onSaved={refreshAll} />
+        <ConfigWizard initial={fillBot(bot.data)} startAt={wizardStep} onClose={closeWizard} onSaved={refreshAll} />
       )}
     </Layout>
   );

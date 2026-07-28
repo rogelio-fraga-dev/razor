@@ -30,15 +30,18 @@ export function ConfigWizard({
   initial,
   onClose,
   onSaved,
+  startAt = 0,
 }: {
   initial: BotSettings;
   onClose: () => void;
   onSaved: () => void;
+  /** Passo inicial — a lista de pendências abre o assistente direto no item que falta. */
+  startAt?: number;
 }) {
   const toast = useToast();
   const whatsapp = useWhatsAppConnection();
   const [draft, setDraft] = useState<BotSettings>(initial);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(startAt);
   const [saving, setSaving] = useState(false);
 
   const set = (k: BotTextKey, v: string) => setDraft((d) => ({ ...d, [k]: v }));
@@ -156,8 +159,10 @@ export function ConfigWizard({
     },
   ];
 
-  const current = steps[step];
-  const isLast = step === steps.length - 1;
+  // `startAt` vem de fora e pode apontar para um passo que não existe mais se a lista mudar;
+  // limitar aqui evita a tela em branco por índice fora da faixa.
+  const current = steps[Math.min(Math.max(step, 0), steps.length - 1)];
+  const isLast = step >= steps.length - 1;
   const canAdvance = current.valid ? current.valid() : true;
 
   const finish = async () => {
