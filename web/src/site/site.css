@@ -192,3 +192,152 @@
 @media (prefers-reduced-motion: reduce) {
   .rzsite * { animation: none !important; transition: none !important; }
 }
+
+/* ============================================================================
+   Blocos de landing — o que faltava para o site parar de parecer um panfleto.
+   ========================================================================== */
+
+/* Hero em tela cheia com imagem, camada e conteúdo ancorado embaixo. */
+.rz-hero {
+  position: relative;
+  min-height: min(92vh, 860px);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  isolation: isolate;
+}
+.rz-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-size: cover;
+  background-position: center;
+  /* Zoom lento: dá vida sem pedir vídeo, que o dono não tem. */
+  animation: rz-kenburns 22s ease-out forwards;
+}
+@keyframes rz-kenburns {
+  from { transform: scale(1.06); }
+  to { transform: scale(1); }
+}
+/* Duas camadas: uma escura para legibilidade, outra com a cor do dono para a marca
+   aparecer mesmo na foto dele. */
+.rz-hero-veil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.45) 45%, rgba(0, 0, 0, 0.25) 100%),
+    linear-gradient(120deg, var(--accent-soft), transparent 55%);
+}
+.rz-hero-inner { padding: 0 0 clamp(48px, 8vw, 96px); width: 100%; color: #fff; }
+.rz-hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(38px, 7.5vw, 88px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  margin: 0;
+  max-width: 16ch;
+}
+.rz-hero .rz-lead { color: rgba(255, 255, 255, 0.86); margin-top: 18px; }
+.rz-hero-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
+.rz-hero .rz-btn-ghost { border-color: rgba(255, 255, 255, 0.45); color: #fff; }
+.rz-hero .rz-btn-ghost:hover { border-color: #fff; color: #fff; background: rgba(255, 255, 255, 0.1); }
+
+/* Faixa de números logo abaixo do hero — a prova objetiva antes do texto. */
+.rz-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.rz-stat { padding: 28px 24px; border-right: 1px solid var(--border); }
+.rz-stat:last-child { border-right: 0; }
+.rz-stat-v {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3.4vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+  line-height: 1.1;
+}
+.rz-stat-l { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+/* Mosaico da galeria: a primeira foto ocupa quatro células. Grade uniforme faz toda foto
+   parecer igualmente importante — e nenhuma vira capa. */
+.rz-mosaic {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.rz-mosaic img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm); display: block; }
+.rz-mosaic > :first-child { grid-column: span 2; grid-row: span 2; }
+@media (max-width: 720px) {
+  .rz-mosaic { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Faixa de chamada com a cor do dono — o respiro antes do rodapé. */
+.rz-cta {
+  background: var(--accent);
+  color: var(--on-accent);
+  text-align: center;
+  padding: clamp(54px, 8vw, 96px) 0;
+}
+.rz-cta h2 {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4.4vw, 46px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  margin: 0 0 14px;
+}
+.rz-cta p { opacity: 0.86; margin: 0 auto; max-width: 52ch; font-size: 17px; }
+.rz-cta .rz-btn {
+  background: var(--on-accent);
+  color: var(--accent);
+  margin-top: 28px;
+  box-shadow: none;
+}
+
+/* Passo a passo "como funciona" — tira a dúvida de quem nunca agendou por WhatsApp. */
+.rz-steps { counter-reset: rzstep; display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.rz-step { position: relative; padding-top: 44px; }
+.rz-step::before {
+  counter-increment: rzstep;
+  content: counter(rzstep, decimal-leading-zero);
+  position: absolute;
+  top: 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--accent);
+  opacity: 0.55;
+}
+.rz-step h3 { font-size: 17px; margin: 0 0 6px; }
+.rz-step p { margin: 0; color: var(--text-muted); font-size: 14.5px; line-height: 1.6; }
+
+/* Barra fixa de agendamento no celular: no telefone o botão do topo some ao rolar, e o
+   objetivo do site inteiro é essa ação. */
+.rz-sticky { display: none; }
+@media (max-width: 720px) {
+  .rz-sticky {
+    display: block;
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border);
+  }
+  .rz-sticky .rz-btn { width: 100%; justify-content: center; }
+  .rz-hero { min-height: 78vh; }
+  .rz-stat { border-right: 0; border-bottom: 1px solid var(--border); }
+}
+
+/* Entrada suave por seção. */
+.rz-reveal { animation: rz-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes rz-fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}

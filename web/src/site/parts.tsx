@@ -124,3 +124,120 @@ export function Footer({ site }: { site: PublicSite }) {
     </footer>
   );
 }
+
+/**
+ * Faixa de números logo abaixo do hero.
+ *
+ * Tudo aqui é DERIVADO do que a barbearia realmente cadastrou — nada de "mais de 1000 clientes
+ * satisfeitos". Número inventado num site é o mesmo problema que o painel já resolveu ao remover
+ * os dados fabricados: some a confiança quando alguém confere.
+ */
+export function Stats({ site }: { site: PublicSite }) {
+  const itens: { v: string; l: string }[] = [];
+  if (site.team.length > 0) {
+    itens.push({ v: String(site.team.length), l: site.team.length === 1 ? "barbeiro" : "barbeiros na equipe" });
+  }
+  if (site.services.length > 0) {
+    itens.push({ v: String(site.services.length), l: "serviços no cardápio" });
+  }
+  const comPreco = site.services.filter((s) => s.price != null);
+  if (comPreco.length > 0) {
+    itens.push({ v: money(Math.min(...comPreco.map((s) => s.price!))), l: "a partir de" });
+  }
+  if (site.plans.length > 0) {
+    itens.push({ v: money(Math.min(...site.plans.map((p) => p.price))), l: "clube por mês" });
+  }
+  if (itens.length < 2) return null;
+
+  return (
+    <div className="rz-stats">
+      {itens.map((i) => (
+        <div className="rz-stat" key={i.l}>
+          <div className="rz-stat-v">{i.v}</div>
+          <div className="rz-stat-l">{i.l}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Galeria do trabalho. Em mosaico a primeira foto vira capa; sem fotos, a seção não existe. */
+export function Gallery({ site, title = "Nosso trabalho", mosaic }: { site: PublicSite; title?: string; mosaic?: boolean }) {
+  const fotos = site.gallery.slice(0, mosaic ? 9 : 8);
+  if (fotos.length === 0) return null;
+  return (
+    <section className={`rz-section ${mosaic ? "" : "rz-section-alt"}`} aria-label={title || "Galeria"}>
+      <div className="rz-wrap">
+        {title && (
+          <>
+            <p className="rz-eyebrow">Portfólio</p>
+            <h2 className="rz-h2">{title}</h2>
+          </>
+        )}
+        <div
+          className={mosaic ? "rz-mosaic" : "rz-grid"}
+          style={mosaic ? { marginTop: title ? 26 : 0 } : { gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", marginTop: 26 }}
+        >
+          {fotos.map((src, i) => (
+            <img
+              key={src}
+              src={src}
+              alt={`Corte ${i + 1} da ${site.barbershopName}`}
+              className={mosaic ? undefined : "rz-shot"}
+              loading={i < 2 ? "eager" : "lazy"}
+            />
+          ))}
+        </div>
+        {site.instagramUrl && (
+          <div style={{ marginTop: 26 }}>
+            <a className="rz-btn rz-btn-ghost" href={site.instagramUrl} target="_blank" rel="noopener noreferrer">
+              Ver mais no Instagram
+            </a>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * "Como funciona" em três passos.
+ *
+ * Existe porque agendar por WhatsApp com um robô é novo para muita gente: sem explicar, o
+ * visitante hesita justamente no clique que o site inteiro persegue.
+ */
+export function HowItWorks({ site }: { site: PublicSite }) {
+  if (!bookingHref(site)) return null;
+  return (
+    <section className="rz-section rz-section-alt">
+      <div className="rz-wrap">
+        <p className="rz-eyebrow">Simples assim</p>
+        <h2 className="rz-h2">Como agendar</h2>
+        <div className="rz-steps" style={{ marginTop: 34 }}>
+          <div className="rz-step">
+            <h3>Chama no WhatsApp</h3>
+            <p>Sem baixar app e sem criar conta. É a mesma conversa que você já usa todo dia.</p>
+          </div>
+          <div className="rz-step">
+            <h3>Escolhe o horário</h3>
+            <p>Respondemos na hora com os horários livres — pode mandar áudio se preferir.</p>
+          </div>
+          <div className="rz-step">
+            <h3>Pronto</h3>
+            <p>Você recebe a confirmação e um lembrete uma hora antes. Só chegar.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Barra fixa de agendamento no celular — o botão do topo some ao rolar. */
+export function StickyBook({ site }: { site: PublicSite }) {
+  if (!bookingHref(site)) return null;
+  return (
+    <div className="rz-sticky">
+      <BookButton site={site} />
+    </div>
+  );
+}

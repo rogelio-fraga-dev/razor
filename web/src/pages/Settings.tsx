@@ -9,6 +9,7 @@ import { ConfigChecklist } from "../components/ConfigChecklist";
 import { evaluateConfig } from "../lib/configCompleteness";
 import { WhatsAppPairing } from "../components/WhatsAppPairing";
 import { AdminsEditor } from "../components/AdminsEditor";
+import { SiteEditor } from "../components/SiteEditor";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { getOnce } from "../lib/dedupe";
@@ -542,6 +543,8 @@ export function Settings() {
   const [autoOpened, setAutoOpened] = useState(false);
 
   const bot = useApi<BotSettings>(() => api.get("/api/admin/settings/bot"), [configVersion]);
+  // O slug vem do perfil da barbearia — e o endereco publico do site.
+  const shop = useApi<Barbershop>(() => api.get("/api/admin/barbershop"), [configVersion]);
   const status = useApi<BotStatus>(() => api.get("/api/admin/settings/bot/status"), [configVersion]);
   const admins = useApi<AdminContact[]>(() => api.get("/api/admin/admins"), [configVersion]);
 
@@ -550,6 +553,7 @@ export function Settings() {
   const config = evaluateConfig(bot.data, status.data, admins.data);
   // Só decide depois que as três consultas responderam: avaliar com dados pela metade abriria o
   // assistente na cara de quem já configurou tudo.
+  const shopSlug = shop.data?.slug ?? null;
   const carregado = !bot.loading && !status.loading && !admins.loading && !bot.error;
 
   // Falta algo OBRIGATÓRIO: o assistente abre sozinho — uma vez por sessão do navegador.
@@ -617,6 +621,7 @@ export function Settings() {
           <WhatsAppCard reloadKey={configVersion} />
           <ProfileCard reloadKey={configVersion} />
           <GoalsCard reloadKey={configVersion} />
+          <SiteEditor slug={shopSlug} />
           <AdminsCard reloadKey={configVersion} />
         </div>
       </div>

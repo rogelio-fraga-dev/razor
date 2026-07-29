@@ -1,16 +1,28 @@
 // Os três templates do site white-label.
 //
-// O que muda entre eles é a COMPOSIÇÃO — o que vem primeiro, quanto respiro, o peso da imagem.
-// O conteúdo é o mesmo, e vem dos blocos compartilhados em parts.tsx. Por isso trocar de
-// template não pede redigitar nada.
+// Cada um é uma mini landing page completa: hero com imagem, prova em números, o que fazemos,
+// galeria do trabalho, equipe, planos, como funciona e uma chamada final. O que muda entre eles
+// é a ORDEM e o peso de cada bloco — o conteúdo é o mesmo e vem de parts.tsx, que é o que
+// sustenta a promessa de trocar de template sem redigitar nada.
 import type { PublicSite } from "../api/types";
-import { BookButton, Footer, Plans, Services, Team } from "./parts";
+import { BookButton, Footer, Gallery, HowItWorks, Plans, Services, Stats, StickyBook, Team } from "./parts";
 
-function Logo({ site }: { site: PublicSite }) {
+function Logo({ site, light }: { site: PublicSite; light?: boolean }) {
   if (site.logoUrl) {
     return <img src={site.logoUrl} alt={site.barbershopName} style={{ height: 40, width: "auto" }} />;
   }
-  return <strong style={{ fontFamily: "var(--font-display)", fontSize: 20, letterSpacing: "-0.02em" }}>{site.barbershopName}</strong>;
+  return (
+    <strong
+      style={{
+        fontFamily: "var(--font-display)",
+        fontSize: 20,
+        letterSpacing: "-0.02em",
+        color: light ? "#fff" : undefined,
+      }}
+    >
+      {site.barbershopName}
+    </strong>
+  );
 }
 
 function TopBar({ site }: { site: PublicSite }) {
@@ -27,191 +39,173 @@ function TopBar({ site }: { site: PublicSite }) {
   );
 }
 
+/**
+ * Hero de tela cheia com a foto do dono ao fundo.
+ *
+ * Sem foto, cai num bloco sólido com a cor da marca — o que evita o hero mais comum de site
+ * ruim: um retângulo cinza esperando imagem.
+ */
+function Hero({ site, align = "left" }: { site: PublicSite; align?: "left" | "center" }) {
+  const semFoto = !site.heroImageUrl;
+  return (
+    <section className="rz-hero" style={semFoto ? { background: "linear-gradient(140deg, var(--accent), var(--accent-hover))" } : undefined}>
+      {site.heroImageUrl && (
+        <>
+          <div className="rz-hero-bg" style={{ backgroundImage: `url(${site.heroImageUrl})` }} aria-hidden="true" />
+          <div className="rz-hero-veil" aria-hidden="true" />
+        </>
+      )}
+      <div className="rz-hero-inner">
+        <div className="rz-wrap" style={align === "center" ? { textAlign: "center" } : undefined}>
+          <div style={{ marginBottom: 22 }}>
+            <Logo site={site} light />
+          </div>
+          <h1 style={align === "center" ? { marginInline: "auto" } : undefined}>
+            {site.headline || site.barbershopName}
+          </h1>
+          {site.subheadline && (
+            <p className="rz-lead" style={align === "center" ? { marginInline: "auto" } : undefined}>
+              {site.subheadline}
+            </p>
+          )}
+          <div className="rz-hero-cta" style={align === "center" ? { justifyContent: "center" } : undefined}>
+            <BookButton site={site} />
+            {site.mapsUrl && (
+              <a className="rz-btn rz-btn-ghost" href={site.mapsUrl} target="_blank" rel="noopener noreferrer">
+                Como chegar
+              </a>
+            )}
+          </div>
+          {site.openingHours && (
+            <p style={{ marginTop: 22, fontSize: 14, color: "rgba(255,255,255,.7)" }}>{site.openingHours}</p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function About({ site, big }: { site: PublicSite; big?: boolean }) {
+  if (!site.aboutText) return null;
+  return (
+    <section className="rz-section">
+      <div className="rz-wrap" style={{ maxWidth: big ? 800 : undefined }}>
+        <p className="rz-eyebrow">A casa</p>
+        <p
+          className={big ? undefined : "rz-lead"}
+          style={
+            big
+              ? {
+                  fontFamily: "var(--font-display)",
+                  fontSize: "clamp(20px, 2.6vw, 28px)",
+                  lineHeight: 1.5,
+                  fontWeight: 600,
+                  letterSpacing: "-0.015em",
+                  whiteSpace: "pre-line",
+                  margin: 0,
+                }
+              : { whiteSpace: "pre-line" }
+          }
+        >
+          {site.aboutText}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/** Chamada final antes do rodapé — a última oportunidade de converter a visita. */
+function FinalCta({ site }: { site: PublicSite }) {
+  return (
+    <section className="rz-cta">
+      <div className="rz-wrap">
+        <h2>Bora marcar seu horário?</h2>
+        <p>Chame no WhatsApp e a gente resolve em um minuto — sem app, sem cadastro.</p>
+        <div>
+          <BookButton site={site} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ============================================================================
-   CLÁSSICO — elegante e direto.
-   A pergunta do visitante ("quanto custa e como marco?") é respondida acima da
-   dobra: título, uma frase, botão. Sem cinema.
+   CLÁSSICO — a pergunta do visitante respondida primeiro.
+   Hero, números, serviços e preço logo em seguida. Para a barbearia de bairro
+   que compete por conveniência e preço claro.
    ========================================================================== */
 export function Classico({ site }: { site: PublicSite }) {
   return (
     <>
-      <TopBar site={site} />
-      <section className="rz-section" style={{ paddingBottom: 0 }}>
-        <div className="rz-wrap" style={{ display: "grid", gap: 40, gridTemplateColumns: site.heroImageUrl ? "1.1fr 1fr" : "1fr", alignItems: "center" }}>
-          <div>
-            <h1 className="rz-h2" style={{ fontSize: "clamp(34px, 5vw, 54px)" }}>
-              {site.headline || site.barbershopName}
-            </h1>
-            {site.subheadline && <p className="rz-lead" style={{ marginTop: 14 }}>{site.subheadline}</p>}
-            <div style={{ display: "flex", gap: 12, marginTop: 28, flexWrap: "wrap" }}>
-              <BookButton site={site} />
-              {site.mapsUrl && (
-                <a className="rz-btn rz-btn-ghost" href={site.mapsUrl} target="_blank" rel="noopener noreferrer">
-                  Como chegar
-                </a>
-              )}
-            </div>
-            {site.openingHours && (
-              <p style={{ marginTop: 22, fontSize: 14, color: "var(--text-muted)" }}>{site.openingHours}</p>
-            )}
-          </div>
-          {site.heroImageUrl && (
-            <img src={site.heroImageUrl} alt="" className="rz-shot" style={{ aspectRatio: "4 / 3" }} />
-          )}
-        </div>
-      </section>
-
+      <Hero site={site} />
+      <Stats site={site} />
       <Services site={site} />
+      <Gallery site={site} title="Nosso trabalho" />
       <Team site={site} />
       <Plans site={site} />
-      {site.aboutText && (
-        <section className="rz-section rz-section-alt">
-          <div className="rz-wrap">
-            <h2 className="rz-h2">A casa</h2>
-            <p className="rz-lead" style={{ whiteSpace: "pre-line" }}>{site.aboutText}</p>
-          </div>
-        </section>
-      )}
+      <HowItWorks site={site} />
+      <About site={site} />
+      <FinalCta site={site} />
       <Footer site={site} />
+      <StickyBook site={site} />
     </>
   );
 }
 
 /* ============================================================================
-   ESTÚDIO — marca e atmosfera.
-   Tipografia grande e muito respiro; a imagem é fundo, não protagonista. Feito
-   para barbearia que vende experiência antes de preço — por isso o texto "sobre"
-   vem ANTES da tabela de serviços.
+   ESTÚDIO — marca antes de preço.
+   Hero centralizado, texto grande, equipe em destaque; a tabela de valores só
+   aparece depois que a barbearia se apresentou.
    ========================================================================== */
 export function Estudio({ site }: { site: PublicSite }) {
   return (
     <>
-      <section
-        style={{
-          minHeight: "76vh",
-          display: "grid",
-          placeItems: "center",
-          textAlign: "center",
-          position: "relative",
-          // A foto entra escurecida por baixo do texto: sem a camada, um hero claro deixaria o
-          // título ilegível, e o dono não tem como saber disso ao subir a imagem.
-          backgroundImage: site.heroImageUrl
-            ? `linear-gradient(rgba(0,0,0,.62), rgba(0,0,0,.72)), url(${site.heroImageUrl})`
-            : undefined,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          color: site.heroImageUrl ? "#fff" : undefined,
-          padding: "80px 0",
-        }}
-      >
-        <div className="rz-wrap">
-          <div style={{ marginBottom: 26 }}>
-            <Logo site={site} />
-          </div>
-          <h1
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(40px, 8vw, 92px)",
-              fontWeight: 800,
-              letterSpacing: "-0.035em",
-              lineHeight: 1.02,
-              margin: 0,
-            }}
-          >
-            {site.headline || site.barbershopName}
-          </h1>
-          {site.subheadline && (
-            <p
-              className="rz-lead"
-              style={{ margin: "22px auto 0", color: site.heroImageUrl ? "rgba(255,255,255,.82)" : undefined }}
-            >
-              {site.subheadline}
-            </p>
-          )}
-          <div style={{ marginTop: 34 }}>
-            <BookButton site={site} />
-          </div>
-        </div>
-      </section>
-
-      {site.aboutText && (
-        <section className="rz-section">
-          <div className="rz-wrap" style={{ maxWidth: 760 }}>
-            <p className="rz-eyebrow">Sobre</p>
-            <p
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "clamp(20px, 2.6vw, 27px)",
-                lineHeight: 1.5,
-                fontWeight: 600,
-                letterSpacing: "-0.015em",
-                whiteSpace: "pre-line",
-                margin: 0,
-              }}
-            >
-              {site.aboutText}
-            </p>
-          </div>
-        </section>
-      )}
-
+      <Hero site={site} align="center" />
+      <About site={site} big />
+      <Gallery site={site} title="Atmosfera" />
       <Team site={site} />
+      <Stats site={site} />
       <Services site={site} title="A carta" />
       <Plans site={site} />
+      <HowItWorks site={site} />
+      <FinalCta site={site} />
       <Footer site={site} />
+      <StickyBook site={site} />
     </>
   );
 }
 
 /* ============================================================================
-   VITRINE — o trabalho em primeiro lugar.
-   A galeria abre a página, porque para essa barbearia a prova é a foto do corte.
-   Sem galeria o template cai num hero de texto em vez de mostrar molduras vazias.
+   VITRINE — o trabalho é o argumento.
+   Barra de topo enxuta e a galeria logo abaixo do título: para essa barbearia a
+   prova é a foto do corte, não o texto.
    ========================================================================== */
 export function Vitrine({ site }: { site: PublicSite }) {
-  const shots = site.gallery.slice(0, 8);
   return (
     <>
       <TopBar site={site} />
-
       <section className="rz-section" style={{ paddingBottom: 0 }}>
         <div className="rz-wrap">
-          <h1 className="rz-h2" style={{ fontSize: "clamp(32px, 5vw, 50px)", maxWidth: "18ch" }}>
+          <p className="rz-eyebrow">Portfólio</p>
+          <h1 className="rz-h2" style={{ fontSize: "clamp(32px, 5.4vw, 56px)", maxWidth: "17ch" }}>
             {site.headline || site.barbershopName}
           </h1>
           {site.subheadline && <p className="rz-lead" style={{ marginTop: 12 }}>{site.subheadline}</p>}
-          <div style={{ marginTop: 24 }}>
+          <div style={{ marginTop: 26 }}>
             <BookButton site={site} />
           </div>
         </div>
       </section>
-
-      {shots.length > 0 && (
-        <section className="rz-section" aria-label="Galeria de cortes">
-          <div className="rz-wrap">
-            <div
-              className="rz-grid"
-              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}
-            >
-              {shots.map((src, i) => (
-                <img key={src} src={src} alt={`Corte ${i + 1} da ${site.barbershopName}`} className="rz-shot" />
-              ))}
-            </div>
-            {site.instagramUrl && (
-              <div style={{ marginTop: 26 }}>
-                <a className="rz-btn rz-btn-ghost" href={site.instagramUrl} target="_blank" rel="noopener noreferrer">
-                  Ver mais no Instagram
-                </a>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
+      <Gallery site={site} title="" mosaic />
+      <Stats site={site} />
       <Services site={site} />
       <Team site={site} />
       <Plans site={site} />
+      <HowItWorks site={site} />
+      <About site={site} />
+      <FinalCta site={site} />
       <Footer site={site} />
+      <StickyBook site={site} />
     </>
   );
 }

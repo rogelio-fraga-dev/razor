@@ -1214,3 +1214,76 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap;
   border: 0;
 }
+
+/* ---------- Editor do site white-label ---------- */
+.site-tpl-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.site-tpl {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.site-tpl:hover { border-color: var(--border-hi); transform: translateY(-1px); }
+.site-tpl:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.site-tpl.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.site-tpl-hint { font-size: 12px; color: var(--text-muted); line-height: 1.45; }
+
+/* Miniatura em CSS puro: mostra a ESTRUTURA de cada modelo. Uma captura de tela ficaria
+   desatualizada a cada mudança no template, e ninguem lembraria de refaze-la. */
+.site-thumb {
+  height: 62px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  display: block;
+  overflow: hidden;
+  position: relative;
+}
+.site-thumb::before,
+.site-thumb::after { content: ""; position: absolute; background: var(--text-faint); opacity: 0.5; }
+/* Clássico: faixa de capa e duas linhas de conteúdo. */
+.thumb-classico::before { inset: 0 0 62% 0; background: var(--accent); opacity: 0.75; }
+.thumb-classico::after { left: 8px; right: 8px; top: 46%; height: 4px; box-shadow: 0 9px 0 var(--text-faint); }
+/* Estúdio: bloco central alto, muito respiro. */
+.thumb-estudio::before { inset: 12% 26% 46% 26%; background: var(--accent); opacity: 0.75; border-radius: 3px; }
+.thumb-estudio::after { left: 26%; right: 26%; top: 62%; height: 4px; }
+/* Vitrine: grade de fotos. */
+.thumb-vitrine::before {
+  inset: 10% 8% 10% 8%;
+  background:
+    linear-gradient(var(--accent), var(--accent)) 0 0 / 46% 100% no-repeat,
+    linear-gradient(var(--text-faint), var(--text-faint)) 52% 0 / 22% 46% no-repeat,
+    linear-gradient(var(--text-faint), var(--text-faint)) 78% 0 / 22% 46% no-repeat,
+    linear-gradient(var(--text-faint), var(--text-faint)) 52% 100% / 22% 46% no-repeat,
+    linear-gradient(var(--text-faint), var(--text-faint)) 78% 100% / 22% 46% no-repeat;
+  opacity: 0.8;
+  border-radius: 3px;
+}
+.thumb-vitrine::after { display: none; }
+
+.site-color {
+  width: 44px;
+  height: 38px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.site-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid var(--border-hi);
+  cursor: pointer;
+  padding: 0;
+}
+.site-swatch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
