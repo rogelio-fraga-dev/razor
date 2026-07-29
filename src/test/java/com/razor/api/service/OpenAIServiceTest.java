@@ -35,6 +35,7 @@ class OpenAIServiceTest {
     @Mock private AgendaService agendaService;
     @Mock private BarbershopSettingsService barbershopSettingsService;
     @Mock private ServiceOfferingRepository serviceOfferingRepository;
+    @Mock private PlanPricingService planPricingService;
 
     @InjectMocks private OpenAIService service;
 
@@ -55,7 +56,7 @@ class OpenAIServiceTest {
                 offering("Corte Navalhado", "45.00", 45),
                 offering("Barba Terapia", "55.00", 40)));
 
-        String table = service.buildServiceTable();
+        String table = service.buildServiceTable(null);
 
         assertThat(table).contains("Corte Navalhado").contains("45,00").contains("45 min");
         assertThat(table).contains("Barba Terapia").contains("55,00").contains("40 min");
@@ -68,7 +69,7 @@ class OpenAIServiceTest {
     void serviceTable_emptyCatalog_doesNotInventPrices() {
         when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of());
 
-        String table = service.buildServiceTable();
+        String table = service.buildServiceTable(null);
 
         assertThat(table).doesNotContain("R$");
         assertThat(table).contains("catálogo não cadastrado");
@@ -95,5 +96,55 @@ class OpenAIServiceTest {
         var cfg = new BarbershopSettingsService.BotSettings("", "", "", null, "");
 
         assertThat(service.buildOpeningHours(cfg)).isEqualTo("Seg a Sáb, das 09:00 às 19:00");
+    }
+    // ==========================================================================================
+    // Preco do assinante no prompt da IA
+    // ==========================================================================================
+
+    @Test
+    @DisplayName("assinante recebe o preco COM desconto na tabela que vai para a IA")
+    void serviceTable_subscriber_getsPlanPrice() {
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(
+                offering("Corte", "45.00", 30)));
+        when(planPricingService.priceCatalogFor(any(), any())).thenReturn(List.of(
+                new com.razor.api.service.PlanPricingService.PricedItem(
+                        "Corte", new BigDecimal("45.00"), new BigDecimal("22.50"), new BigDecimal("50"), true)));
+
+        String table = service.buildServiceTable(
+                com.razor.api.model.Customer.builder().phoneNumber("5511999").build());
+
+        // O preco cheio vai junto de proposito: e o que permite a IA dizer "de X por Y" e o
+        // cliente PERCEBER o valor do plano que ele paga todo mes.
+        assertThat(table).contains("22,50").contains("45,00").contains("plano");
+    }
+
+    @Test
+    @DisplayName("servico gratis pelo plano aparece como GRATIS, nao como R-e,00")
+    void serviceTable_freeByPlan() {
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(
+                offering("Corte", "45.00", 30)));
+        when(planPricingService.priceCatalogFor(any(), any())).thenReturn(List.of(
+                new com.razor.api.service.PlanPricingService.PricedItem(
+                        "Corte", new BigDecimal("45.00"), BigDecimal.ZERO, new BigDecimal("100"), true)));
+
+        String table = service.buildServiceTable(
+                com.razor.api.model.Customer.builder().phoneNumber("5511999").build());
+
+        assertThat(table).contains("GRÁTIS").contains("45,00");
+    }
+
+    @Test
+    @DisplayName("cliente sem plano continua vendo o preco cheio")
+    void serviceTable_noPlan_fullPrice() {
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(
+                offering("Corte", "45.00", 30)));
+        when(planPricingService.priceCatalogFor(any(), any())).thenReturn(List.of(
+                new com.razor.api.service.PlanPricingService.PricedItem(
+                        "Corte", new BigDecimal("45.00"), new BigDecimal("45.00"), BigDecimal.ZERO, false)));
+
+        String table = service.buildServiceTable(
+                com.razor.api.model.Customer.builder().phoneNumber("5511999").build());
+
+        assertThat(table).contains("45,00").doesNotContain("plano");
     }
 }

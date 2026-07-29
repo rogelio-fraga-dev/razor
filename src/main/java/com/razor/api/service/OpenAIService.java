@@ -32,6 +32,7 @@ public class OpenAIService {
     private final AgendaService agendaService;
     private final BarbershopSettingsService barbershopSettingsService;
     private final com.razor.api.repository.ServiceOfferingRepository serviceOfferingRepository;
+    private final PlanPricingService planPricingService;
     private WebClient openAiWebClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -114,16 +115,48 @@ public class OpenAIService {
 
     /** Tabela de servicos do catalogo do tenant (nome, preco e duracao) para o prompt da IA. */
     // package-private: coberto por OpenAIServiceTest (garante que a IA nunca recite preco fixo).
-    String buildServiceTable() {
+    /**
+     * A tabela de precos que vai para o prompt da IA, <b>ja com os beneficios do plano</b> do
+     * cliente aplicados.
+     *
+     * <p>Sem o cliente, esta tabela levava o preco cheio do catalogo — e a IA e quem responde
+     * "quanto custa?" na conversa. Resultado: quem paga R$ 119,90 por mes de plano ouvia o valor
+     * integral do bot, e o beneficio so aparecia no menu numerado, que quase ninguem abre. O
+     * motor de beneficios existia desde a V27 e nao estava ligado onde mais importa.
+     *
+     * <p>{@code customer} nulo (cliente novo, ainda sem cadastro) cai no preco cheio, que e o
+     * correto: ele nao tem plano.
+     */
+    private String brl(java.math.BigDecimal v) {
+        return String.format(new java.util.Locale("pt", "BR"), "%.2f", v);
+    }
+
+    String buildServiceTable(com.razor.api.model.Customer customer) {
         var catalog = serviceOfferingRepository.findByBarbershopIdAndActiveTrue(
                 com.razor.api.tenant.TenantContext.getCurrent());
         if (catalog == null || catalog.isEmpty()) {
             return "- (catálogo não cadastrado — peça ao cliente que aguarde e avise o barbeiro)";
         }
+
+        // Preco por servico ja resolvido pelo plano (desconto, cota do mes, dia da semana).
+        var precos = new java.util.HashMap<String, PlanPricingService.PricedItem>();
+        for (var item : planPricingService.priceCatalogFor(customer, LocalDate.now(ZoneId.of("America/Sao_Paulo")))) {
+            precos.put(item.name(), item);
+        }
+
         StringBuilder sb = new StringBuilder();
         for (var s : catalog) {
             sb.append("- ").append(s.getName());
-            if (s.getPrice() != null) {
+            var comPlano = precos.get(s.getName());
+            if (comPlano != null && (comPlano.isFree() || comPlano.discounted())) {
+                // O preco cheio vai junto para a IA poder dizer "de X por Y" — e o que faz o
+                // cliente PERCEBER o valor do plano que ele paga.
+                sb.append(comPlano.isFree()
+                        ? ": GRÁTIS pelo plano do cliente (valor normal R$ "
+                                + brl(comPlano.originalPrice()) + ")"
+                        : ": R$ " + brl(comPlano.finalPrice())
+                                + " com o plano do cliente (valor normal R$ " + brl(comPlano.originalPrice()) + ")");
+            } else if (s.getPrice() != null) {
                 sb.append(": R$ ").append(String.format(new java.util.Locale("pt", "BR"), "%.2f", s.getPrice()));
             }
             if (s.getDurationMinutes() != null) {
@@ -141,7 +174,7 @@ public class OpenAIService {
         return cfg.workingDaysText() + ", das " + cfg.openingTime() + " às " + cfg.closingTime();
     }
 
-    public String processCustomerMessage(String userMessage, List<String> recentHistory, String agendaContext, int activeAppointments, String knownCustomerName) {
+    public String processCustomerMessage(String userMessage, List<String> recentHistory, String agendaContext, int activeAppointments, String knownCustomerName, com.razor.api.model.Customer customer) {
         try {
             List<ChatMessage> messages = new ArrayList<>();
             LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
@@ -169,7 +202,7 @@ public class OpenAIService {
                     .replace("{{knownCustomerName}}", knownCustomerName)
                     .replace("{{nomeBarbearia}}", cfg.displayName())
                     .replace("{{persona}}", blankTo(cfg.botPersona(), DEFAULT_PERSONA))
-                    .replace("{{tabelaServicos}}", buildServiceTable())
+                    .replace("{{tabelaServicos}}", buildServiceTable(customer))
                     .replace("{{funcionamento}}", buildOpeningHours(cfg));
                     
             if (activeAppointments == 1) {

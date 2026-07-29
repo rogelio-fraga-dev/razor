@@ -178,14 +178,14 @@ class CustomerConversationServiceTest {
         givenExistingCustomer();
         when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
         when(agendaService.getAgendamentosClienteList(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
                 .thenReturn("Claro! Pra quando você quer o corte?");
 
         service.processCustomerMessage(textWebhook("oi, quero marcar um corte"), PHONE);
 
         // a IA respondeu — não caiu na saudação canned
         assertThat(captureClientMessage()).isEqualTo("Claro! Pra quando você quer o corte?");
-        verify(openAIService).processCustomerMessage(any(), any(), any(), anyInt(), any());
+        verify(openAIService).processCustomerMessage(any(), any(), any(), anyInt(), any(), any());
     }
 
     @Test
@@ -286,7 +286,7 @@ class CustomerConversationServiceTest {
         givenExistingCustomer();
         when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
         when(agendaService.getAgendamentosClienteList(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
                 .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
 
         // 1a mensagem: a IA devolve a tag de novo agendamento
@@ -312,7 +312,7 @@ class CustomerConversationServiceTest {
         givenExistingCustomer();
         when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
         when(agendaService.getAgendamentosClienteList(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
                 .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
 
         // entra em ESPERANDO_PAGAMENTO pelo fluxo real
@@ -340,7 +340,7 @@ class CustomerConversationServiceTest {
     private void givenAiReturnsAgendamentoTag() {
         when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
         when(agendaService.getAgendamentosClienteList(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
                 .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
     }
 
@@ -395,7 +395,7 @@ class CustomerConversationServiceTest {
         givenExistingCustomer();
         when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
         when(agendaService.getAgendamentosClienteList(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
                 .thenReturn("Claro! Temos horários de manhã e à tarde.");
 
         service.processCustomerMessage(textWebhook("voces atendem a tarde?"), PHONE);

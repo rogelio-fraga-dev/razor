@@ -414,7 +414,7 @@ public class CustomerConversationService {
         String agendaContext = agendaService.getHorariosOcupadosParaIA();
         int activeAppointments = agendaService.getAgendamentosClienteList(phoneNumber).size();
         String knownName = (customer.getName() != null && !customer.getName().isBlank()) ? customer.getName() : "Desconhecido";
-        String aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext, activeAppointments, knownName);
+        String aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext, activeAppointments, knownName, customer);
 
         AiIntent intent = aiTagParser.parse(aiResponse);
         String responseToSend;
