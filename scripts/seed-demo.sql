@@ -464,19 +464,94 @@ BEGIN
     UPDATE coupons SET used_count = v_redencoes WHERE id = v_cup_indicacao;
 
     -- -----------------------------------------------------------------------------------------
-    -- 9. Hoje: caixa aberto e duas comandas em andamento
+    -- 9. Hoje: alguns cortes ja fechados pela manha, caixa aberto, duas comandas em andamento
+    --    agora e mais uns horarios reservados para o resto do dia.
     -- -----------------------------------------------------------------------------------------
     v_sessao := gen_random_uuid();
     INSERT INTO cash_register_sessions (id, barbershop_id, opened_by_name, opened_at, opening_amount,
                                         status, created_at, updated_at)
     VALUES (v_sessao, v_shop, 'Juliana Alves', CURRENT_DATE + time '08:45', 150.00, 'OPEN', now(), now());
 
-    INSERT INTO cash_movements (id, session_id, barbershop_id, type, payment_method, amount, description, created_at)
-    VALUES (gen_random_uuid(), v_sessao, v_shop, 'VENDA', 'DINHEIRO', 45.00, 'Comanda de André Souza', CURRENT_DATE + time '09:30'),
-           (gen_random_uuid(), v_sessao, v_shop, 'VENDA', 'PIX',      70.00, 'Comanda de Bruno Lima',  CURRENT_DATE + time '10:15'),
-           (gen_random_uuid(), v_sessao, v_shop, 'SUPRIMENTO', NULL,  50.00, 'Troco',                  CURRENT_DATE + time '11:00');
+    -- 5 cortes ja concluidos e cobrados hoje de manha. Mesma coerencia do historico de 60 dias:
+    -- agendamento de origem -> comanda FECHADA -> um unico cash_movement por venda.
+    FOR v_k IN 1 .. 5 LOOP
+        v_ci := 1 + ((v_k * 11 + 3) % array_length(v_cust, 1));
+        v_si := 1 + ((v_k * 5 + 1) % array_length(v_svc_nome, 1));
+        v_hora := time '09:00' + (interval '50 minutes' * (v_k - 1));
+        v_metodo := v_metodos[1 + (v_k % 6)];
 
-    -- Comandas abertas: sem total nem forma de pagamento, como o CHECK do banco exige.
+        INSERT INTO appointments (customer_phone, customer_name, service, payment_status,
+                                  notified, thanked, appointment_date, appointment_time,
+                                  barbershop_id, professional_id, created_at, updated_at)
+        VALUES (v_cust_fone[v_ci], v_cust_nome[v_ci], v_svc_nome[v_si],
+                CASE WHEN v_metodo = 'PIX' THEN 'PIX' ELSE 'PRESENCIAL' END,
+                true, true, CURRENT_DATE, v_hora, v_shop,
+                v_prof[1 + (v_k % 3)], CURRENT_DATE + v_hora - interval '1 day', now())
+        RETURNING id INTO v_agend;
+
+        v_comanda := gen_random_uuid();
+        v_total := v_svc_preco[v_si];
+
+        INSERT INTO comandas (id, barbershop_id, customer_name, customer_phone, professional_id,
+                              status, opened_at, comanda_date, appointment_id, created_at, updated_at)
+        VALUES (v_comanda, v_shop, v_cust_nome[v_ci], v_cust_fone[v_ci],
+                v_prof[1 + (v_k % 3)], 'ABERTA', CURRENT_DATE + v_hora, CURRENT_DATE, v_agend, now(), now());
+
+        INSERT INTO comanda_items (id, comanda_id, barbershop_id, kind, reference_id, description,
+                                   unit_price, quantity, total, created_at)
+        VALUES (gen_random_uuid(), v_comanda, v_shop, 'SERVICO', NULL, v_svc_nome[v_si],
+                v_svc_preco[v_si], 1, v_svc_preco[v_si], CURRENT_DATE + v_hora);
+
+        -- Um em cada tres leva um produto junto.
+        IF v_k % 3 = 0 THEN
+            v_qi := 1 + (v_k % 5);
+            IF (SELECT track_stock FROM products WHERE id = v_prod[v_qi]) THEN
+                UPDATE products SET stock_quantity = stock_quantity - 1
+                WHERE id = v_prod[v_qi] AND stock_quantity > 0
+                RETURNING stock_quantity INTO v_estoque;
+            ELSE
+                v_estoque := NULL;
+            END IF;
+
+            v_total := v_total + v_prod_prec[v_qi];
+            INSERT INTO comanda_items (id, comanda_id, barbershop_id, kind, reference_id, description,
+                                       unit_price, quantity, total, created_at)
+            VALUES (gen_random_uuid(), v_comanda, v_shop, 'PRODUTO', v_prod[v_qi], v_prod_nome[v_qi],
+                    v_prod_prec[v_qi], 1, v_prod_prec[v_qi], CURRENT_DATE + v_hora);
+
+            v_venda := gen_random_uuid();
+            INSERT INTO product_sales (id, barbershop_id, product_id, product_name, unit_price,
+                                       quantity, total, professional_id, payment_method,
+                                       sale_date, sold_at, comanda_id, created_at)
+            VALUES (v_venda, v_shop, v_prod[v_qi], v_prod_nome[v_qi], v_prod_prec[v_qi],
+                    1, v_prod_prec[v_qi], v_prof[1 + (v_k % 3)], v_metodo,
+                    CURRENT_DATE, CURRENT_DATE + v_hora, v_comanda, now());
+
+            IF v_estoque IS NOT NULL THEN
+                INSERT INTO stock_movements (id, barbershop_id, product_id, type, quantity,
+                                             resulting_stock, product_sale_id, note, created_at)
+                VALUES (gen_random_uuid(), v_shop, v_prod[v_qi], 'SAIDA', 1, v_estoque,
+                        v_venda, 'Venda em comanda', CURRENT_DATE + v_hora);
+            END IF;
+        END IF;
+
+        v_mov := gen_random_uuid();
+        INSERT INTO cash_movements (id, session_id, barbershop_id, type, payment_method, amount, description, created_at)
+        VALUES (v_mov, v_sessao, v_shop, 'VENDA', v_metodo, v_total,
+                'Comanda de ' || v_cust_nome[v_ci], CURRENT_DATE + v_hora);
+
+        UPDATE comandas
+           SET status = 'FECHADA', total = v_total, payment_method = v_metodo,
+               closed_at = CURRENT_DATE + v_hora + interval '35 minutes',
+               cash_movement_id = v_mov
+         WHERE id = v_comanda;
+    END LOOP;
+
+    INSERT INTO cash_movements (id, session_id, barbershop_id, type, payment_method, amount, description, created_at)
+    VALUES (gen_random_uuid(), v_sessao, v_shop, 'SUPRIMENTO', NULL, 50.00, 'Troco', CURRENT_DATE + time '11:00');
+
+    -- Comandas abertas: clientes na cadeira agora. Sem total nem forma de pagamento, como o
+    -- CHECK do banco exige.
     FOR v_k IN 1 .. 2 LOOP
         v_comanda := gen_random_uuid();
         INSERT INTO comandas (id, barbershop_id, customer_name, customer_phone, professional_id,
@@ -488,6 +563,19 @@ BEGIN
                                    unit_price, quantity, total, created_at)
         VALUES (gen_random_uuid(), v_comanda, v_shop, 'SERVICO', NULL, v_svc_nome[v_k],
                 v_svc_preco[v_k], 1, v_svc_preco[v_k], now());
+    END LOOP;
+
+    -- Mais alguns horarios reservados para o fim da tarde de hoje.
+    FOR v_k IN 1 .. 3 LOOP
+        v_ci := 1 + ((v_k * 13 + 7) % array_length(v_cust, 1));
+        v_si := 1 + ((v_k * 4 + 2) % array_length(v_svc_nome, 1));
+        v_hora := time '16:00' + (interval '45 minutes' * (v_k - 1));
+
+        INSERT INTO appointments (customer_phone, customer_name, service, payment_status,
+                                  notified, thanked, appointment_date, appointment_time,
+                                  barbershop_id, professional_id, created_at, updated_at)
+        VALUES (v_cust_fone[v_ci], v_cust_nome[v_ci], v_svc_nome[v_si], 'PENDENTE',
+                false, false, CURRENT_DATE, v_hora, v_shop, v_prof[1 + (v_k % 3)], now(), now());
     END LOOP;
 
     -- -----------------------------------------------------------------------------------------
@@ -507,6 +595,27 @@ BEGIN
             VALUES (v_cust_fone[v_ci], v_cust_nome[v_ci], v_svc_nome[v_si], 'PENDENTE',
                     false, false, v_dia, time '09:00' + (interval '45 minutes' * (v_k - 1)),
                     v_shop, v_prof[1 + ((v_i + v_k) % 3)], now(), now());
+        END LOOP;
+    END LOOP;
+
+    -- -----------------------------------------------------------------------------------------
+    -- 10b. Amanha e depois de amanha tambem ganham horarios a tarde — o laco acima so cobre a
+    --      manha, e sem isso os dois dias mais proximos pareceriam vazios depois do meio-dia.
+    -- -----------------------------------------------------------------------------------------
+    FOR v_i IN 1 .. 2 LOOP
+        v_dia := CURRENT_DATE + v_i;
+        CONTINUE WHEN extract(dow from v_dia) = 0;
+
+        FOR v_k IN 1 .. 3 LOOP
+            v_ci := 1 + ((v_i * 19 + v_k * 6) % array_length(v_cust, 1));
+            v_si := 1 + ((v_i * 2 + v_k) % array_length(v_svc_nome, 1));
+            v_hora := time '14:00' + (interval '45 minutes' * (v_k - 1));
+
+            INSERT INTO appointments (customer_phone, customer_name, service, payment_status,
+                                      notified, thanked, appointment_date, appointment_time,
+                                      barbershop_id, professional_id, created_at, updated_at)
+            VALUES (v_cust_fone[v_ci], v_cust_nome[v_ci], v_svc_nome[v_si], 'PENDENTE',
+                    false, false, v_dia, v_hora, v_shop, v_prof[1 + ((v_i + v_k) % 3)], now(), now());
         END LOOP;
     END LOOP;
 
