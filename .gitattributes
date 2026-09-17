@@ -1,0 +1,4 @@
+# Scripts que rodam em containers Linux (nginx docker-entrypoint.d, setup EC2) quebram com
+# CRLF: o shebang vira "#!/bin/sh\r" e o interpretador nao e encontrado. Forca LF sempre,
+# mesmo quando checkout.exe do Git for Windows converteria para CRLF por padrao.
+*.sh text eol=lf
