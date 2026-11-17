@@ -29,11 +29,21 @@ public class AdminBotSettingsController {
         return BotSettingsPayload.from(barbershopSettingsService.getOrEmpty());
     }
 
+    /**
+     * Grava a config do bot.
+     *
+     * <p>{@code welcome=false} grava sem disparar o resumo de boas-vindas: o modal de configuracao
+     * salva a cada passo (para nao perder progresso) e so no "Concluir" pede o resumo — senao o
+     * dono receberia "Tudo pronto!" no meio do fluxo, antes de cadastrar servicos e PIX.
+     */
     @PutMapping
-    public BotSettingsPayload update(@Valid @RequestBody BotSettingsPayload req) {
+    public BotSettingsPayload update(@Valid @RequestBody BotSettingsPayload req,
+                                     @RequestParam(name = "welcome", defaultValue = "true") boolean welcome) {
         BarbershopSettings saved = barbershopSettingsService.update(req);
         // Na 1a configuracao, manda o resumo de boas-vindas ao dono (idempotente).
-        welcomeBriefService.maybeSendAfterConfig(saved);
+        if (welcome) {
+            welcomeBriefService.maybeSendAfterConfig(saved);
+        }
         return BotSettingsPayload.from(saved);
     }
 
