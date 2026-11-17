@@ -28,14 +28,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /**
- * Testes do {@link AgendaService} (Fase 0.4): logica financeira, fidelidade,
+ * Testes do {@link AgendaService} e dos servicos para os quais ele delega
+ * ({@link AgendaAvailabilityService}, {@link AgendaBookingService}, {@link AgendaTaskService},
+ * {@link AgendaReportService}) (Fase 0.4): logica financeira, fidelidade,
  * disponibilidade de horarios, cancelamento e criacao de tarefas — tudo com o
  * repositorio mockado, sem depender de banco.
  */
@@ -59,7 +60,26 @@ class AgendaServiceTest {
     @Mock private FidelityService fidelityService;
     @Mock private ReportService reportService;
 
-    @InjectMocks private AgendaService service;
+    /**
+     * A fachada montada sobre os servicos REAIS da agenda (so repositorios/colaboradores
+     * externos sao mocks): estes testes cobrem o comportamento de ponta a ponta e servem de
+     * rede de seguranca para a quebra do antigo God class em servicos menores.
+     */
+    private AgendaService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void buildService() {
+        AgendaTaskService tasks = new AgendaTaskService(
+                taskRepository, customerRepository, barbershopSettingsService, tenantAdminService);
+        service = new AgendaService(
+                new AgendaAvailabilityService(appointmentRepository, professionalRepository,
+                        pricingService, barbershopSettingsService, scheduleBlockService),
+                new AgendaBookingService(appointmentRepository, customerService,
+                        professionalAssignmentService, tasks, fidelityService, whatsAppService,
+                        barbershopSettingsService),
+                tasks,
+                new AgendaReportService(appointmentRepository, reportService));
+    }
 
     /**
      * Config padrao do tenant (expediente 09:00-19:00) para os testes de disponibilidade —
