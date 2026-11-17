@@ -3,6 +3,7 @@ package com.razor.api.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.razor.api.dto.BotSettingsPayload;
@@ -44,9 +45,22 @@ class AdminBotSettingsControllerTest {
         BarbershopSettings saved = BarbershopSettings.builder().addressText("End").build();
         when(barbershopSettingsService.update(eq(payload))).thenReturn(saved);
 
-        controller.update(payload);
+        controller.update(payload, true);
 
         verify(barbershopSettingsService).update(payload);
         verify(welcomeBriefService).maybeSendAfterConfig(saved);
+    }
+
+    @Test
+    @DisplayName("update com welcome=false grava sem disparar o resumo (salvamento por passo do modal)")
+    void update_withoutWelcome_skipsBrief() {
+        BotSettingsPayload payload = BotSettingsPayload.ofTexts("End", "maps", "Serv", "sched", "insta");
+        BarbershopSettings saved = BarbershopSettings.builder().addressText("End").build();
+        when(barbershopSettingsService.update(eq(payload))).thenReturn(saved);
+
+        controller.update(payload, false);
+
+        verify(barbershopSettingsService).update(payload);
+        verifyNoInteractions(welcomeBriefService);
     }
 }

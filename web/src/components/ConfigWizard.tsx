@@ -1,41 +1,66 @@
-// Assistente de configuração do bot: o tutorial que leva o dono por TODAS as configurações,
-// numa janela só — conexão do WhatsApp, número do admin, identidade, funcionamento, serviços,
+// Modal único de configuração do bot: leva o dono por TODAS as configurações, numa janela só —
+// conexão do WhatsApp (QR), número(s) de admin, identidade, funcionamento, serviços e preços,
 // modo de fala, pagamento e mensagens automáticas.
 //
-// Duas regras que valem para o fluxo inteiro:
+// Regras que valem para o fluxo inteiro:
 //  1. Começa a partir das configs já salvas e sobrepõe as edições, então o PUT (que troca o
-//     registro inteiro) nunca apaga campo que o assistente não mostra.
-//  2. Ao concluir, o back manda o resumo de boas-vindas ao dono (WelcomeBriefService) e a tela
-//     de Configurações atrás recarrega, já mostrando tudo que foi preenchido.
-import { WeekdayPicker } from "./WeekdayPicker";
+//     registro inteiro) nunca apaga campo que o modal não mostra.
+//  2. Salva a cada passo: avançar, voltar, pular ou clicar no trilho grava o que mudou; fechar
+//     com alteração pendente também grava antes de sair. Sair no meio não perde nada.
+//  3. Os saves intermediários vão com `?welcome=false`; só o "Concluir" dispara o resumo de
+//     boas-vindas no WhatsApp do dono (WelcomeBriefService) — "Tudo pronto!" no meio do fluxo,
+//     antes de serviços e PIX, seria mentira.
+//  4. Ao fechar, a tela de Configurações atrás recarrega e já mostra tudo que foi salvo.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Modal } from "./Modal";
-import { SpeechModePicker } from "./SpeechModePicker";
 import { WhatsAppPairing } from "./WhatsAppPairing";
 import { AdminsEditor } from "./AdminsEditor";
+import {
+  HoursFields,
+  IdentityFields,
+  MessagesFields,
+  PaymentFields,
+  ServicesFields,
+  SpeechModeFields,
+} from "./BotConfigFields";
 import { useToast } from "./Toast";
 import { useWhatsAppConnection } from "../lib/useWhatsAppConnection";
 import { api, ApiError } from "../api/client";
-import type { BotSettings, BotTextKey } from "../api/types";
+import type { BotSettings } from "../api/types";
 
 interface Step {
   title: string;
   hint: string;
   render: () => ReactNode;
-  /** Bloqueia o "Próximo" enquanto falso (só o essencial). */
+  /** Bloqueia o "Próximo" enquanto falso (só o essencial). "Pular por agora" continua livre. */
   valid?: () => boolean;
 }
+
+/**
+ * Índices dos passos — `configCompleteness` aponta para eles (whatsapp=0, admin=1, …), então a
+ * ordem aqui é contrato com a lista de pendências.
+ */
+export const WIZARD_STEPS = {
+  whatsapp: 0,
+  admin: 1,
+  identity: 2,
+  hours: 3,
+  services: 4,
+  speech: 5,
+  payment: 6,
+  messages: 7,
+} as const;
 
 export function ConfigWizard({
   initial,
   onClose,
-  onSaved,
   startAt = 0,
 }: {
+  /** Config salva (já normalizada por `fillBot`). */
   initial: BotSettings;
+  /** Chamado ao fechar — por concluir, pelo ✕, Esc ou clique fora. A tela de trás recarrega. */
   onClose: () => void;
-  onSaved: () => void;
-  /** Passo inicial — a lista de pendências abre o assistente direto no item que falta. */
+  /** Passo inicial — a lista de pendências abre o modal direto no item que falta. */
   startAt?: number;
 }) {
   const toast = useToast();
@@ -44,87 +69,81 @@ export function ConfigWizard({
   const [step, setStep] = useState(startAt);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [savedOnce, setSavedOnce] = useState(false);
+  // Conta edições: um save só limpa o "dirty" se nada mudou enquanto a requisição estava no ar.
+  const editVersion = useRef(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  // Ao trocar de passo, o foco vai para o título do passo novo.
-  //
-  // Sem isso o foco ficava no botão "Próximo" (que não é remontado) e o conteúdo inteiro trocava
-  // sem aviso: num assistente de 8 passos, quem usa leitor de tela não percebia que a tela mudou.
-  // Focar um heading também faz o leitor anunciar o título do passo sem precisar de live region
-  // para o conteúdo principal.
+  // Ao trocar de passo, o foco vai para o título do passo novo — quem usa leitor de tela ouve
+  // o título em vez de ficar parado num botão "Próximo" enquanto o conteúdo troca em silêncio.
   useEffect(() => {
     headingRef.current?.focus();
   }, [step]);
 
-  const set = (k: BotTextKey, v: string) => {
+  const change = (patch: Partial<BotSettings>) => {
+    editVersion.current += 1;
     setDirty(true);
-    setDraft((d) => ({ ...d, [k]: v }));
+    setDraft((d) => ({ ...d, ...patch }));
   };
 
-  /**
-   * Fechar com preenchimento não salvo pede confirmação.
-   *
-   * O assistente só grava no último passo, e o clique fora do diálogo fechava tudo em silêncio —
-   * sete passos preenchidos evaporavam. É o que o UX_BLUEPRINT chama de "sair no meio não perde
-   * nada"; enquanto o salvamento por passo não existe, confirmar é o mínimo honesto.
-   */
-  const confirmClose = () => {
-    if (!dirty) return true;
-    return window.confirm(
-      "Você preencheu campos que ainda não foram salvos. Fechar o assistente agora descarta essas alterações. Deseja sair mesmo assim?",
-    );
+  /** Grava o rascunho inteiro. `welcome` = este é o "Concluir" (pode disparar o resumo). */
+  const persist = async (welcome: boolean) => {
+    const version = editVersion.current;
+    setSaving(true);
+    try {
+      await api.put(`/api/admin/settings/bot${welcome ? "" : "?welcome=false"}`, draft);
+      if (editVersion.current === version) setDirty(false);
+      setSavedOnce(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const field = (k: BotTextKey, label: string, placeholder?: string, required = false) => (
-    <div className="field">
-      <label>
-        {label}
-        {/* Obrigatório precisa estar dito no campo. Antes o único sinal era o "Próximo"
-            desabilitado — o usuário via um botão morto sem saber o que faltava. */}
-        {required && <span className="field-required"> · obrigatório</span>}
-        <input
-          className="input"
-          value={draft[k] ?? ""}
-          placeholder={placeholder}
-          onChange={(e) => set(k, e.target.value)}
-          aria-required={required || undefined}
-        />
-      </label>
-    </div>
-  );
-
-  const area = (k: BotTextKey, label: string, rows = 3, placeholder?: string) => (
-    <div className="field">
-      <label>{label}
-      <textarea
-        className="input"
-        rows={rows}
-        value={draft[k] ?? ""}
-        placeholder={placeholder}
-        onChange={(e) => set(k, e.target.value)}
-        style={{ resize: "vertical", fontFamily: "inherit" }}
-      />
-            </label>
-    </div>
-  );
+  const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message : "Erro ao salvar. Tente de novo.");
 
   const steps: Step[] = [
     {
       title: "Conectar o WhatsApp",
       hint: "O número da barbearia — é ele que o cliente vê e que o bot usa para responder.",
-      render: () => <WhatsAppPairing conn={whatsapp} />,
+      render: () => (
+        <div className="stack" style={{ gap: 12 }}>
+          {whatsapp.status && (
+            // Estado ao vivo: o hook consulta a conexão enquanto o QR está na tela, então o
+            // selo vira "Conectado" sozinho assim que o celular pareia.
+            <span
+              className={`badge ${whatsapp.connected ? "badge-green" : "badge-amber"}`}
+              role="status"
+              style={{ alignSelf: "flex-start" }}
+            >
+              ● {whatsapp.connected ? "Conectado" : "Desconectado"}
+            </span>
+          )}
+          <WhatsAppPairing conn={whatsapp} />
+        </div>
+      ),
     },
     {
       title: "Seu número de admin",
       hint: "O seu número pessoal, por onde você comanda o bot e recebe os avisos.",
       render: () => (
         <div className="stack" style={{ gap: 12 }}>
+          <div
+            className="muted"
+            style={{
+              fontSize: 13.5,
+              padding: "12px 14px",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--surface-2)",
+            }}
+          >
+            <b>A regra dos dois números.</b> O número <b>do bot</b> é o da barbearia — o que você
+            pareou no passo anterior e que atende os clientes. O número <b>de admin</b> é o{" "}
+            <b>seu</b>, pessoal: por ele você dá comandos e recebe os avisos. Precisam ser
+            diferentes: se você usar o mesmo número nos dois, o WhatsApp trata suas mensagens como
+            enviadas pelo próprio bot e ele não recebe seus comandos.
+          </div>
           <AdminsEditor />
-          <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>
-            São dois números diferentes: o <b>do bot</b> (o da barbearia, que você acabou de parear)
-            e o <b>seu</b>, cadastrado aqui. Se você usar o mesmo número nos dois, o WhatsApp marca
-            suas mensagens como próprias e o bot não consegue receber seus comandos.
-          </p>
         </div>
       ),
     },
@@ -132,132 +151,143 @@ export function ConfigWizard({
       title: "Identidade",
       hint: "Como sua barbearia se apresenta ao cliente.",
       valid: () => (draft.displayName ?? "").trim() !== "",
-      render: () => (
-        <div className="stack" style={{ gap: 12 }}>
-          {field("displayName", "Nome da barbearia", "Como o bot chama sua barbearia", true)}
-          {field("addressText", "Endereço")}
-          {field("addressMapsUrl", "Link do mapa (opcional)")}
-          {field("instagramUrl", "Instagram (opcional)")}
-        </div>
-      ),
+      render: () => <IdentityFields draft={draft} onChange={change} />,
     },
     {
       title: "Funcionamento",
-      hint: "Os horários que a IA pode oferecer.",
-      render: () => (
-        <div className="stack" style={{ gap: 12 }}>
-          <div className="form-grid">
-            {field("openingTime", "Abre às", "09:00")}
-            {field("closingTime", "Fecha às", "19:00")}
-          </div>
-          <WeekdayPicker
-            value={draft.workingWeekdays ?? []}
-            onChange={(days) => setDraft((d) => ({ ...d, workingWeekdays: days }))}
-          />
-          {area("cancellationPolicy", "Política de cancelamento/atraso", 2, "Ex.: cancele com 2h de antecedência")}
-        </div>
-      ),
+      hint: "Os dias e horários que a IA pode oferecer.",
+      render: () => <HoursFields draft={draft} onChange={change} />,
     },
     {
       title: "Serviços e preços",
-      hint: "A tabela que o bot mostra no menu.",
-      render: () => (
-        <div className="stack" style={{ gap: 12 }}>
-          {area("servicesText", "Tabela de serviços / preços", 5, "Ex.:\nCorte — R$ 40\nBarba — R$ 30\nCorte + Barba — R$ 60")}
-          {field("scheduleUrl", "Link de agendamento (opcional)")}
-        </div>
-      ),
+      hint: "A tabela que o bot mostra no menu e usa para responder “quanto custa?”.",
+      render: () => <ServicesFields draft={draft} onChange={change} />,
     },
     {
       title: "Modo de fala",
       hint: "O tom de voz do seu assistente.",
-      render: () => <SpeechModePicker value={draft.botPersona ?? ""} onChange={(v) => set("botPersona", v)} />,
+      render: () => <SpeechModeFields draft={draft} onChange={change} />,
     },
     {
       title: "Pagamento",
       hint: "O PIX que o bot envia ao cliente.",
-      render: () => (
-        <div className="stack" style={{ gap: 12 }}>
-          {field("pixKey", "Chave PIX", "CNPJ, e-mail, telefone ou aleatória")}
-          {area("pixCopyPaste", "PIX copia-e-cola (opcional)", 3, "Cole aqui o código do seu banco")}
-          {area("paymentInfo", "Formas de pagamento", 2, "Ex.: PIX, dinheiro, débito e crédito")}
-        </div>
-      ),
+      render: () => <PaymentFields draft={draft} onChange={change} />,
     },
     {
       title: "Mensagens automáticas",
       hint: "O que o bot manda sozinho. Campo vazio usa o texto padrão do sistema.",
-      render: () => (
-        <div className="stack" style={{ gap: 12 }}>
-          {area("welcomeText", "Saudação inicial", 2, "Primeira mensagem ao cliente novo")}
-          {area("reminderText", "Lembrete (1h antes)", 2)}
-          {area("reviewText", "Pedido de avaliação (após o corte)", 2)}
-          {area("fidelityRewardText", "Recompensa de fidelidade (10 pontos)", 2)}
-        </div>
-      ),
+      render: () => <MessagesFields draft={draft} onChange={change} />,
     },
   ];
 
-  // `startAt` vem de fora e pode apontar para um passo que não existe mais se a lista mudar;
-  // limitar aqui evita a tela em branco por índice fora da faixa.
-  const current = steps[Math.min(Math.max(step, 0), steps.length - 1)];
-  const isLast = step >= steps.length - 1;
+  // `startAt` vem de fora e pode apontar para um passo que não existe; limitar evita tela em branco.
+  const index = Math.min(Math.max(step, 0), steps.length - 1);
+  const current = steps[index];
+  const isLast = index >= steps.length - 1;
   const canAdvance = current.valid ? current.valid() : true;
+  const percent = Math.round(((index + 1) / steps.length) * 100);
+
+  /** Vai para outro passo gravando antes o que mudou. Se o save falhar, fica onde está. */
+  const goTo = async (target: number) => {
+    if (saving) return;
+    if (dirty) {
+      try {
+        await persist(false);
+      } catch (e) {
+        toast.error(errorMessage(e));
+        return;
+      }
+    }
+    setStep(Math.min(Math.max(target, 0), steps.length - 1));
+  };
 
   const finish = async () => {
-    setSaving(true);
     try {
-      await api.put("/api/admin/settings/bot", draft);
-      toast.success("Configuração concluída ✓ Um resumo foi enviado ao seu WhatsApp.");
-      onSaved();
+      // Sempre grava, mesmo sem mudança: é este save que pede o resumo de boas-vindas.
+      await persist(true);
+      toast.success("Configuração concluída ✓ Na primeira vez, um resumo chega no seu WhatsApp.");
       onClose();
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "Erro ao salvar. Tente de novo.");
-    } finally {
-      setSaving(false);
+      toast.error(errorMessage(e));
     }
   };
 
-  const next = () => (isLast ? finish() : setStep((s) => s + 1));
+  /**
+   * Fechar (✕, Esc, clique fora) com alteração pendente grava antes de sair, em vez de
+   * descartar ou perguntar. Se o save falhar, o modal fica aberto com o erro.
+   */
+  const requestClose = () => {
+    if (!dirty) return true;
+    if (saving) return false;
+    void (async () => {
+      try {
+        await persist(false);
+        toast.success("Alterações salvas ✓");
+        onClose();
+      } catch (e) {
+        toast.error(errorMessage(e));
+      }
+    })();
+    return false;
+  };
 
   return (
     <Modal
       title="Configurar sua barbearia"
       size="wide"
       onClose={onClose}
-      onRequestClose={confirmClose}
+      onRequestClose={requestClose}
       footer={
         <div className="row between" style={{ width: "100%" }}>
-          <button className="btn btn-ghost" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0 || saving}>
+          <button className="btn btn-ghost" onClick={() => goTo(index - 1)} disabled={index === 0 || saving}>
             Voltar
           </button>
           <div className="row" style={{ gap: 10 }}>
+            <span className="faint" role="status" style={{ fontSize: 12.5 }}>
+              {saving ? "Salvando…" : dirty ? "Alterações não salvas" : savedOnce ? "✓ Tudo salvo" : ""}
+            </span>
             {!isLast && (
               // "Pular por agora": nenhum passo pode aprisionar o dono. A lista de pendências na
               // tela de Configurações continua cobrando o que ficou para trás.
-              <button className="btn btn-ghost" onClick={() => setStep((s) => s + 1)} disabled={saving}>
+              <button className="btn btn-ghost" onClick={() => goTo(index + 1)} disabled={saving}>
                 Pular por agora
               </button>
             )}
-            <button className="btn btn-primary" onClick={next} disabled={!canAdvance || saving}>
-              {saving ? "Salvando…" : isLast ? "Concluir" : "Próximo"}
+            <button
+              className="btn btn-primary"
+              onClick={() => (isLast ? finish() : goTo(index + 1))}
+              disabled={!canAdvance || saving}
+            >
+              {saving ? "Salvando…" : isLast ? "Concluir" : dirty ? "Salvar e continuar" : "Próximo"}
             </button>
           </div>
         </div>
       }
     >
+      <div
+        className="cfg-progress"
+        role="progressbar"
+        aria-label="Progresso da configuração"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        style={{ marginBottom: 18 }}
+      >
+        <div className="cfg-progress-fill" style={{ width: `${percent}%` }} />
+      </div>
+
       <div className="wiz">
-        {/* Trilho de passos: rótulos, não pontinhos.
-            Com 8 passos e entrada direta a partir da lista de pendências, oito bolinhas mudas
-            não dizem onde a pessoa está nem quanto falta. */}
+        {/* Trilho de passos: rótulos, não pontinhos — com 8 passos e entrada direta pela lista
+            de pendências, é preciso dizer onde a pessoa está e quanto falta. */}
         <nav className="wiz-rail" aria-label="Etapas da configuração">
           {steps.map((s, i) => (
             <button
               key={s.title}
               type="button"
-              className={`wiz-step ${i === step ? "active" : ""} ${i < step ? "done" : ""}`}
-              onClick={() => setStep(i)}
-              aria-current={i === step ? "step" : undefined}
+              className={`wiz-step ${i === index ? "active" : ""} ${i < index ? "done" : ""}`}
+              onClick={() => goTo(i)}
+              disabled={saving}
+              aria-current={i === index ? "step" : undefined}
             >
               <span className="wiz-step-n mono">{String(i + 1).padStart(2, "0")}</span>
               <span className="wiz-step-label">{s.title}</span>
@@ -266,10 +296,8 @@ export function ConfigWizard({
         </nav>
 
         <div className="wiz-pane">
-          {/* role="status" garante o anúncio mesmo para quem lê em modo virtual, sem depender
-              da mudança de foco. */}
-          <div className="wiz-progress mono" role="status" aria-live="polite">
-            PASSO {step + 1} DE {steps.length} · {current.title}
+          <div className="wiz-progress mono" aria-live="polite">
+            PASSO {index + 1} DE {steps.length} · {current.title}
           </div>
 
           <h4 ref={headingRef} tabIndex={-1} className="wiz-title">
