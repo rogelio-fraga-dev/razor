@@ -82,6 +82,16 @@ class CustomerConversationServiceTest {
                 new BarbershopSettingsService.BotSettings(address, mapsUrl, servicesText, null, instagram));
     }
 
+    /** Por padrao o agendamento e salvo (o caso feliz); testes de falha sobrescrevem. */
+    @org.junit.jupiter.api.BeforeEach
+    void bookingSucceedsByDefault() {
+        Appointment salvo = Appointment.builder().customerPhone(PHONE).build();
+        when(agendaService.adicionarAgendamentoViaIA(any(), any(), any(), any(), any()))
+                .thenReturn(java.util.Optional.of(salvo));
+        when(agendaService.adicionarAgendamentoViaIA(any(), any(), any(), any(), any(), any()))
+                .thenReturn(java.util.Optional.of(salvo));
+    }
+
     // ---------- helpers ----------
 
     private Customer givenExistingCustomer() {
@@ -411,5 +421,78 @@ class CustomerConversationServiceTest {
                 .filter(i -> i.getType() == Interaction.InteractionType.BOT)
                 .reduce((first, second) -> second)
                 .orElseThrow();
+    }
+
+    // ---------- agendamento que nao foi salvo ----------
+
+    @Test
+    @DisplayName("tag da IA que nao gera agendamento NAO confirma nem pede pagamento — pede dia/hora de novo")
+    void aiNewAppointment_bookingFails_asksDateAgain() {
+        givenExistingCustomer();
+        givenAiReturnsAgendamentoTag();
+        when(agendaService.adicionarAgendamentoViaIA(any(), any(), any(), any(), any()))
+                .thenReturn(java.util.Optional.empty());
+
+        service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
+
+        String msg = captureClientMessage();
+        assertThat(msg).isEqualTo(CustomerConversationService.BOOKING_FAILED_MSG);
+        assertThat(msg).doesNotContain("Agendado").doesNotContain("PIX");
+        assertThat(stateStore.get(com.razor.api.state.StateKeys.convState(PHONE), String.class)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("escolha de barbeiro com agendamento que falha nao diz 'reservado'")
+    void professionalChoice_bookingFails_asksDateAgain() {
+        givenExistingCustomer();
+        givenAiReturnsAgendamentoTag();
+        when(professionalService.listActive()).thenReturn(List.of(prof("Rafael"), prof("Bruno")));
+        when(agendaService.adicionarAgendamentoViaIA(any(), any(), any(), any(), any(), any()))
+                .thenReturn(java.util.Optional.empty());
+
+        service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
+        service.processCustomerMessage(textWebhook("1"), PHONE);
+
+        assertThat(lastClientMessage()).isEqualTo(CustomerConversationService.BOOKING_FAILED_MSG);
+        assertThat(stateStore.get(com.razor.api.state.StateKeys.convState(PHONE), String.class)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("ESPERANDO_PAGAMENTO sem agendamento no banco nao promete '100% garantido'")
+    void pixPayment_withoutAppointment_doesNotPromise() {
+        givenExistingCustomer();
+        givenAiReturnsAgendamentoTag();
+        service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
+
+        when(agendaService.getAgendamentoCliente(PHONE)).thenReturn(null);
+        givenPixConfigured("pix@barbeariateste.com.br");
+        service.processCustomerMessage(textWebhook("1"), PHONE);
+
+        assertThat(lastClientMessage()).isEqualTo(CustomerConversationService.BOOKING_FAILED_MSG);
+        verify(messenger, never()).send(eq(PHONE), argThat(m -> m.contains("garantido")), any());
+    }
+
+    // ---------- IA indisponivel ----------
+
+    @Test
+    @DisplayName("IA fora do ar: contingencia ao cliente sem gravar como fala do bot, e admin avisado uma vez")
+    void aiUnavailable_contingencyNotSaved_adminAlertedOnce() {
+        givenExistingCustomer();
+        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getAgendamentosClienteList(PHONE)).thenReturn(List.of());
+        when(tenantAdminService.adminPhones()).thenReturn(List.of("5511000000000"));
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+                .thenThrow(new AiUnavailableException("fora", new RuntimeException("429")));
+
+        service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
+        service.processCustomerMessage(textWebhook("alguem ai?"), PHONE);
+
+        verify(messenger, org.mockito.Mockito.times(2))
+                .send(eq(PHONE), eq(CustomerConversationService.AI_CONTINGENCY_MSG), eq("CLIENTE"));
+        // throttle: duas falhas seguidas, um unico aviso
+        verify(messenger, org.mockito.Mockito.times(1))
+                .send(eq("5511000000000"), argThat(m -> m.contains("IA INDISPONÍVEL")), eq("ADMIN"));
+        // so as mensagens do cliente foram gravadas; nenhuma fala de BOT
+        verify(interactionRepository, never()).save(argThat(i -> i.getType() == Interaction.InteractionType.BOT));
     }
 }

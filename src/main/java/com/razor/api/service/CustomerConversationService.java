@@ -145,7 +145,10 @@ public class CustomerConversationService {
         if (pendingOffer.isPresent() && (msgLower.equals("sim") || msgLower.equals("s") || msgLower.contains("quero"))) {
             WaitlistOffer offer = pendingOffer.get();
             stateStore.remove(StateKeys.waitlistOffer(phoneNumber));
-            agendaService.adicionarAgendamentoViaIA(offer.getName(), phoneNumber, offer.getDate(), offer.getTime(), offer.getService());
+            if (agendaService.adicionarAgendamentoViaIA(offer.getName(), phoneNumber, offer.getDate(), offer.getTime(), offer.getService()).isEmpty()) {
+                saveAndSend(customer, BOOKING_FAILED_MSG, phoneNumber);
+                return;
+            }
 
             String successMsg = "Perfeito, " + offer.getName().split(" ")[0] + "! 🥳\n\n" +
                                  "Seu horário foi agendado para *" + offer.getDate() + "* às *" + offer.getTime() + "* para *" + offer.getService() + "*! 🎉\n\n" +
@@ -236,6 +239,15 @@ public class CustomerConversationService {
                 agendaService.cancelarAgendamentoCliente(phoneNumber);
                 // Histórico mantido para a IA ter contexto de cancelamento
                 saveAndSend(customer, "❌ Agendamento cancelado! Se mudar de ideia, é só digitar *menu* para recomeçar. 😊", phoneNumber);
+                return;
+            }
+
+            // Sem agendamento no banco nao ha o que garantir: antes o cliente ouvia "100% garantido"
+            // mesmo quando o agendamento nunca tinha sido salvo.
+            if (ag == null) {
+                log.warn("[AGENDA] {} em ESPERANDO_PAGAMENTO sem agendamento salvo — pedindo os dados de novo", phoneNumber);
+                clearCustomerState(phoneNumber);
+                saveAndSend(customer, BOOKING_FAILED_MSG, phoneNumber);
                 return;
             }
 
@@ -421,7 +433,13 @@ public class CustomerConversationService {
         String agendaContext = agendaService.getHorariosOcupadosParaIA();
         int activeAppointments = agendaService.getAgendamentosClienteList(phoneNumber).size();
         String knownName = (customer.getName() != null && !customer.getName().isBlank()) ? customer.getName() : "Desconhecido";
-        String aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext, activeAppointments, knownName, customer);
+        String aiResponse;
+        try {
+            aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext, activeAppointments, knownName, customer);
+        } catch (AiUnavailableException e) {
+            tratarIaIndisponivel(phoneNumber, e);
+            return;
+        }
 
         AiIntent intent = aiTagParser.parse(aiResponse);
         String responseToSend;
@@ -490,7 +508,11 @@ public class CustomerConversationService {
             return montarPerguntaProfissional(date, time, ativos);
         }
 
-        agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
+        if (agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service).isEmpty()) {
+            // Nada foi salvo: NAO repassa o "Agendamento Confirmado!" da IA nem pede pagamento.
+            log.warn("[AGENDA] Tag da IA nao gerou agendamento para {} ('{}' '{}')", phoneNumber, date, time);
+            return BOOKING_FAILED_MSG;
+        }
 
         // Verifica se a IA já incluiu a pergunta de pagamento (novo prompt instrui isso).
         // Se não incluiu, adiciona como fallback para garantir o fluxo.
@@ -565,8 +587,12 @@ public class CustomerConversationService {
     /** Conclui o agendamento com o profissional escolhido e avança para o pagamento. */
     private void finalizarAgendamentoMultiprofissional(Customer customer, String phoneNumber, PendingBooking pend,
                                                        java.util.UUID escolhido, String nomeEscolhido) {
-        agendaService.adicionarAgendamentoViaIA(pend.getName(), phoneNumber, pend.getDate(), pend.getTime(), pend.getService(), escolhido);
         stateStore.remove(StateKeys.pendingBooking(phoneNumber));
+        if (agendaService.adicionarAgendamentoViaIA(pend.getName(), phoneNumber, pend.getDate(), pend.getTime(), pend.getService(), escolhido).isEmpty()) {
+            clearCustomerState(phoneNumber);
+            saveAndSend(customer, BOOKING_FAILED_MSG, phoneNumber);
+            return;
+        }
 
         String comQuem = nomeEscolhido != null ? "com *" + nomeEscolhido + "* " : "";
         String confirm = "Fechado! Seu horário " + comQuem + "para *" + pend.getDate() + "* às *" + pend.getTime() + "* está reservado. 🎉";
@@ -678,9 +704,39 @@ public class CustomerConversationService {
                 + "_Se preferir ver tudo que dá pra fazer por aqui, é só digitar *menu*._";
     }
 
-    private List<String> getRecentHistory(java.util.UUID customerId) {
-        return interactionRepository.findRecentInteractionsByCustomerId(customerId).stream()
-                .map(Interaction::getContent).collect(Collectors.toList());
+    /** Agendamento nao foi salvo (ex.: data/hora ilegivel): pede os dados de novo, sem confirmar nada. */
+    static final String BOOKING_FAILED_MSG = "Ops, não consegui registrar esse horário 😕 "
+            + "Pode me confirmar de novo o *dia* e o *horário* que você quer? (ex.: *26/05 às 14:00*)";
+
+    /** Mensagem ao cliente quando a IA nao responde. NAO vai para o historico da IA. */
+    static final String AI_CONTINGENCY_MSG = "Opa, nosso atendimento automático está instável agora 😕 "
+            + "Já avisei a equipe da barbearia. Tente de novo em alguns minutos ou digite *menu* para ver as opções.";
+
+    /** Aviso de IA fora do ar para os admins do tenant: no maximo um a cada 30 minutos. */
+    private static final Duration AI_ALERT_THROTTLE = Duration.ofMinutes(30);
+
+    /**
+     * IA fora do ar: o cliente recebe a contingencia, mas ela NAO e gravada como fala do bot —
+     * senao a proxima chamada a IA leria o proprio "deu erro" como contexto. Os admins do tenant
+     * sao avisados (com throttle, para uma queda nao virar uma enxurrada de mensagens).
+     */
+    private void tratarIaIndisponivel(String phoneNumber, AiUnavailableException e) {
+        log.error("[IA] Indisponivel ao atender {} — enviando contingencia", phoneNumber, e);
+        sendMsg(phoneNumber, AI_CONTINGENCY_MSG, "CLIENTE");
+
+        String alertKey = StateKeys.aiOutageAlert();
+        if (stateStore.get(alertKey, Boolean.class).isPresent()) return;
+        stateStore.put(alertKey, Boolean.TRUE, AI_ALERT_THROTTLE);
+        for (String adm : tenantAdminService.adminPhones()) {
+            sendMsg(adm, "⚠️ *IA INDISPONÍVEL*\nO atendimento automático não conseguiu responder um cliente ("
+                    + phoneNumber + "). Verifique a chave/cota da OpenAI. Os clientes estão recebendo uma "
+                    + "mensagem de contingência.\n_(Próximo aviso em no mínimo 30 min)_", "ADMIN");
+        }
+    }
+
+    /** Historico com TIPO (USER/BOT): o papel no chat da IA vem dele, nunca da posicao na lista. */
+    private List<Interaction> getRecentHistory(java.util.UUID customerId) {
+        return interactionRepository.findRecentInteractionsByCustomerId(customerId);
     }
 
     /**

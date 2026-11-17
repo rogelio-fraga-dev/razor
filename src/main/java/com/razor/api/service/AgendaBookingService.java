@@ -49,15 +49,18 @@ public class AgendaBookingService {
     private final BarbershopSettingsService barbershopSettingsService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
-        adicionarAgendamentoViaIA(name, phone, date, time, service, null);
+    public Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
+        return adicionarAgendamentoViaIA(name, phone, date, time, service, null);
     }
 
     /**
      * Cria um agendamento e atribui um profissional (barbeiro): usa o {@code preferredProfessionalId}
      * se informado e livre; caso contrario auto-atribui o barbeiro livre menos ocupado no dia.
+     *
+     * @return o agendamento salvo; vazio se nada foi agendado (ex.: data/hora que nao da para
+     *         interpretar). Quem chama SO pode confirmar ao cliente quando houver agendamento.
      */
-    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
+    public Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
                                           UUID preferredProfessionalId) {
         LocalDate parsedDate;
         LocalTime parsedTime;
@@ -66,7 +69,7 @@ public class AgendaBookingService {
             parsedTime = AppointmentDates.parseTime(time);
         } catch (Exception e) {
             log.error("[AGENDA] Nao foi possivel criar agendamento para {} — data/hora invalida ('{}' '{}'): {}", phone, date, time, e.getMessage());
-            return;
+            return Optional.empty();
         }
 
         UUID professionalId = professionalAssignmentService.assign(parsedDate, parsedTime, preferredProfessionalId);
@@ -91,6 +94,7 @@ public class AgendaBookingService {
         agendaTaskService.criarTarefasAgendadas(app);
 
         registrarPontoFidelidade(phone);
+        return Optional.of(app);
     }
 
     /**

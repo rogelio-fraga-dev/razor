@@ -55,6 +55,13 @@ public final class StateKeys {
         return "conv:booking:" + TenantContext.getCurrent() + ":" + phone;
     }
 
+    // ---------- alertas operacionais ----------
+
+    /** Throttle do aviso "IA indisponivel" enviado aos admins do tenant. */
+    public static String aiOutageAlert() {
+        return "alert:ai:" + TenantContext.getCurrent();
+    }
+
     // ---------- conversa do ADMIN ----------
 
     public static String adminState(String phone) {
