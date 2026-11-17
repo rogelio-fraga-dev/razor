@@ -22,12 +22,13 @@ npm run build      # gera dist/ (estático)
 npm run preview    # serve o build localmente
 ```
 
-Em produção, defina `VITE_API_URL` se a API estiver em outro host; se o front e a API forem
-servidos no mesmo domínio, deixe vazio.
+Painel e API precisam ficar na **mesma origem** (em dev o proxy do Vite, no Docker o nginx
+encaminham `/api`): a sessão é um cookie `HttpOnly; SameSite=Strict` e o token CSRF
+(`XSRF-TOKEN`) só é legível pelo JS da própria origem. Deixe `VITE_API_URL` vazio.
 
 ## Estrutura
 
-- `src/api/` — cliente HTTP (JWT, tratamento de 401) e tipos dos DTOs
+- `src/api/` — cliente HTTP (cookie de sessão + header CSRF, tratamento de 401) e tipos dos DTOs
 - `src/auth/` — contexto de autenticação (sessão + login/logout)
 - `src/pages/` — Login, Painel, Serviços, Profissionais, Comissões, Configurações
 - `src/components/` — Layout (sidebar/topbar) e Modal

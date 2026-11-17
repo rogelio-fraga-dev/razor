@@ -1074,8 +1074,13 @@ Paginar catálogo seria ruído: dois botões mortos embaixo de uma lista de 7 se
 - [x] **RBAC aplicado em `/api/admin/**` (2026-07-28)** — ver *Fechamento das pontas soltas*, abaixo.
 - [x] **`TenantContext` fail-closed (2026-07-28)** — idem.
 - [x] **`.env.prod-example` com placeholders inúteis se copiados (2026-07-28)** — idem.
-- [ ] **JWT no `localStorage`** — vulnerável a XSS. A troca por cookie `httpOnly` + CSRF vai junto
-      com a autenticação do cliente final (que exige contexto separado de qualquer forma).
+- [x] **JWT no `localStorage` (2026-11-17)** — o login agora entrega o JWT só num cookie
+      `RAZOR_SESSION` (`HttpOnly; Secure; SameSite=Strict; Path=/api`, `Max-Age` = TTL); o corpo
+      não traz mais o token e o painel não guarda nada no navegador (restaura a sessão via
+      `/api/admin/me`). Escritas em `/api/admin/**` e `/api/auth/logout` exigem CSRF
+      double-submit (`XSRF-TOKEN` → `X-XSRF-TOKEN`); webhook, onboarding, site e login ficam
+      de fora. `Authorization: Bearer` segue aceito para clientes de API (sem CSRF, e sem
+      fallback para o cookie). Flag Secure via `RAZOR_COOKIE_SECURE`.
 - [ ] **`AgendaService.java` passou de 800 linhas** e `ConfigWizard` × `Settings > BotCard`
       compartilham ~150 linhas quase idênticas. Dívida de organização, não de comportamento.
 

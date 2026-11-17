@@ -51,6 +51,13 @@ public class RazorProperties {
          */
         private String jwtSecret = "";
         private long jwtExpirationMinutes = 720; // 12h
+        /**
+         * Flag {@code Secure} dos cookies do painel (sessao JWT e XSRF-TOKEN). Ligado por padrao:
+         * cookie de sessao nunca deve trafegar em HTTP puro. Desligue ({@code RAZOR_COOKIE_SECURE=false})
+         * apenas em dev servido por http fora de localhost — Chrome/Firefox ja aceitam Secure em
+         * http://localhost, o Safari nao.
+         */
+        private boolean cookieSecure = true;
         /** Origens permitidas no CORS do painel (SPA). */
         private java.util.List<String> corsAllowedOrigins =
                 new java.util.ArrayList<>(java.util.List.of("http://localhost:5173", "http://localhost:3000"));

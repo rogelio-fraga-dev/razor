@@ -4,6 +4,7 @@ import com.razor.api.config.RazorProperties;
 import com.razor.api.model.UserRole;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,14 +20,31 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * Seguranca do painel web: API stateless autenticada por JWT (Bearer). Endpoints publicos
- * (webhook da Evolution, login, onboarding, health) ficam liberados; {@code /api/admin/**} exige
- * token valido <b>e o papel certo</b>. CSRF desligado (API sem sessao/cookie) e CORS restrito.
+ * Seguranca do painel web: API stateless autenticada por JWT. Endpoints publicos (webhook da
+ * Evolution, login, onboarding, site, health) ficam liberados; {@code /api/admin/**} exige token
+ * valido <b>e o papel certo</b>. CORS restrito.
+ *
+ * <p><b>Cookie + CSRF.</b> O painel recebe o JWT num cookie HttpOnly ({@link SessionCookies}),
+ * fora do alcance de um XSS. Como o navegador anexa cookie sozinho, toda escrita autenticada por
+ * cookie exige o token CSRF (double-submit: cookie {@code XSRF-TOKEN} legivel pelo JS, devolvido
+ * no header {@code X-XSRF-TOKEN}). A exigencia vale para metodos de escrita em
+ * {@code /api/admin/**} e {@code /api/auth/logout}; webhook (token proprio), onboarding (chave no
+ * header), site publico e o proprio login nao usam o cookie de sessao e ficam de fora. Requisicao
+ * com header {@code Authorization} tambem fica de fora: o {@link JwtAuthenticationFilter} nunca a
+ * autentica pelo cookie, e um site de terceiros nao consegue forjar esse header (exige preflight
+ * de CORS, que so libera as origens do painel).
  *
  * <p><b>Por que a autorizacao mora aqui e nao em {@code @PreAuthorize} espalhado:</b> a regra de
  * quem enxerga dinheiro precisa caber numa tela so. Espalhada pelos ~25 controllers, a pergunta
@@ -55,15 +73,52 @@ public class SecurityConfig {
     private static final String RECEPTION = UserRole.RECEPTION.name();
     private static final String BARBER = UserRole.BARBER.name();
 
+    /** Metodos que nao mudam estado — nunca exigem CSRF. */
+    private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS", "TRACE");
+
+    /** Rotas autenticadas por cookie onde uma escrita precisa provar a origem (token CSRF). */
+    private static final RequestMatcher CSRF_PATHS = new OrRequestMatcher(
+            new AntPathRequestMatcher("/api/admin/**"),
+            new AntPathRequestMatcher("/api/auth/logout"));
+
+    /**
+     * Exige CSRF em escrita nas {@link #CSRF_PATHS}, exceto quando a requisicao traz
+     * {@code Authorization} — ver javadoc da classe.
+     */
+    static final RequestMatcher CSRF_REQUIRED = request ->
+            !SAFE_METHODS.contains(request.getMethod())
+                    && request.getHeader("Authorization") == null
+                    && CSRF_PATHS.matches(request);
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * Repositorio do token CSRF: cookie {@code XSRF-TOKEN} <b>legivel</b> pelo JS (e o que o
+     * double-submit pede — o segredo de verdade, o JWT, continua HttpOnly), {@code Path=/} para
+     * que qualquer rota da SPA consiga le-lo, e {@code SameSite=Strict}.
+     */
+    @Bean
+    public CookieCsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repo.setCookiePath("/");
+        boolean secure = properties.getSecurity().isCookieSecure();
+        repo.setCookieCustomizer(c -> c.secure(secure).sameSite("Strict"));
+        return repo;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
+                // Handler "plano" (sem a mascara XOR do padrao do Spring 6): a SPA devolve no
+                // header exatamente o valor do cookie. O XOR protege contra BREACH em token
+                // renderizado no HTML, o que nao e o caso aqui.
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(csrfTokenRepository())
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        .requireCsrfProtectionMatcher(CSRF_REQUIRED))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -116,12 +171,15 @@ public class SecurityConfig {
                 // seco, indistinguivel de um bug.
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                        // CSRF ausente/errado tambem cai aqui (CsrfException e um AccessDenied),
+                        // mas com outra mensagem: nao e falta de papel, e a pagina desatualizada.
                         .accessDeniedHandler((request, response, denied) -> {
                             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             response.setCharacterEncoding("UTF-8");
-                            response.getWriter().write(
-                                    "{\"error\":\"Seu perfil não tem acesso a esta função.\"}");
+                            response.getWriter().write(denied instanceof CsrfException
+                                    ? "{\"error\":\"Sessão desatualizada. Recarregue a página.\",\"code\":\"CSRF\"}"
+                                    : "{\"error\":\"Seu perfil não tem acesso a esta função.\"}");
                         }))
                 // Cabecalhos de seguranca: a API nunca e enquadrada, nao adivinha content-type e
                 // nao vaza a URL interna no Referer. HSTS so faz sentido atras de HTTPS (producao).
@@ -134,7 +192,10 @@ public class SecurityConfig {
                         .httpStrictTransportSecurity(hsts -> hsts
                                 .includeSubDomains(true)
                                 .maxAgeInSeconds(31536000)))
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // O token CSRF do Spring 6 e "deferred": so vira cookie se alguem o ler. Sem este
+                // filtro o XSRF-TOKEN nunca chegaria a SPA e toda escrita levaria 403.
+                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
         return http.build();
     }
 

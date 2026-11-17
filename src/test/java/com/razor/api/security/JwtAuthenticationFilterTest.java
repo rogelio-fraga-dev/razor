@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -11,6 +12,7 @@ import com.razor.api.model.UserRole;
 import com.razor.api.tenant.TenantContext;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.UUID;
@@ -19,6 +21,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
@@ -82,6 +86,35 @@ class JwtAuthenticationFilterTest {
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("sem header, o cookie de sessão HttpOnly autentica (fluxo do painel)")
+    void sessionCookie_authenticates() throws Exception {
+        TenantUserPrincipal principal = new TenantUserPrincipal(
+                UUID.randomUUID(), "dono@loja.com", UUID.randomUUID(), UserRole.OWNER);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/admin/me");
+        request.setCookies(new Cookie(SessionCookies.NAME, "tok-cookie"));
+        when(jwtService.parse("tok-cookie")).thenReturn(principal);
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, new MockHttpServletResponse(), chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).isEqualTo(principal);
+    }
+
+    @Test
+    @DisplayName("header Authorization presente manda: o cookie não é consultado nem como fallback")
+    void headerPresent_cookieIgnored() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/admin/services");
+        request.addHeader("Authorization", "Basic abc");
+        request.setCookies(new Cookie(SessionCookies.NAME, "tok-cookie"));
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, new MockHttpServletResponse(), chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(jwtService, never()).parse(any());
     }
 
     @Test

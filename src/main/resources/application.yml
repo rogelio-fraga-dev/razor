@@ -70,6 +70,9 @@ razor:
     # RAZOR_JWT_SECRET com uma string longa e secreta (>= 32 caracteres).
     jwt-secret: "${RAZOR_JWT_SECRET:}"
     jwt-expiration-minutes: 720
+    # O JWT do painel vai num cookie HttpOnly (nunca no localStorage). Secure=true e o padrao;
+    # so desligue para dev em http fora de localhost (ex.: Safari, IP da rede local).
+    cookie-secure: "${RAZOR_COOKIE_SECURE:true}"
     cors-allowed-origins: "${RAZOR_CORS_ORIGINS:http://localhost:5173,http://localhost:3000}"
     rate-limit:
       # Freio por IP em /api/admin/** e no webhook (o login tem freio próprio, por falhas).

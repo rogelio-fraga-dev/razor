@@ -1,8 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Painel web do Razor. Em dev, o proxy encaminha /api para o backend Spring (porta 8081),
-// evitando CORS local; em producao o front consome a API via VITE_API_URL.
+// Painel web do Razor. Em dev, o proxy encaminha /api para o backend Spring (porta 8081):
+// painel e API ficam na mesma origem (localhost:5173), condicao para o cookie de sessao
+// (HttpOnly, SameSite=Strict, Path=/api) e o XSRF-TOKEN funcionarem. O proxy repassa Cookie e
+// Set-Cookie sem reescrever: nenhum dos dois define Domain, entao valem para o host do painel.
 export default defineConfig({
   plugins: [react()],
   server: {

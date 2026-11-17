@@ -3,13 +3,16 @@ package com.razor.api.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razor.api.model.TenantUser;
 import com.razor.api.model.UserRole;
 import com.razor.api.repository.TenantUserRepository;
+import com.razor.api.security.SessionCookies;
 import com.razor.api.tenant.TenantContext;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,7 +32,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 /**
  * Valida a cadeia de seguranca contra o contexto real: o webhook e publico (Security nao pode
  * quebra-lo), {@code /api/admin/**} exige JWT (401 sem token), e o fluxo login -> Bearer -> /me
- * funciona. Pulado sem Docker (dev local); roda no CI.
+ * funciona (agora via cookie HttpOnly + CSRF). Pulado sem Docker (dev local); roda no CI.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
@@ -55,7 +58,6 @@ class SecurityConfigIT {
     @Autowired private MockMvc mockMvc;
     @Autowired private TenantUserRepository tenantUserRepository;
     @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private ObjectMapper objectMapper;
 
     @BeforeEach
     void seedUsers() {
@@ -98,7 +100,7 @@ class SecurityConfigIT {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        String token = objectMapper.readTree(login.getResponse().getContentAsString()).get("token").asText();
+        String token = sessionToken(login);
         assertThat(token).isNotBlank();
 
         mockMvc.perform(get("/api/admin/me").header("Authorization", "Bearer " + token))
@@ -145,7 +147,138 @@ class SecurityConfigIT {
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andReturn();
-        return objectMapper.readTree(login.getResponse().getContentAsString()).get("token").asText();
+        return sessionToken(login);
+    }
+
+    /** O JWT so sai no cookie HttpOnly — clientes de API (e estes testes) o leem do Set-Cookie. */
+    private static String sessionToken(MvcResult login) {
+        Cookie cookie = login.getResponse().getCookie(SessionCookies.NAME);
+        assertThat(cookie).as("cookie de sessao no login").isNotNull();
+        return cookie.getValue();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Sessao por cookie HttpOnly + CSRF (o painel nao guarda mais o JWT no localStorage).
+    // ---------------------------------------------------------------------------------------
+
+    private static final String CSRF = "csrf-de-teste-123";
+    private static final String NAME_BODY = "{\"name\":\"IT Owner\"}";
+
+    @Test
+    @DisplayName("login entrega o JWT só no cookie HttpOnly/SameSite=Strict/Path=/api — nunca no corpo")
+    void login_setsHttpOnlyCookie_andNoTokenInBody() throws Exception {
+        MvcResult login = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"it@loja.com\",\"password\":\"senha1234\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").doesNotExist())
+                .andExpect(jsonPath("$.role").value("OWNER"))
+                .andReturn();
+
+        String setCookie = login.getResponse().getHeaders("Set-Cookie").stream()
+                .filter(h -> h.startsWith(SessionCookies.NAME + "="))
+                .findFirst().orElseThrow();
+        // Testes rodam com o padrao: Secure ligado. Max-Age = TTL do token (720 min).
+        assertThat(setCookie).contains("HttpOnly", "Secure", "SameSite=Strict", "Path=/api", "Max-Age=43200");
+
+        // Token CSRF novo emitido junto com o login, legivel pelo JS (sem HttpOnly).
+        // (lido pelo objeto Cookie: o mock do servlet nao serializa atributos como SameSite no
+        // header, o Tomcat sim.)
+        Cookie xsrf = login.getResponse().getCookie("XSRF-TOKEN");
+        assertThat(xsrf).isNotNull();
+        assertThat(xsrf.isHttpOnly()).isFalse();
+        assertThat(xsrf.getPath()).isEqualTo("/");
+        assertThat(xsrf.getAttribute("SameSite")).isEqualTo("Strict");
+    }
+
+    @Test
+    @DisplayName("cookie de sessão autentica leitura sem header Authorization")
+    void sessionCookie_authenticatesGet() throws Exception {
+        String token = login();
+        mockMvc.perform(get("/api/admin/me").cookie(new Cookie(SessionCookies.NAME, token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("it@loja.com"));
+    }
+
+    @Test
+    @DisplayName("GET no painel emite o XSRF-TOKEN (o token deferred do Spring 6 é carregado)")
+    void panelGet_emitsCsrfCookie() throws Exception {
+        MvcResult r = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isNoContent()).andReturn();
+        Cookie xsrf = r.getResponse().getCookie("XSRF-TOKEN");
+        assertThat(xsrf).isNotNull();
+        assertThat(xsrf.getValue()).isNotBlank();
+        assertThat(xsrf.isHttpOnly()).isFalse();
+    }
+
+    @Test
+    @DisplayName("escrita autenticada por cookie SEM token CSRF responde 403 {code: CSRF}")
+    void cookieWrite_withoutCsrf_forbidden() throws Exception {
+        String token = login();
+        mockMvc.perform(put("/api/admin/me")
+                        .cookie(new Cookie(SessionCookies.NAME, token))
+                        .contentType(MediaType.APPLICATION_JSON).content(NAME_BODY))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF"));
+
+        // Cookie XSRF presente mas header divergente: idem (o atacante nao consegue ler o cookie).
+        mockMvc.perform(put("/api/admin/me")
+                        .cookie(new Cookie(SessionCookies.NAME, token), new Cookie("XSRF-TOKEN", CSRF))
+                        .header("X-XSRF-TOKEN", "outro-valor")
+                        .contentType(MediaType.APPLICATION_JSON).content(NAME_BODY))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF"));
+    }
+
+    @Test
+    @DisplayName("escrita autenticada por cookie COM double-submit CSRF passa")
+    void cookieWrite_withCsrf_ok() throws Exception {
+        String token = login();
+        mockMvc.perform(put("/api/admin/me")
+                        .cookie(new Cookie(SessionCookies.NAME, token), new Cookie("XSRF-TOKEN", CSRF))
+                        .header("X-XSRF-TOKEN", CSRF)
+                        .contentType(MediaType.APPLICATION_JSON).content(NAME_BODY))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("header Authorization manda: Bearer inválido não cai no cookie")
+    void invalidBearer_doesNotFallBackToCookie() throws Exception {
+        String token = login();
+        mockMvc.perform(get("/api/admin/me")
+                        .cookie(new Cookie(SessionCookies.NAME, token))
+                        .header("Authorization", "Bearer lixo"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("logout exige CSRF e apaga o cookie de sessão")
+    void logout_requiresCsrf_andClearsCookie() throws Exception {
+        String token = login();
+        mockMvc.perform(post("/api/auth/logout").cookie(new Cookie(SessionCookies.NAME, token)))
+                .andExpect(status().isForbidden());
+
+        MvcResult r = mockMvc.perform(post("/api/auth/logout")
+                        .cookie(new Cookie(SessionCookies.NAME, token), new Cookie("XSRF-TOKEN", CSRF))
+                        .header("X-XSRF-TOKEN", CSRF))
+                .andExpect(status().isNoContent())
+                .andReturn();
+        Cookie cleared = r.getResponse().getCookie(SessionCookies.NAME);
+        assertThat(cleared).isNotNull();
+        assertThat(cleared.getMaxAge()).isZero();
+        assertThat(cleared.getValue()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("rotas fora do painel seguem sem CSRF: webhook e onboarding")
+    void publicWrites_doNotRequireCsrf() throws Exception {
+        // Webhook e onboarding respondem pelo proprio segredo (aqui ausente, entao recusam) — o
+        // que importa e que a recusa nao venha do CSRF.
+        // Webhook sem token: 401 do proprio controller (o CSRF daria 403).
+        mockMvc.perform(post("/api/webhook").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+        // Onboarding com corpo vazio: chega ao controller e cai na validacao (400), nao no CSRF.
+        mockMvc.perform(post("/api/onboarding").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
     }
 
     // ---------------------------------------------------------------------------------------
