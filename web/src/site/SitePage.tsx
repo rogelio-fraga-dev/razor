@@ -3,9 +3,9 @@
 // Fica FORA do bloco autenticado do App — é um site, e site não pede login. O tenant vem do slug
 // da URL e o backend recusa slug inexistente ou site não publicado com o mesmo 404.
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
-import type { PublicSite } from "../api/types";
+import type { PublicSite, SiteTemplate, SiteTheme } from "../api/types";
 import { TEMPLATES } from "./templates";
 import { bookingHref } from "./parts";
 import "./site.css";
@@ -111,6 +111,13 @@ export function SitePage() {
   const [site, setSite] = useState<PublicSite | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scheme, setScheme] = useState<Scheme | null>(readScheme);
+  // Prévia por endereço (?template=VITRINE&tema=escuro): o dono compara os três modelos com o
+  // próprio conteúdo antes de salvar. Só muda a apresentação — o conteúdo é o publicado.
+  const [query] = useSearchParams();
+  const previewTemplate = query.get("template")?.toUpperCase() as SiteTemplate | undefined;
+  const previewTheme = ({ claro: "LIGHT", escuro: "DARK", ambos: "AUTO" } as Record<string, SiteTheme>)[
+    query.get("tema")?.toLowerCase() ?? ""
+  ];
 
   useEffect(() => {
     let vivo = true;
@@ -140,14 +147,16 @@ export function SitePage() {
   // esqueleto que pisca com a cor errada — o acento e o tema só chegam junto com os dados.
   if (!site) return <div className="rzsite theme-auto" style={{ minHeight: "100vh" }} />;
 
-  const Template = TEMPLATES[site.template] ?? TEMPLATES.CLASSICO;
-  const auto = site.theme === "AUTO" || !THEME_CLASS[site.theme];
+  const templateId = previewTemplate && previewTemplate in TEMPLATES ? previewTemplate : site.template;
+  const theme = previewTheme ?? site.theme;
+  const Template = TEMPLATES[templateId] ?? TEMPLATES.CLASSICO;
+  const auto = theme === "AUTO" || !THEME_CLASS[theme];
   // No "Ambos", a escolha do visitante (se houver) vence a do aparelho.
   const themeClass = auto
     ? scheme
       ? `theme-${scheme}`
       : "theme-auto"
-    : THEME_CLASS[site.theme];
+    : THEME_CLASS[theme];
 
   return (
     <div
