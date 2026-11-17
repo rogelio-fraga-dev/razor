@@ -8,12 +8,14 @@ package com.razor.api.model;
  * confunde quem so quer escolher a estrutura da pagina.
  */
 public enum SiteTemplate {
-    /** Elegante e direto: servicos, equipe, avaliacoes e o botao de agendar acima da dobra. */
-    CLASSICO("Clássico", "Elegante e direto: serviços, equipe e o botão de agendar."),
-    /** Foco em marca e atmosfera — tipografia grande, muito respiro, poucas imagens. */
-    ESTUDIO("Estúdio", "Sofisticado, com foco em marca e atmosfera."),
-    /** Foco nas fotos dos cortes: galeria grande, prova social, Instagram. */
-    VITRINE("Vitrine", "Foco em fotos dos cortes: galeria grande e Instagram.");
+    // Os textos de vitrine (proposta, "ideal para", estrutura) vivem em web/src/site/catalog.ts,
+    // que e o que o dono le no editor. Aqui fica so o rotulo curto, para logs e relatorios.
+    /** Preco e agendamento logo de cara: capa, numeros e servicos. */
+    CLASSICO("Clássico", "Preço e agendamento logo de cara."),
+    /** Marca antes de preco: capa centralizada, texto grande, equipe em destaque. */
+    ESTUDIO("Estúdio", "Marca antes de preço: texto grande, muito respiro."),
+    /** O trabalho e o argumento: a galeria em mosaico abre a pagina. */
+    VITRINE("Vitrine", "A galeria abre a página: o trabalho é o argumento.");
 
     private final String label;
     private final String description;

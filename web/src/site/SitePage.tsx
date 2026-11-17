@@ -7,14 +7,110 @@ import { useParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import type { PublicSite } from "../api/types";
 import { TEMPLATES } from "./templates";
+import { bookingHref } from "./parts";
 import "./site.css";
 
+type Scheme = "light" | "dark";
+
 const THEME_CLASS = { LIGHT: "theme-light", DARK: "theme-dark", AUTO: "theme-auto" } as const;
+const SCHEME_KEY = "rzsite.scheme";
+
+/** Preferência do visitante no tema "Ambos". Storage pode falhar (aba anônima): aí só não lembra. */
+function readScheme(): Scheme | null {
+  try {
+    const v = localStorage.getItem(SCHEME_KEY);
+    return v === "light" || v === "dark" ? v : null;
+  } catch {
+    return null;
+  }
+}
+function saveScheme(s: Scheme) {
+  try {
+    localStorage.setItem(SCHEME_KEY, s);
+  } catch {
+    /* sem storage, a escolha vale só para esta visita */
+  }
+}
+const systemScheme = (): Scheme =>
+  window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+
+/**
+ * Meta description e dados estruturados (schema.org) para a busca local.
+ *
+ * É o que faz o Google mostrar endereço, horário e telefone direto no resultado de
+ * "barbearia perto de mim" — um diferencial que o dono não teria como montar sozinho.
+ */
+function useSeo(site: PublicSite | null) {
+  useEffect(() => {
+    if (!site) return;
+    document.title = site.barbershopName;
+
+    const description =
+      site.subheadline ||
+      site.aboutText?.slice(0, 155) ||
+      `${site.barbershopName}: agende seu horário pelo WhatsApp.`;
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+    const criouMeta = !meta;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "description";
+      document.head.appendChild(meta);
+    }
+    const descricaoAnterior = meta.content;
+    meta.content = description;
+
+    const ld: Record<string, unknown> = {
+      "@context": "https://schema.org",
+      "@type": "HairSalon",
+      name: site.barbershopName,
+      description,
+      url: window.location.href,
+    };
+    if (site.logoUrl) ld.logo = site.logoUrl;
+    if (site.heroImageUrl || site.gallery.length) ld.image = [site.heroImageUrl, ...site.gallery].filter(Boolean);
+    if (site.addressText) ld.address = site.addressText.replace(/\s*\n\s*/g, ", ");
+    if (site.whatsappNumber) ld.telephone = site.whatsappNumber;
+    if (site.mapsUrl) ld.hasMap = site.mapsUrl;
+    if (site.instagramUrl) ld.sameAs = [site.instagramUrl];
+    const comPreco = site.services.filter((s) => s.price != null).map((s) => s.price!);
+    if (comPreco.length) ld.priceRange = `R$ ${Math.min(...comPreco)} - R$ ${Math.max(...comPreco)}`;
+    const reservar = bookingHref(site);
+    if (reservar) ld.potentialAction = { "@type": "ReserveAction", target: reservar };
+
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.textContent = JSON.stringify(ld);
+    document.head.appendChild(script);
+
+    return () => {
+      script.remove();
+      if (criouMeta) meta!.remove();
+      else meta!.content = descricaoAnterior;
+    };
+  }, [site]);
+}
+
+/** Botão de alternância — só existe no tema "Ambos", como o editor promete. */
+function SchemeToggle({ scheme, onChange }: { scheme: Scheme; onChange: (s: Scheme) => void }) {
+  const next: Scheme = scheme === "dark" ? "light" : "dark";
+  return (
+    <button
+      type="button"
+      className="rz-scheme-toggle"
+      onClick={() => onChange(next)}
+      aria-label={next === "dark" ? "Mudar para tema escuro" : "Mudar para tema claro"}
+      title={next === "dark" ? "Tema escuro" : "Tema claro"}
+    >
+      <span aria-hidden="true">{scheme === "dark" ? "☀" : "☾"}</span>
+    </button>
+  );
+}
 
 export function SitePage() {
   const { slug = "" } = useParams();
   const [site, setSite] = useState<PublicSite | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scheme, setScheme] = useState<Scheme | null>(readScheme);
 
   useEffect(() => {
     let vivo = true;
@@ -27,10 +123,7 @@ export function SitePage() {
     };
   }, [slug]);
 
-  // O título da aba é do estabelecimento, não do Razor: o site é da barbearia.
-  useEffect(() => {
-    if (site) document.title = site.barbershopName;
-  }, [site]);
+  useSeo(site);
 
   if (error) {
     return (
@@ -48,14 +141,30 @@ export function SitePage() {
   if (!site) return <div className="rzsite theme-auto" style={{ minHeight: "100vh" }} />;
 
   const Template = TEMPLATES[site.template] ?? TEMPLATES.CLASSICO;
+  const auto = site.theme === "AUTO" || !THEME_CLASS[site.theme];
+  // No "Ambos", a escolha do visitante (se houver) vence a do aparelho.
+  const themeClass = auto
+    ? scheme
+      ? `theme-${scheme}`
+      : "theme-auto"
+    : THEME_CLASS[site.theme];
 
   return (
     <div
-      className={`rzsite ${THEME_CLASS[site.theme] ?? "theme-auto"}`}
+      className={`rzsite ${themeClass}`}
       // A única cor do dono entra aqui; o resto da paleta o CSS deriva.
       style={{ ["--accent" as string]: site.accentColor }}
     >
       <Template site={site} />
+      {auto && (
+        <SchemeToggle
+          scheme={scheme ?? systemScheme()}
+          onChange={(s) => {
+            setScheme(s);
+            saveScheme(s);
+          }}
+        />
+      )}
     </div>
   );
 }

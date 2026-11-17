@@ -9,6 +9,7 @@ import { useToast } from "./Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { SiteTemplate, SiteTheme } from "../api/types";
+import { TEMPLATE_CATALOG, THEME_OPTIONS } from "../site/catalog";
 
 interface SiteForm {
   templateId: SiteTemplate;
@@ -28,18 +29,6 @@ interface SiteForm {
   showPrices: boolean;
   published: boolean;
 }
-
-const TEMPLATES: { id: SiteTemplate; label: string; hint: string }[] = [
-  { id: "CLASSICO", label: "Clássico", hint: "Preço e agendamento logo de cara. Para quem compete por conveniência." },
-  { id: "ESTUDIO", label: "Estúdio", hint: "Marca antes de preço: texto grande, muito respiro, equipe em destaque." },
-  { id: "VITRINE", label: "Vitrine", hint: "A galeria abre a página. Para quem vende pelo trabalho que aparece." },
-];
-
-const THEMES: { id: SiteTheme; label: string }[] = [
-  { id: "AUTO", label: "Segue o aparelho" },
-  { id: "LIGHT", label: "Claro" },
-  { id: "DARK", label: "Escuro" },
-];
 
 /** Sugestões prontas: o dono escolhe uma cor boa sem abrir seletor. */
 const PRESETS = ["#3E63FF", "#C9A227", "#1F9D55", "#E4572E", "#8A63FF", "#111827"];
@@ -120,7 +109,7 @@ export function SiteEditor({ slug }: { slug: string | null }) {
               <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
                 <legend className="field-legend">Modelo do site</legend>
                 <div className="site-tpl-grid">
-                  {TEMPLATES.map((t) => (
+                  {TEMPLATE_CATALOG.map((t) => (
                     <button
                       key={t.id}
                       type="button"
@@ -132,7 +121,9 @@ export function SiteEditor({ slug }: { slug: string | null }) {
                           depender de uma captura de tela que envelhece a cada mudança. */}
                       <span className={`site-thumb thumb-${t.id.toLowerCase()}`} aria-hidden="true" />
                       <strong>{t.label}</strong>
-                      <span className="site-tpl-hint">{t.hint}</span>
+                      <span className="site-tpl-hint">{t.pitch}</span>
+                      <span className="site-tpl-hint"><em>Ideal para:</em> {t.idealFor}</span>
+                      <span className="site-tpl-hint"><em>Precisa de:</em> {t.needs}</span>
                     </button>
                   ))}
                 </div>
@@ -144,8 +135,9 @@ export function SiteEditor({ slug }: { slug: string | null }) {
               <div className="field">
                 <label>Tema
                   <select className="input" value={form.themeMode} onChange={(e) => set("themeMode", e.target.value as SiteTheme)}>
-                    {THEMES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    {THEME_OPTIONS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                   </select>
+                  <span className="muted" style={{ display: "block", fontSize: 12, marginTop: 6 }}>{THEME_OPTIONS.find((t) => t.id === form.themeMode)?.hint}</span>
                 </label>
               </div>
               <div className="field">
