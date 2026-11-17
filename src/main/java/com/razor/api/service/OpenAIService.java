@@ -258,6 +258,11 @@ public class OpenAIService {
         }
     }
     
+    /**
+     * Transcreve um audio com o Whisper.
+     * Retorna null quando a transcricao falha (chave invalida, rede, resposta vazia),
+     * para o chamador nao tratar uma mensagem de erro como se fosse fala do usuario.
+     */
     public String transcribeAudio(String base64Audio, String mimeType) {
         try {
             String pureBase64 = base64Audio.contains(",") ? base64Audio.split(",")[1] : base64Audio;
@@ -274,7 +279,8 @@ public class OpenAIService {
             builder.part("file", new ByteArrayResource(audioBytes) {
                 @Override public String getFilename() { return filename; }
             });
-            builder.part("model", "whisper-1");
+            String whisperModel = properties.getOpenai().getWhisperModel();
+            builder.part("model", (whisperModel == null || whisperModel.isBlank()) ? "whisper-1" : whisperModel);
 
             String jsonResponse = getOpenAiWebClient()
                     .post()
@@ -288,13 +294,15 @@ public class OpenAIService {
             if (jsonResponse != null) {
                 JsonNode root = objectMapper.readTree(jsonResponse);
                 if (root.has("text")) {
-                    return root.get("text").asText().trim();
+                    String text = root.get("text").asText().trim();
+                    return text.isEmpty() ? null : text;
                 }
             }
-            return jsonResponse;
+            log.error("Erro Áudio Whisper: resposta sem campo 'text'");
+            return null;
         } catch (Exception e) {
             log.error("Erro Áudio Whisper: {}", e.getMessage());
-            return "[Erro na transcrição do áudio]";
+            return null;
         }
     }
 

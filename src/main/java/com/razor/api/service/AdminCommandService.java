@@ -132,6 +132,11 @@ public class AdminCommandService {
             log.info("[ADMIN] Mensagem de voz recebida do Admin {}, transcrevendo com Whisper...", phoneNumber);
             sendMsg(phoneNumber, "🎧 Ouvindo áudio...", "ADMIN");
             command = openAIService.transcribeAudio(base64, webhook.getMimeType());
+            if (command == null) {
+                log.warn("[ADMIN] Falha ao transcrever audio do Admin {}", phoneNumber);
+                sendMsg(phoneNumber, "❌ Não consegui transcrever o áudio. Tente de novo ou mande por texto.", "ADMIN");
+                return;
+            }
             log.info("[ADMIN] Audio transcrito: '{}'", sanitizeForConsole(command));
 
             boolean semEstadoAtivo = stateStore.get(StateKeys.adminState(phoneNumber), String.class).isEmpty();

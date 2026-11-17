@@ -3,6 +3,7 @@ package com.razor.api.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razor.api.config.RazorProperties;
+import com.razor.api.tenant.TenantResolver;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -22,13 +23,14 @@ import org.springframework.stereotype.Service;
 public class EvolutionMediaService {
 
     private final RazorProperties properties;
+    private final TenantResolver tenantResolver;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public String fetchBase64(String messageId) {
         try {
             String baseUrl = properties.getEvolution().getBaseUrl();
             if (baseUrl.endsWith("/")) baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
-            String url = baseUrl + "/chat/getBase64FromMediaMessage/" + properties.getEvolution().getInstanceName();
+            String url = baseUrl + "/chat/getBase64FromMediaMessage/" + tenantResolver.outboundInstance();
             String jsonPayload = String.format("{\"message\":{\"key\":{\"id\":\"%s\"}}}", messageId);
 
             HttpRequest request = HttpRequest.newBuilder()

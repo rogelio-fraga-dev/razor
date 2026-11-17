@@ -122,7 +122,14 @@ public class CustomerConversationService {
 
         if (webhook.hasAudio()) {
             String base64 = webhook.getBase64() != null ? webhook.getBase64() : fetchBase64FromEvolution(webhook.getData().getKey().getId());
-            contentToSave = (base64 != null) ? openAIService.transcribeAudio(base64, webhook.getMimeType()) : "[Áudio]";
+            String transcription = (base64 != null) ? openAIService.transcribeAudio(base64, webhook.getMimeType()) : null;
+            if (transcription == null) {
+                log.warn("[CLIENTE IN] Audio de {} nao pode ser transcrito", phoneNumber);
+                interactionRepository.save(Interaction.builder().barbershopId(customer.getBarbershopId()).customer(customer).type(Interaction.InteractionType.USER).content("[Áudio não transcrito]").messageId(webhook.getData().getKey().getId()).build());
+                saveAndSend(customer, "Opa, não consegui ouvir seu áudio agora 😅 Pode me mandar por escrito?", phoneNumber);
+                return;
+            }
+            contentToSave = transcription;
         } else if (contentToSave == null) {
             contentToSave = "[Arquivo]";
         }

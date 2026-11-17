@@ -77,7 +77,7 @@ razor:
       enabled: "${RAZOR_RATE_LIMIT_ENABLED:true}"
       window-seconds: 60
       admin-per-minute: "${RAZOR_RATE_LIMIT_ADMIN:240}"
-      webhook-per-minute: "${RAZOR_RATE_LIMIT_WEBHOOK:120}"
+      webhook-per-minute: "${RAZOR_RATE_LIMIT_WEBHOOK:600}"
   openai:
     api-key: "${OPENAI_API_KEY}"
     model: "gpt-4o"
