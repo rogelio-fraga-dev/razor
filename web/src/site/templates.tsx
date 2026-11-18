@@ -1,91 +1,110 @@
 // Os três templates do site white-label — só a COMPOSIÇÃO de cada página.
 //
-// O conteúdo vem de parts.tsx (blocos idênticos nos três) e layout.tsx (capa, topo e chamada
-// final, com variantes). Trocar de template muda a ordem e o peso dos blocos, nunca o dado — é o
-// que sustenta a promessa de trocar de template sem redigitar nada. Nome, proposta e "ideal
-// para" de cada um ficam em catalog.ts.
+// O conteúdo vem de parts.tsx (blocos idênticos nos três), sections.tsx (blocos com variante
+// por template) e layout.tsx (chamada final). Cada template tem identidade própria — fonte,
+// capa, forma do menu de serviços e da galeria —, mas o DADO é sempre o mesmo: trocar de
+// template nunca pede para redigitar nada. Nome, proposta e "ideal para" ficam em catalog.ts;
+// o visual de cada um, nos blocos `.tpl-*` de site.css.
+import type { ReactNode } from "react";
 import type { PublicSite } from "../api/types";
-import { BookButton, Footer, Gallery, HowItWorks, Plans, Services, Stats, StickyBook, Team } from "./parts";
-import { About, FinalCta, Hero, TopBar } from "./layout";
+import { Footer, HowItWorks, Plans, Stats, StickyBook, Team } from "./parts";
+import { FinalCta } from "./layout";
+import {
+  BarberStripe,
+  GalleryPro,
+  HeroEditorial,
+  HeroPoster,
+  HeroSplit,
+  Location,
+  Marquee,
+  NavBar,
+  ServicesBoard,
+  ServicesCards,
+  ServicesEditorial,
+  StorySplit,
+  TemplateShell,
+} from "./sections";
+
+/** Âncora da navegação para blocos que vêm de parts.tsx. */
+const Anchor = ({ id, children }: { id: string; children: ReactNode }) => (
+  <div id={id} className="rz-anchor" data-reveal>
+    {children}
+  </div>
+);
 
 /* ============================================================================
-   CLÁSSICO — a pergunta do visitante respondida primeiro.
-   Hero, números, serviços e preço logo em seguida. Para a barbearia de bairro
-   que compete por conveniência e preço claro.
+   CLÁSSICO — barbearia tradicional.
+   Serifa, listras de poste de barbeiro, quadro de preços. Responde primeiro
+   "quanto custa e quando abre" — quem compete por conveniência.
    ========================================================================== */
 export function Classico({ site }: { site: PublicSite }) {
   return (
-    <>
-      <Hero site={site} />
+    <TemplateShell tpl="classico">
+      <NavBar site={site} />
+      <HeroSplit site={site} />
+      <BarberStripe />
       <Stats site={site} />
-      <Services site={site} />
-      <Gallery site={site} title="Nosso trabalho" />
-      <Team site={site} />
-      <Plans site={site} />
+      <ServicesBoard site={site} />
+      <GalleryPro site={site} variant="frames" title="Nosso trabalho" />
+      <StorySplit site={site} />
+      <Anchor id="equipe"><Team site={site} /></Anchor>
+      <Anchor id="planos"><Plans site={site} /></Anchor>
       <HowItWorks site={site} />
-      <About site={site} />
+      <Location site={site} />
+      <BarberStripe />
       <FinalCta site={site} />
       <Footer site={site} />
       <StickyBook site={site} />
-    </>
+    </TemplateShell>
   );
 }
 
 /* ============================================================================
-   ESTÚDIO — marca antes de preço.
-   Hero centralizado, texto grande, equipe em destaque; a tabela de valores só
-   aparece depois que a barbearia se apresentou.
+   ESTÚDIO — editorial premium.
+   Capa em tela cheia, tipografia grande, fotos em preto e branco que ganham
+   cor ao passar o mouse. A marca aparece antes do preço.
    ========================================================================== */
 export function Estudio({ site }: { site: PublicSite }) {
   return (
-    <>
-      <Hero site={site} align="center" />
-      <About site={site} big />
-      <Gallery site={site} title="Atmosfera" />
-      <Team site={site} />
-      <Stats site={site} />
-      <Services site={site} title="A carta" />
-      <Plans site={site} />
-      <HowItWorks site={site} />
+    <TemplateShell tpl="estudio">
+      <NavBar site={site} />
+      <HeroEditorial site={site} />
+      <StorySplit site={site} eyebrow="Manifesto" />
+      <GalleryPro site={site} variant="strip" title="Atmosfera" eyebrow="Estúdio" />
+      <Anchor id="equipe"><Team site={site} /></Anchor>
+      <ServicesEditorial site={site} />
+      <Anchor id="planos"><Plans site={site} /></Anchor>
+      <Location site={site} />
       <FinalCta site={site} />
       <Footer site={site} />
       <StickyBook site={site} />
-    </>
+    </TemplateShell>
   );
 }
 
 /* ============================================================================
    VITRINE — o trabalho é o argumento.
-   Barra de topo enxuta e a galeria logo abaixo do título: para essa barbearia a
-   prova é a foto do corte, não o texto.
+   Título em cartaz, faixa de serviços rolando e mosaico de fotos com zoom.
+   Para quem já vende pelo Instagram.
    ========================================================================== */
 export function Vitrine({ site }: { site: PublicSite }) {
   return (
-    <>
-      <TopBar site={site} />
-      <section className="rz-section" style={{ paddingBottom: 0 }}>
-        <div className="rz-wrap">
-          <p className="rz-eyebrow">Portfólio</p>
-          <h1 className="rz-h2" style={{ fontSize: "clamp(32px, 5.4vw, 56px)", maxWidth: "17ch" }}>
-            {site.headline || site.barbershopName}
-          </h1>
-          {site.subheadline && <p className="rz-lead" style={{ marginTop: 12 }}>{site.subheadline}</p>}
-          <div style={{ marginTop: 26 }}>
-            <BookButton site={site} />
-          </div>
-        </div>
-      </section>
-      <Gallery site={site} title="" mosaic />
+    <TemplateShell tpl="vitrine">
+      <NavBar site={site} solid />
+      <HeroPoster site={site} />
+      <Marquee site={site} />
+      <GalleryPro site={site} variant="masonry" title="Feito aqui" eyebrow="Portfólio" />
+      <ServicesCards site={site} />
       <Stats site={site} />
-      <Services site={site} />
-      <Team site={site} />
-      <Plans site={site} />
+      <Anchor id="equipe"><Team site={site} /></Anchor>
+      <Anchor id="planos"><Plans site={site} /></Anchor>
+      <StorySplit site={site} reverse />
       <HowItWorks site={site} />
-      <About site={site} />
+      <Location site={site} />
       <FinalCta site={site} />
       <Footer site={site} />
       <StickyBook site={site} />
-    </>
+    </TemplateShell>
   );
 }
 

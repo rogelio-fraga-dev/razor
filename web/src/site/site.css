@@ -342,12 +342,12 @@
   to { opacity: 1; transform: none; }
 }
 
-/* Alternância claro/escuro — só no tema "Ambos". Canto superior, longe da barra de agendar. */
+/* Alternância claro/escuro — só no tema "Ambos". Canto inferior; no celular sobe acima da barra de agendar. */
 .rz-scheme-toggle {
   position: fixed;
-  top: 14px;
-  right: 14px;
-  z-index: 30;
+  bottom: 18px;
+  right: 18px;
+  z-index: 40;
   width: 40px;
   height: 40px;
   border-radius: 999px;
@@ -363,3 +363,292 @@
 }
 .rz-scheme-toggle:hover { border-color: var(--accent); }
 .rz-scheme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 720px) { .rz-scheme-toggle { bottom: 86px; right: 14px; } }
+
+/* ============================================================================
+   v2 — identidade por template (sections.tsx).
+   Base comum primeiro; depois um bloco por template (.tpl-classico, .tpl-estudio,
+   .tpl-vitrine) que troca fonte, cantos e o tratamento de cada seção.
+   ========================================================================== */
+
+/* ---------- Entrada suave ao rolar ---------- */
+.tpl [data-reveal] {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tpl [data-reveal].is-in { opacity: 1; transform: none; }
+.tpl .rz-gal-item[data-reveal]:nth-child(3n + 2) { transition-delay: 0.08s; }
+.tpl .rz-gal-item[data-reveal]:nth-child(3n + 3) { transition-delay: 0.16s; }
+@media (prefers-reduced-motion: reduce) {
+  .tpl [data-reveal] { opacity: 1; transform: none; }
+}
+.rz-anchor, .tpl [id] { scroll-margin-top: 84px; }
+html:has(.tpl) { scroll-behavior: smooth; }
+
+/* ---------- Navegação fixa ---------- */
+.rz-nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 35;
+  transition: background 0.3s, border-color 0.3s;
+  border-bottom: 1px solid transparent;
+  color: #fff;
+}
+.rz-nav.is-solid {
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4);
+  border-bottom-color: var(--border);
+  color: var(--text);
+}
+.rz-nav-in { display: flex; align-items: center; gap: 28px; height: 72px; }
+.rz-nav-brand { color: inherit; text-decoration: none; font-family: var(--font-display); font-weight: 800; font-size: 20px; letter-spacing: -0.01em; white-space: nowrap; }
+.rz-nav-brand img { height: 38px; width: auto; display: block; }
+.rz-nav-links { display: flex; gap: 24px; margin-left: auto; }
+.rz-nav-links a { color: inherit; opacity: 0.82; text-decoration: none; font-size: 14px; font-weight: 500; }
+.rz-nav-links a:hover { opacity: 1; color: var(--accent); }
+.rz-nav-cta .rz-btn { padding: 10px 18px; font-size: 14px; }
+@media (max-width: 860px) {
+  .rz-nav-links { display: none; }
+  .rz-nav-cta { margin-left: auto; }
+}
+@media (max-width: 520px) { .rz-nav-cta { display: none; } }
+
+/* ---------- Capa dividida (Clássico) ---------- */
+.rz-hsplit { padding: 128px 0 72px; background: radial-gradient(1200px 500px at 85% 10%, var(--accent-soft), transparent 60%), var(--bg); color: var(--text); }
+.rz-hsplit-in { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(28px, 5vw, 72px); align-items: center; }
+.rz-hsplit h1 { font-family: var(--font-display); font-size: clamp(40px, 6vw, 76px); line-height: 1.02; letter-spacing: -0.02em; margin: 0; }
+.rz-hsplit .rz-lead { margin-top: 20px; }
+.rz-hsplit-media { position: relative; }
+.rz-hsplit-media img, .rz-hsplit-ph {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  display: block;
+  border-radius: 999px 999px var(--radius) var(--radius);
+  box-shadow: var(--shadow);
+}
+.rz-hsplit-ph { background: linear-gradient(140deg, var(--accent), var(--accent-hover)); }
+.rz-hsplit-card {
+  position: absolute;
+  left: -28px;
+  bottom: 28px;
+  max-width: 280px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+.rz-hsplit-card small { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin-top: 6px; }
+.rz-hsplit-card small:first-child { margin-top: 0; }
+.rz-hsplit-card span { color: var(--text-muted); }
+@media (max-width: 860px) {
+  .rz-hsplit { padding-top: 104px; }
+  .rz-hsplit-in { grid-template-columns: 1fr; }
+  .rz-hsplit-media { max-width: 440px; }
+  .rz-hsplit-card { left: 12px; bottom: 12px; }
+}
+/* No Clássico a capa tem fundo do tema: a navegação começa com a cor do texto, não branca. */
+.tpl-classico .rz-nav { color: var(--text); }
+
+/* ---------- Listras de poste de barbeiro ---------- */
+.rz-stripe {
+  height: 14px;
+  background: repeating-linear-gradient(-45deg, var(--accent) 0 14px, var(--bg) 14px 28px, #b42318 28px 42px, var(--bg) 42px 56px);
+  background-size: 200% 100%;
+  animation: rz-pole 14s linear infinite;
+  opacity: 0.9;
+}
+@keyframes rz-pole { to { background-position: -400px 0; } }
+
+/* ---------- Capa editorial (Estúdio) ---------- */
+.rz-hed { position: relative; min-height: min(100vh, 920px); display: grid; place-items: center; text-align: center; color: #fff; overflow: hidden; isolation: isolate; }
+.rz-hed-bg { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center; filter: grayscale(1) contrast(1.05); animation: rz-kenburns 24s ease-out forwards; }
+.rz-hed-veil { position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at center, rgba(0,0,0,.35), rgba(0,0,0,.85)); }
+.rz-hed-in { padding: 120px 24px 80px; }
+.rz-hed-kicker { font-size: 12px; letter-spacing: 0.42em; text-transform: uppercase; opacity: 0.8; margin: 0 0 28px; }
+.rz-hed-kicker::before, .rz-hed-kicker::after { content: ""; display: inline-block; width: 42px; height: 1px; background: currentColor; vertical-align: middle; margin: 0 16px; opacity: 0.6; }
+.rz-hed h1 { font-family: var(--font-display); font-weight: 300; font-size: clamp(44px, 9vw, 120px); line-height: 0.95; letter-spacing: -0.03em; margin: 0 auto; max-width: 14ch; }
+.rz-hed-sub { max-width: 52ch; margin: 26px auto 0; font-size: 17px; line-height: 1.7; opacity: 0.85; }
+.rz-hed .rz-hero-cta { justify-content: center; }
+.rz-hed-hours { margin-top: 26px; font-size: 13px; letter-spacing: 0.08em; opacity: 0.65; }
+.rz-hed-scroll { position: absolute; bottom: 28px; left: 50%; translate: -50% 0; width: 26px; height: 42px; border: 1px solid rgba(255,255,255,.5); border-radius: 20px; }
+.rz-hed-scroll span { position: absolute; top: 8px; left: 50%; width: 3px; height: 8px; margin-left: -1.5px; border-radius: 2px; background: #fff; animation: rz-scrollcue 1.8s ease-in-out infinite; }
+@keyframes rz-scrollcue { 0% { opacity: 0; transform: translateY(0); } 40% { opacity: 1; } 100% { opacity: 0; transform: translateY(14px); } }
+
+/* ---------- Capa cartaz (Vitrine) ---------- */
+.rz-poster { padding: 132px 0 40px; }
+.rz-poster h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(56px, 12vw, 168px); line-height: 0.94; text-transform: uppercase; margin: 0; letter-spacing: -0.01em; max-width: 12ch; }
+.rz-poster-row { display: flex; gap: 24px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin-top: 28px; }
+
+/* ---------- Faixa rolando ---------- */
+.rz-marquee { overflow: hidden; background: var(--accent); color: var(--on-accent); padding: 16px 0; transform: rotate(-1.2deg); margin: 24px -10px 10px; }
+.rz-marquee-track { display: flex; width: max-content; animation: rz-marquee 38s linear infinite; }
+.rz-marquee-track > span { white-space: nowrap; font-family: var(--font-display); font-size: clamp(20px, 2.6vw, 30px); text-transform: uppercase; padding-right: 0.5em; }
+.rz-marquee b { font-weight: 400; opacity: 0.7; margin: 0 0.45em; }
+@keyframes rz-marquee { to { transform: translateX(-50%); } }
+.rzsite:has(.rz-marquee) { overflow-x: clip; }
+
+/* ---------- Títulos centralizados ---------- */
+.rz-head-center { text-align: center; }
+.rz-head-center .rz-h2 { margin-inline: auto; }
+
+/* ---------- Quadro de preços (Clássico) ---------- */
+.rz-board {
+  margin: 34px auto 0;
+  max-width: 980px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 56px;
+  padding: clamp(24px, 4vw, 44px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  position: relative;
+}
+.rz-board::before { content: ""; position: absolute; inset: 8px; border: 1px solid var(--border); border-radius: calc(var(--radius) - 6px); pointer-events: none; }
+.rz-board-row { padding: 14px 0; }
+.rz-board-line { display: flex; align-items: baseline; gap: 10px; }
+.rz-board-name { font-family: var(--font-display); font-size: 19px; font-weight: 600; }
+.rz-board-dots { flex: 1; border-bottom: 2px dotted var(--border); transform: translateY(-4px); }
+.rz-board-price { font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--accent); white-space: nowrap; }
+.rz-board-dur { font-size: 13px; color: var(--text-muted); }
+@media (max-width: 720px) { .rz-board { grid-template-columns: 1fr; } }
+
+/* ---------- Lista editorial (Estúdio) ---------- */
+.rz-ed-list { list-style: none; margin: 34px 0 0; padding: 0; border-top: 1px solid var(--border); }
+.rz-ed-list li {
+  display: grid;
+  grid-template-columns: 64px 1fr auto auto;
+  gap: 20px;
+  align-items: baseline;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border);
+  transition: padding 0.3s, background 0.3s;
+}
+.rz-ed-list li:hover { padding-left: 14px; background: linear-gradient(90deg, var(--accent-soft), transparent 70%); }
+.rz-ed-n { font-size: 13px; color: var(--accent); letter-spacing: 0.1em; }
+.rz-ed-name { font-family: var(--font-display); font-size: clamp(22px, 3vw, 32px); font-weight: 300; letter-spacing: -0.01em; }
+.rz-ed-dur { font-size: 13px; color: var(--text-muted); }
+.rz-ed-price { font-family: var(--font-display); font-size: 22px; min-width: 110px; text-align: right; }
+@media (max-width: 620px) {
+  .rz-ed-list li { grid-template-columns: 40px 1fr auto; }
+  .rz-ed-dur { display: none; }
+}
+
+/* ---------- Cartões com foto (Vitrine) ---------- */
+.rz-scards { margin-top: 30px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.rz-scard { position: relative; min-height: 240px; border-radius: var(--radius); overflow: hidden; background: var(--bg-2); border: 1px solid var(--border); display: flex; align-items: flex-end; isolation: isolate; color: #fff; }
+.rz-scard-bg { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center; transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.rz-scard::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to top, rgba(0,0,0,.88), rgba(0,0,0,.15) 65%); }
+.rz-scard:hover .rz-scard-bg { transform: scale(1.07); }
+.rz-scard-body { padding: 20px; width: 100%; }
+.rz-scard h3 { margin: 0 0 8px; font-family: var(--font-display); font-weight: 400; font-size: 24px; text-transform: uppercase; letter-spacing: 0.01em; line-height: 1; }
+.rz-scard-meta { display: flex; justify-content: space-between; align-items: center; font-size: 14px; opacity: 0.9; }
+.rz-scard-meta strong { background: var(--accent); color: var(--on-accent); padding: 4px 10px; border-radius: 999px; font-size: 14px; }
+
+/* ---------- Galeria com ampliação ---------- */
+.rz-gal-grid { margin-top: 30px; }
+.rz-gal-item { all: unset; cursor: zoom-in; display: block; overflow: hidden; border-radius: var(--radius-sm); position: relative; box-sizing: border-box; }
+.rz-gal-item:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.rz-gal-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), filter 0.5s; }
+.rz-gal-item:hover img { transform: scale(1.06); }
+.rz-gal-more { margin-top: 28px; }
+
+/* molduras (Clássico): grade uniforme com passe-partout */
+.rz-gal-frames .rz-gal-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.rz-gal-frames .rz-gal-item { aspect-ratio: 4 / 5; padding: 8px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.rz-gal-frames .rz-gal-item img { border-radius: calc(var(--radius-sm) - 4px); }
+
+/* faixa P&B (Estúdio): rolagem horizontal, cor ao passar o mouse */
+.rz-gal-strip .rz-gal-grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 30%); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 12px; scrollbar-width: thin; }
+.rz-gal-strip .rz-gal-item { aspect-ratio: 3 / 4; scroll-snap-align: start; border-radius: 2px; }
+.rz-gal-strip .rz-gal-item img { filter: grayscale(1); }
+.rz-gal-strip .rz-gal-item:hover img, .rz-gal-strip .rz-gal-item:focus-visible img { filter: none; }
+
+/* mosaico (Vitrine): alturas alternadas */
+.rz-gal-masonry .rz-gal-grid { columns: 3 240px; column-gap: 12px; }
+.rz-gal-masonry .rz-gal-item { margin-bottom: 12px; break-inside: avoid; width: 100%; }
+.rz-gal-masonry .rz-gal-item:nth-child(3n + 1) img { aspect-ratio: 3 / 4; }
+.rz-gal-masonry .rz-gal-item:nth-child(3n + 2) img { aspect-ratio: 1 / 1; }
+.rz-gal-masonry .rz-gal-item:nth-child(3n) img { aspect-ratio: 4 / 5; }
+
+/* ---------- Foto ampliada ---------- */
+.rz-lb { position: fixed; inset: 0; z-index: 60; background: rgba(5, 6, 8, 0.94); display: grid; place-items: center; padding: 56px 16px; animation: rz-fade 0.2s ease-out; }
+@keyframes rz-fade { from { opacity: 0; } }
+.rz-lb img { max-width: min(1100px, 100%); max-height: calc(100vh - 112px); object-fit: contain; border-radius: 6px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+.rz-lb button { all: unset; cursor: pointer; color: #fff; display: grid; place-items: center; border-radius: 999px; background: rgba(255,255,255,.1); }
+.rz-lb button:hover { background: rgba(255,255,255,.2); }
+.rz-lb button:focus-visible { outline: 2px solid #fff; }
+.rz-lb-x { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; font-size: 18px; }
+.rz-lb-nav { position: absolute; top: 50%; translate: 0 -50%; width: 52px; height: 52px; font-size: 32px; line-height: 1; }
+.rz-lb-nav.prev { left: 16px; }
+.rz-lb-nav.next { right: 16px; }
+.rz-lb-count { position: absolute; bottom: 18px; left: 50%; translate: -50% 0; color: rgba(255,255,255,.7); font-size: 13px; letter-spacing: 0.1em; }
+
+/* ---------- História da casa ---------- */
+.rz-story-in { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 6vw, 88px); align-items: center; }
+.rz-story.is-rev .rz-story-media { order: 2; }
+.rz-story-media img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; display: block; border-radius: var(--radius); }
+.rz-story-quote { font-family: var(--font-display); font-size: clamp(24px, 3.2vw, 38px); line-height: 1.25; letter-spacing: -0.015em; margin: 0 0 20px; }
+.rz-story-text .rz-lead + .rz-lead { margin-top: 12px; }
+@media (max-width: 860px) {
+  .rz-story-in { grid-template-columns: 1fr; }
+  .rz-story.is-rev .rz-story-media { order: 0; }
+  .rz-story-media img { aspect-ratio: 16 / 10; }
+}
+
+/* ---------- Onde estamos ---------- */
+.rz-loc { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; }
+.rz-loc-addr { white-space: pre-line; font-size: 18px; line-height: 1.7; color: var(--text-muted); margin: 8px 0 0; }
+.rz-loc-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); }
+.rz-loc-row { display: grid; gap: 4px; margin-bottom: 22px; }
+.rz-loc-row small { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.rz-loc-row strong { font-size: 18px; }
+.rz-loc-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+@media (max-width: 860px) { .rz-loc { grid-template-columns: 1fr; } }
+
+/* ============================================================================
+   CLÁSSICO — serifa, acento em destaque, molduras.
+   ========================================================================== */
+.tpl-classico { --font-display: "Playfair Display", Georgia, serif; --font-body: "Inter", system-ui, sans-serif; font-family: var(--font-body); }
+.tpl-classico .rz-h2 { font-weight: 800; letter-spacing: -0.01em; }
+.tpl-classico .rz-eyebrow { font-family: var(--font-body); letter-spacing: 0.22em; }
+.tpl-classico .rz-head-center .rz-eyebrow::before,
+.tpl-classico .rz-head-center .rz-eyebrow::after { content: "—"; margin: 0 10px; opacity: 0.6; }
+.tpl-classico .rz-cta h2 { font-style: italic; font-weight: 600; }
+.tpl-classico .rz-member-badge { font-family: var(--font-display); border: 2px solid var(--accent); }
+
+/* ============================================================================
+   ESTÚDIO — serifa leve, cantos retos, muito respiro.
+   ========================================================================== */
+.tpl-estudio { --font-display: "Fraunces", Georgia, serif; --font-body: "Inter", system-ui, sans-serif; --radius: 2px; --radius-sm: 2px; font-family: var(--font-body); font-weight: 300; }
+.tpl-estudio .rz-section { padding: clamp(72px, 11vw, 140px) 0; }
+.tpl-estudio .rz-h2 { font-weight: 300; font-size: clamp(34px, 5vw, 60px); letter-spacing: -0.025em; }
+.tpl-estudio .rz-eyebrow { letter-spacing: 0.36em; font-weight: 500; font-size: 11px; }
+.tpl-estudio .rz-btn { border-radius: 0; letter-spacing: 0.14em; text-transform: uppercase; font-size: 12px; padding: 16px 28px; }
+.tpl-estudio .rz-btn-primary { box-shadow: none; }
+.tpl-estudio .rz-card { border-radius: 0; }
+.tpl-estudio .rz-story-quote { font-weight: 300; font-style: italic; }
+.tpl-estudio .rz-story-media img { filter: grayscale(1); }
+.tpl-estudio .rz-cta { background: var(--bg-2); color: var(--text); border-top: 1px solid var(--border); }
+.tpl-estudio .rz-cta h2 { font-weight: 300; font-size: clamp(34px, 5vw, 60px); }
+.tpl-estudio .rz-cta .rz-btn { background: var(--accent); color: var(--on-accent); }
+.tpl-estudio .rz-member-badge { border-radius: 0; font-family: var(--font-display); font-weight: 300; }
+.tpl-estudio .rz-plan-price { font-weight: 300; }
+
+/* ============================================================================
+   VITRINE — condensada, contraste alto, cara de Instagram.
+   ========================================================================== */
+.tpl-vitrine { --font-display: "Anton", "Archivo", Impact, sans-serif; --font-body: "Inter", system-ui, sans-serif; --radius: 18px; font-family: var(--font-body); }
+.tpl-vitrine .rz-h2 { font-weight: 400; text-transform: uppercase; font-size: clamp(36px, 6vw, 72px); letter-spacing: 0; line-height: 0.95; }
+.tpl-vitrine .rz-stat-v, .tpl-vitrine .rz-plan-price { font-weight: 400; }
+.tpl-vitrine .rz-btn { font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; font-size: 14px; }
+.tpl-vitrine .rz-cta h2 { font-weight: 400; text-transform: uppercase; font-size: clamp(40px, 7vw, 88px); line-height: 0.95; }
+.tpl-vitrine .rz-member-badge { font-weight: 400; }
+.tpl-vitrine .rz-story-quote { font-family: var(--font-body); font-weight: 800; letter-spacing: -0.02em; }
