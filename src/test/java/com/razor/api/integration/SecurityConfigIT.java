@@ -11,6 +11,7 @@ import com.razor.api.model.TenantUser;
 import com.razor.api.model.UserRole;
 import com.razor.api.repository.TenantUserRepository;
 import com.razor.api.security.SessionCookies;
+import com.razor.api.security.SessionValidator;
 import com.razor.api.tenant.TenantContext;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +59,7 @@ class SecurityConfigIT {
     @Autowired private MockMvc mockMvc;
     @Autowired private TenantUserRepository tenantUserRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private SessionValidator sessionValidator;
 
     @BeforeEach
     void seedUsers() {
@@ -266,6 +268,64 @@ class SecurityConfigIT {
         assertThat(cleared).isNotNull();
         assertThat(cleared.getMaxAge()).isZero();
         assertThat(cleared.getValue()).isEmpty();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Revalidacao: assinatura valida nao basta se o usuario mudou depois da emissao.
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("trocar a senha derruba os tokens antigos e reemite o cookie de quem trocou")
+    void passwordChange_revokesOldTokens_andReissuesCookie() throws Exception {
+        seedUser("troca@loja.com", "IT Troca", UserRole.BARBER);
+        String antigo = login("troca@loja.com");
+        String outraSessao = login("troca@loja.com");
+
+        MvcResult r = mockMvc.perform(put("/api/admin/me")
+                        .cookie(new Cookie(SessionCookies.NAME, antigo), new Cookie("XSRF-TOKEN", CSRF))
+                        .header("X-XSRF-TOKEN", CSRF)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"senha1234\",\"newPassword\":\"novaSenha123\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String novo = sessionToken(r);
+
+        // Sessoes abertas com a senha antiga (inclusive outro aparelho) caem na hora.
+        mockMvc.perform(get("/api/admin/me").cookie(new Cookie(SessionCookies.NAME, outraSessao)))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/admin/me").header("Authorization", "Bearer " + antigo))
+                .andExpect(status().isUnauthorized());
+        // Quem trocou segue logado com o cookie novo.
+        mockMvc.perform(get("/api/admin/me").cookie(new Cookie(SessionCookies.NAME, novo)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("usuário desativado perde o acesso sem esperar o token vencer")
+    void deactivatedUser_tokenRejected() throws Exception {
+        seedUser("demitido@loja.com", "IT Demitido", UserRole.RECEPTION);
+        String token = login("demitido@loja.com");
+        mockMvc.perform(get("/api/admin/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        TenantUser u = tenantUserRepository.findByEmail("demitido@loja.com").orElseThrow();
+        u.setActive(false);
+        tenantUserRepository.save(u);
+        // Desativacao feita fora do AuthService (aqui, direto no repositorio) vale apos o TTL do
+        // cache; o teste nao espera 30 s e descarta o cache como faria o fluxo da aplicacao.
+        sessionValidator.invalidate(u.getId());
+
+        mockMvc.perform(get("/api/admin/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("login: email inexistente e senha errada respondem igual (401 genérico)")
+    void login_unknownEmail_sameAsWrongPassword() throws Exception {
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"ninguem@loja.com\",\"password\":\"qualquer1\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("Credenciais invalidas."));
     }
 
     @Test

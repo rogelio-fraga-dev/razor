@@ -61,7 +61,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             limiter.evictExpired(window);
         }
 
-        if (!limiter.tryAcquire(scope + "|" + clientIp(request), limit, window)) {
+        if (!limiter.tryAcquire(scope + "|" + ClientIp.of(request), limit, window)) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding("UTF-8");
@@ -82,24 +82,5 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (path.startsWith(ADMIN_PREFIX)) return ADMIN_PREFIX;
         if (path.startsWith(WEBHOOK_PREFIX)) return WEBHOOK_PREFIX;
         return null;
-    }
-
-    /**
-     * IP do cliente. Atras de proxy (nginx do painel, load balancer) o {@code remoteAddr} e o do
-     * proxy e todo mundo cairia na mesma chave, entao o primeiro {@code X-Forwarded-For} vale.
-     *
-     * <p>Esse cabecalho e forjavel por quem fala direto com a aplicacao — em producao a app fica
-     * atras do proxy, que reescreve o valor. Vale a leitura porque o custo de errar aqui e um
-     * limite por IP falso, nao um bypass de autenticacao.
-     */
-    private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            int comma = forwarded.indexOf(',');
-            String first = (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
-            if (!first.isEmpty()) return first;
-        }
-        String remote = request.getRemoteAddr();
-        return remote != null ? remote : "?";
     }
 }

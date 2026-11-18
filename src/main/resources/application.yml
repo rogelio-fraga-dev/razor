@@ -32,6 +32,11 @@ spring:
 
 server:
   port: 8081
+  # IP real do cliente atras do nginx do painel: o Tomcat (RemoteIpValve) so aceita o
+  # X-Forwarded-For/-Proto vindo de proxy confiavel — por padrao redes privadas e loopback, onde
+  # o nginx fica no compose. Atras de um load balancer com IP publico, ajuste a regex em
+  # SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES. Quem fala direto com a API nao forja o IP.
+  forward-headers-strategy: native
 
 management:
   health:

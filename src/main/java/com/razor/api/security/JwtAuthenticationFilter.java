@@ -29,7 +29,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p>Em caso de token valido, popula o {@code SecurityContext} com o {@link TenantUserPrincipal}
  * e define o {@link TenantContext} com a barbearia do usuario (limpo ao final da requisicao).
- * Token ausente ou invalido segue sem autenticacao — endpoints protegidos respondem 401.
+ * Token ausente, invalido ou revogado ({@link SessionValidator}: usuario inativo, papel ou
+ * versao diferentes) segue sem autenticacao — endpoints protegidos respondem 401.
  */
 @Slf4j
 @Component
@@ -39,6 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtService jwtService;
+    private final SessionValidator sessionValidator;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -48,12 +50,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = resolveToken(request);
             if (token != null) {
                 try {
-                    TenantUserPrincipal principal = jwtService.parse(token);
-                    var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + principal.role().name()));
-                    var authentication = new UsernamePasswordAuthenticationToken(principal, null, authorities);
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                    TenantContext.set(principal.barbershopId());
-                    tenantSet = true;
+                    JwtService.ParsedToken parsed = jwtService.parseToken(token);
+                    TenantUserPrincipal principal = parsed.principal();
+                    if (sessionValidator.isValid(principal, parsed.version())) {
+                        var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + principal.role().name()));
+                        var authentication = new UsernamePasswordAuthenticationToken(principal, null, authorities);
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                        TenantContext.set(principal.barbershopId());
+                        tenantSet = true;
+                    } else {
+                        // Assinatura ok, mas o usuario foi desativado, mudou de papel ou trocou a
+                        // senha depois da emissao: segue anonimo (401 nas rotas protegidas).
+                        log.debug("[SECURITY] JWT revogado para o usuario {}", principal.userId());
+                    }
                 } catch (JwtException | IllegalArgumentException e) {
                     log.debug("[SECURITY] JWT invalido: {}", e.getMessage());
                 }

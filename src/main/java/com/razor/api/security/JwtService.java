@@ -31,6 +31,7 @@ public class JwtService {
     private static final String CLAIM_USER_ID = "uid";
     private static final String CLAIM_SHOP = "shop";
     private static final String CLAIM_ROLE = "role";
+    private static final String CLAIM_VERSION = "ver";
     private static final int MIN_SECRET_LENGTH = 32;
 
     private final SecretKey key;
@@ -58,6 +59,7 @@ public class JwtService {
                 .claim(CLAIM_USER_ID, user.getId().toString())
                 .claim(CLAIM_SHOP, user.getBarbershopId().toString())
                 .claim(CLAIM_ROLE, user.getRole().name())
+                .claim(CLAIM_VERSION, user.getTokenVersion())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(expirationMinutes * 60)))
                 .signWith(key)
@@ -69,11 +71,22 @@ public class JwtService {
      * for invalido, adulterado ou expirado.
      */
     public TenantUserPrincipal parse(String token) {
+        return parseToken(token).principal();
+    }
+
+    /** Principal + versao do token (claim {@code ver}; ausente = 0, tokens anteriores a ela). */
+    public record ParsedToken(TenantUserPrincipal principal, int version) {
+    }
+
+    /** Como {@link #parse}, devolvendo tambem a versao para a revalidacao da sessao. */
+    public ParsedToken parseToken(String token) {
         Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
-        return new TenantUserPrincipal(
+        TenantUserPrincipal principal = new TenantUserPrincipal(
                 UUID.fromString(claims.get(CLAIM_USER_ID, String.class)),
                 claims.getSubject(),
                 UUID.fromString(claims.get(CLAIM_SHOP, String.class)),
                 UserRole.valueOf(claims.get(CLAIM_ROLE, String.class)));
+        Integer version = claims.get(CLAIM_VERSION, Integer.class);
+        return new ParsedToken(principal, version == null ? 0 : version);
     }
 }

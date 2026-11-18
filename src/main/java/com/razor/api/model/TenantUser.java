@@ -45,6 +45,14 @@ public class TenantUser {
     @Column(nullable = false)
     private boolean active = true;
 
+    /**
+     * Versao das sessoes deste usuario: vai no JWT (claim {@code ver}) e o filtro so aceita token
+     * com a versao vigente. Incrementar derruba todas as sessoes abertas (ex.: troca de senha).
+     */
+    @Builder.Default
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion = 0;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

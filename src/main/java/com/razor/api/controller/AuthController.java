@@ -3,6 +3,7 @@ package com.razor.api.controller;
 import com.razor.api.security.LoginRateLimiter;
 import com.razor.api.service.AuthService;
 import com.razor.api.service.AuthService.LoginResult;
+import com.razor.api.security.ClientIp;
 import com.razor.api.security.SessionCookies;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -55,7 +56,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<Object> login(@Valid @RequestBody LoginRequest request, HttpServletRequest http,
                                         HttpServletResponse httpResponse) {
-        String ip = clientIp(http);
+        String ip = ClientIp.of(http);
 
         if (rateLimiter.isBlocked(request.email(), ip)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
@@ -98,12 +99,5 @@ public class AuthController {
     @GetMapping("/csrf")
     public ResponseEntity<Void> csrf() {
         return ResponseEntity.noContent().build();
-    }
-
-    /** IP do cliente considerando proxy/load balancer na frente da aplicacao. */
-    private String clientIp(HttpServletRequest http) {
-        String fwd = http.getHeader("X-Forwarded-For");
-        if (fwd != null && !fwd.isBlank()) return fwd.split(",")[0].trim();
-        return http.getRemoteAddr();
     }
 }
