@@ -1,0 +1,64 @@
+/* Gaveta lateral de detalhe (no celular vira folha de baixo). Usada pela agenda, por Clientes
+   e pela folha de área da navegação inferior. */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 6, 9, 0.45);
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+}
+.drawer {
+  width: min(420px, 100%);
+  height: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border-hi);
+  box-shadow: -24px 0 80px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  outline: none;
+  animation: drawer-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.drawer-head h3 { margin: 0; font-size: 17px; outline: none; }
+.drawer-head p { margin: 4px 0 0; font-size: 13px; }
+.drawer-body { padding: 16px 18px 24px; overflow-y: auto; flex: 1; }
+.drawer-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
+
+/* "Pegador" da folha de baixo: diz ao polegar que aquilo é uma camada por cima. */
+.drawer-grip { display: none; }
+
+@media (max-width: 760px) {
+  .drawer-overlay { align-items: flex-end; }
+  .drawer {
+    width: 100%;
+    height: auto;
+    max-height: 88dvh;
+    border-left: 0;
+    border-top: 1px solid var(--border-hi);
+    border-radius: 16px 16px 0 0;
+    animation-name: sheet-in;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .drawer-grip {
+    display: block;
+    width: 40px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border-hi);
+    margin: 8px auto 0;
+  }
+  .drawer-actions .btn { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer { animation: none; }
+}

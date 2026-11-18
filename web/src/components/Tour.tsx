@@ -25,6 +25,18 @@ interface Rect {
   height: number;
 }
 
+/**
+ * Primeiro alvo VISÍVEL do seletor. O mesmo data-tour existe no menu lateral (escondido no
+ * celular) e na navegação inferior (escondida no desktop): o primeiro do DOM pode ter 0×0.
+ */
+function findTarget(selector: string): Element | null {
+  for (const el of Array.from(document.querySelectorAll(selector))) {
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) return el;
+  }
+  return null;
+}
+
 export function Tour({ steps, onFinish }: { steps: TourStep[]; onFinish: () => void }) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
@@ -32,7 +44,7 @@ export function Tour({ steps, onFinish }: { steps: TourStep[]; onFinish: () => v
   const step = steps[index];
 
   const measure = useCallback(() => {
-    const el = document.querySelector(step.target);
+    const el = findTarget(step.target);
     if (!el) {
       setRect(null);
       return;
@@ -58,7 +70,7 @@ export function Tour({ steps, onFinish }: { steps: TourStep[]; onFinish: () => v
   // Sem alvo na tela (ex.: layout mobile diferente): pula o passo silenciosamente.
   useEffect(() => {
     if (rect === null) {
-      const el = document.querySelector(step.target);
+      const el = findTarget(step.target);
       if (!el) next();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

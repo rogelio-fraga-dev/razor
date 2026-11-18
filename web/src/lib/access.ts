@@ -19,6 +19,9 @@ const OWNER_ONLY: UserRole[] = ["OWNER"];
 /** Papéis autorizados por rota do painel. Rota ausente = só o dono (mesmo fecho do backend). */
 export const ROUTE_ROLES: Record<string, UserRole[]> = {
   "/": OWNER_ONLY, // o Painel é financeiro: faturamento, meta, ranking
+  // "Meu dia" (V44): horários e comissão do PRÓPRIO profissional. A API escopa pelo login; a
+  // recepção não corta cabelo, então não ganha a tela.
+  "/meu-dia": ["OWNER", "BARBER"],
   "/agenda": ALL,
   "/profile": ALL,
   "/customers": COUNTER,
@@ -48,6 +51,6 @@ export function canAccess(path: string, role: UserRole | undefined): boolean {
  */
 export function homeFor(role: UserRole | undefined): string {
   if (role === "RECEPTION") return "/comandas";
-  if (role === "BARBER") return "/agenda";
+  if (role === "BARBER") return "/meu-dia";
   return "/";
 }

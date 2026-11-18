@@ -105,40 +105,7 @@
 .ag-result:focus-visible { background: var(--surface-2); outline: none; }
 .ag-result .mono { margin-left: auto; font-size: 12px; }
 
-/* Gaveta lateral de detalhe (no celular vira folha de baixo). */
-.drawer-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(5, 6, 9, 0.45);
-  z-index: 50;
-  display: flex;
-  justify-content: flex-end;
-}
-.drawer {
-  width: min(420px, 100%);
-  height: 100%;
-  background: var(--surface);
-  border-left: 1px solid var(--border-hi);
-  box-shadow: -24px 0 80px rgba(0, 0, 0, 0.4);
-  display: flex;
-  flex-direction: column;
-  outline: none;
-  animation: drawer-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
-.drawer-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 18px 18px 12px;
-  border-bottom: 1px solid var(--border);
-}
-.drawer-head h3 { margin: 0; font-size: 17px; }
-.drawer-head p { margin: 4px 0 0; font-size: 13px; }
-.drawer-body { padding: 16px 18px 24px; overflow-y: auto; flex: 1; }
-.drawer-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
+/* A gaveta (.drawer*) mora em components/drawer.css — e compartilhada com Clientes. */
 .ag-dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
 .ag-dl dt { color: var(--text-muted); }
 .ag-dl dd { margin: 0; }
@@ -146,19 +113,5 @@
 .ag-section h4 { margin: 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
 @media (max-width: 720px) {
-  .drawer-overlay { align-items: flex-end; }
-  .drawer {
-    width: 100%;
-    height: auto;
-    max-height: 88dvh;
-    border-left: 0;
-    border-top: 1px solid var(--border-hi);
-    border-radius: 16px 16px 0 0;
-    animation-name: sheet-in;
-  }
   .ag-notify { display: none; }
-  .drawer-actions .btn { min-height: 44px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .drawer { animation: none; }
 }

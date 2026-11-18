@@ -1,52 +1,92 @@
 import { useState, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { canAccess } from "../lib/access";
 import { applyTheme, currentTheme, type Theme } from "../lib/theme";
-import { RazorLogo } from "./Logo";
+import { areaOf, visibleAreas, type AreaId, type NavArea } from "../lib/nav";
+import { EdgeMark, RazorLogo } from "./Logo";
 import { Clock } from "./Clock";
-import { IconBox, IconHandshake, IconTicket, IconReceipt, IconCalendar, IconCash, IconGem, IconGrid, IconPercent, IconSliders, IconPulse, IconTag, IconTrendDown, IconUser, IconUsers } from "./Icons";
+import { Drawer } from "./Drawer";
+import { IconChevron } from "./Icons";
 
-// Navegação agrupada pelo que o dono faz — não por "telas do sistema".
-const NAV_GROUPS = [
-  {
-    label: "Operação",
-    items: [
-      { to: "/", label: "Painel", icon: <IconGrid />, end: true },
-      { to: "/agenda", label: "Agenda", icon: <IconCalendar /> },
-      { to: "/customers", label: "Clientes", icon: <IconUsers /> },
-      { to: "/retention", label: "Retenção", icon: <IconPulse /> },
-    ],
-  },
-  {
-    label: "Sua barbearia",
-    items: [
-      { to: "/services", label: "Serviços", icon: <IconTag /> },
-      { to: "/products", label: "Produtos", icon: <IconBox /> },
-      { to: "/professionals", label: "Profissionais", icon: <IconUser /> },
-      { to: "/plans", label: "Planos", icon: <IconGem /> },
-      { to: "/coupons", label: "Cupons", icon: <IconTicket /> },
-      { to: "/packages", label: "Pacotes", icon: <IconBox /> },
-    ],
-  },
-  {
-    label: "Dinheiro",
-    items: [
-      { to: "/comandas", label: "Comandas", icon: <IconReceipt /> },
-      { to: "/caixa", label: "Caixa", icon: <IconCash /> },
-      { to: "/expenses", label: "Despesas", icon: <IconTrendDown /> },
-      // `end` obrigatório aqui: "/commissions" é PREFIXO de "/commissions/settlement", e o
-      // NavLink casa por prefixo. Sem isto, estando no Acerto os dois itens acendem juntos e o
-      // menu deixa de dizer onde a pessoa está.
-      { to: "/commissions", label: "Comissões", icon: <IconPercent />, end: true },
-      { to: "/commissions/settlement", label: "Acerto", icon: <IconHandshake /> },
-    ],
-  },
-  {
-    label: "Sistema",
-    items: [{ to: "/settings", label: "Configurações", icon: <IconSliders /> }],
-  },
-];
+const COLLAPSED_KEY = "razor.sidebar_collapsed";
+const CLOSED_GROUPS_KEY = "razor.nav_closed";
+
+function readClosedGroups(): AreaId[] {
+  try {
+    const raw = localStorage.getItem(CLOSED_GROUPS_KEY);
+    return raw ? (JSON.parse(raw) as AreaId[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function tourId(to: string): string {
+  return `nav-${to.replace(/^\//, "").replace(/\//g, "-") || "home"}`;
+}
+
+/**
+ * Navegação inferior do celular (≤760px): as 5 áreas, sempre a 1 toque. Área com uma página só
+ * (Agenda) navega direto; área com várias abre uma folha com as páginas dela — qualquer tela
+ * fica a no máximo 2 toques (regra dos 2 cliques, UX_BLUEPRINT §5).
+ */
+function BottomNav({ areas }: { areas: NavArea[] }) {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const [sheet, setSheet] = useState<NavArea | null>(null);
+  const current = areaOf(pathname);
+
+  const open = (a: NavArea) => {
+    if (a.pages.length === 1) navigate(a.pages[0].to);
+    else setSheet(a);
+  };
+
+  return (
+    <>
+      <nav className="bottom-nav" aria-label="Áreas do painel">
+        {areas.map((a) => {
+          const active = current === a.id;
+          return (
+            <button
+              key={a.id}
+              type="button"
+              className={`bn-item${active ? " active" : ""}`}
+              aria-current={active ? "page" : undefined}
+              aria-haspopup={a.pages.length > 1 ? "dialog" : undefined}
+              data-tour={a.id === "clientes" ? "nav-customers" : a.id === "configurar" ? "nav-settings" : undefined}
+              onClick={() => open(a)}
+            >
+              <span className="bn-ico">{a.icon}</span>
+              <span className="bn-lbl">{a.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+      {sheet && (
+        <Drawer title={sheet.label} onClose={() => setSheet(null)} className="area-sheet">
+          <ul className="area-list">
+            {sheet.pages.map((p) => (
+              <li key={p.to}>
+                <NavLink
+                  to={p.to}
+                  end={p.end}
+                  className={({ isActive }) => `area-link${isActive ? " active" : ""}`}
+                  onClick={() => setSheet(null)}
+                >
+                  <span className="area-ico">{p.icon}</span>
+                  <span className="area-text">
+                    <span className="area-label">{p.label}</span>
+                    <span className="area-hint">{p.hint}</span>
+                  </span>
+                  <span className="area-go" aria-hidden="true">›</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </Drawer>
+      )}
+    </>
+  );
+}
 
 export function Layout({
   title,
@@ -61,15 +101,37 @@ export function Layout({
   flush?: boolean;
 }) {
   const { session, logout } = useAuth();
+  const { pathname } = useLocation();
   const [theme, setTheme] = useState<Theme>(currentTheme);
   const [collapsed, setCollapsed] = useState<boolean>(() => {
-    return localStorage.getItem("razor.sidebar_collapsed") === "true";
+    try {
+      return localStorage.getItem(COLLAPSED_KEY) === "true";
+    } catch {
+      return false;
+    }
   });
+  const [closed, setClosed] = useState<AreaId[]>(readClosedGroups);
 
   const toggleSidebar = () => {
     setCollapsed((prev) => {
       const next = !prev;
-      localStorage.setItem("razor.sidebar_collapsed", String(next));
+      try {
+        localStorage.setItem(COLLAPSED_KEY, String(next));
+      } catch {
+        /* preferência só desta aba */
+      }
+      return next;
+    });
+  };
+
+  const toggleGroup = (id: AreaId) => {
+    setClosed((prev) => {
+      const next = prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id];
+      try {
+        localStorage.setItem(CLOSED_GROUPS_KEY, JSON.stringify(next));
+      } catch {
+        /* idem */
+      }
       return next;
     });
   };
@@ -82,12 +144,9 @@ export function Layout({
 
   const initial = (session?.name || session?.email || "?").charAt(0).toUpperCase();
 
-  // Menu filtrado pelo papel, com o grupo inteiro sumindo quando nada dentro dele sobra —
-  // senão a recepção veria o rótulo "Dinheiro" sobre um espaço vazio.
-  const visibleGroups = NAV_GROUPS.map((g) => ({
-    ...g,
-    items: g.items.filter((n) => canAccess(n.to, session?.role)),
-  })).filter((g) => g.items.length > 0);
+  // Menu filtrado pelo papel (lib/nav + lib/access): área sem página visível some inteira.
+  const areas = visibleAreas(session?.role);
+  const currentArea = areaOf(pathname);
 
   return (
     <div className={`app${collapsed ? " sidebar-collapsed" : ""}`}>
@@ -106,25 +165,50 @@ export function Layout({
           </button>
         </div>
         <span className="brand-tag mono">SISTEMA OPERACIONAL</span>
-        <nav className="nav">
-          {visibleGroups.map((g) => (
-            <div className="nav-group" key={g.label}>
-              <span className="nav-label">{g.label}</span>
-              {g.items.map((n) => (
-                <NavLink
-                  key={n.to}
-                  to={n.to}
-                  end={n.end}
-                  title={n.label}
-                  data-tour={`nav-${n.to.replace("/", "") || "home"}`}
-                  className={({ isActive }) => (isActive ? "active" : "")}
-                >
-                  <span className="ico">{n.icon}</span>
-                  <span className="lbl">{n.label}</span>
-                </NavLink>
-              ))}
-            </div>
-          ))}
+        <nav className="nav" aria-label="Menu principal">
+          {areas.map((a) => {
+            // Área com a página atual nunca fica fechada: o menu sempre mostra onde a pessoa está.
+            const isOpen = !closed.includes(a.id) || currentArea === a.id;
+            const single = a.pages.length === 1;
+            const listId = `nav-group-${a.id}`;
+            return (
+              <div className={`nav-group${isOpen ? "" : " closed"}${single ? " single" : ""}`} key={a.id}>
+                {single ? (
+                  <span className="nav-label">{a.label}</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="nav-label nav-group-toggle"
+                    aria-expanded={isOpen}
+                    aria-controls={listId}
+                    onClick={() => toggleGroup(a.id)}
+                    disabled={currentArea === a.id}
+                    title={currentArea === a.id ? "Você está nesta área" : undefined}
+                  >
+                    <span>{a.label}</span>
+                    <span className="nav-chev" aria-hidden="true">
+                      <IconChevron />
+                    </span>
+                  </button>
+                )}
+                <div className="nav-items" id={listId}>
+                  {a.pages.map((n) => (
+                    <NavLink
+                      key={n.to}
+                      to={n.to}
+                      end={n.end}
+                      title={n.label}
+                      data-tour={tourId(n.to)}
+                      className={({ isActive }) => (isActive ? "active" : "")}
+                    >
+                      <span className="ico">{n.icon}</span>
+                      <span className="lbl">{n.label}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
         <div className="sidebar-foot">
           <NavLink to="/profile" className="user-chip" title="Meu perfil" data-tour="profile">
@@ -139,6 +223,9 @@ export function Layout({
 
       <div className={`main${flush ? " main-flush" : ""}`}>
         <header className="topbar">
+          <span className="topbar-mark" aria-hidden="true">
+            <EdgeMark size={22} color="currentColor" />
+          </span>
           <h1>{title}</h1>
           <div className="row">
             {actions}
@@ -161,6 +248,8 @@ export function Layout({
         </header>
         <div className={`content${flush ? " flush" : ""}`}>{children}</div>
       </div>
+
+      <BottomNav areas={areas} />
     </div>
   );
 }

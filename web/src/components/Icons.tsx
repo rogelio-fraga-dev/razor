@@ -150,3 +150,26 @@ export const IconPulse = () => (
     <path d="M3 12h4l2.5-6 4 12 2.5-6h5" />
   </Icon>
 );
+
+/** Hoje — o dia de trabalho (área "Hoje" da navegação). */
+export const IconSun = () => (
+  <Icon>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+  </Icon>
+);
+
+/** Dinheiro — carteira (área que agrupa caixa, comandas, comissões e despesas). */
+export const IconWallet = () => (
+  <Icon>
+    <path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5" />
+    <circle cx="16.5" cy="14" r="1.2" />
+  </Icon>
+);
+
+/** Seta de abrir/fechar grupo. */
+export const IconChevron = () => (
+  <Icon>
+    <polyline points="6 9 12 15 18 9" />
+  </Icon>
+);

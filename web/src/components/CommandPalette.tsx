@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { canAccess } from "../lib/access";
+import { reachablePages } from "../lib/nav";
 import { applyTheme, currentTheme } from "../lib/theme";
 
 interface Cmd {
@@ -17,24 +18,9 @@ interface Cmd {
   run: (nav: ReturnType<typeof useNavigate>) => void;
 }
 
-const COMMANDS: Cmd[] = [
-  { id: "go-home", label: "Painel", hint: "visão do dia", group: "Ir para", to: "/", run: (n) => n("/") },
-  { id: "go-agenda", label: "Agenda", hint: "calendário por barbeiro", group: "Ir para", to: "/agenda", run: (n) => n("/agenda") },
-  { id: "go-customers", label: "Clientes", hint: "base e assinantes", group: "Ir para", to: "/customers", run: (n) => n("/customers") },
-  { id: "go-services", label: "Serviços", hint: "preços e duração", group: "Ir para", to: "/services", run: (n) => n("/services") },
-  { id: "go-comandas", label: "Comandas", hint: "conta do atendimento", group: "Ir para", to: "/comandas", run: (n) => n("/comandas") },
-  { id: "go-products", label: "Produtos", hint: "catálogo do balcão", group: "Ir para", to: "/products", run: (n) => n("/products") },
-  { id: "go-pros", label: "Profissionais", hint: "equipe e comissão", group: "Ir para", to: "/professionals", run: (n) => n("/professionals") },
-  { id: "go-plans", label: "Planos", hint: "clube de assinatura", group: "Ir para", to: "/plans", run: (n) => n("/plans") },
-  { id: "go-coupons", label: "Cupons", hint: "descontos e fidelidade", group: "Ir para", to: "/coupons", run: (n) => n("/coupons") },
-  { id: "go-packages", label: "Pacotes", hint: "créditos pré-pagos", group: "Ir para", to: "/packages", run: (n) => n("/packages") },
-  { id: "go-caixa", label: "Caixa", hint: "abrir, fechar e movimentos", group: "Ir para", to: "/caixa", run: (n) => n("/caixa") },
-  { id: "go-expenses", label: "Despesas e resultado", hint: "contas a pagar e DRE", group: "Ir para", to: "/expenses", run: (n) => n("/expenses") },
-  { id: "go-retention", label: "Ocupação e retenção", hint: "cadeiras vazias e quem sumiu", group: "Ir para", to: "/retention", run: (n) => n("/retention") },
-  { id: "go-comm", label: "Comissões", hint: "fechamento por barbeiro", group: "Ir para", to: "/commissions", run: (n) => n("/commissions") },
-  { id: "go-settlement", label: "Acerto de comissões", hint: "o que já foi pago", group: "Ir para", to: "/commissions/settlement", run: (n) => n("/commissions/settlement") },
-  { id: "go-settings", label: "Configurações", hint: "bot, WhatsApp e equipe", group: "Ir para", to: "/settings", run: (n) => n("/settings") },
-  { id: "go-profile", label: "Meu perfil", hint: "nome e senha", group: "Ir para", to: "/profile", run: (n) => n("/profile") },
+// "Ir para" sai de lib/nav (a mesma fonte do menu e da barra inferior): toda tela nova entra
+// no Ctrl+K sem ninguém lembrar de cadastrar aqui. Abaixo, só as AÇÕES.
+const ACTIONS: Cmd[] = [
   {
     id: "act-theme",
     label: "Alternar tema claro/escuro",
@@ -61,10 +47,17 @@ export function CommandPalette() {
 
   // Mesmo critério do menu lateral: comando que leva a uma tela fora do papel não aparece.
   // Sem isso a barra viraria o caminho aberto para telas que o menu já esconde.
-  const allowed = useMemo(
-    () => COMMANDS.filter((c) => !c.to || canAccess(c.to, session?.role)),
-    [session?.role],
-  );
+  const allowed = useMemo(() => {
+    const pages: Cmd[] = reachablePages(session?.role).map((p) => ({
+      id: `go${p.to.replace(/\W+/g, "-")}`,
+      label: p.label,
+      hint: p.hint,
+      group: "Ir para",
+      to: p.to,
+      run: (n) => n(p.to),
+    }));
+    return [...pages, ...ACTIONS.filter((c) => !c.to || canAccess(c.to, session?.role))];
+  }, [session?.role]);
 
   const results = useMemo(() => {
     const term = norm(q.trim());
