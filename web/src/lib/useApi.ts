@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../api/client";
 
 interface State<T> {
@@ -26,20 +26,36 @@ export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[] = []): Stat
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const run = useCallback(fetcher, deps);
 
+  // Cada busca ganha um número; só a mais recente pode gravar dado/erro/loading. O contador é
+  // compartilhado entre o efeito (troca de `deps`) e o `reload()` manual — assim uma resposta
+  // lenta de uma busca antiga nunca sobrescreve a de uma busca mais nova, venha de onde vier.
+  const requestId = useRef(0);
+
   const load = useCallback(() => {
-    let alive = true;
+    const id = ++requestId.current;
+    const isLatest = () => id === requestId.current;
     setLoading(true);
     setError(null);
     run()
-      .then((d) => alive && setData(d))
-      .catch((e) => alive && setError(e instanceof ApiError ? e.message : "Erro ao carregar."))
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
+      .then((d) => {
+        if (isLatest()) setData(d);
+      })
+      .catch((e) => {
+        if (isLatest()) setError(e instanceof ApiError ? e.message : "Erro ao carregar.");
+      })
+      .finally(() => {
+        if (isLatest()) setLoading(false);
+      });
   }, [run]);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => {
+    load();
+    // Desmontou (ou `deps` mudou): invalida a busca em voo.
+    const counter = requestId;
+    return () => {
+      counter.current++;
+    };
+  }, [load]);
 
   return { data, loading, error, reload: load };
 }

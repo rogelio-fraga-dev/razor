@@ -1386,6 +1386,24 @@ Paginar catálogo seria ruído: dois botões mortos embaixo de uma lista de 7 se
 > lista (o mesmo custo do relatório de retenção). Para barbearia é folgado; se uma base passar de
 > dezenas de milhares de agendamentos, vale um cache por dia.
 
+### 🔍 Rodada de revisão 2026-11-18
+
+- **Frontend:** fechamento da comanda cobra o total do servidor (`close-preview`: pacote + cupom
+  aplicados), lista o que o pacote cobriu e, com total zero, fecha sem pagamento (`payments: []`)
+  e sem dizer que entrou dinheiro no caixa. Sem o endpoint no backend, cai no fluxo antigo.
+- **Frontend:** `useApi` só aceita a resposta da busca mais recente (contador compartilhado entre
+  efeito e `reload()`); cliente HTTP guarda o `code` do erro e, num 403 `CSRF`, renova o token e
+  repete a escrita uma vez.
+- **Frontend:** agenda com trocas otimistas por `Map` de posições pendentes sobre o dado do
+  servidor (trocas simultâneas não "voltam"), linha do "agora" anda a cada minuto, avatar só com
+  foto segura; gaveta com foco preso + Esc via `useFocusTrap` (compartilhado com Modal e o
+  lightbox do site) e foco devolvido ao cartão pelo `data-id`.
+- **Frontend:** disparo por grupo manda o filtro cru (tagId/status) e só libera com a contagem
+  confirmada; cupom ignora Enter repetido e descarta resposta fora de ordem; recorte de foto do
+  barbeiro só cai no formulário que o pediu.
+- **Frontend:** ESLint (flat config) com `react-hooks` e `jsx-a11y` recomendados — `npm run lint`
+  zerado (rótulos de grupos de botões, overlays como `presentation`, sem `autoFocus`).
+
 ---
 
 _Última atualização: 2026-11-17 (V36: limite de agendamentos por cliente, tags e status de cliente,

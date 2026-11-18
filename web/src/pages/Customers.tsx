@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { EmptyState } from "../components/EmptyState";
@@ -57,8 +57,12 @@ export function Customers() {
   const [status, setStatus] = useState<CustomerStatus | null>(null);
   const [tagId, setTagId] = useState<string>("");
   const [tagsFor, setTagsFor] = useState<Customer | null>(null);
-  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  // Segmento congelado no momento em que o envio foi aberto: o que vai para o backend são os
+  // filtros CRUS (tagId/status), nunca algo derivado da lista de tags (que pode estar carregando).
+  const [broadcast, setBroadcast] = useState<{ tagId: string | null; status: CustomerStatus | null } | null>(null);
   const [recipients, setRecipients] = useState<number | null>(null);
+  const [recipientsFailed, setRecipientsFailed] = useState(false);
+  const previewSeq = useRef(0);
   const [tagsVersion, setTagsVersion] = useState(0);
   // Disparo para a base é decisão do dono (o backend recusa os outros papéis com 403).
   const canBroadcast = session?.role === "OWNER";
@@ -109,19 +113,21 @@ export function Customers() {
   }, [packages.data]);
 
   const tags = useApi<CustomerTag[]>(() => api.get("/api/admin/customers/tags"), [tagsVersion]);
-  const selectedTag = (tags.data ?? []).find((t) => t.id === tagId) ?? null;
 
   const openBroadcast = async () => {
+    const seq = ++previewSeq.current;
+    const segment = { tagId: tagId || null, status };
     setRecipients(null);
-    setBroadcastOpen(true);
+    setRecipientsFailed(false);
+    setBroadcast(segment);
     try {
       const p = new URLSearchParams();
-      if (status) p.set("status", status);
-      if (tagId) p.set("tagId", tagId);
+      if (segment.status) p.set("status", segment.status);
+      if (segment.tagId) p.set("tagId", segment.tagId);
       const res = await api.get<{ recipients: number }>(`/api/admin/broadcasts/preview?${p.toString()}`);
-      setRecipients(res.recipients);
+      if (seq === previewSeq.current) setRecipients(res.recipients);
     } catch {
-      setRecipients(null);
+      if (seq === previewSeq.current) setRecipientsFailed(true);
     }
   };
 
@@ -308,12 +314,17 @@ export function Customers() {
           onTagsChanged={() => setTagsVersion((v) => v + 1)}
         />
       )}
-      {broadcastOpen && (
+      {broadcast && (
         <BroadcastModal
-          tag={selectedTag}
-          status={status}
+          tagId={broadcast.tagId}
+          tagName={(tags.data ?? []).find((t) => t.id === broadcast.tagId)?.name ?? null}
+          status={broadcast.status}
           recipients={recipients}
-          onClose={() => setBroadcastOpen(false)}
+          previewFailed={recipientsFailed}
+          onClose={() => {
+            previewSeq.current++;
+            setBroadcast(null);
+          }}
         />
       )}
     </Layout>

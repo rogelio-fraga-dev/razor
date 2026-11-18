@@ -12,9 +12,12 @@ const CSRF_COOKIE = "XSRF-TOKEN";
 const CSRF_HEADER = "X-XSRF-TOKEN";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
-/** Erro de API com status e mensagem amigavel (do corpo {error} quando houver). */
+/**
+ * Erro de API com status, mensagem amigavel (do corpo {error} quando houver) e o codigo
+ * maquina do corpo ({code}, ex.: "CSRF") — quem precisa decidir algo olha o codigo, nao o texto.
+ */
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public code: string | null = null) {
     super(message);
   }
 }
@@ -41,6 +44,11 @@ function readCookie(name: string): string | null {
 async function csrfToken(): Promise<string | null> {
   const existing = readCookie(CSRF_COOKIE);
   if (existing) return existing;
+  return refreshCsrfToken();
+}
+
+/** Pede um token novo ao backend (o cookie pode ter girado ou expirado) e o rele. */
+async function refreshCsrfToken(): Promise<string | null> {
   await fetch(`${BASE}/api/auth/csrf`, { credentials: "include" });
   return readCookie(CSRF_COOKIE);
 }
@@ -50,11 +58,17 @@ interface RequestOptions {
   ignore401?: boolean;
 }
 
-async function request<T>(method: string, path: string, body?: unknown, opts: RequestOptions = {}): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  opts: RequestOptions = {},
+  csrfRetried = false,
+): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (!SAFE_METHODS.has(method)) {
-    const token = await csrfToken();
+    const token = csrfRetried ? readCookie(CSRF_COOKIE) : await csrfToken();
     if (token) headers[CSRF_HEADER] = token;
   }
 
@@ -73,7 +87,7 @@ async function request<T>(method: string, path: string, body?: unknown, opts: Re
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  let data: { error?: string; message?: string } | undefined;
+  let data: { error?: string; message?: string; code?: string } | undefined;
   try {
     data = text ? JSON.parse(text) : undefined;
   } catch {
@@ -81,8 +95,15 @@ async function request<T>(method: string, path: string, body?: unknown, opts: Re
   }
 
   if (!res.ok) {
+    const code = data && typeof data.code === "string" ? data.code : null;
+    // Token CSRF velho (cookie girou, aba aberta ha dias): renova uma vez e repete a escrita.
+    // So uma — se o backend recusar de novo, o problema nao e o token e o erro sobe.
+    if (res.status === 403 && code === "CSRF" && !SAFE_METHODS.has(method) && !csrfRetried) {
+      await refreshCsrfToken();
+      return request<T>(method, path, body, opts, true);
+    }
     const message = (data && (data.error || data.message)) || `Erro ${res.status}`;
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, code);
   }
   return data as T;
 }

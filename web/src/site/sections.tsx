@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PublicSite } from "../api/types";
 import { BookButton, bookingHref, money } from "./parts";
+import { useFocusTrap } from "../lib/useFocusTrap";
 
 export type TemplateKey = "classico" | "estudio" | "vitrine";
 
@@ -418,17 +419,16 @@ function Lightbox({
   onClose: () => void;
 }) {
   const fecharRef = useRef<HTMLButtonElement>(null);
-  const anterior = useRef<Element | null>(null);
   const ir = (d: number) => onIndex((index + d + fotos.length) % fotos.length);
+  // Foco entra no ✕, o Tab fica preso no lightbox e volta para a miniatura ao fechar. O Esc e
+  // as setas ficam no listener global abaixo (funcionam mesmo com o foco fora, após um clique).
+  const { ref: trapRef, onKeyDown } = useFocusTrap<HTMLDivElement>({ initialFocus: fecharRef });
 
   useEffect(() => {
-    anterior.current = document.activeElement;
-    fecharRef.current?.focus();
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prevOverflow;
-      (anterior.current as HTMLElement | null)?.focus?.();
     };
   }, []);
 
@@ -443,8 +443,21 @@ function Lightbox({
   });
 
   return (
-    <div className="rz-lb" role="dialog" aria-modal="true" aria-label="Foto ampliada" onClick={onClose}>
-      <img src={fotos[index]} alt={`Foto ${index + 1} de ${fotos.length}`} onClick={(e) => e.stopPropagation()} />
+    // Clique no fundo escuro fecha (atalho de mouse; no teclado: Esc ou o ✕). Clique na foto não.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <div
+      ref={trapRef}
+      className="rz-lb"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Foto ampliada"
+      tabIndex={-1}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={onKeyDown}
+    >
+      <img src={fotos[index]} alt={`Foto ${index + 1} de ${fotos.length}`} />
       <button ref={fecharRef} type="button" className="rz-lb-x" onClick={onClose} aria-label="Fechar">
         ✕
       </button>

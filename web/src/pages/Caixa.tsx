@@ -296,7 +296,7 @@ function CloseCashModal({ summary, onClose, onClosed }: { summary: CashSessionSu
         </div>
         <div className="field">
           <label>Valor contado na gaveta (R$)
-          <input className="input" type="number" min="0" step="0.01" value={counted} autoFocus onChange={(e) => setCounted(e.target.value)} />
+          <input className="input" type="number" min="0" step="0.01" value={counted} onChange={(e) => setCounted(e.target.value)} />
             </label>
         </div>
         {diff !== null && (

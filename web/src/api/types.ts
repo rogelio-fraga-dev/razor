@@ -423,6 +423,27 @@ export interface ComandaCouponPreview {
   finalTotal: number;
 }
 
+/** Item da comanda abatido do pacote do cliente no fechamento. */
+export interface ComandaCoveredItem {
+  itemId: string;
+  name: string;
+  uses: number;
+}
+
+/**
+ * Prévia do fechamento calculada pelo servidor: pacote do cliente + cupom já aplicados.
+ * `total` é o que de fato se cobra — o split de pagamento é montado sobre ele.
+ */
+export interface ComandaClosePreview {
+  subtotal: number;
+  packageCovered: number;
+  couponDiscount: number;
+  total: number;
+  coveredItems: ComandaCoveredItem[];
+  /** Cupom recusado (vencido, inexistente…): os valores vêm sem ele. */
+  couponError: string | null;
+}
+
 // ---------- Comissões pagas (V25) ----------
 
 export interface CommissionSettlementItem {

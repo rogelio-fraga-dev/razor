@@ -1,6 +1,6 @@
 // Detalhe de um agendamento (gaveta lateral; no celular, folha de baixo): remarcar, trocar de
 // barbeiro, cancelar, marcar comparecimento e abrir a comanda do atendimento.
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Switch } from "../Modal";
 import { FormError } from "../FormError";
@@ -8,6 +8,7 @@ import { api, ApiError } from "../../api/client";
 import { useToast } from "../Toast";
 import { dateBr } from "../../lib/format";
 import { CONFIRMATION_INFO, hhmmToMin, phoneBr } from "../../lib/agenda";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 import type { AgendaItem, AgendaPro, AttendanceStatus, PaymentStatus } from "../../api/types";
 
 const PAYMENT_LABEL: Record<PaymentStatus, string> = { PIX: "PIX", PRESENCIAL: "Presencial", PENDENTE: "Pendente" };
@@ -32,7 +33,6 @@ export function AppointmentDrawer({
   const toast = useToast();
   const navigate = useNavigate();
   const titleId = useId();
-  const panelRef = useRef<HTMLDivElement>(null);
   const [date, setDate] = useState(item.date);
   const [time, setTime] = useState(item.time?.slice(0, 5) ?? "");
   const [professionalId, setProfessionalId] = useState(item.professionalId ?? "");
@@ -41,11 +41,17 @@ export function AppointmentDrawer({
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
-    return () => prev?.focus?.();
-  }, []);
+  // Foco preso na gaveta, Esc fecha. Ao fechar, o foco volta para o CARTÃO deste agendamento —
+  // procurado de novo pelo [data-id], porque depois de uma remarcação o cartão original foi
+  // re-renderizado em outra coluna. Sem cartão (cancelado, outro dia), volta para quem abriu.
+  const { ref: panelRef, onKeyDown } = useFocusTrap<HTMLElement>({
+    onEscape: onClose,
+    restoreFocus: (previous) => {
+      const card = document.querySelector<HTMLElement>(`[data-id="${item.id}"]`);
+      if (card) card.focus();
+      else if (previous?.isConnected) previous.focus();
+    },
+  });
 
   const started = (() => {
     const start = hhmmToMin(item.time);
@@ -114,7 +120,15 @@ export function AppointmentDrawer({
     });
 
   return (
-    <div className="drawer-overlay" onMouseDown={onClose}>
+    <div
+      className="drawer-overlay"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      {/* onKeyDown no diálogo é o padrão WAI-ARIA de modal (Esc + Tab preso). */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <aside
         ref={panelRef}
         className="drawer"
@@ -122,13 +136,7 @@ export function AppointmentDrawer({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            e.stopPropagation();
-            onClose();
-          }
-        }}
+        onKeyDown={onKeyDown}
       >
         <div className="drawer-head">
           <div>

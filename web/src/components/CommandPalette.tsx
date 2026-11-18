@@ -122,8 +122,14 @@ export function CommandPalette() {
   let lastGroup = "";
 
   return (
-    <div className="cmdk-overlay" onMouseDown={close} role="dialog" aria-label="Barra de comandos">
-      <div className="cmdk" onMouseDown={(e) => e.stopPropagation()}>
+    <div
+      className="cmdk-overlay"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) close();
+      }}
+    >
+      <div className="cmdk" role="dialog" aria-modal="true" aria-label="Barra de comandos">
         <div className="cmdk-input">
           <span className="cmdk-ico" aria-hidden="true">⌘</span>
           {/* Padrão de combobox do WAI-ARIA.
