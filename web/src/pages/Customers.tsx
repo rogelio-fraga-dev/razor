@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { ErrorState } from "../components/ErrorState";
 import { Link } from "react-router-dom";
 import { Layout } from "../components/Layout";
+import { Drawer } from "../components/Drawer";
 import { EmptyState } from "../components/EmptyState";
 import { Pagination } from "../components/Pagination";
 import { SkeletonRows } from "../components/Skeleton";
@@ -57,6 +59,9 @@ export function Customers() {
   const [status, setStatus] = useState<CustomerStatus | null>(null);
   const [tagId, setTagId] = useState<string>("");
   const [tagsFor, setTagsFor] = useState<Customer | null>(null);
+  // Gaveta guarda só o id: depois de salvar (plano, tags) a lista recarrega e a gaveta mostra
+  // o cliente atualizado, não uma cópia velha.
+  const [detailId, setDetailId] = useState<string | null>(null);
   // Segmento congelado no momento em que o envio foi aberto: o que vai para o backend são os
   // filtros CRUS (tagId/status), nunca algo derivado da lista de tags (que pode estar carregando).
   const [broadcast, setBroadcast] = useState<{ tagId: string | null; status: CustomerStatus | null } | null>(null);
@@ -94,7 +99,7 @@ export function Customers() {
 
   // Sem `reload`: recarregar é feito bumpando `version`, que também refaz os totais do topo —
   // vincular um plano muda o contador de assinantes, e recarregar só a lista o deixaria velho.
-  const { data, loading, error } = useApi<PageMeta<Customer>>(
+  const { data, loading, error, reload } = useApi<PageMeta<Customer>>(
     () => api.get(`/api/admin/customers?${query}`),
     [query, version],
   );
@@ -150,6 +155,26 @@ export function Customers() {
   const buscando = debouncedQ.length > 0 || filter !== "ALL" || status !== null || tagId !== "";
   const segmentado = status !== null || tagId !== "";
   const items = data?.items ?? [];
+  const detail = detailId ? items.find((c) => c.id === detailId) ?? null : null;
+
+  const planSelect = (c: Customer, style?: CSSProperties) => (
+    <select
+      className="input"
+      style={style}
+      value={c.planId ?? ""}
+      disabled={savingId === c.id || plans.loading}
+      onChange={(e) => assignPlan(c, e.target.value)}
+      aria-label={`Plano de ${c.name ?? "cliente"}`}
+    >
+      <option value="">Avulso (sem plano)</option>
+      {c.planId && !activePlans.some((p) => p.id === c.planId) && c.planName && (
+        <option value={c.planId}>{c.planName} (inativo)</option>
+      )}
+      {activePlans.map((p) => (
+        <option key={p.id} value={p.id}>{p.name}</option>
+      ))}
+    </select>
+  );
 
   return (
     <Layout flush title="Clientes">
@@ -217,10 +242,27 @@ export function Customers() {
         {loading && !data ? (
           <SkeletonRows rows={6} />
         ) : error ? (
-          <div className="empty error" role="alert">{error}</div>
+          <ErrorState message={error} onRetry={reload} />
         ) : items.length === 0 ? (
           buscando ? (
-            <EmptyState icon="🔎" title="Nenhum cliente encontrado." hint="Tente outro nome, telefone ou filtro." />
+            <EmptyState
+              icon="🔎"
+              title="Nenhum cliente encontrado."
+              hint="Tente outro nome, telefone ou filtro."
+              action={
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    setQ("");
+                    setFilter("ALL");
+                    setStatus(null);
+                    setTagId("");
+                  }}
+                >
+                  Limpar busca e filtros
+                </button>
+              }
+            />
           ) : (
             <EmptyState
               icon="👥"
@@ -234,6 +276,14 @@ export function Customers() {
             <div className="rowlist">
               {items.map((c) => (
                 <article className="rowitem" key={c.id}>
+                  {/* Linha inteira abre a gaveta do cliente (no celular é o único caminho: as
+                      ações da direita somem e moram na gaveta). */}
+                  <button
+                    type="button"
+                    className="rw-open"
+                    onClick={() => setDetailId(c.id)}
+                    aria-label={`Abrir ${c.name || "cliente sem nome"}`}
+                  >
                   <span className="rw-avatar" aria-hidden="true">
                     {(c.name || "?").charAt(0).toUpperCase()}
                   </span>
@@ -264,6 +314,8 @@ export function Customers() {
                       <span>· última visita {dateShort(c.lastServiceDate)}</span>
                     </span>
                   </div>
+                  <span className="rw-chevron" aria-hidden="true">›</span>
+                  </button>
 
                   <div className="rw-side">
                     <div className="rw-actions">
@@ -276,22 +328,7 @@ export function Customers() {
                         🏷️ Tags
                       </button>
                       {canEditPlan ? (
-                      <select
-                        className="input"
-                        style={{ maxWidth: 170, padding: "7px 10px", fontSize: 13 }}
-                        value={c.planId ?? ""}
-                        disabled={savingId === c.id || plans.loading}
-                        onChange={(e) => assignPlan(c, e.target.value)}
-                        aria-label={`Plano de ${c.name ?? "cliente"}`}
-                      >
-                        <option value="">Avulso (sem plano)</option>
-                        {c.planId && !activePlans.some((p) => p.id === c.planId) && c.planName && (
-                          <option value={c.planId}>{c.planName} (inativo)</option>
-                        )}
-                        {activePlans.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
+                        planSelect(c, { maxWidth: 170, padding: "7px 10px", fontSize: 13 })
                       ) : (
                         <span className="faint" style={{ fontSize: 13 }}>{c.planName ?? "Avulso"}</span>
                       )}
@@ -305,6 +342,61 @@ export function Customers() {
         )}
       </div>
 
+      {detail && (
+        <Drawer
+          title={detail.name || "Sem nome"}
+          subtitle={<span className="mono">{phoneBr(detail.phone)}</span>}
+          onClose={() => setDetailId(null)}
+        >
+          <div className="cust-actions">
+            <a className="btn btn-primary" href={`https://wa.me/${detail.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">
+              WhatsApp
+            </a>
+            <a className="btn btn-ghost" href={`tel:+${detail.phone.replace(/\D/g, "")}`}>
+              Ligar
+            </a>
+            <button className="btn btn-ghost" onClick={() => setTagsFor(detail)}>
+              🏷️ Tags
+            </button>
+          </div>
+          <dl className="ag-dl">
+            <dt>Situação</dt>
+            <dd>
+              {detail.status ? (
+                <span className={`badge ${STATUS_META[detail.status].className}`}>{STATUS_META[detail.status].label}</span>
+              ) : (
+                "—"
+              )}
+            </dd>
+            <dt>Última visita</dt>
+            <dd>{dateShort(detail.lastServiceDate)}</dd>
+            <dt>Fidelidade</dt>
+            <dd>{detail.fidelityPoints}/10 pontos</dd>
+            <dt>Cliente desde</dt>
+            <dd>{dateShort(detail.createdAt)}</dd>
+          </dl>
+          {(detail.tags ?? []).length > 0 && (
+            <div className="cust-badges">
+              {detail.tags.map((t) => <TagChip key={t.id} tag={t} />)}
+            </div>
+          )}
+          <div className="stack" style={{ gap: 6 }}>
+            <span className="label" style={{ fontSize: 13, color: "var(--text-muted)" }}>Plano</span>
+            {canEditPlan ? planSelect(detail, { minHeight: 44 }) : <span>{detail.planName ?? "Avulso"}</span>}
+          </div>
+          {(packagesByCustomer.get(detail.id) ?? []).length > 0 && (
+            <div className="stack" style={{ gap: 6 }}>
+              <span className="label" style={{ fontSize: 13, color: "var(--text-muted)" }}>Pacotes</span>
+              {(packagesByCustomer.get(detail.id) ?? []).map((p) => (
+                <span key={p.id} className="badge badge-green" style={{ alignSelf: "flex-start" }}>
+                  🎫 {p.remainingUses}/{p.totalUses} {p.packageName} · vence{" "}
+                  {new Date(p.expiresAt + "T00:00:00").toLocaleDateString("pt-BR")}
+                </span>
+              ))}
+            </div>
+          )}
+        </Drawer>
+      )}
       {tagsFor && (
         <CustomerTagsModal
           customer={tagsFor}

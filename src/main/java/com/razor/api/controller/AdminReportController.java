@@ -34,9 +34,26 @@ public class AdminReportController {
     private final com.razor.api.service.AiImpactService aiImpactService;
 
     /** Comissoes por profissional num dia (padrao: hoje). Ex.: {@code /commissions?date=2026-07-21}. */
+    public CommissionReportResponse commissions(LocalDate date) {
+        return commissions(date, null, null);
+    }
+
+    /**
+     * Comissoes por profissional num dia ({@code ?date=}, padrao hoje) ou num periodo
+     * ({@code ?from=&to=}, os chips "Esta semana / Quinzena / Este mes" da tela). Com periodo,
+     * {@code date} da resposta e o inicio dele.
+     */
     @GetMapping("/commissions")
     public CommissionReportResponse commissions(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        if (from != null) {
+            LocalDate end = to != null ? to : AppointmentDates.today();
+            if (end.isBefore(from)) throw new IllegalArgumentException("O fim do período vem antes do início.");
+            if (from.plusDays(366).isBefore(end)) throw new IllegalArgumentException("Período máximo: 1 ano.");
+            return CommissionReportResponse.of(from, commissionService.commissionsForPeriod(from, end));
+        }
         LocalDate target = date != null ? date : AppointmentDates.today();
         return CommissionReportResponse.of(target, commissionService.commissionsForDay(target));
     }

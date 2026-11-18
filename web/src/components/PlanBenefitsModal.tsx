@@ -1,6 +1,7 @@
 // Benefícios de um plano (V27): o que o assinante ganha em cada serviço/produto.
 // Espelha o que o cliente vê no app: "100% OFF · De R$ 35,00 · Por R$ 0,00 · seg, ter, qua".
 import { useState } from "react";
+import { SkeletonRows } from "./Skeleton";
 import { Modal } from "./Modal";
 import { useToast } from "./Toast";
 import { useApi } from "../lib/useApi";
@@ -121,7 +122,7 @@ export function PlanBenefitsModal({
 
         {/* Benefícios já cadastrados */}
         {benefits.loading ? (
-          <div className="muted">Carregando…</div>
+          <SkeletonRows rows={2} />
         ) : benefits.error ? (
           <div className="error" role="alert">{benefits.error}</div>
         ) : !benefits.data || benefits.data.length === 0 ? (

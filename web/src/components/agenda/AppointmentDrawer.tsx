@@ -9,6 +9,7 @@ import { useToast } from "../Toast";
 import { dateBr } from "../../lib/format";
 import { CONFIRMATION_INFO, hhmmToMin, phoneBr } from "../../lib/agenda";
 import { useFocusTrap } from "../../lib/useFocusTrap";
+import "../drawer.css";
 import type { AgendaItem, AgendaPro, AttendanceStatus, PaymentStatus } from "../../api/types";
 
 const PAYMENT_LABEL: Record<PaymentStatus, string> = { PIX: "PIX", PRESENCIAL: "Presencial", PENDENTE: "Pendente" };

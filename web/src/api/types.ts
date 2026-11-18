@@ -135,6 +135,33 @@ export interface Me {
   name: string | null;
   barbershopId: string;
   role: UserRole;
+  /** Cadastro de profissional ligado a este login (V44); null = sem vínculo. */
+  professionalId?: string | null;
+}
+
+/** "Quanto eu ganhei" — GET /api/admin/me/earnings (V44). */
+export interface MyEarnings {
+  linked: boolean;
+  professionalId: string | null;
+  professionalName: string | null;
+  period: "TODAY" | "YESTERDAY" | "WEEK" | "FORTNIGHT" | "MONTH";
+  from: string;
+  to: string;
+  atendimentos: number;
+  faturamento: number;
+  produtos: number;
+  faturamentoProdutos: number;
+  comissao: number;
+}
+
+/** Login do painel da barbearia — GET /api/admin/panel-users (só o dono). */
+export interface PanelUser {
+  id: string;
+  name: string | null;
+  email: string;
+  role: UserRole;
+  active: boolean;
+  professionalId: string | null;
 }
 
 export interface WhatsAppStatus {

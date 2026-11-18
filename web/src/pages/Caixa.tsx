@@ -2,6 +2,8 @@
 // e fechar conferindo a gaveta. A "gaveta esperada" só conta dinheiro; PIX/cartão entram nos
 // totais mas não na conferência física.
 import { useState } from "react";
+import { Hint } from "../components/Hint";
+import { ErrorState } from "../components/ErrorState";
 import { Layout } from "../components/Layout";
 import { EmptyState } from "../components/EmptyState";
 import { Skeleton } from "../components/Skeleton";
@@ -36,7 +38,7 @@ export function Caixa() {
           {[0, 1, 2].map((i) => <Skeleton key={i} h={46} />)}
         </div></div>
       ) : error ? (
-        <div className="card"><div className="card-pad"><div className="error" role="alert">{error}</div></div></div>
+        <div className="card"><ErrorState message={error} onRetry={reload} /></div>
       ) : data ? (
         <OpenCash summary={data} onChanged={reload} />
       ) : (
@@ -133,7 +135,7 @@ function OpenCash({ summary, onChanged }: { summary: CashSessionSummary; onChang
           </div>
         </div>
         <div className="stat">
-          <div className="label">Sangrias / Suprimentos</div>
+          <div className="label">Sangrias<Hint term="sangria" label="sangria" align="start" /> / Suprimentos<Hint term="suprimento" label="suprimento" /></div>
           <div className="value" style={{ fontSize: 18 }}>
             − {money(t.sangrias)} · + {money(t.suprimentos)}
           </div>

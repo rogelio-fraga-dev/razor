@@ -1,6 +1,9 @@
 // Telefones de admin do WhatsApp. Usado no card de Configurações e no passo correspondente
 // do assistente, para o dono não precisar sair do fluxo para cadastrar o próprio número.
 import { useState } from "react";
+import { ErrorState } from "./ErrorState";
+import { SkeletonRows } from "./Skeleton";
+import { useToast } from "./Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { AdminContact } from "../api/types";
@@ -14,6 +17,7 @@ export function AdminsEditor({ reloadKey = 0 }: { reloadKey?: number }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const toast = useToast();
 
   const add = async () => {
     if (!phone.trim()) return;
@@ -23,6 +27,7 @@ export function AdminsEditor({ reloadKey = 0 }: { reloadKey?: number }) {
       await api.post("/api/admin/admins", { phone: phone.trim(), name: name.trim() || null });
       setPhone("");
       setName("");
+      toast.success("Admin adicionado ✓");
       reload();
     } catch (e) {
       setFormError(e instanceof ApiError ? e.message : "Erro ao adicionar.");
@@ -34,6 +39,7 @@ export function AdminsEditor({ reloadKey = 0 }: { reloadKey?: number }) {
   const remove = async (id: string) => {
     try {
       await api.del(`/api/admin/admins/${id}`);
+      toast.success("Admin removido ✓");
     } catch (e) {
       setFormError(e instanceof ApiError ? e.message : "Erro ao remover.");
     } finally {
@@ -76,9 +82,9 @@ export function AdminsEditor({ reloadKey = 0 }: { reloadKey?: number }) {
       )}
 
       {loading ? (
-        <div className="muted">Carregando…</div>
+        <SkeletonRows rows={2} />
       ) : error ? (
-        <div className="error" role="alert">{error}</div>
+        <ErrorState compact message={error} onRetry={reload} />
       ) : !data || data.length === 0 ? (
         <div className="faint">Nenhum admin cadastrado — o sistema usa os telefones da configuração global.</div>
       ) : (

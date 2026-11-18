@@ -1,9 +1,10 @@
 // Bloco de pareamento do WhatsApp (QR + estado). Usado no card de Configurações e no
 // passo de conexão do assistente — o estado vem do hook, aqui é só a tela.
 import type { WhatsAppConnection } from "../lib/useWhatsAppConnection";
+import { SkeletonRows } from "./Skeleton";
 
 export function WhatsAppPairing({ conn }: { conn: WhatsAppConnection }) {
-  if (conn.loading) return <div className="muted">Carregando…</div>;
+  if (conn.loading) return <SkeletonRows rows={2} />;
 
   return (
     <div className="stack">

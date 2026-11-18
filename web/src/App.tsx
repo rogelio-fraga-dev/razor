@@ -4,6 +4,7 @@ import { canAccess, homeFor } from "./lib/access";
 import { CommandPalette } from "./components/CommandPalette";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
+import { MeuDia } from "./pages/MeuDia";
 import { Agenda } from "./pages/Agenda";
 import { Services } from "./pages/Services";
 import { Products } from "./pages/Products";
@@ -52,6 +53,7 @@ export default function App() {
       <Route path="/login" element={session ? <Navigate to={home} replace /> : <Login />} />
       <Route element={<Protected />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/meu-dia" element={<MeuDia />} />
         <Route path="/agenda" element={<Agenda />} />
         <Route path="/services" element={<Services />} />
         <Route path="/products" element={<Products />} />

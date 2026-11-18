@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { SkeletonRows } from "../components/Skeleton";
 import { Layout } from "../components/Layout";
+import { useToast } from "../components/Toast";
+import { ErrorState } from "../components/ErrorState";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { Me } from "../api/types";
@@ -12,6 +15,7 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function Profile() {
   const { data, loading, error, reload } = useApi<Me>(() => api.get("/api/admin/me"), []);
+  const toast = useToast();
 
   const [name, setName] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -32,7 +36,7 @@ export function Profile() {
     setNameMsg(null);
     try {
       await api.put("/api/admin/me", { name: name.trim() });
-      setNameMsg({ ok: true, text: "Nome atualizado." });
+      toast.success("Nome atualizado ✓");
       reload();
     } catch (e) {
       setNameMsg({ ok: false, text: e instanceof ApiError ? e.message : "Erro ao salvar." });
@@ -50,7 +54,7 @@ export function Profile() {
     setPassMsg(null);
     try {
       await api.put("/api/admin/me", { currentPassword, newPassword });
-      setPassMsg({ ok: true, text: "Senha alterada com sucesso." });
+      toast.success("Senha alterada ✓");
       setCurrentPassword("");
       setNewPassword("");
       setConfirm("");
@@ -70,9 +74,9 @@ export function Profile() {
         </div>
         <div className="card-pad">
           {loading ? (
-            <div className="muted">Carregando…</div>
+            <SkeletonRows rows={2} />
           ) : error ? (
-            <div className="error" role="alert">{error}</div>
+            <ErrorState message={error} onRetry={reload} />
           ) : data ? (
             <div className="stack" style={{ maxWidth: 460 }}>
               <div className="field">

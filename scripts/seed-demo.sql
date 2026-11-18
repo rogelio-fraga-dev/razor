@@ -175,6 +175,11 @@ BEGIN
       (v_prof[2], v_shop, 'Bruno Navalha',  '5511999990003', true, 45.00, NULL,  now() - interval '12 months', now()),
       (v_prof[3], v_shop, 'Caio Máquina',   '5511999990004', true, 35.00, 15.00, now() - interval '5 months',  now());
 
+    -- Login do barbeiro ligado ao cadastro dele (V44): o "Meu dia" mostra os horarios e a
+    -- comissao do Rafael.
+    UPDATE tenant_users SET professional_id = v_prof[1]
+     WHERE id = 'dededede-0000-4000-8000-000000000013';
+
     -- -----------------------------------------------------------------------------------------
     -- 3. Catalogo de servicos
     --    Os nomes contem as palavras que o PricingService usa para categorizar ("combo",

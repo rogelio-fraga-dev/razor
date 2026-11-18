@@ -5,6 +5,8 @@
 // (folga, conflito, fora do expediente…), volta para onde estava com o motivo num toast. Quem
 // decide é sempre o backend — a tela só antecipa.
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Link } from "react-router-dom";
+import { ErrorState } from "../components/ErrorState";
 import { Layout } from "../components/Layout";
 import { EmptyState } from "../components/EmptyState";
 import { Skeleton } from "../components/Skeleton";
@@ -463,15 +465,17 @@ export function Agenda() {
             {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} h={42} />)}
           </div>
         ) : board.error ? (
-          <div className="empty error" role="alert">
-            Não foi possível carregar a agenda: {board.error}{" "}
-            <button className="btn btn-ghost btn-sm" onClick={board.reload}>Tentar de novo</button>
-          </div>
+          <ErrorState message={`Não foi possível carregar a agenda: ${board.error}`} onRetry={board.reload} />
         ) : pros.length === 0 && visibleCount === 0 ? (
           <EmptyState
             icon="📅"
             title="Nenhum barbeiro cadastrado."
             hint="Cadastre a equipe em Profissionais: cada barbeiro vira uma coluna da agenda."
+            action={
+              session?.role === "OWNER" ? (
+                <Link className="btn btn-primary" to="/professionals">Cadastrar barbeiro</Link>
+              ) : undefined
+            }
           />
         ) : view === "week" && !selectedWeekBarber ? (
           <EmptyState icon="📅" title="Nenhum barbeiro ativo." hint="A visão da semana é por barbeiro." />

@@ -1,0 +1,289 @@
+/* ============================================================================
+   Casca do painel no celular e padrões de estado (carregado DEPOIS do index.css, em main.tsx)
+   - Navegação em 5 áreas (Hoje · Agenda · Clientes · Dinheiro · Configurar)
+   - <Hint> (glossário), <ErrorState>, Clientes em cartões, Meu dia
+   ========================================================================== */
+
+/* ---------- Menu lateral: grupos recolhíveis ---------- */
+.nav { overflow-y: auto; overflow-x: hidden; min-height: 0; flex: 1; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
+.nav-group { margin-bottom: 10px; }
+.nav-items { display: flex; flex-direction: column; gap: 2px; }
+.nav-group.closed .nav-items { display: none; }
+.nav-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 6px;
+  padding-top: 6px;
+  min-height: 28px;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+}
+.nav-group-toggle:hover:not(:disabled) { color: var(--text); }
+.nav-group-toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.nav-group-toggle:disabled { cursor: default; }
+.nav-chev { display: inline-grid; transition: transform 0.18s ease; opacity: 0.7; }
+.nav-chev svg { width: 14px; height: 14px; }
+.nav-group.closed .nav-chev { transform: rotate(-90deg); }
+.nav-group-toggle:disabled .nav-chev { opacity: 0.25; }
+/* Menu recolhido (rail de ícones): os grupos não fecham — o rail é a lista inteira de ícones. */
+.app.sidebar-collapsed .nav-group.closed .nav-items { display: flex; }
+.app.sidebar-collapsed .nav-group + .nav-group { border-top: 1px solid var(--border); padding-top: 8px; }
+
+.topbar-mark { display: none; color: var(--text); }
+
+/* Barra inferior: só existe no celular. */
+.bottom-nav { display: none; }
+
+/* Tablet (761–860px): rail de ícones em COLUNA. A regra antiga punha os itens em linha, o que
+   estourava a trilha de 64px com 17 ícones. */
+@media (max-width: 860px) {
+  .nav, .nav-group, .nav-items { flex-direction: column; }
+  .nav-group.closed .nav-items { display: flex; }
+  .nav-group-toggle { display: none; }
+  .nav-group + .nav-group { border-top: 1px solid var(--border); padding-top: 8px; }
+  .nav a { min-height: 44px; }
+}
+
+/* ---------- Celular: barra inferior fixa com as 5 áreas ---------- */
+@media (max-width: 760px) {
+  .app,
+  .app.sidebar-collapsed { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .topbar-mark { display: inline-grid; flex-shrink: 0; }
+  .topbar { gap: 10px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+  .topbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar .iconbtn,
+  .topbar .btn-sm { min-height: 40px; min-width: 40px; }
+  /* Espaço para a barra inferior não cobrir o fim da página. */
+  .main { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
+  .toast-wrap { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); right: 12px; left: 12px; max-width: none; }
+
+  .bottom-nav {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    padding: 4px 6px env(safe-area-inset-bottom, 0px);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border);
+  }
+  .bn-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 56px;
+    min-width: 44px;
+    padding: 6px 2px;
+    border: 0;
+    background: none;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 12px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bn-ico {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 28px;
+    border-radius: 999px;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+  }
+  .bn-ico svg { width: 22px; height: 22px; }
+  .bn-item.active { color: var(--text); }
+  .bn-item.active .bn-ico { background: var(--accent-soft); color: var(--accent); }
+  :root:not([data-theme="light"]) .bn-item.active .bn-ico { color: #8fa6ff; }
+  .bn-item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .bn-item:active .bn-ico { transform: scale(0.94); }
+}
+
+/* Folha da área: as páginas do grupo, 1 toque cada. */
+.area-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.area-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raise);
+  color: var(--text);
+}
+.area-link:hover { border-color: var(--border-hi); }
+.area-link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.area-link.active { border-color: var(--accent); background: var(--accent-soft); }
+.area-ico {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+:root:not([data-theme="light"]) .area-ico { color: #8fa6ff; }
+.area-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.area-label { font-weight: 600; font-size: 15px; }
+.area-hint { font-size: 13px; color: var(--text-muted); }
+.area-go { color: var(--text-faint); font-size: 22px; line-height: 1; }
+
+/* ---------- <Hint>: explicação curta ao lado do jargão ---------- */
+.hint { position: relative; display: inline-flex; vertical-align: middle; margin-left: 4px; }
+.hint-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-hi);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font: 700 11px/1 var(--font);
+  cursor: help;
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* Alvo de toque de 44px sem crescer o desenho: a área clicável vaza por um pseudo-elemento. */
+.hint-btn::after { content: ""; position: absolute; inset: -13px; }
+.hint-btn:hover,
+.hint-btn[aria-expanded="true"] { color: var(--text); border-color: var(--accent); }
+.hint-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.hint-pop {
+  position: absolute;
+  z-index: 60;
+  /* Abre PARA BAIXO: o termo costuma estar no cabeçalho de um .card, que tem overflow:hidden —
+     um balão para cima seria cortado pela borda do card. */
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--text);
+  color: var(--bg);
+  font: 500 13px/1.45 var(--font);
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: normal;
+  text-align: left;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+}
+.hint-pop.align-start { left: -6px; transform: none; }
+.hint-pop.align-end { left: auto; right: -6px; transform: none; }
+.hint-pop[hidden] { display: none; }
+
+/* ---------- Erro com "Tentar de novo" ---------- */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  text-align: center;
+}
+.error-state .es-icon { font-size: 22px; color: var(--red); }
+.error-state p { margin: 0; color: var(--text); max-width: 440px; }
+.error-state .es-sub { font-size: 13px; color: var(--text-muted); }
+
+/* ---------- Clientes: linha clicável, cartões no celular ---------- */
+.rw-open {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 10px;
+}
+.rw-open:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.rw-chevron { display: none; color: var(--text-faint); font-size: 22px; margin-left: auto; }
+.cust-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cust-actions .btn { min-height: 44px; }
+.cust-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (max-width: 760px) {
+  .page-panel.readable .rowlist { padding: 10px 12px; gap: 10px; }
+  .page-panel.readable .rowitem {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 12px 14px;
+  }
+  .page-panel.readable .rowitem .rw-side { display: none; }
+  .page-panel.readable .rw-title .badge:nth-of-type(n + 3) { display: none; }
+  .rw-chevron { display: inline; }
+  .rw-open { min-height: 48px; }
+  .list-toolbar { flex-wrap: wrap; }
+  .list-toolbar > .input { max-width: none !important; flex: 1 1 100%; }
+  .list-toolbar .chip-row { overflow-x: auto; flex-wrap: nowrap; max-width: 100%; scrollbar-width: none; }
+  .chip-btn { min-height: 40px; }
+}
+
+/* ---------- Meu dia (barbeiro) ---------- */
+.myday-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.myday-money { padding: 18px; }
+.myday-money .label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.myday-money .value { font-family: var(--font-mono); font-size: 28px; font-weight: 600; margin-top: 6px; color: var(--text); }
+.myday-money .sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+.myday-next { padding: 18px; display: flex; gap: 16px; align-items: center; }
+.myday-next .time { font-family: var(--font-mono); font-size: 30px; font-weight: 600; color: var(--accent); }
+:root:not([data-theme="light"]) .myday-next .time { color: #8fa6ff; }
+.myday-list { list-style: none; margin: 0; padding: 0; }
+.myday-list li {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  min-height: 56px;
+}
+.myday-list li.past { opacity: 0.6; }
+.myday-list .t { font-family: var(--font-mono); font-weight: 600; width: 52px; flex-shrink: 0; }
+.myday-list .who { flex: 1; min-width: 0; }
+.myday-list .who strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) {
+  .myday-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- Comissões: chips de período ---------- */
+.period-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+@media (max-width: 760px) {
+  .period-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  .period-chips .chip-btn { flex-shrink: 0; }
+}
