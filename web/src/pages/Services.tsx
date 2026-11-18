@@ -79,11 +79,11 @@ export function Services() {
           />
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table className="table">
+            <table className="table table-cards">
               <thead>
                 <tr>
                   <th>Serviço</th>
-                  <th>Preço</th>
+                  <th className="num">Preço</th>
                   <th>Duração</th>
                   <th>Status</th>
                   <th></th>
@@ -92,13 +92,13 @@ export function Services() {
               <tbody>
                 {data.map((s) => (
                   <tr key={s.id}>
-                    <td style={{ fontWeight: 550 }}>{s.name}</td>
-                    <td className="num">{money(s.price)}</td>
-                    <td className="muted">{s.durationMinutes} min</td>
-                    <td>
+                    <td className="tc-head" style={{ fontWeight: 550 }}>{s.name}</td>
+                    <td className="num" data-label="Preço">{money(s.price)}</td>
+                    <td className="muted" data-label="Duração">{s.durationMinutes} min</td>
+                    <td data-label="Status">
                       {s.active ? <span className="badge badge-green">Ativo</span> : <span className="badge badge-muted">Inativo</span>}
                     </td>
-                    <td className="right">
+                    <td className="right tc-actions">
                       <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>Editar</button>
                     </td>
                   </tr>

@@ -108,9 +108,9 @@ export function Dashboard() {
       {month.loading ? (
         <SkeletonStats count={4} />
       ) : month.error ? (
-        <div className="card error" style={{ marginBottom: 24 }}>{month.error}</div>
+        <div className="card error">{month.error}</div>
       ) : (
-        <div className="bento-grid" style={{ marginBottom: 24 }} data-tour="kpis">
+        <div className="bento-grid" data-tour="kpis">
           <div className="card kpi-card card-edge">
             <div className="kpi-header">
               <span className="kpi-title">Faturamento do mês</span>
@@ -160,15 +160,11 @@ export function Dashboard() {
       )}
 
       {/* Evolução do faturamento + agenda do dia */}
-      <div className="bento-grid" style={{ marginBottom: 24 }}>
+      <div className="bento-grid">
         <div className="card bento-col-8">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <div>
-              <h3 style={{ fontSize: 16, fontWeight: 700 }}>Evolução de faturamento</h3>
-              <p style={{ fontSize: 12, color: "var(--steel)", margin: 0 }}>
-                Valores apurados no período ({period})
-              </p>
-            </div>
+          {/* Mesmo cabeçalho dos outros cards (antes era um bloco solto, colado na borda). */}
+          <div className="card-head">
+            <h3>Evolução de faturamento</h3>
             <div style={{ display: "flex", gap: 6 }}>
               {PERIODS.map((p) => (
                 <button
@@ -182,13 +178,18 @@ export function Dashboard() {
             </div>
           </div>
 
-          {series.loading ? (
-            <Skeleton h={210} />
-          ) : series.error ? (
-            <div className="error" role="alert">{series.error}</div>
-          ) : (
-            <RevenueChart points={series.data ?? []} />
-          )}
+          <div className="card-pad">
+            <p className="faint" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
+              Valores apurados no período ({period})
+            </p>
+            {series.loading ? (
+              <Skeleton h={210} />
+            ) : series.error ? (
+              <div className="error" role="alert">{series.error}</div>
+            ) : (
+              <RevenueChart points={series.data ?? []} />
+            )}
+          </div>
         </div>
 
         <div className="card bento-col-4" data-tour="agenda">

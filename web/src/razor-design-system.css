@@ -1184,18 +1184,14 @@ h1, h2, h3, h4, h5, h6 {
    .card-head nem .card-pad — precisa do seu próprio respiro. */
 .card.error,
 .card.checklist > .cl-head,
-.card.checklist > .cl-items,
-.card.checklist > .cfg-hero,
-.card.checklist > .cfg-checklist,
-.card.checklist > .cfg-done {
+.card.checklist > .cl-items {
   padding-left: var(--space);
   padding-right: var(--space);
 }
 .card.error { padding-top: var(--space); padding-bottom: var(--space); }
-.card.checklist > .cfg-hero { padding-top: var(--space); }
-.card.checklist > .cfg-done { padding-bottom: var(--space); }
-/* A barra de progresso é a exceção: ela FOI desenhada para atravessar o card de ponta a ponta,
-   e era justamente o padding herdado que a deixava recuada como uma ilha. */
+/* O checklist de configuração (ConfigChecklist) embrulha tudo num .card-pad: a barra dele é
+   uma pílula e precisa do mesmo recuo do texto. A barra do "Comece por aqui" (.cl-progress) é
+   que atravessa o card de ponta a ponta, por desenho. */
 
 /* O bloco da agenda agora recebe foco por teclado (era inalcançável e toda a informação
    estava só no `title`, que só existe no hover do mouse). */

@@ -132,7 +132,7 @@ export function Coupons() {
           />
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table className="table">
+            <table className="table table-cards">
               <thead>
                 <tr>
                   <th>Código</th>
@@ -147,7 +147,7 @@ export function Coupons() {
               <tbody>
                 {data.map((c) => (
                   <tr key={c.id}>
-                    <td>
+                    <td className="tc-head">
                       <span className="mono" style={{ fontWeight: 600 }}>{c.code}</span>
                       {c.description && (
                         <div className="faint" style={{ fontSize: 11.5 }}>{c.description}</div>
@@ -156,22 +156,22 @@ export function Coupons() {
                         <div className="faint" style={{ fontSize: 11.5 }}>pessoal · {c.customerPhone}</div>
                       )}
                     </td>
-                    <td className="mono">{valueOf(c)}</td>
-                    <td>
+                    <td className="mono" data-label="Desconto">{valueOf(c)}</td>
+                    <td data-label="Origem">
                       {c.origin === "FIDELIDADE" ? (
                         <span className="badge badge-plan">Fidelidade</span>
                       ) : (
                         <span className="faint">Campanha</span>
                       )}
                     </td>
-                    <td className="muted">
+                    <td className="muted" data-label="Validade">
                       {c.validUntil ? `até ${dateBr(c.validUntil)}` : "sem prazo"}
                     </td>
-                    <td className="muted">
+                    <td className="muted" data-label="Usos">
                       {c.usedCount}
                       {c.maxUses !== null ? ` / ${c.maxUses}` : ""}
                     </td>
-                    <td>
+                    <td data-label="Situação">
                       {c.usable ? (
                         <span className="badge badge-green">Válido</span>
                       ) : c.active ? (
@@ -180,7 +180,7 @@ export function Coupons() {
                         <span className="badge badge-muted">Desativado</span>
                       )}
                     </td>
-                    <td className="right">
+                    <td className="right tc-actions">
                       <button className="btn btn-ghost btn-sm" onClick={() => toggleActive(c)}>
                         {c.active ? "Desativar" : "Reativar"}
                       </button>

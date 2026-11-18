@@ -28,7 +28,7 @@ function hours(n: number): string {
 /** Lista de clientes para contatar. O telefone é o ponto: sem ele o número não vira ação. */
 function CustomerList({ items, empty }: { items: CustomerAtRisk[]; empty: string }) {
   if (items.length === 0) {
-    return <p className="muted" style={{ margin: 0, fontSize: 14 }}>{empty}</p>;
+    return <p className="muted card-pad" style={{ margin: 0, paddingTop: 0, fontSize: 14 }}>{empty}</p>;
   }
   return (
     <div style={{ overflowX: "auto" }}>
@@ -84,7 +84,7 @@ export function RetentionPage() {
           <ErrorState message={occupancy.error} onRetry={occupancy.reload} />
         ) : o ? (
           <>
-            <div className="cfg-hero">
+            <div className="cfg-hero card-pad" style={{ marginBottom: 0 }}>
               <div className="cfg-hero-main">
                 <h3 className="cfg-hero-title">
                   {o.rate === null ? "Sem horário disponível no período" : `${percent(o.rate)} do tempo vendido`}
@@ -135,7 +135,7 @@ export function RetentionPage() {
                 </table>
               </div>
             )}
-            <p className="faint" style={{ fontSize: 12.5, margin: "12px 0 0" }}>
+            <p className="card-note">
               Disponível já desconta dias fechados e folgas. Vendido usa a <b>duração real</b> de
               cada serviço — contar atendimentos faria uma agenda de combos parecer mais vazia que
               uma de cortes.
@@ -166,6 +166,7 @@ export function RetentionPage() {
           />
         ) : (
           <>
+            <div className="card-pad">
             <div className="bento-grid" style={{ marginBottom: 18 }}>
               <div className="card kpi-card card-edge">
                 <div className="kpi-header"><span className="kpi-title">Ativos</span></div>
@@ -189,15 +190,16 @@ export function RetentionPage() {
               </div>
             </div>
 
-            <p className="faint" style={{ fontSize: 12.5, margin: "0 0 18px" }}>
+            <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>
               O prazo é o de <b>cada cliente</b>, não um número fixo: quem corta a cada 15 dias e
               sumiu há 40 é um problema; quem corta a cada 60 e sumiu há 40 está em dia.{" "}
               {r.medianIntervalDays !== null
                 ? `Na sua barbearia a mediana é de ${r.medianIntervalDays} dias.`
                 : `Ainda não há histórico suficiente para calcular o ritmo da casa — vale ${r.defaultIntervalDays} dias.`}
             </p>
+            </div>
 
-            <h4 style={{ margin: "0 0 10px", fontSize: 15 }}>
+            <h4 className="card-subhead">
               Prestes a sumir {r.counts.emRisco > r.atRisk.length && (
                 <span className="faint" style={{ fontWeight: 400, fontSize: 12.5 }}>
                   (os {r.atRisk.length} mais atrasados de {r.counts.emRisco})
@@ -206,7 +208,7 @@ export function RetentionPage() {
             </h4>
             <CustomerList items={r.atRisk} empty="Ninguém atrasado no momento." />
 
-            <h4 style={{ margin: "22px 0 10px", fontSize: 15 }}>
+            <h4 className="card-subhead">
               Já sumiram {r.counts.sumido > r.lost.length && (
                 <span className="faint" style={{ fontWeight: 400, fontSize: 12.5 }}>
                   (os {r.lost.length} mais atrasados de {r.counts.sumido})

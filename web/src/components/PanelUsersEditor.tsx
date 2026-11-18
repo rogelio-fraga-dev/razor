@@ -155,7 +155,7 @@ export function PanelUsersEditor({ reloadKey = 0 }: { reloadKey?: number }) {
       ) : list.length === 0 ? (
         <div className="faint">Nenhum acesso cadastrado.</div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <div className="table-bleed">
           <table className="table table-cards">
             <thead>
               <tr>

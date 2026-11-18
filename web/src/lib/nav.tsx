@@ -1,6 +1,11 @@
-// Arquitetura de informação do painel: 5 ÁREAS pensadas pelo que o barbeiro faz no dia, não
-// pelas telas do sistema. Fonte única para o menu lateral, a navegação inferior do celular e a
-// barra de comandos (Ctrl+K) — mudar aqui muda nos três.
+// Arquitetura de informação do painel. Fonte única para o menu lateral, a navegação inferior do
+// celular e a barra de comandos (Ctrl+K) — mudar aqui muda nos três.
+//
+// Duas camadas, pensadas pelo que o barbeiro faz no dia (não pelas telas do sistema):
+// - ATALHOS: o que se abre várias vezes por dia (Painel, Agenda, Comandas, Clientes). Ficam
+//   sempre à mostra, a 1 clique, no topo do menu e na barra inferior do celular.
+// - GRUPOS: o resto, recolhido em blocos que abrem para baixo (Fidelização, Dinheiro,
+//   Configurar). Fechados por padrão; o grupo da tela atual abre sozinho.
 import type { ReactNode } from "react";
 import type { UserRole } from "../api/types";
 import { canAccess } from "./access";
@@ -24,53 +29,46 @@ import {
   IconWallet,
 } from "../components/Icons";
 
-export type AreaId = "hoje" | "agenda" | "clientes" | "dinheiro" | "configurar";
+export type GroupId = "fidelizacao" | "dinheiro" | "configurar";
 
 export interface NavPage {
   to: string;
   label: string;
-  /** Uma linha em linguagem simples: aparece na folha da área (celular) e no Ctrl+K. */
+  /** Uma linha em linguagem simples: aparece na folha do celular e no Ctrl+K. */
   hint: string;
   icon: ReactNode;
   /** NavLink `end`: necessário quando a rota é prefixo de outra (/commissions × /settlement). */
   end?: boolean;
   /**
    * Restringe a exibição NO MENU além do `canAccess`. O "Meu dia" é aberto ao dono (que também
-   * corta cabelo) pela barra de comandos, mas no menu só aparece para o barbeiro — no menu do
-   * dono a área "Hoje" leva direto ao Painel, em 1 toque.
+   * corta cabelo) pela barra de comandos, mas no menu só aparece para o barbeiro — o atalho do
+   * dono é o Painel.
    */
   menuRoles?: UserRole[];
 }
 
-export interface NavArea {
-  id: AreaId;
+export interface NavGroup {
+  id: GroupId;
   label: string;
   icon: ReactNode;
   pages: NavPage[];
 }
 
-export const AREAS: NavArea[] = [
+/** Atalhos do dia a dia: sempre visíveis, nesta ordem. */
+export const QUICK: NavPage[] = [
+  { to: "/", label: "Painel", hint: "o dia da barbearia num olhar", icon: <IconGrid />, end: true },
+  { to: "/meu-dia", label: "Meu dia", hint: "meus horários e quanto eu ganhei", icon: <IconSun />, menuRoles: ["BARBER"] },
+  { to: "/agenda", label: "Agenda", hint: "horários por barbeiro", icon: <IconCalendar /> },
+  { to: "/comandas", label: "Comandas", hint: "a conta de cada atendimento", icon: <IconReceipt /> },
+  { to: "/customers", label: "Clientes", hint: "base, assinantes e histórico", icon: <IconUsers /> },
+];
+
+export const GROUPS: NavGroup[] = [
   {
-    id: "hoje",
-    label: "Hoje",
-    icon: <IconSun />,
+    id: "fidelizacao",
+    label: "Fidelização",
+    icon: <IconGem />,
     pages: [
-      { to: "/", label: "Painel", hint: "o dia da barbearia num olhar", icon: <IconGrid />, end: true },
-      { to: "/meu-dia", label: "Meu dia", hint: "meus horários e quanto eu ganhei", icon: <IconSun />, menuRoles: ["BARBER"] },
-    ],
-  },
-  {
-    id: "agenda",
-    label: "Agenda",
-    icon: <IconCalendar />,
-    pages: [{ to: "/agenda", label: "Agenda", hint: "horários por barbeiro", icon: <IconCalendar /> }],
-  },
-  {
-    id: "clientes",
-    label: "Clientes",
-    icon: <IconUsers />,
-    pages: [
-      { to: "/customers", label: "Clientes", hint: "base, assinantes e histórico", icon: <IconUsers /> },
       { to: "/retention", label: "Retenção", hint: "cadeiras vazias e quem sumiu", icon: <IconPulse /> },
       { to: "/plans", label: "Planos", hint: "clube de assinatura", icon: <IconGem /> },
       { to: "/packages", label: "Pacotes", hint: "cortes pagos adiantado", icon: <IconBox /> },
@@ -83,11 +81,10 @@ export const AREAS: NavArea[] = [
     icon: <IconWallet />,
     pages: [
       { to: "/caixa", label: "Caixa", hint: "abrir, fechar e movimentos", icon: <IconCash /> },
-      { to: "/comandas", label: "Comandas", hint: "a conta de cada atendimento", icon: <IconReceipt /> },
-      { to: "/products", label: "Produtos e estoque", hint: "o que se vende no balcão", icon: <IconBox /> },
       { to: "/commissions", label: "Comissões", hint: "quanto cada barbeiro fez", icon: <IconPercent />, end: true },
       { to: "/commissions/settlement", label: "Acerto", hint: "o que já foi pago à equipe", icon: <IconHandshake /> },
       { to: "/expenses", label: "Despesas e DRE", hint: "contas a pagar e o resultado", icon: <IconTrendDown /> },
+      { to: "/products", label: "Produtos e estoque", hint: "o que se vende no balcão", icon: <IconBox /> },
     ],
   },
   {
@@ -103,26 +100,38 @@ export const AREAS: NavArea[] = [
   },
 ];
 
+function showInMenu(p: NavPage, role: UserRole | undefined): boolean {
+  return canAccess(p.to, role) && (!p.menuRoles || (!!role && p.menuRoles.includes(role)));
+}
+
 /** Todas as páginas (para o Ctrl+K), filtradas só pelo papel — sem o filtro de menu. */
 export function reachablePages(role: UserRole | undefined): NavPage[] {
-  return AREAS.flatMap((a) => a.pages).filter((p) => canAccess(p.to, role));
+  return [...QUICK, ...GROUPS.flatMap((g) => g.pages)].filter((p) => canAccess(p.to, role));
 }
 
-/** Áreas com as páginas que o papel vê no menu. Área sem página some inteira. */
-export function visibleAreas(role: UserRole | undefined): NavArea[] {
-  return AREAS.map((a) => ({
-    ...a,
-    pages: a.pages.filter((p) => canAccess(p.to, role) && (!p.menuRoles || (role && p.menuRoles.includes(role)))),
-  })).filter((a) => a.pages.length > 0);
+/** Atalhos que o papel vê no menu. */
+export function visibleQuick(role: UserRole | undefined): NavPage[] {
+  return QUICK.filter((p) => showInMenu(p, role));
 }
 
-/** Área da rota atual (para acender o item certo da navegação inferior). */
-export function areaOf(pathname: string): AreaId | null {
-  let best: { id: AreaId; len: number } | null = null;
-  for (const a of AREAS) {
-    for (const p of a.pages) {
-      const hit = p.to === "/" ? pathname === "/" : pathname === p.to || pathname.startsWith(`${p.to}/`);
-      if (hit && (!best || p.to.length > best.len)) best = { id: a.id, len: p.to.length };
+/** Grupos com as páginas que o papel vê no menu. Grupo sem página visível some inteiro. */
+export function visibleGroups(role: UserRole | undefined): NavGroup[] {
+  return GROUPS.map((g) => ({ ...g, pages: g.pages.filter((p) => showInMenu(p, role)) })).filter(
+    (g) => g.pages.length > 0,
+  );
+}
+
+/** A página `p` é a rota atual (ou um prefixo dela)? */
+export function pathMatches(p: NavPage, pathname: string): boolean {
+  return p.to === "/" ? pathname === "/" : pathname === p.to || pathname.startsWith(`${p.to}/`);
+}
+
+/** Grupo da rota atual (para abrir o bloco certo e acender o "Mais" do celular). */
+export function groupOf(pathname: string): GroupId | null {
+  let best: { id: GroupId; len: number } | null = null;
+  for (const g of GROUPS) {
+    for (const p of g.pages) {
+      if (pathMatches(p, pathname) && (!best || p.to.length > best.len)) best = { id: g.id, len: p.to.length };
     }
   }
   return best?.id ?? null;

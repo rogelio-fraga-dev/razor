@@ -561,7 +561,7 @@ export function Settings() {
         id={panelId(TAB_PREFIX, id)}
         aria-labelledby={tabId(TAB_PREFIX, id)}
         className="stack"
-        style={{ gap: 18, marginTop: 18 }}
+        style={{ gap: 18 }}
       >
         {children}
       </div>
@@ -586,7 +586,7 @@ export function Settings() {
         <ConfigChecklist status={config} onGoToStep={openWizardAt} />
       )}
 
-      <div style={{ marginTop: 18 }}>
+      <div>
         <Tabs tabs={TABS} active={tab} onChange={setTab} idPrefix={TAB_PREFIX} label="Seções de configuração" />
       </div>
 

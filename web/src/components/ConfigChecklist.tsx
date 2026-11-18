@@ -18,6 +18,9 @@ export function ConfigChecklist({ status, onGoToStep }: Props) {
     // `checklist` ativa o fio de 68° no topo do card — a assinatura da marca, que já existia
     // pronta em CSS e não era usada justamente na tela de configuração.
     <div className="card checklist">
+      {/* Tudo dentro do .card-pad: o .card não traz padding próprio, e sem ele a barra de
+          progresso (uma pílula) ia de borda a borda e os textos encostavam na lateral. */}
+      <div className="card-pad">
       <div className="cfg-hero">
         <div className="cfg-hero-main">
           <h3 className="cfg-hero-title">
@@ -89,6 +92,7 @@ export function ConfigChecklist({ status, onGoToStep }: Props) {
           </ul>
         </details>
       )}
+      </div>
     </div>
   );
 }

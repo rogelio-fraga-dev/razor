@@ -1,64 +1,177 @@
 /* ============================================================================
    Casca do painel no celular e padrões de estado (carregado DEPOIS do index.css, em main.tsx)
-   - Navegação em 5 áreas (Hoje · Agenda · Clientes · Dinheiro · Configurar)
+   - Navegação: atalhos do dia + grupos recolhíveis (lib/nav.tsx)
    - <Hint> (glossário), <ErrorState>, Clientes em cartões, Meu dia
    ========================================================================== */
 
-/* ---------- Menu lateral: grupos recolhíveis ---------- */
-.nav { overflow-y: auto; overflow-x: hidden; min-height: 0; flex: 1; scrollbar-width: none; }
+/* ---------- Menu lateral: atalhos + grupos recolhíveis ----------
+   Em cima, os atalhos do dia (Painel, Agenda, Comandas, Clientes) sempre à mostra. Embaixo, os
+   grupos (Fidelização, Dinheiro, Configurar): um botão por grupo que abre a lista para baixo.
+   A abertura anima a ALTURA via grid-template-rows (0fr → 1fr), que não exige altura fixa. */
+.nav {
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  flex: 1;
+  scrollbar-width: none;
+  gap: 2px;
+}
 .nav::-webkit-scrollbar { display: none; }
-.nav-group { margin-bottom: 10px; }
-.nav-items { display: flex; flex-direction: column; gap: 2px; }
-.nav-group.closed .nav-items { display: none; }
+.nav-quick { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+.nav-group,
+.nav-group.single { display: flex; flex-direction: column; gap: 0; margin: 0; }
+
 .nav-group-toggle {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   width: 100%;
-  background: none;
+  min-height: 40px;
+  padding: 9px 12px;
   border: 0;
-  cursor: pointer;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font: 500 14px/1.2 var(--font);
   text-align: left;
-  border-radius: 6px;
-  padding-top: 6px;
-  min-height: 28px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-group-toggle .ico { display: grid; place-items: center; width: 20px; flex-shrink: 0; color: var(--text-faint); transition: color 0.15s; }
+.nav-group-toggle .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nav-group-toggle:hover { background: var(--border-subtle, rgba(255, 255, 255, 0.05)); color: var(--text); }
+.nav-group-toggle:hover .ico { color: var(--text); }
+.nav-group-toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.nav-group.open > .nav-group-toggle { color: var(--text); }
+.nav-group.has-active > .nav-group-toggle .ico { color: var(--accent); }
+:root:not([data-theme="light"]) .nav-group.has-active > .nav-group-toggle .ico { color: #37e2ff; }
+.nav-chev { display: inline-grid; place-items: center; color: var(--text-faint); transform: rotate(-90deg); transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+.nav-chev svg { width: 14px; height: 14px; }
+.nav-group.open > .nav-group-toggle .nav-chev { transform: rotate(0deg); }
+/* Grupo fechado com a tela atual dentro: um ponto no acento diz "você está aqui". */
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); flex-shrink: 0; }
+
+.nav-sub {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 0.24s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.24s;
+}
+.nav-group.open > .nav-sub { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
+.nav-sub-inner {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-left: 21px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+.nav-group.open > .nav-sub .nav-sub-inner { padding-top: 2px; padding-bottom: 6px; }
+.nav a.nav-subitem { padding: 7px 10px; min-height: 34px; font-size: 13.5px; }
+.nav a.nav-subitem:hover { padding-left: 12px; }
+.nav a.nav-subitem.active::before { left: -11px; top: 7px; bottom: 7px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-sub, .nav-chev { transition: none; }
+}
+
+/* ---------- Trilho de ícones (barra recolhida "⇤" e tablet 761–860px) ----------
+   Cada grupo vira UM ícone; as páginas abrem num painel ao lado (.nav-flyout). */
+.app.sidebar-collapsed .nav-sub { display: none; }
+.app.sidebar-collapsed .nav-group-toggle { justify-content: center; padding: 10px; }
+.app.sidebar-collapsed .nav-chev,
+.app.sidebar-collapsed .nav-group-toggle .nav-dot { display: none; }
+.app.sidebar-collapsed .nav-group.has-active > .nav-group-toggle { background: var(--accent-soft); }
+.app.sidebar-collapsed .nav-group-toggle[aria-expanded="true"] { background: var(--surface-2); color: var(--text); }
+
+.nav-flyout {
+  position: fixed;
+  left: calc(var(--sidebar-w) + 6px);
+  z-index: 70;
+  min-width: 220px;
+  padding: 8px;
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: nav-flyout-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes nav-flyout-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .nav-flyout { animation: none; } }
+.nav-flyout-title {
+  padding: 6px 10px 8px;
   font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   color: var(--text-faint);
 }
-.nav-group-toggle:hover:not(:disabled) { color: var(--text); }
-.nav-group-toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.nav-group-toggle:disabled { cursor: default; }
-.nav-chev { display: inline-grid; transition: transform 0.18s ease; opacity: 0.7; }
-.nav-chev svg { width: 14px; height: 14px; }
-.nav-group.closed .nav-chev { transform: rotate(-90deg); }
-.nav-group-toggle:disabled .nav-chev { opacity: 0.25; }
-/* Menu recolhido (rail de ícones): os grupos não fecham — o rail é a lista inteira de ícones. */
-.app.sidebar-collapsed .nav-group.closed .nav-items { display: flex; }
-.app.sidebar-collapsed .nav-group + .nav-group { border-top: 1px solid var(--border); padding-top: 8px; }
+/* Seletores com .sidebar .nav para vencer as regras do trilho (que escondem .lbl e centralizam). */
+.sidebar .nav a.nav-flyout-link,
+.app.sidebar-collapsed .sidebar .nav a.nav-flyout-link {
+  justify-content: flex-start;
+  padding: 9px 10px;
+  min-height: 38px;
+  gap: 10px;
+  font-size: 14px;
+}
+.sidebar .nav a.nav-flyout-link:hover { padding-left: 10px; }
+.sidebar .nav a.nav-flyout-link.active::before { display: none; }
 
 .topbar-mark { display: none; color: var(--text); }
+
+/* ---------- Topbar: título nunca quebra em 3 linhas, ações quebram para a linha de baixo ----------
+   Antes o título encolhia até sumir (celular) ou virava três linhas (tablet), e o "Ctrl K" do
+   atalho quebrava em duas. */
+.topbar h1 { flex-shrink: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar > .row { flex-wrap: wrap; justify-content: flex-end; row-gap: 8px; min-width: 0; }
+.kbd-hint, .kbd-hint kbd { white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 1500px) {
+  .topbar .clk-day, .topbar .clk-div { display: none; }
+}
+@media (max-width: 1100px) {
+  .topbar .kbd-hint { display: none; }
+}
+/* Tablet: o trilho não tem botão de recolher (já está recolhido) nem a tag "Sistema operacional". */
+@media (max-width: 860px) {
+  .sidebar .brand-tag, .sidebar .sidebar-toggle-btn { display: none; }
+  .sidebar .brand { justify-content: center !important; }
+}
 
 /* Barra inferior: só existe no celular. */
 .bottom-nav { display: none; }
 
-/* Tablet (761–860px): rail de ícones em COLUNA. A regra antiga punha os itens em linha, o que
-   estourava a trilha de 64px com 17 ícones. */
+/* Tablet (761–860px): o trilho em COLUNA, com os grupos como ícones (igual à barra recolhida). */
 @media (max-width: 860px) {
-  .nav, .nav-group, .nav-items { flex-direction: column; }
-  .nav-group.closed .nav-items { display: flex; }
-  .nav-group-toggle { display: none; }
-  .nav-group + .nav-group { border-top: 1px solid var(--border); padding-top: 8px; }
+  .nav, .nav-group, .nav-quick { flex-direction: column; }
+  .nav-sub { display: none; }
+  .nav-group-toggle { justify-content: center; padding: 11px 0; min-height: 44px; }
+  .nav-group-toggle .lbl,
+  .nav-chev,
+  .nav-group-toggle .nav-dot { display: none; }
+  .nav-group.has-active > .nav-group-toggle { background: var(--accent-soft); }
+  .nav-group-toggle[aria-expanded="true"] { background: var(--surface-2); color: var(--text); }
   .nav a { min-height: 44px; }
 }
 
-/* ---------- Celular: barra inferior fixa com as 5 áreas ---------- */
+/* ---------- Celular: barra inferior fixa (atalhos + "Mais") ---------- */
 @media (max-width: 760px) {
   .app,
   .app.sidebar-collapsed { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .topbar-mark { display: inline-grid; flex-shrink: 0; }
   .topbar { gap: 10px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
-  .topbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar h1 { flex: 1; min-width: 7em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* A hora já está na barra do celular; aqui ela só roubava o lugar do título. */
+  .topbar .clock { display: none; }
+  .topbar > .row { flex-wrap: nowrap; gap: 8px; }
   .topbar .iconbtn,
   .topbar .btn-sm { min-height: 40px; min-width: 40px; }
   /* Espaço para a barra inferior não cobrir o fim da página. */
@@ -117,6 +230,17 @@
 }
 
 /* Folha da área: as páginas do grupo, 1 toque cada. */
+.area-section + .area-section { margin-top: 18px; }
+.area-section-title {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.bn-item { text-decoration: none; }
 .area-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .area-link {
   display: flex;
@@ -293,6 +417,8 @@
   .table.table-cards td.tc-head { grid-column: 1 / -1; font-size: 15px; }
   .table.table-cards td.tc-full { grid-column: 1 / -1; }
   .table.table-cards td.tc-actions { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: stretch; gap: 8px; }
+  .table.table-cards td.tc-actions:empty { display: none; }
+  .table.table-cards td.tc-actions > * + * { margin-left: 0; }
   .table.table-cards td.tc-actions .btn,
   .table.table-cards td.tc-actions .input { flex: 1 1 auto; min-height: 44px; }
 }

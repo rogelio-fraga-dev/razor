@@ -1,87 +1,338 @@
-import { useState, type ReactNode } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { applyTheme, currentTheme, type Theme } from "../lib/theme";
-import { areaOf, visibleAreas, type AreaId, type NavArea } from "../lib/nav";
+import {
+  groupOf,
+  pathMatches,
+  visibleGroups,
+  visibleQuick,
+  type GroupId,
+  type NavGroup,
+  type NavPage,
+} from "../lib/nav";
 import { EdgeMark, RazorLogo } from "./Logo";
 import { Clock } from "./Clock";
 import { Drawer } from "./Drawer";
-import { IconChevron } from "./Icons";
+import { IconChevron, IconMore } from "./Icons";
 
 const COLLAPSED_KEY = "razor.sidebar_collapsed";
-const CLOSED_GROUPS_KEY = "razor.nav_closed";
+/** Grupos abertos/fechados, POR USUÁRIO: dono e recepção dividem o computador do balcão. */
+const OPEN_GROUPS_KEY = "razor.nav_open";
+/** Mesma quebra do CSS (index.css): abaixo disso a barra lateral vira trilho de ícones. */
+const RAIL_QUERY = "(max-width: 860px)";
 
-function readClosedGroups(): AreaId[] {
+type OpenMap = Partial<Record<GroupId, boolean>>;
+
+function readOpenGroups(user: string): OpenMap {
   try {
-    const raw = localStorage.getItem(CLOSED_GROUPS_KEY);
-    return raw ? (JSON.parse(raw) as AreaId[]) : [];
+    const raw = localStorage.getItem(`${OPEN_GROUPS_KEY}.${user}`);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? (parsed as OpenMap) : {};
   } catch {
-    return [];
+    return {};
   }
+}
+
+function writeOpenGroups(user: string, map: OpenMap) {
+  try {
+    localStorage.setItem(`${OPEN_GROUPS_KEY}.${user}`, JSON.stringify(map));
+  } catch {
+    /* storage bloqueado: a preferência vale só nesta aba */
+  }
+}
+
+function useMedia(query: string): boolean {
+  const get = () => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia(query).matches : false);
+  const [match, setMatch] = useState(get);
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mq = window.matchMedia(query);
+    const on = () => setMatch(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [query]);
+  return match;
 }
 
 function tourId(to: string): string {
   return `nav-${to.replace(/^\//, "").replace(/\//g, "-") || "home"}`;
 }
 
+function NavItem({ page, sub }: { page: NavPage; sub?: boolean }) {
+  return (
+    <NavLink
+      to={page.to}
+      end={page.end}
+      title={page.label}
+      data-tour={tourId(page.to)}
+      className={({ isActive }) => `${sub ? "nav-subitem" : "nav-item"}${isActive ? " active" : ""}`}
+    >
+      {!sub && <span className="ico">{page.icon}</span>}
+      <span className="lbl">{page.label}</span>
+    </NavLink>
+  );
+}
+
 /**
- * Navegação inferior do celular (≤760px): as 5 áreas, sempre a 1 toque. Área com uma página só
- * (Agenda) navega direto; área com várias abre uma folha com as páginas dela — qualquer tela
+ * Menu do trilho de ícones (barra recolhida ou tablet): o grupo vira UM ícone e as páginas
+ * abrem num painel ao lado. Esc fecha e devolve o foco ao ícone; clique fora também fecha.
+ */
+function GroupFlyout({
+  group,
+  id,
+  anchor,
+  onClose,
+}: {
+  group: NavGroup;
+  id: string;
+  anchor: HTMLElement;
+  onClose: (returnFocus: boolean) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [top, setTop] = useState(() => anchor.getBoundingClientRect().top);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Não deixa o painel passar do pé da tela (o grupo Configurar fica lá embaixo).
+    const r = anchor.getBoundingClientRect();
+    const max = window.innerHeight - el.offsetHeight - 12;
+    setTop(Math.max(12, Math.min(r.top - 8, max)));
+    el.querySelector<HTMLElement>("a")?.focus();
+  }, [anchor]);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!ref.current?.contains(t) && !anchor.contains(t)) onClose(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose(true);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [anchor, onClose]);
+
+  return (
+    <div
+      ref={ref}
+      id={id}
+      className="nav-flyout"
+      role="group"
+      aria-label={group.label}
+      style={{ top }}
+    >
+      <span className="nav-flyout-title">{group.label}</span>
+      {group.pages.map((p) => (
+        <NavLink
+          key={p.to}
+          to={p.to}
+          end={p.end}
+          className={({ isActive }) => `nav-flyout-link${isActive ? " active" : ""}`}
+          onClick={() => onClose(false)}
+        >
+          <span className="ico">{p.icon}</span>
+          <span>{p.label}</span>
+        </NavLink>
+      ))}
+    </div>
+  );
+}
+
+function SideNav({ quick, groups, rail, user }: { quick: NavPage[]; groups: NavGroup[]; rail: boolean; user: string }) {
+  const { pathname } = useLocation();
+  const current = groupOf(pathname);
+  const [open, setOpen] = useState<OpenMap>(() => readOpenGroups(user));
+  const [flyout, setFlyout] = useState<{ id: GroupId; anchor: HTMLElement } | null>(null);
+
+  // O mapa guarda só as ESCOLHAS da pessoa; sem escolha, o grupo da tela atual fica aberto e os
+  // outros fechados. Entrou numa tela de um grupo que ela tinha fechado (Ctrl+K, link de outra
+  // página): a escolha antiga cai e o grupo abre — o menu sempre mostra onde a pessoa está.
+  useEffect(() => {
+    if (!current) return;
+    setOpen((m) => {
+      if (m[current] !== false) return m;
+      const next = { ...m };
+      delete next[current];
+      writeOpenGroups(user, next);
+      return next;
+    });
+  }, [current, user]);
+
+  // Trocou de tela ou saiu do modo trilho: o painel lateral do grupo fecha.
+  useEffect(() => setFlyout(null), [pathname, rail]);
+
+  const isGroupOpen = (id: GroupId) => open[id] ?? id === current;
+
+  const toggle = (id: GroupId) => {
+    setOpen((m) => {
+      const next = { ...m, [id]: !(m[id] ?? id === current) };
+      writeOpenGroups(user, next);
+      return next;
+    });
+  };
+
+  const closeFlyout = useCallback((returnFocus: boolean) => {
+    setFlyout((f) => {
+      if (f && returnFocus) f.anchor.focus();
+      return null;
+    });
+  }, []);
+
+  const flyoutGroup = flyout ? groups.find((g) => g.id === flyout.id) : undefined;
+
+  return (
+    <nav className="nav" aria-label="Menu principal">
+      <div className="nav-quick">
+        {quick.map((p) => (
+          <NavItem key={p.to} page={p} />
+        ))}
+      </div>
+
+      {groups.map((g) => {
+        // Grupo com uma página só (o barbeiro só vê "Meu perfil" em Configurar): vira link
+        // direto — abrir um bloco para mostrar um item seria um clique a mais por nada.
+        if (g.pages.length === 1) {
+          return (
+            <div className="nav-group single" key={g.id}>
+              <NavItem page={g.pages[0]} />
+            </div>
+          );
+        }
+        const isOpen = isGroupOpen(g.id);
+        const hasActive = current === g.id;
+        const listId = `nav-group-${g.id}`;
+        const flyoutId = `nav-flyout-${g.id}`;
+        const flyoutOpen = flyout?.id === g.id;
+        return (
+          <div className={`nav-group${isOpen ? " open" : ""}${hasActive ? " has-active" : ""}`} key={g.id}>
+            <button
+              type="button"
+              className="nav-group-toggle"
+              aria-expanded={rail ? flyoutOpen : isOpen}
+              aria-controls={rail ? (flyoutOpen ? flyoutId : undefined) : listId}
+              title={rail ? g.label : undefined}
+              data-tour={g.id === "configurar" ? "nav-settings" : undefined}
+              onClick={(e) => {
+                if (rail) {
+                  const anchor = e.currentTarget;
+                  setFlyout((f) => (f?.id === g.id ? null : { id: g.id, anchor }));
+                } else {
+                  toggle(g.id);
+                }
+              }}
+            >
+              <span className="ico">{g.icon}</span>
+              <span className="lbl">{g.label}</span>
+              {hasActive && !isOpen && (
+                <span className="nav-dot">
+                  <span className="sr-only">(tela atual)</span>
+                </span>
+              )}
+              <span className="nav-chev" aria-hidden="true">
+                <IconChevron />
+              </span>
+            </button>
+            <div className="nav-sub" id={listId}>
+              <div className="nav-sub-inner">
+                {g.pages.map((p) => (
+                  <NavItem key={p.to} page={p} sub />
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {flyout && flyoutGroup && rail && (
+        <GroupFlyout
+          group={flyoutGroup}
+          id={`nav-flyout-${flyoutGroup.id}`}
+          anchor={flyout.anchor}
+          onClose={closeFlyout}
+        />
+      )}
+    </nav>
+  );
+}
+
+/**
+ * Navegação inferior do celular (≤760px): os mesmos atalhos do menu lateral, a 1 toque, e um
+ * "Mais" que abre os grupos (Fidelização, Dinheiro, Configurar) numa folha — qualquer tela
  * fica a no máximo 2 toques (regra dos 2 cliques, UX_BLUEPRINT §5).
  */
-function BottomNav({ areas }: { areas: NavArea[] }) {
+function BottomNav({ quick, groups }: { quick: NavPage[]; groups: NavGroup[] }) {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
-  const [sheet, setSheet] = useState<NavArea | null>(null);
-  const current = areaOf(pathname);
-
-  const open = (a: NavArea) => {
-    if (a.pages.length === 1) navigate(a.pages[0].to);
-    else setSheet(a);
-  };
+  const [sheet, setSheet] = useState(false);
+  const inGroup = groupOf(pathname) !== null;
 
   return (
     <>
-      <nav className="bottom-nav" aria-label="Áreas do painel">
-        {areas.map((a) => {
-          const active = current === a.id;
+      <nav className="bottom-nav" aria-label="Navegação do painel">
+        {quick.map((p) => {
           return (
-            <button
-              key={a.id}
-              type="button"
-              className={`bn-item${active ? " active" : ""}`}
-              aria-current={active ? "page" : undefined}
-              aria-haspopup={a.pages.length > 1 ? "dialog" : undefined}
-              data-tour={a.id === "clientes" ? "nav-customers" : a.id === "configurar" ? "nav-settings" : undefined}
-              onClick={() => open(a)}
+            <NavLink
+              key={p.to}
+              to={p.to}
+              end={p.end}
+              className={() => `bn-item${pathMatches(p, pathname) ? " active" : ""}`}
+              data-tour={tourId(p.to)}
             >
-              <span className="bn-ico">{a.icon}</span>
-              <span className="bn-lbl">{a.label}</span>
-            </button>
+              <span className="bn-ico">{p.icon}</span>
+              <span className="bn-lbl">{p.label}</span>
+            </NavLink>
           );
         })}
+        {groups.length > 0 && (
+          <button
+            type="button"
+            className={`bn-item${inGroup ? " active" : ""}`}
+            aria-current={inGroup ? "page" : undefined}
+            aria-haspopup="dialog"
+            aria-expanded={sheet}
+            data-tour="nav-settings"
+            onClick={() => setSheet(true)}
+          >
+            <span className="bn-ico">
+              <IconMore />
+            </span>
+            <span className="bn-lbl">Mais</span>
+          </button>
+        )}
       </nav>
       {sheet && (
-        <Drawer title={sheet.label} onClose={() => setSheet(null)} className="area-sheet">
-          <ul className="area-list">
-            {sheet.pages.map((p) => (
-              <li key={p.to}>
-                <NavLink
-                  to={p.to}
-                  end={p.end}
-                  className={({ isActive }) => `area-link${isActive ? " active" : ""}`}
-                  onClick={() => setSheet(null)}
-                >
-                  <span className="area-ico">{p.icon}</span>
-                  <span className="area-text">
-                    <span className="area-label">{p.label}</span>
-                    <span className="area-hint">{p.hint}</span>
-                  </span>
-                  <span className="area-go" aria-hidden="true">›</span>
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+        <Drawer title="Mais" onClose={() => setSheet(false)} className="area-sheet">
+          {groups.map((g) => (
+            <section key={g.id} className="area-section" aria-labelledby={`sheet-${g.id}`}>
+              <h4 className="area-section-title" id={`sheet-${g.id}`}>
+                {g.label}
+              </h4>
+              <ul className="area-list">
+                {g.pages.map((p) => (
+                  <li key={p.to}>
+                    <NavLink
+                      to={p.to}
+                      end={p.end}
+                      className={({ isActive }) => `area-link${isActive ? " active" : ""}`}
+                      onClick={() => setSheet(false)}
+                    >
+                      <span className="area-ico">{p.icon}</span>
+                      <span className="area-text">
+                        <span className="area-label">{p.label}</span>
+                        <span className="area-hint">{p.hint}</span>
+                      </span>
+                      <span className="area-go" aria-hidden="true">›</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
         </Drawer>
       )}
     </>
@@ -101,7 +352,6 @@ export function Layout({
   flush?: boolean;
 }) {
   const { session, logout } = useAuth();
-  const { pathname } = useLocation();
   const [theme, setTheme] = useState<Theme>(currentTheme);
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -110,7 +360,7 @@ export function Layout({
       return false;
     }
   });
-  const [closed, setClosed] = useState<AreaId[]>(readClosedGroups);
+  const narrow = useMedia(RAIL_QUERY);
 
   const toggleSidebar = () => {
     setCollapsed((prev) => {
@@ -124,18 +374,6 @@ export function Layout({
     });
   };
 
-  const toggleGroup = (id: AreaId) => {
-    setClosed((prev) => {
-      const next = prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id];
-      try {
-        localStorage.setItem(CLOSED_GROUPS_KEY, JSON.stringify(next));
-      } catch {
-        /* idem */
-      }
-      return next;
-    });
-  };
-
   const toggleTheme = () => {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
@@ -144,9 +382,9 @@ export function Layout({
 
   const initial = (session?.name || session?.email || "?").charAt(0).toUpperCase();
 
-  // Menu filtrado pelo papel (lib/nav + lib/access): área sem página visível some inteira.
-  const areas = visibleAreas(session?.role);
-  const currentArea = areaOf(pathname);
+  // Menu filtrado pelo papel (lib/nav + lib/access): grupo sem página visível some inteiro.
+  const quick = visibleQuick(session?.role);
+  const groups = visibleGroups(session?.role);
 
   return (
     <div className={`app${collapsed ? " sidebar-collapsed" : ""}`}>
@@ -165,51 +403,13 @@ export function Layout({
           </button>
         </div>
         <span className="brand-tag mono">SISTEMA OPERACIONAL</span>
-        <nav className="nav" aria-label="Menu principal">
-          {areas.map((a) => {
-            // Área com a página atual nunca fica fechada: o menu sempre mostra onde a pessoa está.
-            const isOpen = !closed.includes(a.id) || currentArea === a.id;
-            const single = a.pages.length === 1;
-            const listId = `nav-group-${a.id}`;
-            return (
-              <div className={`nav-group${isOpen ? "" : " closed"}${single ? " single" : ""}`} key={a.id}>
-                {single ? (
-                  <span className="nav-label">{a.label}</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="nav-label nav-group-toggle"
-                    aria-expanded={isOpen}
-                    aria-controls={listId}
-                    onClick={() => toggleGroup(a.id)}
-                    disabled={currentArea === a.id}
-                    title={currentArea === a.id ? "Você está nesta área" : undefined}
-                  >
-                    <span>{a.label}</span>
-                    <span className="nav-chev" aria-hidden="true">
-                      <IconChevron />
-                    </span>
-                  </button>
-                )}
-                <div className="nav-items" id={listId}>
-                  {a.pages.map((n) => (
-                    <NavLink
-                      key={n.to}
-                      to={n.to}
-                      end={n.end}
-                      title={n.label}
-                      data-tour={tourId(n.to)}
-                      className={({ isActive }) => (isActive ? "active" : "")}
-                    >
-                      <span className="ico">{n.icon}</span>
-                      <span className="lbl">{n.label}</span>
-                    </NavLink>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </nav>
+        <SideNav
+          key={session?.email ?? "anon"}
+          quick={quick}
+          groups={groups}
+          rail={collapsed || narrow}
+          user={session?.email ?? "anon"}
+        />
         <div className="sidebar-foot">
           <NavLink to="/profile" className="user-chip" title="Meu perfil" data-tour="profile">
             <span className="avatar">{initial}</span>
@@ -249,7 +449,7 @@ export function Layout({
         <div className={`content${flush ? " flush" : ""}`}>{children}</div>
       </div>
 
-      <BottomNav areas={areas} />
+      <BottomNav quick={quick} groups={groups} />
     </div>
   );
 }

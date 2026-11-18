@@ -113,11 +113,11 @@ export function Plans() {
           />
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table className="table">
+            <table className="table table-cards">
               <thead>
                 <tr>
                   <th>Plano</th>
-                  <th>Preço/mês</th>
+                  <th className="num">Preço/mês</th>
                   <th>Descrição</th>
                   <th>Status</th>
                   <th></th>
@@ -126,13 +126,13 @@ export function Plans() {
               <tbody>
                 {data.map((p) => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 550 }}>{p.name}</td>
-                    <td className="num">{money(p.price)}</td>
-                    <td className="muted">{p.description || "—"}</td>
-                    <td>
+                    <td className="tc-head" style={{ fontWeight: 550 }}>{p.name}</td>
+                    <td className="num" data-label="Preço/mês">{money(p.price)}</td>
+                    <td className="muted tc-full" data-label="Descrição">{p.description || "—"}</td>
+                    <td data-label="Status">
                       {p.active ? <span className="badge badge-green">Ativo</span> : <span className="badge badge-muted">Inativo</span>}
                     </td>
-                    <td className="right">
+                    <td className="right tc-actions">
                       <button className="btn btn-ghost btn-sm" onClick={() => setBenefitsOf(p)}>Benefícios</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>Editar</button>
                     </td>

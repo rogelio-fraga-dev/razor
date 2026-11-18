@@ -139,7 +139,7 @@ export function ComandaCard({
             onChange={(e) => setQuantity(e.target.value)}
             aria-label="Quantidade"
           />
-          <button className="btn btn-ghost btn-sm" onClick={addItem} disabled={busy || !pick}>
+          <button className="btn btn-ghost" onClick={addItem} disabled={busy || !pick}>
             Adicionar
           </button>
         </div>
@@ -158,7 +158,7 @@ export function ComandaCard({
           >
             {busy ? "…" : `Fechar ${money(comanda.currentTotal)}`}
           </button>
-          <button className="btn btn-danger btn-sm" onClick={cancel} disabled={busy}>
+          <button className="btn btn-danger" onClick={cancel} disabled={busy}>
             Cancelar comanda
           </button>
         </div>

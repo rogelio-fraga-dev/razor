@@ -124,21 +124,32 @@ function OpenCash({ summary, onChanged }: { summary: CashSessionSummary; onChang
           <div className="value">{money(t.vendasTotal)}</div>
           <div className="sub">{summary.movements.filter((m) => m.type === "VENDA").length} venda(s)</div>
         </div>
+        {/* Vários valores num card só: em lista rótulo × valor. Enfileirados com "·" num número de
+            18px eles quebravam no meio ("R$ 20,00 · R$ 65,00 · / R$ 172,00") e sem dizer qual era qual. */}
         <div className="stat">
-          <div className="label">Dinheiro / PIX / Cartão{t.vendasOutro > 0 ? " / Outro" : ""}</div>
-          <div className="value" style={{ fontSize: 18 }}>
-            {money(t.vendasDinheiro)} · {money(t.vendasPix)} · {money(cartao)}
-            {t.vendasOutro > 0 ? ` · ${money(t.vendasOutro)}` : ""}
-          </div>
+          <div className="label">Por forma de pagamento</div>
+          <ul className="stat-split">
+            <li><span>Dinheiro</span><b className="mono">{money(t.vendasDinheiro)}</b></li>
+            <li><span>PIX</span><b className="mono">{money(t.vendasPix)}</b></li>
+            <li><span>Cartão</span><b className="mono">{money(cartao)}</b></li>
+            {t.vendasOutro > 0 && <li><span>Outro</span><b className="mono">{money(t.vendasOutro)}</b></li>}
+          </ul>
           <div className="sub">
             só o dinheiro entra na gaveta{t.taxas > 0 ? ` · taxas ${money(t.taxas)}` : ""}
           </div>
         </div>
         <div className="stat">
-          <div className="label">Sangrias<Hint term="sangria" label="sangria" align="start" /> / Suprimentos<Hint term="suprimento" label="suprimento" /></div>
-          <div className="value" style={{ fontSize: 18 }}>
-            − {money(t.sangrias)} · + {money(t.suprimentos)}
-          </div>
+          <div className="label">Sangrias e suprimentos</div>
+          <ul className="stat-split">
+            <li>
+              <span>Sangrias<Hint term="sangria" label="sangria" align="start" /></span>
+              <b className="mono">− {money(t.sangrias)}</b>
+            </li>
+            <li>
+              <span>Suprimentos<Hint term="suprimento" label="suprimento" align="start" /></span>
+              <b className="mono">+ {money(t.suprimentos)}</b>
+            </li>
+          </ul>
         </div>
       </div>
 
@@ -162,7 +173,7 @@ function OpenCash({ summary, onChanged }: { summary: CashSessionSummary; onChang
                     </div>
                     <div className="mono" style={{ fontSize: 12, color: "var(--text-faint)" }}>{timeOf(m.createdAt)}</div>
                   </div>
-                  <span className="mono" style={{ fontWeight: 600, color: m.type === "SANGRIA" ? "var(--red)" : "var(--text)" }}>
+                  <span className="mono" style={{ fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0, color: m.type === "SANGRIA" ? "var(--red)" : "var(--text)" }}>
                     {m.type === "SANGRIA" ? "− " : "+ "}{money(m.amount)}
                   </span>
                 </div>

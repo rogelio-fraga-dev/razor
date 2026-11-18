@@ -205,7 +205,8 @@ export function Expenses() {
           <ErrorState message={dre.error} onRetry={dre.reload} />
         ) : dre.data ? (
           <>
-            <div className="bento-grid" style={{ marginBottom: 18 }}>
+            <div className="card-pad">
+            <div className="bento-grid">
               <div className="card kpi-card card-edge">
                 <div className="kpi-header"><span className="kpi-title">Entrou</span></div>
                 <div className="kpi-value mono">{money(dre.data.totalRevenue)}</div>
@@ -235,19 +236,21 @@ export function Expenses() {
             </div>
 
             {dre.data.overdueAmount > 0 && (
-              <p style={{ margin: "0 0 14px" }}>
+              <p style={{ margin: "14px 0 0" }}>
                 <span className="badge badge-amber">
                   {money(dre.data.overdueAmount)} vencido e ainda em aberto
                 </span>
               </p>
             )}
 
-            {dre.data.expenses.length === 0 ? (
-              <p className="muted" style={{ margin: 0, fontSize: 14 }}>
+            {dre.data.expenses.length === 0 && (
+              <p className="muted" style={{ margin: "14px 0 0", fontSize: 14 }}>
                 Nenhuma despesa lançada neste período. Enquanto não houver, "sobrou" é só o
                 faturamento — não o seu lucro.
               </p>
-            ) : (
+            )}
+            </div>
+            {dre.data.expenses.length > 0 && (
               <div style={{ overflowX: "auto" }}>
                 <table className="table">
                   <thead>
@@ -271,7 +274,7 @@ export function Expenses() {
                 </table>
               </div>
             )}
-            <p className="faint" style={{ fontSize: 12.5, margin: "12px 0 0" }}>
+            <p className="card-note">
               A despesa entra no mês do <b>vencimento</b>, não no dia em que foi paga — atrasar um
               boleto não faz o mês parecer mais lucrativo.
             </p>
@@ -306,7 +309,7 @@ export function Expenses() {
           />
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table className="table">
+            <table className="table table-cards">
               <thead>
                 <tr>
                   <th>Descrição</th>
@@ -320,16 +323,16 @@ export function Expenses() {
               <tbody>
                 {itens.map((e) => (
                   <tr key={e.id}>
-                    <td style={{ fontWeight: 550 }}>
+                    <td className="tc-head" style={{ fontWeight: 550 }}>
                       {e.description}
                       {e.recurring && (
                         <span className="badge badge-muted" style={{ marginLeft: 8 }}>mensal</span>
                       )}
                     </td>
-                    <td className="muted">{e.categoryLabel}</td>
-                    <td className="mono">{dateBr(e.dueDate)}</td>
-                    <td className="num">{money(e.amount)}</td>
-                    <td>
+                    <td className="muted" data-label="Categoria">{e.categoryLabel}</td>
+                    <td className="mono" data-label="Vencimento">{dateBr(e.dueDate)}</td>
+                    <td className="num" data-label="Valor">{money(e.amount)}</td>
+                    <td data-label="Situação">
                       {e.paid ? (
                         <span className="badge badge-green">
                           Paga {e.paidAt ? `em ${dateBr(e.paidAt)}` : ""}
@@ -340,7 +343,7 @@ export function Expenses() {
                         <span className="badge badge-muted">Em aberto</span>
                       )}
                     </td>
-                    <td className="right">
+                    <td className="right tc-actions">
                       {!e.paid && (
                         <button className="btn btn-primary btn-sm" onClick={() => setPaying(e)}>
                           Quitar

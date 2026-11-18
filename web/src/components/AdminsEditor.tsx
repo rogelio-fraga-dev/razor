@@ -73,7 +73,7 @@ export function AdminsEditor({ reloadKey = 0 }: { reloadKey?: number }) {
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
           </label>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={add} disabled={busy || !phone.trim()}>
+        <button className="btn btn-primary" onClick={add} disabled={busy || !phone.trim()}>
           Adicionar
         </button>
       </div>

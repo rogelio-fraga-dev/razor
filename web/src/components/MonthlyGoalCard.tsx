@@ -8,7 +8,7 @@ const MONTH_FMT = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numer
 export function MonthlyGoalCard({ goal, revenue }: { goal: number | null; revenue: number }) {
   if (!goal || goal <= 0) {
     return (
-      <div className="card" style={{ marginBottom: 24, padding: 20 }}>
+      <div className="card card-pad">
         <div className="row between wrap" style={{ gap: 12 }}>
           <div>
             <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Meta do mês</h3>
@@ -30,7 +30,7 @@ export function MonthlyGoalCard({ goal, revenue }: { goal: number | null; revenu
   const remaining = goal - revenue;
 
   return (
-    <div className="card" style={{ marginBottom: 24, padding: 24 }}>
+    <div className="card card-pad">
       <div className="row between" style={{ marginBottom: 12 }}>
         <span
           className="mono"

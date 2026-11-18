@@ -237,11 +237,41 @@ select.input { cursor: pointer; }
    system sem transition e a borda ia para cinza-neutro, cada um no seu tempo. */
 .card:hover { border-color: rgba(62, 99, 255, 0.4); box-shadow: 0 0 24px rgba(62, 99, 255, 0.08); }
 .card-pad { padding: var(--space); }
+/* Padrões de conteúdo DENTRO do .card (que não tem padding próprio: cabeçalho e tabela vão de
+   borda a borda). Tudo o que é texto ou bloco solto usa um destes, nunca margem inline:
+   - .card-pad: bloco com o respiro padrão (formulário, KPIs, texto);
+   - .card-subhead: título de seção entre duas tabelas do mesmo card;
+   - .card-note: nota de rodapé do card (explicação de como o número é calculado). */
+.card-subhead {
+  margin: 0;
+  padding: 18px var(--space) 10px;
+  font-size: 15px;
+}
+.card-note {
+  margin: 0;
+  padding: 12px var(--space) 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+/* Estado vazio com moldura tracejada: dentro de um card ele encostava a moldura nas bordas e no
+   cabeçalho (moldura dentro de moldura, sem respiro). Recuado, vira uma "área de soltura". */
+.card > .empty-blueprint { margin: var(--space); }
+/* Tabela dentro de um .card-pad (vem depois de um texto/botão): sai do recuo e volta a ir de borda
+   a borda, para a 1ª coluna alinhar com o texto do card em vez de ficar 20px mais para dentro. */
+.card-pad .table-bleed { margin-inline: calc(-1 * var(--space)); overflow-x: auto; border-top: 1px solid var(--border); }
+.card-pad .table-bleed:last-child { margin-bottom: calc(-1 * var(--space)); }
+.card > .pagination,
+.page-panel > .pagination { margin-top: 0; padding: 12px var(--space); }
 .card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  /* Mesma altura com ou sem badge/botão à direita: antes variava entre 48 e 62px de card pra card. */
+  min-height: 56px;
   padding: 16px var(--space);
   border-bottom: 1px solid var(--border);
 }
@@ -525,6 +555,10 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
    flex e libera o flex-shrink a esmagá-lo — era o que cortava o checklist e o card de meta.
    Quem rola continua sendo o `.main`. */
 .content:not(.flush) > * { flex-shrink: 0; }
+/* O ritmo vertical da página é o gap do .content (18px) e só ele. Margem própria nos filhos
+   (checklist 24px, card da IA 24px, grids com marginBottom inline) SOMAVA ao gap: 42px entre
+   uns blocos e 18px entre outros, na mesma tela. */
+.content:not(.flush) > * { margin-top: 0; margin-bottom: 0; }
 /* páginas que são "uma coisa só" (agenda, listas) ocupam toda a altura restante */
 .content.flush { padding: 0; gap: 0; }
 /* glow + grid técnico no fundo da área de conteúdo */
@@ -578,6 +612,10 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   margin-top: 8px;
 }
 .stat .sub { font-size: 12px; color: var(--text-faint); margin-top: 5px; }
+/* Card com vários valores (Caixa: dinheiro/PIX/cartão): uma linha por valor, rótulo à esquerda. */
+.stat-split { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.stat-split li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--text-muted); }
+.stat-split b { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; }
 
 /* ---------- Auth ---------- */
 .auth-wrap {
@@ -1811,7 +1849,11 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 
 /* Botões de ação numa célula de tabela ficavam encostados: o JSX come o espaço entre elementos
    em linhas separadas, e 4 telas têm 2-3 botões por linha (Produtos, Despesas, Planos, Acerto). */
-.table td.right { display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
+/* A célula continua sendo table-cell: com display:flex ela saía da grade da tabela, e a zebra,
+   a linha divisória e o alinhamento vertical paravam antes da coluna de ações. */
+.table td.right { text-align: right; white-space: nowrap; }
+.table td.right > * + * { margin-left: 8px; }
+.table th.right, .table th.num { text-align: right; }
 /* Classe usada no AdminsEditor que nunca existiu: sem ela o botão "Adicionar" flutuava no meio
    da altura dos campos, que têm rótulo em cima. */
 .row.end { align-items: flex-end; }

@@ -99,11 +99,11 @@ export function Products() {
           />
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table className="table">
+            <table className="table table-cards">
               <thead>
                 <tr>
                   <th>Produto</th>
-                  <th>Preço</th>
+                  <th className="num">Preço</th>
                   <th>Estoque</th>
                   <th>Status</th>
                   <th></th>
@@ -112,9 +112,9 @@ export function Products() {
               <tbody>
                 {data.map((p) => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 550 }}>{p.name}</td>
-                    <td>{money(p.price)}</td>
-                    <td>
+                    <td className="tc-head" style={{ fontWeight: 550 }}>{p.name}</td>
+                    <td className="num" data-label="Preço">{money(p.price)}</td>
+                    <td data-label="Estoque">
                       {p.trackStock ? (
                         <>
                           <span className="mono">{p.stockQuantity}</span>
@@ -124,14 +124,14 @@ export function Products() {
                         <span className="faint">não controlado</span>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Status">
                       {p.active ? (
                         <span className="badge badge-green">Ativo</span>
                       ) : (
                         <span className="badge badge-muted">Inativo</span>
                       )}
                     </td>
-                    <td className="right">
+                    <td className="right tc-actions">
                       {p.active && (
                         <button className="btn btn-primary btn-sm" onClick={() => setSelling(p)}>
                           Vender

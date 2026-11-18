@@ -173,3 +173,12 @@ export const IconChevron = () => (
     <polyline points="6 9 12 15 18 9" />
   </Icon>
 );
+
+/** Mais — abre a folha com os grupos do menu (navegação inferior do celular). */
+export const IconMore = () => (
+  <Icon>
+    <circle cx="5" cy="12" r="1.3" />
+    <circle cx="12" cy="12" r="1.3" />
+    <circle cx="19" cy="12" r="1.3" />
+  </Icon>
+);
