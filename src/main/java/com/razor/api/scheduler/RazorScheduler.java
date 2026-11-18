@@ -33,6 +33,7 @@ public class RazorScheduler {
     private final TenantAdminService tenantAdminService;
     private final com.razor.api.service.AgendaService agendaService;
     private final com.razor.api.service.BarbershopSettingsService barbershopSettingsService;
+    private final com.razor.api.service.AppointmentConfirmationService confirmationService;
 
     /**
      * Executa a acao para cada barbearia ativa com o {@link TenantContext} escopado no tenant e
@@ -89,6 +90,14 @@ public class RazorScheduler {
                     continue;
                 }
 
+                // Prazo da confirmacao (V42): nao manda nada ao cliente, entao a pausa nao adia.
+                if (com.razor.api.service.AgendaTaskService.CONFIRMATION_DEADLINE.equals(task.getTaskType())) {
+                    confirmationService.handleDeadline(task);
+                    task.setStatus(ScheduledTask.TaskStatus.COMPLETED);
+                    taskRepository.save(task);
+                    continue;
+                }
+
                 // Se o cliente estiver pausado (falando com o atendimento humano), adia o lembrete por 1 hora
                 if (customerService.isCustomerPaused(phone)) {
                     log.info("Cliente {} em pausa. Adiando tarefa.", phone);
@@ -99,7 +108,13 @@ public class RazorScheduler {
 
                 // Sincrono de proposito: so marca COMPLETED se a Evolution aceitou o envio. Com o
                 // envio assincrono toda tarefa virava COMPLETED, mesmo com o WhatsApp fora do ar.
-                whatsAppService.sendTextMessageSync(phone, task.getMessageContent());
+                if (com.razor.api.service.AgendaTaskService.CONFIRMATION_REQUEST.equals(task.getTaskType())) {
+                    // Pergunta "1 confirma / 2 desmarca": alem de enviar, marca o agendamento como
+                    // PENDING e arma a chave da conversa. Agendamento que sumiu nao e perguntado.
+                    confirmationService.sendRequest(task);
+                } else {
+                    whatsAppService.sendTextMessageSync(phone, task.getMessageContent());
+                }
 
                 task.setStatus(ScheduledTask.TaskStatus.COMPLETED);
                 taskRepository.save(task);

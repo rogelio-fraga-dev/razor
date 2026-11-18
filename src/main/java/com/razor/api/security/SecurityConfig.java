@@ -142,6 +142,10 @@ public class SecurityConfig {
                         // de /reports/** porque os outros relatorios sao financeiros.
                         .requestMatchers(HttpMethod.GET, "/api/admin/reports/agenda")
                         .hasAnyRole(OWNER, RECEPTION, BARBER)
+                        // "O que a IA fez por voce" (V42): contagens e valor de tabela do que o
+                        // bot marcou — a recepcao ve no Dashboard; o barbeiro nao.
+                        .requestMatchers(HttpMethod.GET, "/api/admin/reports/ai-impact")
+                        .hasAnyRole(OWNER, RECEPTION)
 
                         // --- Plano do cliente: so o dono ------------------------------------
                         // Dar ou tirar assinatura muda quanto o cliente paga (e o que a IA cobra

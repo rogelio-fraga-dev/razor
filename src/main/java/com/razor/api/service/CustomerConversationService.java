@@ -8,7 +8,6 @@ import com.razor.api.model.Appointment;
 import com.razor.api.model.Customer;
 import com.razor.api.model.Interaction;
 import com.razor.api.model.PaymentStatus;
-import com.razor.api.model.WaitlistEntry;
 import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.repository.InteractionRepository;
@@ -18,7 +17,6 @@ import com.razor.api.state.StateStore;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
 import com.razor.api.util.ConsoleText;
-import java.text.Normalizer;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -53,18 +51,11 @@ public class CustomerConversationService {
     private final BarbershopSettingsService barbershopSettingsService;
     private final PlanPricingService planPricingService;
     private final StateStore stateStore;
+    private final WaitlistOfferService waitlistOfferService;
+    private final AppointmentConfirmationService confirmationService;
+    private final NoShowDepositService noShowDepositService;
 
     // Publicas + construtor vazio: sao serializadas em JSON pelo StateStore.
-    @lombok.Data
-    @lombok.AllArgsConstructor
-    @lombok.NoArgsConstructor
-    public static class WaitlistOffer {
-        private String phone;
-        private String name;
-        private String date;
-        private String time;
-        private String service;
-    }
 
     /** Agendamento aguardando a escolha do profissional (agenda multiprofissional). */
     @lombok.Data
@@ -97,8 +88,6 @@ public class CustomerConversationService {
 
     /** Conversa abandonada morre sozinha (antes: varredura de estados "zumbi"). */
     private static final Duration CONV_TTL = Duration.ofMinutes(30);
-    /** A vaga oferecida deixa de valer no dia seguinte. */
-    private static final Duration WAITLIST_TTL = Duration.ofHours(24);
 
     private final AiTagParser aiTagParser = new AiTagParser();
 
@@ -156,19 +145,27 @@ public class CustomerConversationService {
 
         String msgLower = contentToSave.toLowerCase().trim();
         String cState = getCustomerState(phoneNumber);
-        var pendingOffer = stateStore.get(StateKeys.waitlistOffer(phoneNumber), WaitlistOffer.class);
+        var pendingOffer = stateStore.get(StateKeys.waitlistOffer(phoneNumber), WaitlistOfferService.WaitlistOffer.class);
 
         // 1. Confirmação de Oferta da Lista de Espera
         if (pendingOffer.isPresent() && (msgLower.equals("sim") || msgLower.equals("s") || msgLower.contains("quero"))) {
-            WaitlistOffer offer = pendingOffer.get();
+            WaitlistOfferService.WaitlistOffer offer = pendingOffer.get();
             stateStore.remove(StateKeys.waitlistOffer(phoneNumber));
             var limite = agendaService.checkBookingLimit(phoneNumber);
             if (limite.isPresent()) {
                 saveAndSend(customer, limite.get().customerMessage(primeiroNome(offer.getName())), phoneNumber);
                 return;
             }
-            if (agendaService.adicionarAgendamentoViaIA(offer.getName(), phoneNumber, offer.getDate(), offer.getTime(), offer.getService()).isEmpty()) {
+            var criado = agendaService.adicionarAgendamentoViaIA(offer.getName(), phoneNumber, offer.getDate(), offer.getTime(), offer.getService());
+            if (criado.isEmpty()) {
                 saveAndSend(customer, BOOKING_FAILED_MSG, phoneNumber);
+                return;
+            }
+            // A vaga liberada (desistencia/confirmacao) foi reaproveitada: conta no card da IA.
+            confirmationService.record(com.razor.api.model.AiImpactEvent.Type.WAITLIST_REFILL, criado.get());
+            var sinal = noShowDepositService.requireDepositIfNeeded(criado.get(), primeiroNome(offer.getName()));
+            if (sinal.isPresent()) {
+                saveAndSend(customer, sinal.get(), phoneNumber);
                 return;
             }
 
@@ -182,6 +179,17 @@ public class CustomerConversationService {
             setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
             saveAndSend(customer, successMsg, phoneNumber);
             return;
+        }
+
+        // 1.5. Resposta a confirmacao da vespera ("1 confirma / 2 desmarca", V42). So com a
+        //      conversa ociosa: no meio de um fluxo (ex.: escolha de pagamento) o "1" e daquele
+        //      fluxo. Resposta que nao e 1/2/sim/nao segue adiante e a pergunta continua valendo.
+        if (cState == null) {
+            var resposta = confirmationService.handleReply(phoneNumber, contentToSave);
+            if (resposta.isPresent()) {
+                saveAndSend(customer, resposta.get(), phoneNumber);
+                return;
+            }
         }
 
         // 2. Estado: Esperando motivo de falar com atendente
@@ -549,10 +557,18 @@ public class CustomerConversationService {
             return montarPerguntaProfissional(date, time, options);
         }
 
-        if (agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service).isEmpty()) {
+        var criado = agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
+        if (criado.isEmpty()) {
             // Nada foi salvo: NAO repassa o "Agendamento Confirmado!" da IA nem pede pagamento.
             log.warn("[AGENDA] Tag da IA nao gerou agendamento para {} ('{}' '{}')", phoneNumber, date, time);
             return BOOKING_FAILED_MSG;
+        }
+
+        // Cliente com faltas repetidas (V42): no lugar da pergunta de pagamento vai o PIX do sinal.
+        var sinal = noShowDepositService.requireDepositIfNeeded(criado.get(),
+                primeiroNome(name != null && !name.isBlank() ? name : customer.getName()));
+        if (sinal.isPresent()) {
+            return sinal.get();
         }
 
         // Verifica se a IA já incluiu a pergunta de pagamento (novo prompt instrui isso).
@@ -653,6 +669,12 @@ public class CustomerConversationService {
                 .findFirst()
                 .orElse(atribuido.equals(escolhido) ? nomeEscolhido : null);
         String comQuem = nomeAtribuido != null ? "com *" + nomeAtribuido + "* " : "";
+        var sinal = noShowDepositService.requireDepositIfNeeded(criado.get(), primeiroNome(pend.getName()));
+        if (sinal.isPresent()) {
+            clearCustomerState(phoneNumber);
+            saveAndSend(customer, sinal.get(), phoneNumber);
+            return;
+        }
         String confirm = "Fechado! Seu horário " + comQuem + "para *" + pend.getDate() + "* às *" + pend.getTime() + "* está reservado. 🎉";
         String response = anexarPerguntaPagamento(confirm);
         setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
@@ -667,7 +689,7 @@ public class CustomerConversationService {
 
     private String tratarListaDeEspera(String phoneNumber, AiIntent.ListaDeEspera le) {
         if (!waitlistRepository.existsByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phoneNumber)) {
-            WaitlistEntry entry = WaitlistEntry.builder()
+            com.razor.api.model.WaitlistEntry entry = com.razor.api.model.WaitlistEntry.builder()
                     .barbershopId(TenantContext.getCurrent())
                     .customerPhone(phoneNumber)
                     .customerName(le.name())
@@ -818,43 +840,8 @@ public class CustomerConversationService {
         return Math.abs(diffMinutes) <= 5;
     }
 
+    /** Oferece a vaga liberada a lista de espera (logica no {@link WaitlistOfferService}). */
     private void verificarListaEsperaECanalizar(String diaSemana, String date, String time, String service) {
-        try {
-            List<WaitlistEntry> allEntries = waitlistRepository.findByBarbershopId(TenantContext.getCurrent());
-            WaitlistEntry matched = null;
-
-            String cleanedDia = Normalizer.normalize(diaSemana.toLowerCase(), Normalizer.Form.NFD)
-                    .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "")
-                    .replaceAll("[^a-z0-9]", "");
-
-            for (WaitlistEntry entry : allEntries) {
-                String preferred = entry.getPreferredDay().toLowerCase();
-                String cleanedPref = Normalizer.normalize(preferred, Normalizer.Form.NFD)
-                        .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "")
-                        .replaceAll("[^a-z0-9]", "");
-
-                if (cleanedPref.contains(cleanedDia) || cleanedDia.contains(cleanedPref)) {
-                    matched = entry;
-                    break;
-                }
-            }
-
-            if (matched != null) {
-                WaitlistOffer offer = new WaitlistOffer(matched.getCustomerPhone(), matched.getCustomerName(), date, time, service);
-                stateStore.put(StateKeys.waitlistOffer(matched.getCustomerPhone()), offer, WAITLIST_TTL);
-
-                String capitalizeDia = diaSemana.substring(0, 1).toUpperCase() + diaSemana.substring(1);
-                String notificationMsg = "Opa, " + matched.getCustomerName().split(" ")[0] + "! 💈\n\n" +
-                                         "Um horário acaba de vagar para este *" + capitalizeDia + "* (" + date + ") às *" + time + "* para *" + service + "*! 🎉\n\n" +
-                                         "Deseja reservar este horário para você?\n\n" +
-                                         "Responda apenas **SIM** para confirmar o agendamento automático!";
-
-                waitlistRepository.delete(matched);
-                sendMsg(matched.getCustomerPhone(), notificationMsg, "SISTEMA");
-                log.info("[LISTA ESPERA] Oferta enviada para {} para o dia {} às {}", matched.getCustomerPhone(), date, time);
-            }
-        } catch (Exception e) {
-            log.error("[LISTA ESPERA] Erro ao verificar lista de espera: {}", e.getMessage(), e);
-        }
+        waitlistOfferService.offer(diaSemana, date, time, service);
     }
 }

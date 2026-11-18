@@ -52,6 +52,7 @@ class RazorSchedulerTest {
     @Mock private BarbershopRepository barbershopRepository;
     @Mock private TenantAdminService tenantAdminService;
     @Mock private AgendaService agendaService;
+    @Mock private com.razor.api.service.AppointmentConfirmationService confirmationService;
 
     @InjectMocks private RazorScheduler scheduler;
 
@@ -175,5 +176,36 @@ class RazorSchedulerTest {
                 eq("5511000000000"),
                 argThat(m -> m.contains("Loja X") && m.contains("7")));
         assertThat(TenantContext.isSet()).isFalse(); // limpo ao final
+    }
+
+    @Test
+    @DisplayName("pergunta de confirmacao (V42) vai pelo servico de confirmacao, nao pelo envio generico")
+    void confirmationRequest_delegatesToConfirmationService() {
+        ScheduledTask t = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusMinutes(1));
+        t.setTaskType(com.razor.api.service.AgendaTaskService.CONFIRMATION_REQUEST);
+        t.setAppointmentId(7L);
+        when(taskRepository.findByStatusAndExecutionTimeBefore(any(), any())).thenReturn(List.of(t));
+
+        scheduler.processScheduledTasks();
+
+        verify(confirmationService).sendRequest(t);
+        verify(whatsAppService, never()).sendTextMessageSync(any(), any());
+        assertThat(t.getStatus()).isEqualTo(ScheduledTask.TaskStatus.COMPLETED);
+    }
+
+    @Test
+    @DisplayName("prazo da confirmacao (V42) e tratado mesmo com o cliente pausado e nao manda o texto da tarefa")
+    void confirmationDeadline_handledEvenIfPaused() {
+        ScheduledTask t = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusMinutes(1));
+        t.setTaskType(com.razor.api.service.AgendaTaskService.CONFIRMATION_DEADLINE);
+        t.setAppointmentId(7L);
+        when(taskRepository.findByStatusAndExecutionTimeBefore(any(), any())).thenReturn(List.of(t));
+        when(customerService.isCustomerPaused(PHONE)).thenReturn(true);
+
+        scheduler.processScheduledTasks();
+
+        verify(confirmationService).handleDeadline(t);
+        verify(whatsAppService, never()).sendTextMessageSync(any(), any());
+        assertThat(t.getStatus()).isEqualTo(ScheduledTask.TaskStatus.COMPLETED);
     }
 }

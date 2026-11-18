@@ -54,6 +54,16 @@ public class Appointment {
     @Column(name = "attendance_status", length = 20)
     private AttendanceStatus attendanceStatus;
 
+    /** Confirmacao da vespera (V42): null = nao foi perguntado. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "confirmation_status", length = 20)
+    private ConfirmationStatus confirmationStatus;
+
+    /** Sinal exigido de cliente com faltas repetidas (V42): null = nao exigido. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "deposit_status", length = 20)
+    private DepositStatus depositStatus;
+
     @Column(name = "notified")
     @Builder.Default
     private boolean notified = false;

@@ -55,6 +55,11 @@ public final class StateKeys {
         return "conv:booking:" + TenantContext.getCurrent() + ":" + phone;
     }
 
+    /** Pergunta "1 confirma / 2 desmarca" da vespera aguardando resposta (V42). */
+    public static String confirmation(String phone) {
+        return "conv:confirm:" + TenantContext.getCurrent() + ":" + phone;
+    }
+
     // ---------- alertas operacionais ----------
 
     /** Throttle do aviso "IA indisponivel" enviado aos admins do tenant. */

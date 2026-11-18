@@ -115,7 +115,8 @@ public class AgendaPanelService {
                             a.getPaymentStatus(), a.getAttendanceStatus(),
                             a.getCustomerPhone() != null && subscribers.contains(a.getCustomerPhone()),
                             c != null ? c.getId() : null,
-                            c != null && c.getStatus() != null ? c.getStatus().name() : null);
+                            c != null && c.getStatus() != null ? c.getStatus().name() : null,
+                            a.getConfirmationStatus(), a.getDepositStatus());
                 })
                 .toList();
 
@@ -182,6 +183,7 @@ public class AgendaPanelService {
         ag.setAppointmentTime(time);
         ag.setProfessionalId(professionalId);
         ag.setAttendanceStatus(null); // remarcou: o que valia para o horario antigo nao vale mais
+        ag.setConfirmationStatus(null); // a confirmacao era do horario antigo; o novo pergunta de novo
         ag.setNotified(false);
         Appointment saved = appointmentRepository.save(ag);
         Appointment result = saved != null ? saved : ag;
@@ -234,6 +236,21 @@ public class AgendaPanelService {
         if (status == AttendanceStatus.NO_SHOW) {
             taskService.cancelarTarefasDoAgendamento(ag);
         }
+        Appointment saved = appointmentRepository.save(ag);
+        return saved != null ? saved : ag;
+    }
+
+    /**
+     * Dono/recepcao confirma que o sinal (V42) foi recebido. O sistema nao confere o PIX sozinho:
+     * quem ve o extrato e a barbearia.
+     */
+    @Transactional
+    public Appointment confirmDeposit(Long id) {
+        Appointment ag = require(id);
+        if (ag.getDepositStatus() == null) {
+            throw new IllegalArgumentException("Este agendamento não tem sinal pendente.");
+        }
+        ag.setDepositStatus(com.razor.api.model.DepositStatus.PAID);
         Appointment saved = appointmentRepository.save(ag);
         return saved != null ? saved : ag;
     }

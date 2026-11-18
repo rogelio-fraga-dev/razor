@@ -1,6 +1,8 @@
 package com.razor.api.dto;
 
 import com.razor.api.model.AttendanceStatus;
+import com.razor.api.model.ConfirmationStatus;
+import com.razor.api.model.DepositStatus;
 import com.razor.api.model.PaymentStatus;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -48,7 +50,11 @@ public record AgendaBoardResponse(
             AttendanceStatus attendanceStatus,
             boolean subscriber,
             UUID comandaId,
-            String comandaStatus) {}
+            String comandaStatus,
+            /** Confirmacao da vespera (V42); null = nao foi perguntado. */
+            ConfirmationStatus confirmationStatus,
+            /** Sinal de quem falta muito (V42); null = nao exigido. */
+            DepositStatus depositStatus) {}
 
     /**
      * Bloqueio (folga/almoco/feriado) incidindo numa data do intervalo. Recorrentes saem uma vez

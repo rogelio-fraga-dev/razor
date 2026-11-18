@@ -29,6 +29,7 @@ import {
   layoutLanes,
   minToHhmm,
   weekStart,
+  CONFIRMATION_INFO,
 } from "../lib/agenda";
 import "./agenda.css";
 
@@ -548,6 +549,8 @@ export function Agenda() {
                             a.service,
                             st ? PAYMENT_LABEL[st] : null,
                             att === "NO_SHOW" ? "faltou" : att === "ATTENDED" ? "compareceu" : null,
+                            !att && a.confirmationStatus ? CONFIRMATION_INFO[a.confirmationStatus].label.toLowerCase() : null,
+                            a.depositStatus === "PENDING" ? "sinal pendente" : null,
                             a.professionalName ? `com ${a.professionalName}` : "sem barbeiro",
                             "abrir detalhes",
                           ]
@@ -569,6 +572,12 @@ export function Agenda() {
                             {att === "ATTENDED" && " ✓"}
                             {att === "NO_SHOW" && " · faltou"}
                             {a.comandaId && " 🧾"}
+                            {!att && a.confirmationStatus && (
+                              <span title={CONFIRMATION_INFO[a.confirmationStatus].label}>
+                                {" "}{CONFIRMATION_INFO[a.confirmationStatus].icon}
+                              </span>
+                            )}
+                            {a.depositStatus === "PENDING" && <span title="Sinal pendente"> 💰</span>}
                           </span>
                           <span className="ev-name">
                             {a.customerName || "—"}

@@ -27,6 +27,15 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     /** Intervalo filtrado no banco. Sem isto os relatorios liam a tabela inteira do tenant. */
     List<Appointment> findByBarbershopIdAndAppointmentDateBetween(UUID barbershopId, LocalDate from, LocalDate to);
 
+    /** Agendamentos CRIADOS no intervalo [from, to) — base do card "O que a IA fez por voce" (V42). */
+    List<Appointment> findByBarbershopIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+            UUID barbershopId, java.time.LocalDateTime from, java.time.LocalDateTime to);
+
+    /** Faltas do cliente a partir de uma data — regra do sinal (V42). */
+    long countByBarbershopIdAndCustomerPhoneAndAttendanceStatusAndAppointmentDateGreaterThanEqual(
+            UUID barbershopId, String customerPhone, com.razor.api.model.AttendanceStatus attendanceStatus,
+            LocalDate since);
+
     // Agenda multiprofissional: ocupacao por profissional (Fase 1).
     List<Appointment> findByBarbershopIdAndProfessionalId(UUID barbershopId, UUID professionalId);
 

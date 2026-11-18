@@ -585,6 +585,39 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       horário lotado não é mais gravado sem barbeiro. Devolve `Optional<Appointment>` com o
       barbeiro realmente atribuído. *(Pendente: os chamadores do bot ainda confirmam sem olhar
       o retorno — outra frente.)*
+- [x] **"O que a IA fez por você" no Dashboard** *(V42)* — o diferencial do produto em números,
+      `GET /api/admin/reports/ai-impact?period=month|last30` (dono e recepção). Tudo medido, nada
+      estimado (sem dado = zero): agendamentos **criados** no período por origem (BOT / SITE /
+      PAINEL, faltas fora) com o valor de tabela da mesma regra do `ReportService`; mensagens que o
+      bot respondeu e quantas **fora do expediente** (dia fechado, antes de abrir ou a partir do
+      fechamento); **clientes resgatados** = clientes distintos que marcaram pelo bot e, no dia em
+      que marcaram, estavam `SUMIDO` pela `CustomerStatusRules` calculada só com as visitas
+      anteriores; e o anti-falta (confirmações, desmarcações pela confirmação = **faltas evitadas**,
+      vagas reaproveitadas pela lista de espera). Como cancelar **apaga** o agendamento, esses
+      fatos ficam em `ai_impact_events` (sem FK, sobrevivem ao delete). Card com skeleton, erro com
+      "tentar de novo", estado vazio e grade 4→2 colunas no celular.
+- [x] **Anti-falta: confirmação da véspera** *(V42)* — toda marcação ganha, presas ao
+      `appointment_id`, a tarefa `CONFIRMATION_REQUEST` (véspera, hora configurável, padrão
+      18:00) e `CONFIRMATION_DEADLINE` (padrão 3h antes). Horário marcado **depois** da hora da
+      pergunta (véspera à noite ou no mesmo dia) **não é perguntado** — quem acabou de marcar não
+      precisa confirmar, e o lembrete de 1h continua. A pergunta "responde 1 pra confirmar ou 2 pra
+      desmarcar" arma a chave `conv:confirm` no `StateStore` (TTL até o horário); com a conversa
+      ociosa, "1/sim/confirmo/ok" confirmam e "2/não/desmarcar" cancelam **só aquele** horário pelo
+      caminho do bot (que cancela só as tarefas dele) e oferecem a vaga à lista de espera — tudo
+      sem IA. Outra mensagem segue o fluxo normal e a pergunta continua valendo. Sem resposta no
+      prazo: `NO_RESPONSE` e aviso aos admins ("Fulano não confirmou o horário das 15:00"); **não**
+      cancela, a menos que o dono ligue *liberar automaticamente*. `appointments.confirmation_status`
+      (PENDING / CONFIRMED / DECLINED / NO_RESPONSE) aparece no bloco da agenda (ícone) e na gaveta.
+      A oferta para a lista de espera saiu do `CustomerConversationService` para o
+      `WaitlistOfferService`, usado pela conversa, pela confirmação e pela liberação automática.
+      *(Limite: uma pergunta pendente por telefone — dois horários no mesmo dia, vale a última.)*
+- [x] **Sinal para quem falta muito** *(V42)* — `no_show_deposit_after = N` (nulo = desligado):
+      cliente com N+ faltas (`NO_SHOW`) em 180 dias que marca **pelo bot** recebe, no lugar da
+      pergunta de pagamento, a chave PIX/copia-e-cola do tenant e o horário fica com
+      `deposit_status = PENDING` ("💰" na agenda); o dono marca "sinal recebido" na gaveta. Valor
+      fixo configurável ou, sem valor, o preço do serviço. Sem PIX configurado a regra não vale.
+      *(Limites: não confere o PIX, não cancela sem sinal, não abate da comanda; site e painel
+      não exigem.)* Configurações em *Bot & IA → Anti-falta*.
 - [ ] **Tema claro no painel e na landing** — o painel já alterna (dark-first); a landing
       institucional precisa da variante clara com o mesmo brand (tokens do
       [`BRANDING §5.4`](./BRANDING.md)) e toggle persistido.
@@ -919,8 +952,9 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
       (`monthly_revenue_goal` em `barbershop_settings`, endpoint próprio
       `/api/admin/settings/goals` para o PUT das configs do bot não zerar a meta). O painel
       compara com o faturamento real; sem meta definida, mostra só o convite para definir.
-- [~] **Métricas ainda sem fonte de dados** — **taxa de ocupação existe desde a V32**. No-show e
-      "clientes resgatados pela IA" continuam sem fonte; enquanto não existirem, não entram na tela.
+- [x] **Métricas ainda sem fonte de dados** — **taxa de ocupação existe desde a V32**; no-show
+      (`attendance_status`, V39) e "clientes resgatados pela IA" ganharam fonte na **V42** e
+      entraram no card *O que a IA fez por você* (abaixo).
 
 ---
 

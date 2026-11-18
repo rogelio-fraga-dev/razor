@@ -199,6 +199,47 @@ public class BarbershopSettingsService {
         return valid;
     }
 
+    /**
+     * Regras do anti-falta (V42) ja com os defaults aplicados.
+     *
+     * @param depositAfter  faltas (180 dias) a partir das quais o bot exige sinal; null = desligado
+     * @param depositAmount valor do sinal; null = preco do servico
+     */
+    public record NoShowSettings(boolean confirmationEnabled, int confirmationHour, int deadlineHours,
+                                 boolean autoRelease, Integer depositAfter, BigDecimal depositAmount) {
+        public static final NoShowSettings DEFAULTS = new NoShowSettings(true,
+                BarbershopSettings.DEFAULT_CONFIRMATION_HOUR, BarbershopSettings.DEFAULT_CONFIRMATION_DEADLINE_HOURS,
+                false, null, null);
+    }
+
+    public NoShowSettings getNoShowSettings() {
+        return repository.findById(TenantContext.getCurrent())
+                .map(s -> new NoShowSettings(
+                        !Boolean.FALSE.equals(s.getConfirmationEnabled()),
+                        s.getConfirmationHour() != null ? s.getConfirmationHour() : BarbershopSettings.DEFAULT_CONFIRMATION_HOUR,
+                        s.getConfirmationDeadlineHours() != null ? s.getConfirmationDeadlineHours()
+                                : BarbershopSettings.DEFAULT_CONFIRMATION_DEADLINE_HOURS,
+                        Boolean.TRUE.equals(s.getConfirmationAutoRelease()),
+                        s.getNoShowDepositAfter(),
+                        s.getNoShowDepositAmount()))
+                .orElse(NoShowSettings.DEFAULTS);
+    }
+
+    public NoShowSettings updateNoShowSettings(com.razor.api.dto.NoShowSettingsPayload p) {
+        BarbershopSettings s = repository.findById(TenantContext.getCurrent())
+                .orElseGet(() -> BarbershopSettings.builder().barbershopId(TenantContext.getCurrent()).build());
+        s.setConfirmationEnabled(p.confirmationEnabled());
+        s.setConfirmationHour(p.confirmationHour());
+        s.setConfirmationDeadlineHours(p.confirmationDeadlineHours());
+        s.setConfirmationAutoRelease(p.autoReleaseUnconfirmed());
+        s.setNoShowDepositAfter(p.noShowDepositAfter() == null || p.noShowDepositAfter() <= 0 ? null : p.noShowDepositAfter());
+        s.setNoShowDepositAmount(p.noShowDepositAmount() == null || p.noShowDepositAmount().signum() <= 0
+                ? null : p.noShowDepositAmount().setScale(2, RoundingMode.HALF_UP));
+        repository.save(s);
+        log.info("[ANTI-FALTA] Configuracoes atualizadas para o tenant {}", TenantContext.getCurrent());
+        return getNoShowSettings();
+    }
+
     /** O bot atende clientes neste tenant? Sem linha (tenant novo) = ligado. */
     public boolean isBotEnabled() {
         return repository.findById(TenantContext.getCurrent())
