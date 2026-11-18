@@ -32,6 +32,11 @@ spring:
 
 server:
   port: 8081
+  # IP real do cliente atras do nginx do painel: o Tomcat (RemoteIpValve) so aceita o
+  # X-Forwarded-For/-Proto vindo de proxy confiavel — por padrao redes privadas e loopback, onde
+  # o nginx fica no compose. Atras de um load balancer com IP publico, ajuste a regex em
+  # SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES. Quem fala direto com a API nao forja o IP.
+  forward-headers-strategy: native
 
 management:
   health:
@@ -70,6 +75,9 @@ razor:
     # RAZOR_JWT_SECRET com uma string longa e secreta (>= 32 caracteres).
     jwt-secret: "${RAZOR_JWT_SECRET:}"
     jwt-expiration-minutes: 720
+    # O JWT do painel vai num cookie HttpOnly (nunca no localStorage). Secure=true e o padrao;
+    # so desligue para dev em http fora de localhost (ex.: Safari, IP da rede local).
+    cookie-secure: "${RAZOR_COOKIE_SECURE:true}"
     cors-allowed-origins: "${RAZOR_CORS_ORIGINS:http://localhost:5173,http://localhost:3000}"
     rate-limit:
       # Freio por IP em /api/admin/** e no webhook (o login tem freio próprio, por falhas).

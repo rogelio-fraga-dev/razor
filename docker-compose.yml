@@ -66,6 +66,10 @@ services:
       # O painel chega pelo nginx (mesma origem), entao o CORS so importa para o `npm run dev`
       # rodando fora do Docker em 5173.
       RAZOR_CORS_ORIGINS: ${RAZOR_CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+
+      # O painel local roda em http puro (localhost:3000). Chrome/Firefox aceitam cookie Secure
+      # em localhost, o Safari nao — por isso false aqui. Em producao (HTTPS) use true.
+      RAZOR_COOKIE_SECURE: ${RAZOR_COOKIE_SECURE:-false}
     ports:
       - "${BACKEND_PORT:-8081}:8081"
     depends_on:

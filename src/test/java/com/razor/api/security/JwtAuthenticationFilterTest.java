@@ -2,8 +2,10 @@ package com.razor.api.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -11,6 +13,7 @@ import com.razor.api.model.UserRole;
 import com.razor.api.tenant.TenantContext;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.UUID;
@@ -19,6 +22,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
@@ -28,12 +33,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 class JwtAuthenticationFilterTest {
 
     private JwtService jwtService;
+    private SessionValidator sessionValidator;
     private JwtAuthenticationFilter filter;
 
     @BeforeEach
     void setUp() {
         jwtService = mock(JwtService.class);
-        filter = new JwtAuthenticationFilter(jwtService);
+        sessionValidator = mock(SessionValidator.class);
+        when(sessionValidator.isValid(any(), anyInt())).thenReturn(true);
+        filter = new JwtAuthenticationFilter(jwtService, sessionValidator);
         SecurityContextHolder.clearContext();
         TenantContext.clear();
     }
@@ -51,7 +59,7 @@ class JwtAuthenticationFilterTest {
         TenantUserPrincipal principal = new TenantUserPrincipal(UUID.randomUUID(), "dono@loja.com", shop, UserRole.OWNER);
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getHeader("Authorization")).thenReturn("Bearer tok-123");
-        when(jwtService.parse("tok-123")).thenReturn(principal);
+        when(jwtService.parseToken("tok-123")).thenReturn(new JwtService.ParsedToken(principal, 0));
         HttpServletResponse response = mock(HttpServletResponse.class);
         FilterChain chain = mock(FilterChain.class);
 
@@ -74,7 +82,7 @@ class JwtAuthenticationFilterTest {
     void invalidToken_noAuthentication() throws Exception {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getHeader("Authorization")).thenReturn("Bearer ruim");
-        when(jwtService.parse("ruim")).thenThrow(new JwtException("invalido"));
+        when(jwtService.parseToken("ruim")).thenThrow(new JwtException("invalido"));
         HttpServletResponse response = mock(HttpServletResponse.class);
         FilterChain chain = mock(FilterChain.class);
 
@@ -82,6 +90,35 @@ class JwtAuthenticationFilterTest {
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("sem header, o cookie de sessão HttpOnly autentica (fluxo do painel)")
+    void sessionCookie_authenticates() throws Exception {
+        TenantUserPrincipal principal = new TenantUserPrincipal(
+                UUID.randomUUID(), "dono@loja.com", UUID.randomUUID(), UserRole.OWNER);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/admin/me");
+        request.setCookies(new Cookie(SessionCookies.NAME, "tok-cookie"));
+        when(jwtService.parseToken("tok-cookie")).thenReturn(new JwtService.ParsedToken(principal, 0));
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, new MockHttpServletResponse(), chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).isEqualTo(principal);
+    }
+
+    @Test
+    @DisplayName("header Authorization presente manda: o cookie não é consultado nem como fallback")
+    void headerPresent_cookieIgnored() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/admin/services");
+        request.addHeader("Authorization", "Basic abc");
+        request.setCookies(new Cookie(SessionCookies.NAME, "tok-cookie"));
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, new MockHttpServletResponse(), chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(jwtService, never()).parseToken(any());
     }
 
     @Test
@@ -95,6 +132,25 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, response, chain);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("assinatura válida mas sessão revogada (inativo / senha trocada) segue sem autenticação")
+    void revokedToken_noAuthentication() throws Exception {
+        TenantUserPrincipal principal = new TenantUserPrincipal(
+                UUID.randomUUID(), "ex@loja.com", UUID.randomUUID(), UserRole.RECEPTION);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/admin/me");
+        request.addHeader("Authorization", "Bearer tok-velho");
+        when(jwtService.parseToken("tok-velho")).thenReturn(new JwtService.ParsedToken(principal, 2));
+        when(sessionValidator.isValid(principal, 2)).thenReturn(false);
+        FilterChain chain = mock(FilterChain.class);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        assertThat(TenantContext.isSet()).isFalse();
         verify(chain).doFilter(request, response);
     }
 }

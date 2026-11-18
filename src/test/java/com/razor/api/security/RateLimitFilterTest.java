@@ -103,24 +103,25 @@ class RateLimitFilterTest {
     }
 
     @Test
-    @DisplayName("atrás de proxy, o IP vem do primeiro X-Forwarded-For")
-    void behindProxy_usesForwardedFor() throws Exception {
+    @DisplayName("X-Forwarded-For forjado não dribla o freio: a chave é o IP da conexão")
+    void spoofedForwardedFor_doesNotBypassLimit() throws Exception {
         FilterChain chain = mock(FilterChain.class);
 
-        // Mesmo remoteAddr (o proxy), clientes diferentes: sem ler o cabeçalho os dois cairiam
-        // na mesma chave e um cliente derrubaria o outro.
+        // Um IP inventado por requisicao: se o cabecalho valesse, cada uma cairia numa chave
+        // nova e o limite nunca chegaria. O IP real (resolvido pelo Tomcat so para proxy
+        // confiavel, ver ClientIp) e o remoteAddr.
         for (int i = 0; i < 3; i++) {
-            MockHttpServletRequest req = request("/api/admin/products", "172.17.0.1");
-            req.addHeader("X-Forwarded-For", "203.0.113.7, 172.17.0.1");
+            MockHttpServletRequest req = request("/api/admin/products", "198.51.100.4");
+            req.addHeader("X-Forwarded-For", "203.0.113." + i);
             filter.doFilter(req, new MockHttpServletResponse(), chain);
         }
 
-        MockHttpServletRequest outro = request("/api/admin/products", "172.17.0.1");
-        outro.addHeader("X-Forwarded-For", "203.0.113.9");
+        MockHttpServletRequest quarta = request("/api/admin/products", "198.51.100.4");
+        quarta.addHeader("X-Forwarded-For", "203.0.113.99");
         MockHttpServletResponse resp = new MockHttpServletResponse();
-        filter.doFilter(outro, resp, chain);
+        filter.doFilter(quarta, resp, chain);
 
-        assertThat(resp.getStatus()).isEqualTo(200);
+        assertThat(resp.getStatus()).isEqualTo(429);
     }
 
     @Test

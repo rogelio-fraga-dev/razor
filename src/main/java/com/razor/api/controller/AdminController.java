@@ -1,11 +1,13 @@
 package com.razor.api.controller;
 
 import com.razor.api.model.TenantUser;
+import com.razor.api.security.SessionCookies;
 import com.razor.api.security.TenantUserPrincipal;
 import com.razor.api.service.AuthService;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminController {
 
     private final AuthService authService;
+    private final SessionCookies sessionCookies;
 
     /** Payload do PUT /me: nome e/ou troca de senha (nova senha exige a atual). */
     public record UpdateMeRequest(String name, String currentPassword, String newPassword) {
@@ -35,7 +38,14 @@ public class AdminController {
                                            @RequestBody UpdateMeRequest req) {
         TenantUser updated = authService.updateProfile(
                 principal.userId(), req.name(), req.currentPassword(), req.newPassword());
-        return ResponseEntity.ok(payload(updated, principal));
+        var response = ResponseEntity.ok();
+        if (req.newPassword() != null && !req.newPassword().isBlank()) {
+            // A troca de senha revogou todos os tokens (inclusive o desta requisicao); quem
+            // trocou continua logado com um cookie novo, as demais sessoes caem.
+            response.header(HttpHeaders.SET_COOKIE,
+                    sessionCookies.issue(authService.reissueToken(updated)).toString());
+        }
+        return response.body(payload(updated, principal));
     }
 
     private Map<String, Object> payload(TenantUser user, TenantUserPrincipal principal) {

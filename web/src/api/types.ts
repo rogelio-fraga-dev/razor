@@ -3,7 +3,6 @@
 export type UserRole = "OWNER" | "RECEPTION" | "BARBER";
 
 export interface LoginResponse {
-  token: string;
   barbershopId: string;
   role: UserRole;
   name: string | null;

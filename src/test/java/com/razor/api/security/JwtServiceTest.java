@@ -62,4 +62,16 @@ class JwtServiceTest {
 
         assertThatThrownBy(() -> jwtService.parse(foreignToken)).isInstanceOf(JwtException.class);
     }
+
+    @Test
+    @DisplayName("a versão do usuário viaja no token (claim ver) para a revalidação")
+    void issueThenParse_carriesTokenVersion() {
+        TenantUser u = user();
+        u.setTokenVersion(7);
+
+        JwtService.ParsedToken parsed = jwtService.parseToken(jwtService.issue(u));
+
+        assertThat(parsed.version()).isEqualTo(7);
+        assertThat(parsed.principal().userId()).isEqualTo(u.getId());
+    }
 }

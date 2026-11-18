@@ -1,9 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, setToken, setUnauthorizedHandler, getToken } from "../api/client";
-import type { LoginResponse } from "../api/types";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { api, setUnauthorizedHandler } from "../api/client";
+import type { LoginResponse, Me } from "../api/types";
+
+// Sessao do painel. O JWT vive num cookie HttpOnly que este codigo nunca ve; aqui ficam so os
+// dados NAO secretos do usuario (nome, papel), em memoria. Ao recarregar a pagina a sessao e
+// restaurada perguntando ao backend quem sou (/api/admin/me) — o cookie vai sozinho.
 
 interface Session {
-  token: string;
   role: LoginResponse["role"];
   name: string | null;
   email: string;
@@ -16,50 +19,63 @@ interface AuthState {
   logout: () => void;
 }
 
-const STORAGE_KEY = "razor.session";
+// Chaves da versao antiga (JWT no localStorage). Apagadas no boot para nao deixar um token
+// valido esquecido no navegador de quem atualizou o painel.
+const LEGACY_KEYS = ["razor.token", "razor.session"];
+
 const AuthContext = createContext<AuthState | null>(null);
 
-function loadSession(): Session | null {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw || !getToken()) return null;
-  try {
-    return JSON.parse(raw) as Session;
-  } catch {
-    return null;
-  }
+function toSession(u: LoginResponse | Me): Session {
+  return { role: u.role, name: u.name, email: u.email, barbershopId: u.barbershopId };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(loadSession);
+  const [session, setSession] = useState<Session | null>(null);
+  // O site publico (/b/:slug) nao tem sessao: nao vale segurar a pagina esperando o /me.
+  const [restoring, setRestoring] = useState(() => !window.location.pathname.startsWith("/b/"));
 
-  const logout = useMemo(
-    () => () => {
-      setToken(null);
-      localStorage.removeItem(STORAGE_KEY);
-      setSession(null);
-    },
-    [],
-  );
+  // 401 em qualquer chamada: o cookie expirou ou foi invalidado — so limpa o estado local.
+  const expire = useCallback(() => setSession(null), []);
+
+  const logout = useCallback(() => {
+    setSession(null);
+    // Best-effort: mesmo se falhar (rede, CSRF), o estado local ja saiu.
+    api.post("/api/auth/logout", undefined, { ignore401: true }).catch(() => {});
+  }, []);
 
   useEffect(() => {
-    setUnauthorizedHandler(logout);
-  }, [logout]);
+    setUnauthorizedHandler(expire);
+  }, [expire]);
 
-  const login = async (email: string, password: string) => {
-    const res = await api.post<LoginResponse>("/api/auth/login", { email, password });
-    setToken(res.token);
-    const s: Session = {
-      token: res.token,
-      role: res.role,
-      name: res.name,
-      email: res.email,
-      barbershopId: res.barbershopId,
+  useEffect(() => {
+    try {
+      LEGACY_KEYS.forEach((k) => localStorage.removeItem(k));
+    } catch {
+      /* storage bloqueado: nada a limpar */
+    }
+    if (!restoring) return;
+    let alive = true;
+    api
+      .get<Me>("/api/admin/me")
+      .then((me) => alive && setSession(toSession(me)))
+      .catch(() => alive && setSession(null))
+      .finally(() => alive && setRestoring(false));
+    return () => {
+      alive = false;
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-    setSession(s);
-  };
+    // Roda uma vez, no boot.
+  }, []);
 
-  const value = useMemo<AuthState>(() => ({ session, login, logout }), [session, logout]);
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await api.post<LoginResponse>("/api/auth/login", { email, password }, { ignore401: true });
+    setSession(toSession(res));
+  }, []);
+
+  const value = useMemo<AuthState>(() => ({ session, login, logout }), [session, login, logout]);
+
+  // Enquanto o /me nao responde nao da para saber se ha sessao; renderizar agora mandaria quem
+  // esta logado para /login e perderia a rota que ele abriu.
+  if (restoring) return null;
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

@@ -1106,6 +1106,15 @@ Paginar catálogo seria ruído: dois botões mortos embaixo de uma lista de 7 se
       (2026-11-17)** — os campos viraram grupos reutilizáveis em `BotConfigFields.tsx`
       (identidade, funcionamento, serviços, modo de fala, pagamento, mensagens) e `EMPTY_BOT`/
       `fillBot` foram para `lib/botSettings.ts`. O `BotCard` saiu: o modal é o único editor.
+- [x] **JWT no `localStorage` (2026-11-17)** — o login agora entrega o JWT só num cookie
+      `RAZOR_SESSION` (`HttpOnly; Secure; SameSite=Strict; Path=/api`, `Max-Age` = TTL); o corpo
+      não traz mais o token e o painel não guarda nada no navegador (restaura a sessão via
+      `/api/admin/me`). Escritas em `/api/admin/**` e `/api/auth/logout` exigem CSRF
+      double-submit (`XSRF-TOKEN` → `X-XSRF-TOKEN`); webhook, onboarding, site e login ficam
+      de fora. `Authorization: Bearer` segue aceito para clientes de API (sem CSRF, e sem
+      fallback para o cookie). Flag Secure via `RAZOR_COOKIE_SECURE`.
+- [ ] **`AgendaService.java` passou de 800 linhas** e `ConfigWizard` × `Settings > BotCard`
+      compartilham ~150 linhas quase idênticas. Dívida de organização, não de comportamento.
 
 ---
 
