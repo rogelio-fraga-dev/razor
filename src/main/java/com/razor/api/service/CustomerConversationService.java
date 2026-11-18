@@ -75,7 +75,24 @@ public class CustomerConversationService {
         private String date;
         private String time;
         private String service;
-        private List<com.razor.api.model.Professional> options; // alinhado 1:1 com os numeros exibidos
+        private List<ProfessionalOption> options; // alinhado 1:1 com os numeros exibidos
+    }
+
+    /**
+     * O minimo do barbeiro que a escolha precisa guardar: id e o nome <b>como o bot o chama</b>
+     * (apelido, V37). Guardar a entidade inteira no estado da conversa levaria junto a foto em
+     * base64 (~40KB) para o Redis a cada agendamento.
+     */
+    @lombok.Data
+    @lombok.AllArgsConstructor
+    @lombok.NoArgsConstructor
+    public static class ProfessionalOption {
+        private java.util.UUID id;
+        private String name;
+
+        static ProfessionalOption of(com.razor.api.model.Professional p) {
+            return new ProfessionalOption(p.getId(), p.displayName());
+        }
     }
 
     /** Conversa abandonada morre sozinha (antes: varredura de estados "zumbi"). */
@@ -482,12 +499,15 @@ public class CustomerConversationService {
 
         // Agenda multiprofissional: com mais de um barbeiro ativo, o cliente escolhe com quem
         // quer se atender. Com 0 ou 1 barbeiro, mantemos a auto-atribuição imediata (padrão).
-        List<com.razor.api.model.Professional> ativos = professionalService.listActive();
+        // Só entram na lista os que fazem o serviço pedido (V37): oferecer "barba com o Diego"
+        // para depois trocar de barbeiro em silêncio seria pior que não oferecer.
+        List<com.razor.api.model.Professional> ativos = professionalService.listActiveFor(service);
         if (ativos != null && ativos.size() > 1) {
-            stateStore.put(StateKeys.pendingBooking(phoneNumber), new PendingBooking(name, date, time, service, ativos), CONV_TTL);
+            List<ProfessionalOption> options = ativos.stream().map(ProfessionalOption::of).toList();
+            stateStore.put(StateKeys.pendingBooking(phoneNumber), new PendingBooking(name, date, time, service, options), CONV_TTL);
             setCustomerState(phoneNumber, "ESPERANDO_PROFISSIONAL");
             log.info("[AGENDA] Estado ESPERANDO_PROFISSIONAL definido para {} ({} barbeiros)", phoneNumber, ativos.size());
-            return montarPerguntaProfissional(date, time, ativos);
+            return montarPerguntaProfissional(date, time, options);
         }
 
         agendaService.adicionarAgendamentoViaIA(name, phoneNumber, date, time, service);
@@ -511,8 +531,8 @@ public class CustomerConversationService {
                 "_Responda com 1 ou 2._";
     }
 
-    /** Monta a pergunta "com qual barbeiro?" listando os profissionais ativos numerados. */
-    private String montarPerguntaProfissional(String date, String time, List<com.razor.api.model.Professional> ativos) {
+    /** Monta a pergunta "com qual barbeiro?" listando os profissionais (pelo apelido) numerados. */
+    private String montarPerguntaProfissional(String date, String time, List<ProfessionalOption> ativos) {
         StringBuilder sb = new StringBuilder("Quase lá! Para *" + date + "* às *" + time + "*, com qual profissional você prefere se atender? 💈\n\n");
         for (int i = 0; i < ativos.size(); i++) {
             sb.append("*").append(i + 1).append("* - ").append(ativos.get(i).getName()).append("\n");
@@ -546,7 +566,7 @@ public class CustomerConversationService {
             try {
                 int index = Integer.parseInt(msgLower.trim()) - 1;
                 if (index >= 0 && index < pend.getOptions().size()) {
-                    com.razor.api.model.Professional p = pend.getOptions().get(index);
+                    ProfessionalOption p = pend.getOptions().get(index);
                     escolhido = p.getId();
                     nomeEscolhido = p.getName();
                 } else {

@@ -349,7 +349,7 @@ class CustomerConversationServiceTest {
     void aiNewAppointment_multipleProfessionals_asksChoice() {
         givenExistingCustomer();
         givenAiReturnsAgendamentoTag();
-        when(professionalService.listActive()).thenReturn(List.of(prof("Rafael"), prof("Bruno")));
+        when(professionalService.listActiveFor(any())).thenReturn(List.of(prof("Rafael"), prof("Bruno")));
 
         service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
 
@@ -366,7 +366,7 @@ class CustomerConversationServiceTest {
         givenAiReturnsAgendamentoTag();
         com.razor.api.model.Professional rafael = prof("Rafael");
         com.razor.api.model.Professional bruno = prof("Bruno");
-        when(professionalService.listActive()).thenReturn(List.of(rafael, bruno));
+        when(professionalService.listActiveFor(any())).thenReturn(List.of(rafael, bruno));
 
         service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE); // pergunta
         service.processCustomerMessage(textWebhook("2"), PHONE);                        // escolhe Bruno
@@ -376,11 +376,28 @@ class CustomerConversationServiceTest {
     }
 
     @Test
+    @DisplayName("o bot chama o barbeiro pelo apelido e só oferece quem faz o serviço")
+    void professionalChoice_usesNickname_andServiceFilter() {
+        givenExistingCustomer();
+        givenAiReturnsAgendamentoTag();
+        com.razor.api.model.Professional diego = prof("Diego Aparecido Santos");
+        diego.setNickname("Diego");
+        when(professionalService.listActiveFor("Corte")).thenReturn(List.of(diego, prof("Bruno")));
+
+        service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
+        assertThat(captureClientMessage()).contains("Diego").doesNotContain("Aparecido");
+
+        service.processCustomerMessage(textWebhook("1"), PHONE);
+        verify(agendaService).adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte", diego.getId());
+        assertThat(lastClientMessage()).contains("*Diego*").doesNotContain("Aparecido");
+    }
+
+    @Test
     @DisplayName("'tanto faz' reserva com auto-atribuição (preferido nulo)")
     void professionalChoice_tantoFaz_booksAuto() {
         givenExistingCustomer();
         givenAiReturnsAgendamentoTag();
-        when(professionalService.listActive()).thenReturn(List.of(prof("Rafael"), prof("Bruno")));
+        when(professionalService.listActiveFor(any())).thenReturn(List.of(prof("Rafael"), prof("Bruno")));
 
         service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
         service.processCustomerMessage(textWebhook("tanto faz"), PHONE);

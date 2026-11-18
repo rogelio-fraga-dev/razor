@@ -4,7 +4,8 @@ import { EmptyState } from "../components/EmptyState";
 import { SkeletonRows } from "../components/Skeleton";
 import { useApi } from "../lib/useApi";
 import { api } from "../api/client";
-import type { CommissionReport } from "../api/types";
+import type { CommissionReport, Professional } from "../api/types";
+import { Avatar } from "../components/Avatar";
 import { money, percent, todayIso } from "../lib/format";
 
 function isoDaysAgo(days: number): string {
@@ -20,6 +21,9 @@ export function Commissions() {
     () => api.get(`/api/admin/reports/commissions?date=${date}`),
     [date],
   );
+  // Só para a foto do barbeiro (V37); se falhar, a lista segue com as iniciais.
+  const pros = useApi<Professional[]>(() => api.get("/api/admin/professionals"), []);
+  const photoOf = (id: string) => pros.data?.find((p) => p.id === id)?.photoUrl ?? null;
 
   const chips = [
     { label: "Hoje", value: todayIso() },
@@ -100,7 +104,12 @@ export function Commissions() {
               <tbody>
                 {data.items.map((c) => (
                   <tr key={c.professionalId}>
-                    <td style={{ fontWeight: 550 }}>{c.professionalName}</td>
+                    <td style={{ fontWeight: 550 }}>
+                      <span className="avatar-name">
+                        <Avatar name={c.professionalName} photoUrl={photoOf(c.professionalId)} size={30} />
+                        {c.professionalName}
+                      </span>
+                    </td>
                     <td>{c.atendimentos}</td>
                     <td className="num">{money(c.faturamento)}</td>
                     <td>

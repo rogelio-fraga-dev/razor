@@ -147,9 +147,11 @@ class PublicSiteServiceTest {
 
         var out = service.bySlug("navalha");
 
-        // O record de equipe só tem `name` — este teste existe para que acrescentar um campo
-        // sensível ali passe a quebrar um teste em vez de vazar em silêncio numa página pública.
-        assertThat(PublicSiteResponseFields.teamFieldCount()).isEqualTo(1);
+        // O record de equipe só tem campos de vitrine (V37: nome, apelido, foto, bio,
+        // especialidades, Instagram) — este teste existe para que acrescentar um campo sensível
+        // ali passe a quebrar um teste em vez de vazar em silêncio numa página pública. A lista
+        // exata está em team_exposesOnlyPublicProfileFields.
+        assertThat(PublicSiteResponseFields.teamFieldCount()).isEqualTo(6);
         assertThat(out.team().get(0).name()).isEqualTo("Rafael");
     }
 
@@ -193,5 +195,33 @@ class PublicSiteServiceTest {
         static int teamFieldCount() {
             return com.razor.api.dto.PublicSiteResponse.TeamMember.class.getRecordComponents().length;
         }
+    }
+
+    @Test
+    @DisplayName("equipe sai com foto, apelido, bio, especialidades e Instagram — e nada interno")
+    void team_exposesOnlyPublicProfileFields() {
+        when(barbershopRepository.findBySlug("navalha")).thenReturn(Optional.of(shop(true)));
+        when(siteRepository.findById(shopId)).thenReturn(Optional.of(site(true)));
+        Professional diego = Professional.builder().id(UUID.randomUUID()).name("Diego Santos")
+                .phone("5511988887777").commissionPercent(new BigDecimal("40"))
+                .nickname("Diego").photoData("data:image/jpeg;base64,/9j/AA==").bio("10 anos de navalha")
+                .specialties("Degradê\nBarba").instagramUrl("https://instagram.com/diego").build();
+        Professional inativo = Professional.builder().id(UUID.randomUUID()).name("Saiu").active(false).build();
+        when(professionalRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(diego, inativo));
+
+        var out = service.bySlug("navalha");
+
+        assertThat(out.team()).singleElement().satisfies(t -> {
+            assertThat(t.name()).isEqualTo("Diego Santos");
+            assertThat(t.nickname()).isEqualTo("Diego");
+            assertThat(t.photoUrl()).startsWith("data:image/jpeg;base64,");
+            assertThat(t.bio()).isEqualTo("10 anos de navalha");
+            assertThat(t.specialties()).containsExactly("Degradê", "Barba");
+            assertThat(t.instagramUrl()).isEqualTo("https://instagram.com/diego");
+        });
+        // A fronteira e o proprio record: nenhum componente para telefone, comissao ou id.
+        assertThat(java.util.Arrays.stream(com.razor.api.dto.PublicSiteResponse.TeamMember.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName))
+                .containsExactly("name", "nickname", "photoUrl", "bio", "specialties", "instagramUrl");
     }
 }

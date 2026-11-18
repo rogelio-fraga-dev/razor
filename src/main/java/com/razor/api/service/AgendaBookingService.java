@@ -69,7 +69,7 @@ public class AgendaBookingService {
             return;
         }
 
-        UUID professionalId = professionalAssignmentService.assign(parsedDate, parsedTime, preferredProfessionalId);
+        UUID professionalId = professionalAssignmentService.assign(parsedDate, parsedTime, preferredProfessionalId, service);
 
         Appointment app = Appointment.builder()
             .barbershopId(TenantContext.getCurrent())

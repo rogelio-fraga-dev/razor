@@ -1826,3 +1826,98 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   flex-shrink: 0;
   background: var(--bg-raise);
 }
+
+/* ---------- Perfil do barbeiro (V37): avatar, cards de Profissionais ---------- */
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-hi);
+  background: var(--surface-2);
+}
+.avatar-initials {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+.avatar-name { display: inline-flex; align-items: center; gap: 10px; }
+
+.pro-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+.pro-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-width: 0;
+}
+.pro-card-inactive { opacity: 0.62; }
+.pro-card-top { display: flex; align-items: flex-start; gap: 12px; }
+.pro-card-name { font-weight: 650; font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pro-card-sub { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pro-card-bio {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pro-card-facts { margin: 0; display: grid; gap: 6px; font-size: 13px; }
+.pro-card-facts > div { display: grid; grid-template-columns: 82px 1fr; gap: 8px; }
+.pro-card-facts dt { color: var(--text-faint); }
+.pro-card-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.pro-card-facts a { color: var(--accent); text-decoration: none; }
+
+.pro-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pro-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 550;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.pro-chip button {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 0 0 2px;
+}
+
+.pro-photo-row { display: flex; align-items: center; gap: 16px; }
+.pro-services {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pro-services legend { font-size: 13px; font-weight: 600; padding: 0 4px; }
+.pro-services-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px 14px; }
+.pro-service-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.pro-service-check input { accent-color: var(--accent); width: 16px; height: 16px; }
+@media (max-width: 520px) {
+  .pro-grid { grid-template-columns: 1fr; padding: 12px; }
+}

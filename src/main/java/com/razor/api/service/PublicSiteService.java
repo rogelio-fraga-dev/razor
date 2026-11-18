@@ -3,6 +3,7 @@ package com.razor.api.service;
 import com.razor.api.dto.PublicSiteResponse;
 import com.razor.api.model.Barbershop;
 import com.razor.api.model.BarbershopSite;
+import com.razor.api.model.Professional;
 import com.razor.api.repository.BarbershopRepository;
 import com.razor.api.repository.BarbershopSiteRepository;
 import com.razor.api.repository.ProfessionalRepository;
@@ -86,10 +87,18 @@ public class PublicSiteService {
                         s.getDurationMinutes()))
                 .toList();
 
-        // So o nome do barbeiro. Telefone e percentual de comissao nao tem por que sair daqui.
+        // So barbeiro ATIVO e so campos de vitrine (V37). Telefone, comissao, id e servicos que
+        // atende nao tem por que sair daqui — o mapeamento campo a campo e a fronteira.
         List<PublicSiteResponse.TeamMember> team = site.isShowTeam()
                 ? professionalRepository.findByBarbershopIdAndActiveTrue(id).stream()
-                        .map(p -> new PublicSiteResponse.TeamMember(p.getName()))
+                        .filter(Professional::isActive)
+                        .map(p -> new PublicSiteResponse.TeamMember(
+                                p.getName(),
+                                blankToNull(p.getNickname()),
+                                blankToNull(p.getPhotoData()),
+                                blankToNull(p.getBio()),
+                                p.specialtyList(),
+                                blankToNull(p.getInstagramUrl())))
                         .toList()
                 : List.of();
 
@@ -121,5 +130,9 @@ public class PublicSiteService {
                 services,
                 team,
                 plans);
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s;
     }
 }

@@ -353,7 +353,7 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       Clientes, Planos, Comissões, Configurações (status do bot + WhatsApp por QR +
       textos + admins) e Perfil, com a identidade RAZOR aplicada.
       _(Falta: agenda multiprofissional interativa.)_
-- [ ] 🎯 **Perfil completo do barbeiro (hoje é só nome, telefone, comissão e ativo)** — o
+- [x] **Perfil completo do barbeiro** _(V37)_ — o
       profissional é a cara da barbearia: aparece na agenda, no relatório de comissão e,
       principalmente, na **página da equipe do site white-label**. Campos a acrescentar,
       todos editáveis pelo dono na tela *Profissionais*:
@@ -373,6 +373,21 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       > site** (que vai precisar de storage de qualquer forma) — aí os dois migram juntos.
       > Onde aparece: avatar nas colunas da **Agenda**, na lista de **Profissionais**, em
       > **Comissões**, e no bloco "nossa equipe" do **site**.
+      > **Feito (V37):** decisão **(a)** aplicada — o painel recorta o quadrado central e reduz
+      > para 256px JPEG no navegador (canvas); o backend (`ProfessionalProfileRules`) só aceita
+      > `data:image/jpeg|png|webp;base64,`, até **60KB** decodificados e com a assinatura do
+      > arquivo batendo com o tipo declarado (SVG, `http:`, `javascript:` recusados). Instagram
+      > só http(s) (ou `@perfil`, normalizado). **Serviços que atende** em
+      > `professional_services`; **vazio = todos** (sem regressão). A restrição vale na
+      > auto-atribuição **e** na escolha explícita (`ProfessionalAssignmentService` +
+      > `ServiceCapability`, que casa a string livre da IA com o catálogo: nome exato →
+      > composição "corte e barba" exige todos → abreviação "corte" aceita qualquer um; texto
+      > fora do catálogo não restringe), e o bot só oferece ao cliente quem faz o serviço,
+      > chamando cada um pelo **apelido**. Painel: Profissionais em cartões com avatar e modal
+      > com foto, bio, especialidades (chips), Instagram e checklist de serviços; avatar em
+      > Comissões; `photoUrl` no DTO para a Agenda. Site: bloco de equipe com foto (ou inicial),
+      > bio, especialidades e Instagram, em variante própria por template; o `PublicSiteResponse`
+      > só leva barbeiro ativo e só campos de vitrine.
 - [ ] **Overhaul de UX** conforme [`UX_BLUEPRINT.md`](./UX_BLUEPRINT.md): infra de feedback
       (toasts/skeletons/empty states), **tutorial de primeiro acesso + checklist de ativação**,
       Configurações em abas, Clientes com drawer + cards mobile, chips de período em

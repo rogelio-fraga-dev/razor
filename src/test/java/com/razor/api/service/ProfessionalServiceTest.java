@@ -8,7 +8,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.razor.api.model.Professional;
+import com.razor.api.model.ServiceOffering;
 import com.razor.api.repository.ProfessionalRepository;
+import com.razor.api.repository.ServiceOfferingRepository;
 import com.razor.api.tenant.TenantContext;
 import java.math.BigDecimal;
 import java.util.List;
@@ -27,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ProfessionalServiceTest {
 
     @Mock private ProfessionalRepository professionalRepository;
+    @Mock private ServiceOfferingRepository serviceOfferingRepository;
     @InjectMocks private ProfessionalService service;
 
     @AfterEach
@@ -129,5 +132,98 @@ class ProfessionalServiceTest {
 
         assertThatThrownBy(() -> service.update(id, "X", null, true, new BigDecimal("10"), null))
                 .isInstanceOf(NotFoundException.class);
+    }
+
+    // ---------- perfil (V37) ----------
+
+    private Professional owned(UUID id) {
+        Professional p = Professional.builder()
+                .id(id).barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID).name("Diego Aparecido Santos").build();
+        org.mockito.Mockito.lenient().when(professionalRepository.findById(id)).thenReturn(Optional.of(p));
+        org.mockito.Mockito.lenient().when(professionalRepository.save(any(Professional.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        return p;
+    }
+
+    @Test
+    @DisplayName("updateProfile grava foto, apelido, bio, especialidades, Instagram e serviços")
+    void updateProfile_setsEverything() {
+        UUID id = UUID.randomUUID();
+        UUID barba = UUID.randomUUID();
+        owned(id);
+        when(serviceOfferingRepository.findByBarbershopId(TenantContext.DEFAULT_BARBERSHOP_ID))
+                .thenReturn(List.of(ServiceOffering.builder().id(barba).name("Barba").build()));
+        String foto = ProfessionalProfileRulesTest.jpegDataUri(2048);
+
+        Professional saved = service.updateProfile(id, new ProfessionalService.ProfileUpdate(
+                foto, " Diego ", "10 anos de navalha", List.of("Degradê", "Barba"), "@diego", List.of(barba)));
+
+        assertThat(saved.getPhotoData()).isEqualTo(foto);
+        assertThat(saved.displayName()).isEqualTo("Diego");
+        assertThat(saved.getBio()).isEqualTo("10 anos de navalha");
+        assertThat(saved.specialtyList()).containsExactly("Degradê", "Barba");
+        assertThat(saved.getInstagramUrl()).isEqualTo("https://instagram.com/diego");
+        assertThat(saved.getServiceIds()).containsExactly(barba);
+    }
+
+    @Test
+    @DisplayName("updateProfile: nulo não mexe, vazio limpa")
+    void updateProfile_nullKeeps_emptyClears() {
+        UUID id = UUID.randomUUID();
+        Professional p = owned(id);
+        p.setPhotoData(ProfessionalProfileRulesTest.jpegDataUri(100));
+        p.setNickname("Diego");
+        p.getServiceIds().add(UUID.randomUUID());
+
+        Professional saved = service.updateProfile(id,
+                new ProfessionalService.ProfileUpdate(null, "", null, null, null, List.of()));
+
+        assertThat(saved.getPhotoData()).isNotNull();          // nulo: mantida
+        assertThat(saved.getNickname()).isNull();              // vazio: limpo
+        assertThat(saved.displayName()).isEqualTo("Diego Aparecido Santos");
+        assertThat(saved.servesAllServices()).isTrue();         // lista vazia = todos
+    }
+
+    @Test
+    @DisplayName("updateProfile recusa foto inválida sem gravar nada")
+    void updateProfile_invalidPhoto_rejectedWithoutSaving() {
+        UUID id = UUID.randomUUID();
+        owned(id);
+
+        assertThatThrownBy(() -> service.updateProfile(id, new ProfessionalService.ProfileUpdate(
+                "https://evil.example/x.jpg", "Diego", null, null, null, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(professionalRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateProfile recusa serviço de outro tenant (isolamento)")
+    void updateProfile_foreignService_rejected() {
+        UUID id = UUID.randomUUID();
+        owned(id);
+        when(serviceOfferingRepository.findByBarbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.updateProfile(id, new ProfessionalService.ProfileUpdate(
+                null, null, null, null, null, List.of(UUID.randomUUID()))))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(professionalRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("listActiveFor só devolve quem faz o serviço; sem restrição devolve todos")
+    void listActiveFor_filtersByService() {
+        UUID barba = UUID.randomUUID();
+        UUID corte = UUID.randomUUID();
+        Professional soCorte = Professional.builder().id(UUID.randomUUID()).name("A")
+                .serviceIds(new java.util.HashSet<>(List.of(corte))).build();
+        Professional todos = Professional.builder().id(UUID.randomUUID()).name("B").build();
+        when(professionalRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(soCorte, todos));
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(
+                ServiceOffering.builder().id(barba).name("Barba").build(),
+                ServiceOffering.builder().id(corte).name("Corte").build()));
+
+        assertThat(service.listActiveFor("Barba")).containsExactly(todos);
+        assertThat(service.listActiveFor("Corte")).containsExactly(soCorte, todos);
+        assertThat(service.listActiveFor(null)).containsExactly(soCorte, todos);
     }
 }
