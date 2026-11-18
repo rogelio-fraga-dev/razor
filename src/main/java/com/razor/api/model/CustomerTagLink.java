@@ -30,11 +30,18 @@ public class CustomerTagLink {
     @Column(name = "tag_id")
     private UUID tagId;
 
+    /**
+     * Barbearia do vinculo (V43). Faz parte das FKs compostas (cliente, barbearia) e (tag,
+     * barbearia): o banco recusa ligar o cliente de uma barbearia a tag de outra.
+     */
+    @Column(name = "barbershop_id", nullable = false)
+    private UUID barbershopId;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    public CustomerTagLink(UUID customerId, UUID tagId) {
-        this(customerId, tagId, null);
+    public CustomerTagLink(UUID customerId, UUID tagId, UUID barbershopId) {
+        this(customerId, tagId, barbershopId, null);
     }
 
     @PrePersist

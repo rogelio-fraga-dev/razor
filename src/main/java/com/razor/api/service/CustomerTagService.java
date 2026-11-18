@@ -96,7 +96,7 @@ public class CustomerTagService {
         linkRepository.deleteAll(atuais.stream().filter(l -> !desejadas.contains(l.getTagId())).toList());
         linkRepository.saveAll(desejadas.stream()
                 .filter(t -> !jaTem.contains(t))
-                .map(t -> new CustomerTagLink(customer.getId(), t))
+                .map(t -> new CustomerTagLink(customer.getId(), t, shop))
                 .toList());
 
         return desejadas.stream().map(tags::get).toList();

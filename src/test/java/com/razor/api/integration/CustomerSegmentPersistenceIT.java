@@ -89,7 +89,7 @@ class CustomerSegmentPersistenceIT {
         Customer ana = customerRepository.save(Customer.builder().barbershopId(SHOP).phoneNumber("5511900001111").name("Ana").build());
         Customer bia = customerRepository.save(Customer.builder().barbershopId(SHOP).phoneNumber("5511900002222").name("Bia").build());
         CustomerTag vip = tagRepository.save(CustomerTag.builder().barbershopId(SHOP).name("VIP").color("#DC2626").build());
-        linkRepository.save(new CustomerTagLink(ana.getId(), vip.getId()));
+        linkRepository.save(new CustomerTagLink(ana.getId(), vip.getId(), ana.getBarbershopId()));
 
         assertThat(linkRepository.findCustomerIdsByTagId(vip.getId())).containsExactly(ana.getId());
         assertThat(tagRepository.findByBarbershopIdAndNameIgnoreCase(SHOP, "vip")).isPresent();
