@@ -21,4 +21,10 @@ public class WhatsAppMessenger {
         log.info("[{} OUT] Enviando: '{}'", role, ConsoleText.sanitize(text.replace("\n", " ")));
         whatsAppService.sendTextMessage(phone, text);
     }
+
+    /** Como {@link #send}, mas espera a confirmacao e lanca se a mensagem nao sair. */
+    public void sendSync(String phone, String text, String role) {
+        log.info("[{} OUT] Enviando (sync): '{}'", role, ConsoleText.sanitize(text.replace("\n", " ")));
+        whatsAppService.sendTextMessageSync(phone, text);
+    }
 }

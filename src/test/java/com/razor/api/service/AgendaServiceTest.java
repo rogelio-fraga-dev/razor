@@ -75,8 +75,7 @@ class AgendaServiceTest {
                 new AgendaAvailabilityService(appointmentRepository, professionalRepository,
                         pricingService, barbershopSettingsService, scheduleBlockService),
                 new AgendaBookingService(appointmentRepository, customerService,
-                        professionalAssignmentService, tasks, fidelityService, whatsAppService,
-                        barbershopSettingsService),
+                        professionalAssignmentService, tasks),
                 tasks,
                 new AgendaReportService(appointmentRepository, reportService));
     }
@@ -405,58 +404,24 @@ class AgendaServiceTest {
         verify(appointmentRepository).delete(ag);
     }
 
-    // ---------- agendamento via IA + fidelidade ----------
+    // ---------- agendamento via IA ----------
 
     @Test
-    @DisplayName("adicionarAgendamentoViaIA salva o agendamento e registra a visita na fidelidade")
-    void adicionar_savesAndRegistersVisit() {
-        when(barbershopSettingsService.resolve()).thenReturn(
-                new BarbershopSettingsService.BotSettings("", "http://maps", "", null, ""));
-        // Sem cartela fechada, nada e enviado ao cliente.
-        when(fidelityService.registerVisit(eq(PHONE))).thenReturn(Optional.empty());
+    @DisplayName("adicionarAgendamentoViaIA salva e devolve o agendamento, SEM dar ponto de fidelidade")
+    void adicionar_savesAndDoesNotTouchFidelity() {
+        var salvo = service.adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte");
 
-        service.adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte");
-
+        assertThat(salvo).isPresent();
         verify(appointmentRepository).save(any(Appointment.class));
-        verify(fidelityService).registerVisit(eq(PHONE));
-        verify(whatsAppService, never()).sendTextMessage(eq(PHONE), contains("PARABÉNS"));
-    }
-
-    @Test
-    @DisplayName("cartela fechada: envia o cupom emitido ao cliente")
-    void adicionar_rewardIssued_sendsCoupon() {
-        when(barbershopSettingsService.resolve()).thenReturn(
-                new BarbershopSettingsService.BotSettings("", "http://maps", "", null, ""));
-        when(fidelityService.registerVisit(eq(PHONE))).thenReturn(Optional.of(
-                com.razor.api.model.Coupon.builder()
-                        .id(UUID.randomUUID()).code("FIDELIDADE-ABC12")
-                        .discountType(com.razor.api.model.Coupon.DiscountType.PERCENT)
-                        .discountValue(new java.math.BigDecimal("10"))
-                        .validUntil(java.time.LocalDate.now().plusDays(90))
-                        .build()));
-
-        service.adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte");
-
-        verify(whatsAppService).sendTextMessage(eq(PHONE), contains("FIDELIDADE-ABC12"));
-    }
-
-    @Test
-    @DisplayName("falha na fidelidade nao derruba o agendamento ja salvo")
-    void adicionar_fidelityFails_appointmentSurvives() {
-        when(barbershopSettingsService.resolve()).thenReturn(
-                new BarbershopSettingsService.BotSettings("", "http://maps", "", null, ""));
-        when(fidelityService.registerVisit(eq(PHONE)))
-                .thenThrow(new RuntimeException("banco fora do ar"));
-
-        service.adicionarAgendamentoViaIA("João", PHONE, "20/12", "10:00", "Corte");
-
-        verify(appointmentRepository).save(any(Appointment.class));
+        // Agendar nao e ser atendido: o ponto (e o lastServiceDate) so vem no fechamento da comanda.
+        verify(fidelityService, never()).registerVisit(any());
+        verify(customerRepository, never()).save(any());
     }
 
     @Test
     @DisplayName("data inválida não cria agendamento (nunca grava lixo)")
     void adicionar_invalidDate_doesNotSave() {
-        service.adicionarAgendamentoViaIA("João", PHONE, "quando der", "sei la", "Corte");
+        assertThat(service.adicionarAgendamentoViaIA("João", PHONE, "quando der", "sei la", "Corte")).isEmpty();
 
         verify(appointmentRepository, never()).save(any());
         verify(whatsAppService, never()).sendTextMessage(any(), any());
@@ -545,5 +510,24 @@ class AgendaServiceTest {
 
         assertThat(count).isEqualTo(1);
         verify(appointmentRepository, times(2)).save(any(Appointment.class));
+    }
+
+    @Test
+    @DisplayName("processAgenda com JSON invalido LANCA (antes devolvia 0 e o admin lia '✅ 0 clientes')")
+    void processAgenda_invalidJson_throws() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.processAgenda("isto nao e json {"))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("processAgenda propaga falha de banco no meio do lote")
+    void processAgenda_saveFails_throws() {
+        when(customerService.findByName(any())).thenReturn(null);
+        when(appointmentRepository.save(any(Appointment.class))).thenThrow(new RuntimeException("db fora"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.processAgenda(
+                "{\"items\":[{\"name\":\"Ana\",\"time\":\"10:00\",\"date\":\"20/12\"}]}"))
+                .hasMessageContaining("db fora");
     }
 }

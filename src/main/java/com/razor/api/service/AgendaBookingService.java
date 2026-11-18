@@ -3,7 +3,6 @@ package com.razor.api.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razor.api.model.Appointment;
-import com.razor.api.model.Coupon;
 import com.razor.api.model.Customer;
 import com.razor.api.model.PaymentStatus;
 import com.razor.api.repository.AppointmentRepository;
@@ -25,9 +24,9 @@ import org.springframework.stereotype.Service;
  * dos comandos do admin no WhatsApp.
  *
  * <ul>
- *   <li><b>Criar</b>: {@link #adicionarAgendamentoViaIA} (atribui barbeiro, cria lembrete/avaliacao
- *       e registra o ponto de fidelidade), {@link #agendarPeloPainel} (agenda interativa) e
- *       {@link #processAgenda} (lote em JSON do admin).</li>
+ *   <li><b>Criar</b>: {@link #adicionarAgendamentoViaIA} (atribui barbeiro e cria lembrete/avaliacao),
+ *       {@link #agendarPeloPainel} (agenda interativa) e {@link #processAgenda} (lote em JSON do admin).
+ *       O ponto de fidelidade vem no fechamento da comanda, nao na reserva.</li>
  *   <li><b>Cancelar</b>: {@link #cancelarAgendamentoExato} / {@link #cancelarAgendamentoCliente},
  *       que tambem cancelam as tarefas pendentes do telefone.</li>
  *   <li><b>Consultar</b>: agendamentos do cliente e se ele tem horario futuro ativo.</li>
@@ -45,20 +44,20 @@ public class AgendaBookingService {
     private final CustomerService customerService;
     private final ProfessionalAssignmentService professionalAssignmentService;
     private final AgendaTaskService agendaTaskService;
-    private final FidelityService fidelityService;
-    private final WhatsAppService whatsAppService;
-    private final BarbershopSettingsService barbershopSettingsService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
-        adicionarAgendamentoViaIA(name, phone, date, time, service, null);
+    public Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
+        return adicionarAgendamentoViaIA(name, phone, date, time, service, null);
     }
 
     /**
      * Cria um agendamento e atribui um profissional (barbeiro): usa o {@code preferredProfessionalId}
      * se informado e livre; caso contrario auto-atribui o barbeiro livre menos ocupado no dia.
+     *
+     * @return o agendamento salvo; vazio se nada foi agendado (ex.: data/hora que nao da para
+     *         interpretar). Quem chama SO pode confirmar ao cliente quando houver agendamento.
      */
-    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
+    public Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
                                           UUID preferredProfessionalId) {
         LocalDate parsedDate;
         LocalTime parsedTime;
@@ -67,7 +66,7 @@ public class AgendaBookingService {
             parsedTime = AppointmentDates.parseTime(time);
         } catch (Exception e) {
             log.error("[AGENDA] Nao foi possivel criar agendamento para {} — data/hora invalida ('{}' '{}'): {}", phone, date, time, e.getMessage());
-            return;
+            return Optional.empty();
         }
 
         UUID professionalId = professionalAssignmentService.assign(parsedDate, parsedTime, preferredProfessionalId, service);
@@ -85,7 +84,7 @@ public class AgendaBookingService {
         if (professionalId != null) {
             log.info("[AGENDA] Profissional {} atribuido ao agendamento de {}", professionalId, phone);
         }
-        registrarNovoAgendamento(app);
+        return Optional.of(registrarNovoAgendamento(app));
     }
 
     /**
@@ -93,7 +92,7 @@ public class AgendaBookingService {
      * vem escolhidos e ja validados pelo {@link AgendaPanelService} — aqui nao ha auto-atribuicao.
      *
      * <p>Passa pelo MESMO caminho de gravacao do agendamento da IA ({@link #registrarNovoAgendamento}):
-     * lembrete, avaliacao e ponto de fidelidade iguais, e qualquer regra nova de criacao (ex.: limite
+     * lembrete e avaliacao iguais, e qualquer regra nova de criacao (ex.: limite
      * de agendamentos por cliente) colocada ali vale para os dois canais.
      */
     public Appointment agendarPeloPainel(String name, String phone, LocalDate date, LocalTime time,
@@ -111,7 +110,7 @@ public class AgendaBookingService {
         return registrarNovoAgendamento(app);
     }
 
-    /** Grava um agendamento novo e dispara o que nasce com ele (tarefas e fidelidade). */
+    /** Grava um agendamento novo e dispara o que nasce com ele (lembrete e pedido de avaliacao). */
     private Appointment registrarNovoAgendamento(Appointment app) {
         Appointment saved = appointmentRepository.save(app);
         // save() com mock (testes) devolve null; com JPA devolve a mesma instancia com o id.
@@ -122,57 +121,33 @@ public class AgendaBookingService {
 
         agendaTaskService.criarTarefasAgendadas(ag);
 
-        registrarPontoFidelidade(ag.getCustomerPhone());
+        // Fidelidade NAO e dada aqui: agendar nao e ser atendido (cancelamento nunca estornava o
+        // ponto). O ponto vem no fechamento da comanda — ver FidelityVisitService.
         return ag;
-    }
-
-    /**
-     * Ponto do cartao fidelidade. Zerar a cartela e emitir o cupom acontecem na mesma
-     * transacao dentro do FidelityService: se a emissao falhar, o cliente nao perde os pontos.
-     */
-    private void registrarPontoFidelidade(String phone) {
-        Optional<Coupon> recompensa;
-        try {
-            recompensa = fidelityService.registerVisit(phone);
-        } catch (Exception ex) {
-            // Fidelidade nao pode derrubar o agendamento, que ja esta salvo. Mas o erro precisa
-            // aparecer inteiro no log: antes so a mensagem era registrada, sem stack trace.
-            log.error("[FIDELIDADE] Falha ao registrar ponto de {} — pontos preservados pelo rollback", phone, ex);
-            return;
-        }
-
-        // O envio fica fora da transacao: e chamada de rede, e falha de rede nao pode desfazer
-        // uma recompensa ja conquistada. Se a mensagem nao sair, o cupom continua valido e o
-        // codigo fica no log para a barbearia reenviar.
-        recompensa.ifPresent(coupon -> {
-            try {
-                String nomeBarbearia = barbershopSettingsService.resolve().displayName();
-                String msg = "🎉 *PARABÉNS!* Você completou "
-                        + CouponService.FIDELITY_TARGET_POINTS + " pontos no seu Cartão Fidelidade da "
-                        + nomeBarbearia + "! 🥳✂️\n\n"
-                        + "Como recompensa, você ganhou *"
-                        + coupon.getDiscountValue().stripTrailingZeros().toPlainString()
-                        + "% de desconto* no seu próximo corte! Apresente o código abaixo no caixa:\n\n"
-                        + "🎟️ *" + coupon.getCode() + "*\n\n"
-                        + "_Válido até " + AppointmentDates.formatDate(coupon.getValidUntil()) + "._\n\n"
-                        + "Obrigado pela preferência e por fazer parte da nossa história! 👊💈";
-                whatsAppService.sendTextMessage(phone, msg);
-            } catch (Exception ex) {
-                log.error("[FIDELIDADE] Cupom {} foi emitido para {} mas a mensagem nao saiu — "
-                        + "informe o codigo ao cliente manualmente", coupon.getCode(), phone, ex);
-            }
-        });
     }
 
     /**
      * Lote de agendamentos enviado pelo admin ({@code {"items":[{name,time,date,service}]}}).
      * Retorna quantos foram de clientes conhecidos (com telefone, e portanto com lembrete).
+     *
+     * <p>Erro (JSON invalido da Visao IA, falha de banco) <b>sobe</b> e o lote inteiro e desfeito:
+     * antes o catch devolvia 0 e o admin lia "✅ 0 clientes", sem saber que a importacao falhou.
      */
+    @org.springframework.transaction.annotation.Transactional
     public int processAgenda(String jsonAgenda) {
         int agendados = 0;
+        JsonNode root;
         try {
-            JsonNode root = objectMapper.readTree(jsonAgenda);
-            JsonNode items = root.get("items");
+            root = objectMapper.readTree(jsonAgenda);
+        } catch (Exception e) {
+            log.error("[AGENDA] JSON de agenda invalido recebido: '{}'", truncate(jsonAgenda), e);
+            throw new IllegalArgumentException("JSON de agenda invalido", e);
+        }
+        try {
+            JsonNode items = root == null ? null : root.get("items");
+            if (items == null || !items.isArray()) {
+                log.warn("[AGENDA] JSON de agenda sem lista 'items': '{}'", truncate(jsonAgenda));
+            }
 
             if (items != null && items.isArray()) {
                 for (JsonNode item : items) {
@@ -215,10 +190,16 @@ public class AgendaBookingService {
                 }
             }
             return agendados;
-        } catch (Exception e) {
-            log.error("Erro Agenda JSON: {}", e.getMessage());
-            return 0;
+        } catch (RuntimeException e) {
+            log.error("[AGENDA] Falha ao importar o lote de agenda (desfeito). JSON: '{}'", truncate(jsonAgenda), e);
+            throw e;
         }
+    }
+
+    /** JSON no log sem estourar a linha (a Visao IA pode devolver textos longos). */
+    private static String truncate(String s) {
+        if (s == null) return "null";
+        return s.length() <= 500 ? s : s.substring(0, 500) + "...(" + s.length() + " chars)";
     }
 
     public Appointment getAgendamentoCliente(String phone) {

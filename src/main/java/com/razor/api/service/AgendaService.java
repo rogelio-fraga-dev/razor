@@ -45,13 +45,13 @@ public class AgendaService {
 
     // ---- Agendamentos (criar / cancelar / consultar) ----
 
-    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
-        booking.adicionarAgendamentoViaIA(name, phone, date, time, service);
+    public java.util.Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
+        return booking.adicionarAgendamentoViaIA(name, phone, date, time, service);
     }
 
-    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
+    public java.util.Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
                                           UUID preferredProfessionalId) {
-        booking.adicionarAgendamentoViaIA(name, phone, date, time, service, preferredProfessionalId);
+        return booking.adicionarAgendamentoViaIA(name, phone, date, time, service, preferredProfessionalId);
     }
 
     public int processAgenda(String jsonAgenda) {

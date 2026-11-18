@@ -165,4 +165,82 @@ class OpenAIServiceTest {
 
         assertThat(table).contains("45,00").doesNotContain("plano");
     }
+
+    // ==========================================================================================
+    // Historico da conversa: papel vem do TIPO, em ordem cronologica
+    // ==========================================================================================
+
+    private static com.razor.api.model.Interaction interaction(
+            com.razor.api.model.Interaction.InteractionType type, String content, int minute) {
+        return com.razor.api.model.Interaction.builder().type(type).content(content)
+                .timestamp(java.time.LocalDateTime.of(2026, 11, 17, 10, minute)).build();
+    }
+
+    @Test
+    @DisplayName("historico DESC com 10 itens vira chat cronologico com papeis pelo tipo")
+    void history_rolesComeFromType_notFromIndexParity() {
+        var U = com.razor.api.model.Interaction.InteractionType.USER;
+        var B = com.razor.api.model.Interaction.InteractionType.BOT;
+        // Janela de 10 itens, do mais recente para o mais antigo (como o repositorio devolve).
+        // Comeca (cronologicamente) por uma fala do BOT — exatamente o caso que invertia tudo.
+        List<com.razor.api.model.Interaction> desc = new java.util.ArrayList<>();
+        for (int m = 9; m >= 0; m--) {
+            boolean isUser = m % 2 == 1;
+            desc.add(interaction(isUser ? U : B, (isUser ? "cliente " : "bot ") + m, m));
+        }
+
+        var msgs = OpenAIService.buildHistoryMessages(desc, "cliente 9");
+
+        assertThat(msgs).hasSize(10);
+        assertThat(msgs.get(0)).isInstanceOf(dev.langchain4j.data.message.AiMessage.class);
+        assertThat(((dev.langchain4j.data.message.AiMessage) msgs.get(0)).text()).isEqualTo("bot 0");
+        for (var msg : msgs) {
+            if (msg instanceof dev.langchain4j.data.message.UserMessage um) {
+                assertThat(um.singleText()).startsWith("cliente");
+            } else {
+                assertThat(((dev.langchain4j.data.message.AiMessage) msg).text()).startsWith("bot");
+            }
+        }
+        // A mensagem atual do cliente e a ULTIMA e e do usuario, nao do assistente.
+        assertThat(msgs.get(9)).isInstanceOf(dev.langchain4j.data.message.UserMessage.class);
+        assertThat(((dev.langchain4j.data.message.UserMessage) msgs.get(9)).singleText()).isEqualTo("cliente 9");
+    }
+
+    @Test
+    @DisplayName("mensagem traduzida do menu substitui a ultima fala do cliente (sem duplicar)")
+    void history_translatedPromptReplacesLastUserMessage() {
+        var U = com.razor.api.model.Interaction.InteractionType.USER;
+        var B = com.razor.api.model.Interaction.InteractionType.BOT;
+        var desc = List.of(interaction(U, "1", 2), interaction(B, "menu", 1), interaction(U, "oi", 0));
+
+        var msgs = OpenAIService.buildHistoryMessages(desc, "Quero agendar um horário.");
+
+        assertThat(msgs).hasSize(3);
+        assertThat(((dev.langchain4j.data.message.UserMessage) msgs.get(2)).singleText())
+                .isEqualTo("Quero agendar um horário.");
+    }
+
+    @Test
+    @DisplayName("sem historico, so a mensagem atual vai como fala do cliente")
+    void history_empty_onlyCurrentMessage() {
+        var msgs = OpenAIService.buildHistoryMessages(List.of(), "oi");
+
+        assertThat(msgs).hasSize(1);
+        assertThat(msgs.get(0)).isInstanceOf(dev.langchain4j.data.message.UserMessage.class);
+    }
+
+    @Test
+    @DisplayName("falha da IA vira AiUnavailableException, nunca um texto de erro como resposta")
+    void processCustomerMessage_aiFailure_throws() {
+        when(agendaService.getHorariosDisponiveisDoDia(any())).thenReturn("10:00");
+        when(barbershopSettingsService.resolve()).thenReturn(
+                new BarbershopSettingsService.BotSettings("", "", "", null, ""));
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of());
+        when(chatModel.generate(org.mockito.ArgumentMatchers.<List<dev.langchain4j.data.message.ChatMessage>>any()))
+                .thenThrow(new RuntimeException("429 quota"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                service.processCustomerMessage("oi", List.of(), "livre", 0, "Joao", null))
+                .isInstanceOf(AiUnavailableException.class);
+    }
 }

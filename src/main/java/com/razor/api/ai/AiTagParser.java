@@ -8,7 +8,15 @@ package com.razor.api.ai;
  * Isso substitui o parsing anterior baseado em {@code split("\\|")} + acesso a {@code parts[i]},
  * que quebrava com respostas malformadas do GPT.
  */
+@lombok.extern.slf4j.Slf4j
 public class AiTagParser {
+
+    /**
+     * Resposta ao cliente quando a IA tentou agendar mas a tag veio malformada. Nada foi
+     * agendado, entao o texto da IA ("Agendamento Confirmado!") NAO pode ir para o cliente.
+     */
+    public static final String MALFORMED_BOOKING_MSG = "Quase lá! 😊 Para eu registrar certinho, "
+            + "me confirma por favor o *dia*, o *horário* e o *serviço* que você quer?";
 
     private static final String TAG_AGENDAMENTO = "[NOVO_AGENDAMENTO|";
     private static final String TAG_LISTA_ESPERA = "[LISTA_DE_ESPERA|";
@@ -24,6 +32,11 @@ public class AiTagParser {
             if (parsed != null) {
                 return parsed;
             }
+            // Tag de agendamento malformada (sem "]" ou com campos faltando): antes o texto ia
+            // cru para o cliente — com a tag tecnica — e nada era agendado, sem log nenhum.
+            log.warn("[IA] Tag de agendamento malformada, nada foi agendado: '{}'",
+                    malformedFragment(aiResponse, TAG_AGENDAMENTO));
+            return new AiIntent.Resposta(MALFORMED_BOOKING_MSG);
         }
 
         if (aiResponse.contains(TAG_LISTA_ESPERA)) {
@@ -81,6 +94,13 @@ public class AiTagParser {
             return null; // sem fechamento -> tag malformada
         }
         return aiResponse.substring(start, end + 1);
+    }
+
+    /** Trecho da tag malformada (do marcador ate o "]" ou o fim do texto), para o log. */
+    private String malformedFragment(String aiResponse, String opener) {
+        int start = aiResponse.indexOf(opener);
+        int end = aiResponse.indexOf(']', start);
+        return aiResponse.substring(start, end < 0 ? aiResponse.length() : end + 1);
     }
 
     /** Remove os colchetes e separa os campos por barra vertical. */

@@ -197,7 +197,11 @@ public class OpenAIService {
         return cfg.workingDaysText() + ", das " + cfg.openingTime() + " às " + cfg.closingTime();
     }
 
-    public String processCustomerMessage(String userMessage, List<String> recentHistory, String agendaContext, int activeAppointments, String knownCustomerName, com.razor.api.model.Customer customer) {
+    /**
+     * @throws AiUnavailableException se a IA falhar (rede, cota, timeout) — nunca devolve um
+     *         texto de erro disfarcado de resposta.
+     */
+    public String processCustomerMessage(String userMessage, List<com.razor.api.model.Interaction> recentHistory,String agendaContext, int activeAppointments, String knownCustomerName, com.razor.api.model.Customer customer) {
         try {
             List<ChatMessage> messages = new ArrayList<>();
             LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
@@ -236,31 +240,55 @@ public class OpenAIService {
                     
             messages.add(SystemMessage.from(finalPrompt));
             
-            // O histórico vem em ordem DESC do banco (mais recente primeiro).
-            // Precisamos reverter para ordem cronológica ASC antes de montar as mensagens.
-            // O último item do histórico ASC é a mensagem atual do usuário (já salva no banco).
-            // Por isso NÃO adicionamos userMessage separadamente para evitar duplicação.
-            if (recentHistory != null && !recentHistory.isEmpty()) {
-                // Reverte: banco retorna DESC, precisamos ASC
-                List<String> chronological = new ArrayList<>(recentHistory);
-                java.util.Collections.reverse(chronological);
-                
-                // O último item já é a mensagem atual do usuário — não adicionar de novo
-                // Montamos o histórico alternando USER/BOT na ordem correta
-                for (int i = 0; i < chronological.size(); i++) {
-                    if (i % 2 == 0) messages.add(UserMessage.from(chronological.get(i)));
-                    else messages.add(AiMessage.from(chronological.get(i)));
-                }
-            } else {
-                // Sem histórico — adiciona só a mensagem atual
-                messages.add(UserMessage.from(userMessage));
-            }
-            
+            messages.addAll(buildHistoryMessages(recentHistory, userMessage));
+
             return chatModel.generate(messages).content().text();
         } catch (Exception e) {
-            log.error("Erro Chat: {}", e.getMessage());
-            return "Opa, deu um pequeno erro no meu sistema. Pode repetir?";
+            // Nada de responder "deu um erro" como se fosse a IA: quem chama manda a mensagem de
+            // contingencia (sem grava-la como fala do bot) e avisa o dono.
+            log.error("[IA] Falha ao gerar resposta do chat", e);
+            throw new AiUnavailableException("IA indisponivel: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Converte o historico do banco em mensagens do chat, em ordem cronologica e com o papel
+     * vindo do TIPO da interacao (USER/BOT).
+     *
+     * <p>Antes o papel era decidido pela paridade do indice: com a janela de 10 mensagens o
+     * primeiro item quase nunca era do cliente, entao os papeis saiam invertidos e a mensagem
+     * atual do cliente ia para o modelo como fala do proprio assistente.
+     *
+     * <p>A ultima mensagem do cliente no historico e a atual (ja gravada antes de chamar a IA);
+     * ela e substituida por {@code userMessage}, que pode ser a versao "traduzida" do menu
+     * (ex.: "1" vira "Quero agendar um horário."). Se nao houver, a mensagem atual e anexada.
+     */
+    // package-private: coberto por OpenAIServiceTest.
+    static List<ChatMessage> buildHistoryMessages(List<com.razor.api.model.Interaction> recentHistory,
+                                                  String userMessage) {
+        List<com.razor.api.model.Interaction> chronological =
+                recentHistory == null ? new ArrayList<>() : new ArrayList<>(recentHistory);
+        // O repositorio devolve DESC (mais recente primeiro). Inverte e depois ordena por
+        // timestamp (ordenacao estavel: empates mantem a ordem invertida).
+        java.util.Collections.reverse(chronological);
+        chronological.sort(java.util.Comparator.comparing(com.razor.api.model.Interaction::getTimestamp,
+                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())));
+
+        List<ChatMessage> out = new ArrayList<>();
+        for (com.razor.api.model.Interaction i : chronological) {
+            if (i == null || i.getContent() == null || i.getContent().isBlank() || i.getType() == null) continue;
+            out.add(i.getType() == com.razor.api.model.Interaction.InteractionType.USER
+                    ? UserMessage.from(i.getContent())
+                    : AiMessage.from(i.getContent()));
+        }
+
+        boolean hasCurrent = userMessage != null && !userMessage.isBlank();
+        if (!out.isEmpty() && out.get(out.size() - 1) instanceof UserMessage) {
+            if (hasCurrent) out.set(out.size() - 1, UserMessage.from(userMessage));
+        } else if (hasCurrent) {
+            out.add(UserMessage.from(userMessage));
+        }
+        return out;
     }
     
     public String extractAgendaFromImage(String base64Image, String mimeType) {

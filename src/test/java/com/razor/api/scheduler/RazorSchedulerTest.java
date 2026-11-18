@@ -88,7 +88,7 @@ class RazorSchedulerTest {
         scheduler.processScheduledTasks();
 
         assertThat(tenantDuring.get()).isEqualTo(shopId);
-        verify(whatsAppService).sendTextMessage(PHONE, "Lembrete!");
+        verify(whatsAppService).sendTextMessageSync(PHONE, "Lembrete!");
         assertThat(t.getStatus()).isEqualTo(ScheduledTask.TaskStatus.COMPLETED);
         verify(taskRepository).save(t);
         assertThat(TenantContext.isSet()).isFalse(); // limpo ao final
@@ -103,7 +103,7 @@ class RazorSchedulerTest {
         scheduler.processScheduledTasks();
 
         assertThat(t.getStatus()).isEqualTo(ScheduledTask.TaskStatus.CANCELLED);
-        verify(whatsAppService, never()).sendTextMessage(any(), any());
+        verify(whatsAppService, never()).sendTextMessageSync(any(), any());
     }
 
     @Test
@@ -115,8 +115,39 @@ class RazorSchedulerTest {
 
         scheduler.processScheduledTasks();
 
-        verify(whatsAppService, never()).sendTextMessage(eq(PHONE), any());
+        verify(whatsAppService, never()).sendTextMessageSync(eq(PHONE), any());
         assertThat(t.getStatus()).isEqualTo(ScheduledTask.TaskStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("envio que falha marca a tarefa como FAILED (antes virava COMPLETED sempre)")
+    void sendFails_taskMarkedFailed() {
+        ScheduledTask t = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusMinutes(5));
+        when(taskRepository.findByStatusAndExecutionTimeBefore(any(), any())).thenReturn(List.of(t));
+        org.mockito.Mockito.doThrow(new WhatsAppService.WhatsAppSendException("instancia desconectada", new RuntimeException()))
+                .when(whatsAppService).sendTextMessageSync(PHONE, "Lembrete!");
+
+        scheduler.processScheduledTasks();
+
+        assertThat(t.getStatus()).isEqualTo(ScheduledTask.TaskStatus.FAILED);
+        verify(taskRepository).save(t);
+    }
+
+    @Test
+    @DisplayName("sextou: erro em um cliente nao interrompe os demais")
+    void sextou_failureInOneCustomer_doesNotStopOthers() {
+        var c1 = com.razor.api.model.Customer.builder().phoneNumber("5511111111111").name("Ana")
+                .barbershopId(UUID.randomUUID()).build();
+        var c2 = com.razor.api.model.Customer.builder().phoneNumber("5522222222222").name("Bia")
+                .barbershopId(UUID.randomUUID()).build();
+        when(customerRepository.findAll()).thenReturn(List.of(c1, c2));
+        when(agendaService.hasAgendamentoFuturo("5511111111111")).thenThrow(new RuntimeException("boom"));
+        when(agendaService.hasAgendamentoFuturo("5522222222222")).thenReturn(false);
+
+        scheduler.processSextouReminders();
+
+        verify(whatsAppService).sendTextMessageSync(eq("5522222222222"), argThat(m -> m.contains("Bia")));
+        assertThat(TenantContext.isSet()).isFalse();
     }
 
     // ---------- relatórios administrativos por tenant ----------

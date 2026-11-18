@@ -97,14 +97,14 @@ public class RazorScheduler {
                     continue;
                 }
 
-                whatsAppService.sendTextMessage(phone, task.getMessageContent());
+                // Sincrono de proposito: so marca COMPLETED se a Evolution aceitou o envio. Com o
+                // envio assincrono toda tarefa virava COMPLETED, mesmo com o WhatsApp fora do ar.
+                whatsAppService.sendTextMessageSync(phone, task.getMessageContent());
 
                 task.setStatus(ScheduledTask.TaskStatus.COMPLETED);
                 taskRepository.save(task);
-
-
             } catch (Exception e) {
-                log.error("Erro na tarefa {}: {}", task.getId(), e.getMessage());
+                log.error("[SCHEDULER] Falha na tarefa {} ({}) — marcada como FAILED", task.getId(), task.getTaskType(), e);
                 task.setStatus(ScheduledTask.TaskStatus.FAILED);
                 taskRepository.save(task);
             } finally {
@@ -121,11 +121,14 @@ public class RazorScheduler {
     @Transactional
     public void processCustomerRetentionReminders() {
         log.info("[RETENÇÃO] Rodando motor de lembrete de cabelo crescido...");
-        try {
-            List<com.razor.api.model.Customer> customers = customerRepository.findAll();
-            LocalDate today = LocalDate.now();
+        List<com.razor.api.model.Customer> customers = customerRepository.findAll();
+        LocalDate today = LocalDate.now();
+        int falhas = 0;
 
-            for (com.razor.api.model.Customer c : customers) {
+        // try/catch POR CLIENTE: antes um unico try envolvia o laco inteiro (todos os tenants),
+        // e o primeiro erro interrompia os lembretes de todo mundo que vinha depois.
+        for (com.razor.api.model.Customer c : customers) {
+            try {
                 // Cada cliente pertence a uma barbearia: escopa o contexto para que
                 // hasAgendamentoFuturo e o isAdmin consultem o tenant certo.
                 TenantContext.set(c.getBarbershopId());
@@ -153,15 +156,19 @@ public class RazorScheduler {
                                 ". O cabelo já está pedindo aquele trato, hein? ✂️\n\n" +
                                 "Quer garantir seu horário para essa semana? Digite **Menu** para ver as opções!";
                         
-                        whatsAppService.sendTextMessage(c.getPhoneNumber(), reminderMsg);
+                        whatsAppService.sendTextMessageSync(c.getPhoneNumber(), reminderMsg);
                         log.info("[RETENÇÃO] Mensagem enviada para {} após {} dias de inatividade.", c.getPhoneNumber(), daysSince);
                     }
                 }
+            } catch (Exception e) {
+                falhas++;
+                log.error("[RETENÇÃO] Falha no lembrete do cliente {} (tenant {})", c.getPhoneNumber(), c.getBarbershopId(), e);
+            } finally {
+                TenantContext.clear();
             }
-        } catch (Exception e) {
-            log.error("[RETENÇÃO] Erro no scheduler de retenção: {}", e.getMessage(), e);
-        } finally {
-            TenantContext.clear();
+        }
+        if (falhas > 0) {
+            log.warn("[RETENÇÃO] {} de {} clientes falharam no lembrete de retenção", falhas, customers.size());
         }
     }
 
@@ -173,9 +180,11 @@ public class RazorScheduler {
     @Transactional
     public void processSextouReminders() {
         log.info("[SEXTOU] Rodando motor de lembrete de fim de semana...");
-        try {
-            List<com.razor.api.model.Customer> customers = customerRepository.findAll();
-            for (com.razor.api.model.Customer c : customers) {
+        List<com.razor.api.model.Customer> customers = customerRepository.findAll();
+        int falhas = 0;
+        // try/catch POR CLIENTE (mesmo motivo da retencao): um erro nao derruba a base toda.
+        for (com.razor.api.model.Customer c : customers) {
+            try {
                 TenantContext.set(c.getBarbershopId());
 
                 // Ignora pausados ou administradores (do tenant do cliente)
@@ -189,14 +198,18 @@ public class RazorScheduler {
                             "O final de semana tá aí, já garantiu seu horário pra dar aquele trato pro rolê? ✂️\n\n" +
                             "Ainda temos algumas vagas! Digite *Menu* para agendar ou ver os horários.";
                     
-                    whatsAppService.sendTextMessage(c.getPhoneNumber(), msg);
+                    whatsAppService.sendTextMessageSync(c.getPhoneNumber(), msg);
                     log.info("[SEXTOU] Mensagem de Sextou enviada para {}.", c.getPhoneNumber());
                 }
+            } catch (Exception e) {
+                falhas++;
+                log.error("[SEXTOU] Falha no lembrete do cliente {} (tenant {})", c.getPhoneNumber(), c.getBarbershopId(), e);
+            } finally {
+                TenantContext.clear();
             }
-        } catch (Exception e) {
-            log.error("[SEXTOU] Erro no scheduler de sextou: {}", e.getMessage(), e);
-        } finally {
-            TenantContext.clear();
+        }
+        if (falhas > 0) {
+            log.warn("[SEXTOU] {} de {} clientes falharam no lembrete de sextou", falhas, customers.size());
         }
     }
 
