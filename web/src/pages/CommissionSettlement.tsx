@@ -171,7 +171,7 @@ export function CommissionSettlementPage() {
           />
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table className="table">
+            <table className="table table-cards">
               <thead>
                 <tr>
                   <th>Barbeiro</th>
@@ -187,26 +187,26 @@ export function CommissionSettlementPage() {
               <tbody>
                 {s.items.map((it) => (
                   <tr key={it.professionalId}>
-                    <td style={{ fontWeight: 550 }}>
+                    <td className="tc-head" style={{ fontWeight: 550 }}>
                       {it.professionalName}
                       <div className="faint" style={{ fontSize: 11.5 }}>{it.atendimentos} atendimento(s)</div>
                     </td>
-                    <td className="num">{money(it.faturamento)}</td>
-                    <td className="num">
+                    <td data-label="Serviços" className="num">{money(it.faturamento)}</td>
+                    <td data-label="Produtos" className="num">
                       {it.produtos > 0 ? money(it.faturamentoProdutos) : <span className="faint">—</span>}
                     </td>
-                    <td className="num">{money(it.comissao)}</td>
-                    <td className="num" style={{ color: it.pago > 0 ? "var(--green)" : undefined }}>
+                    <td data-label="Comissão" className="num">{money(it.comissao)}</td>
+                    <td data-label="Já pago" className="num" style={{ color: it.pago > 0 ? "var(--green)" : undefined }}>
                       {money(it.pago)}
                     </td>
-                    <td className="num">
+                    <td data-label="Vales" className="num">
                       {it.vales > 0 ? (
                         <span style={{ color: "var(--amber)" }}>−{money(it.vales)}</span>
                       ) : (
                         <span className="faint">—</span>
                       )}
                     </td>
-                    <td className="num" style={{ fontWeight: 700 }}>
+                    <td data-label="A pagar" className="num" style={{ fontWeight: 700 }}>
                       {it.aReceber > 0 ? (
                         money(it.aReceber)
                       ) : it.aReceber < 0 ? (
@@ -217,11 +217,11 @@ export function CommissionSettlementPage() {
                         <span className="faint">quitado</span>
                       )}
                     </td>
-                    <td className="right">
-                      <button className="btn btn-ghost btn-sm" onClick={() => openAdvance(it)}>
+                    <td className="right tc-actions">
+                      <button className="btn btn-ghost btn-sm" onClick={() => openAdvance(it)} aria-label={`Vale para ${it.professionalName}`}>
                         Vale
                       </button>
-                      <button className="btn btn-primary btn-sm" onClick={() => openPay(it)}>
+                      <button className="btn btn-primary btn-sm" onClick={() => openPay(it)} aria-label={`Pagar ${it.professionalName}`}>
                         Pagar
                       </button>
                     </td>
@@ -246,7 +246,7 @@ export function CommissionSettlementPage() {
           <div className="card-pad faint">Nenhum acerto registrado ainda.</div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table className="table">
+            <table className="table table-cards">
               <thead>
                 <tr>
                   <th>Barbeiro</th>
@@ -260,18 +260,18 @@ export function CommissionSettlementPage() {
               <tbody>
                 {history.data.items.map((p) => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 550 }}>{p.professionalName ?? "—"}</td>
-                    <td className="muted">{dateBr(p.periodStart)} – {dateBr(p.periodEnd)}</td>
-                    <td>
+                    <td className="tc-head" style={{ fontWeight: 550 }}>{p.professionalName ?? "—"}</td>
+                    <td data-label="Período" className="muted">{dateBr(p.periodStart)} – {dateBr(p.periodEnd)}</td>
+                    <td data-label="Saída">
                       {p.fromCashRegister ? (
                         <span className="badge badge-muted">Caixa</span>
                       ) : (
                         <span className="faint">Por fora</span>
                       )}
                     </td>
-                    <td className="muted">{p.notes ?? "—"}</td>
-                    <td className="faint">{p.paidByName ?? "—"}</td>
-                    <td className="num">{money(p.amount)}</td>
+                    <td data-label="Observação" className="muted tc-full">{p.notes ?? "—"}</td>
+                    <td data-label="Registrado por" className="faint">{p.paidByName ?? "—"}</td>
+                    <td data-label="Valor" className="num">{money(p.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -299,7 +299,7 @@ export function CommissionSettlementPage() {
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table className="table">
+            <table className="table table-cards">
               <thead>
                 <tr>
                   <th>Barbeiro</th>
@@ -313,18 +313,18 @@ export function CommissionSettlementPage() {
               <tbody>
                 {advances.data.items.map((a) => (
                   <tr key={a.id}>
-                    <td style={{ fontWeight: 550 }}>{a.professionalName ?? "—"}</td>
-                    <td className="muted">{dateBr(a.advanceDate)}</td>
-                    <td>
+                    <td className="tc-head" style={{ fontWeight: 550 }}>{a.professionalName ?? "—"}</td>
+                    <td data-label="Data" className="muted">{dateBr(a.advanceDate)}</td>
+                    <td data-label="Saída">
                       {a.fromCashRegister ? (
                         <span className="badge badge-muted">Caixa</span>
                       ) : (
                         <span className="faint">Por fora</span>
                       )}
                     </td>
-                    <td className="muted">{a.notes ?? "—"}</td>
-                    <td className="faint">{a.grantedByName ?? "—"}</td>
-                    <td className="num" style={{ color: "var(--amber)" }}>{money(a.amount)}</td>
+                    <td data-label="Observação" className="muted tc-full">{a.notes ?? "—"}</td>
+                    <td data-label="Liberado por" className="faint">{a.grantedByName ?? "—"}</td>
+                    <td data-label="Valor" className="num" style={{ color: "var(--amber)" }}>{money(a.amount)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -249,6 +249,54 @@
   .chip-btn { min-height: 40px; }
 }
 
+/* ---------- Tabela que vira cartões no celular (Comissões, Acerto, Equipe & acesso) ----------
+   Mesma ideia dos cartões de Clientes: a marcação é uma só e o CSS decide. Até 640px cada linha
+   vira um cartão; cada célula mostra o próprio rótulo (data-label) no lugar do cabeçalho, que
+   some. Nada de rolagem lateral: tudo o que a tabela mostra (e os botões) continua à mão.
+   - .tc-head: célula-título do cartão (largura toda, sem rótulo)
+   - .tc-full: célula que ocupa a largura toda (observação, por exemplo)
+   - .tc-actions: botões, na largura toda e com alvo de toque de 44px */
+@media (max-width: 640px) {
+  .table.table-cards { min-width: 0; display: block; }
+  .table.table-cards thead { display: none; }
+  .table.table-cards tbody { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; }
+  .table.table-cards tbody tr,
+  .table.table-cards tbody tr:nth-child(even),
+  .table.table-cards tbody tr:hover {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 12px 14px;
+  }
+  .table.table-cards td,
+  .table.table-cards tr:last-child td {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+    text-align: left;
+  }
+  .table.table-cards td[data-label]::before {
+    content: attr(data-label);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+  }
+  .table.table-cards td.tc-head { grid-column: 1 / -1; font-size: 15px; }
+  .table.table-cards td.tc-full { grid-column: 1 / -1; }
+  .table.table-cards td.tc-actions { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: stretch; gap: 8px; }
+  .table.table-cards td.tc-actions .btn,
+  .table.table-cards td.tc-actions .input { flex: 1 1 auto; min-height: 44px; }
+}
+
 /* ---------- Meu dia (barbeiro) ---------- */
 .myday-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .myday-money { padding: 18px; }

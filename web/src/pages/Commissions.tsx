@@ -137,8 +137,9 @@ export function Commissions() {
             action={<Link className="btn btn-ghost" to="/agenda">Abrir a agenda</Link>}
           />
         ) : (
+          // No celular a tabela vira um cartão por barbeiro (shell.css, .table-cards).
           <div style={{ overflowX: "auto" }}>
-            <table className="table">
+            <table className="table table-cards">
               <thead>
                 <tr>
                   <th>Barbeiro</th>
@@ -155,15 +156,15 @@ export function Commissions() {
               <tbody>
                 {data.items.map((c) => (
                   <tr key={c.professionalId}>
-                    <td style={{ fontWeight: 550 }}>
+                    <td className="tc-head" style={{ fontWeight: 550 }}>
                       <span className="avatar-name">
                         <Avatar name={c.professionalName} photoUrl={photoOf(c.professionalId)} size={30} />
                         {c.professionalName}
                       </span>
                     </td>
-                    <td>{c.atendimentos}</td>
-                    <td className="num">{money(c.faturamento)}</td>
-                    <td>
+                    <td data-label="Atendimentos">{c.atendimentos}</td>
+                    <td data-label="Serviços" className="num">{money(c.faturamento)}</td>
+                    <td data-label="Produtos">
                       {c.produtos > 0 ? (
                         <>
                           {money(c.faturamentoProdutos)}
@@ -173,7 +174,7 @@ export function Commissions() {
                         <span className="faint">—</span>
                       )}
                     </td>
-                    <td className="muted">
+                    <td data-label="Taxa" className="muted">
                       {percent(c.commissionPercent)}
                       {c.produtos > 0 && c.productCommissionPercent !== c.commissionPercent && (
                         <span className="faint" style={{ fontSize: 12 }}>
@@ -181,7 +182,7 @@ export function Commissions() {
                         </span>
                       )}
                     </td>
-                    <td className="num" style={{ fontWeight: 600 }}>{money(c.comissao)}</td>
+                    <td data-label="Comissão" className="num" style={{ fontWeight: 600 }}>{money(c.comissao)}</td>
                   </tr>
                 ))}
               </tbody>
