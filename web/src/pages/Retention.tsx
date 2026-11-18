@@ -32,7 +32,7 @@ function CustomerList({ items, empty }: { items: CustomerAtRisk[]; empty: string
   }
   return (
     <div style={{ overflowX: "auto" }}>
-      <table className="table">
+      <table className="table table-cards">
         <thead>
           <tr>
             <th>Cliente</th>
@@ -45,15 +45,15 @@ function CustomerList({ items, empty }: { items: CustomerAtRisk[]; empty: string
         <tbody>
           {items.map((c) => (
             <tr key={c.customerId}>
-              <td style={{ fontWeight: 550 }}>
+              <td className="tc-head" style={{ fontWeight: 550 }}>
                 {c.name || "Sem nome"}
                 {c.subscriber && <span className="badge badge-plan" style={{ marginLeft: 8 }}>assinante</span>}
               </td>
-              <td className="mono">{phoneBr(c.phone)}</td>
-              <td className="muted">{c.lastVisit ? dateBr(c.lastVisit) : "nunca veio"}</td>
-              <td className="num">{c.lastVisit ? `${c.daysSinceLastVisit} dias` : "—"}</td>
+              <td className="mono" data-label="Telefone">{phoneBr(c.phone)}</td>
+              <td className="muted" data-label="Última visita">{c.lastVisit ? dateBr(c.lastVisit) : "nunca veio"}</td>
+              <td className="num" data-label="Parado há">{c.lastVisit ? `${c.daysSinceLastVisit} dias` : "—"}</td>
               {/* Os dois juntos é que justificam a cobrança: "40 dias" sozinho não diz se é muito. */}
-              <td className="num muted">{c.expectedIntervalDays} dias</td>
+              <td className="num muted" data-label="Costuma voltar em">{c.expectedIntervalDays} dias</td>
             </tr>
           ))}
         </tbody>
@@ -111,7 +111,7 @@ export function RetentionPage() {
               />
             ) : (
               <div style={{ overflowX: "auto" }}>
-                <table className="table">
+                <table className="table table-cards">
                   <thead>
                     <tr>
                       <th>Barbeiro</th>
@@ -124,11 +124,11 @@ export function RetentionPage() {
                   <tbody>
                     {o.professionals.map((p) => (
                       <tr key={p.professionalId}>
-                        <td style={{ fontWeight: 550 }}>{p.professionalName}</td>
-                        <td className="num muted">{hours(p.availableHours)}</td>
-                        <td className="num">{hours(p.bookedHours)}</td>
-                        <td className="num muted">{p.appointments}</td>
-                        <td className="num">{p.rate === null ? "—" : percent(p.rate)}</td>
+                        <td className="tc-head" style={{ fontWeight: 550 }}>{p.professionalName}</td>
+                        <td className="num muted" data-label="Disponível">{hours(p.availableHours)}</td>
+                        <td className="num" data-label="Vendido">{hours(p.bookedHours)}</td>
+                        <td className="num muted" data-label="Atendimentos">{p.appointments}</td>
+                        <td className="num" data-label="Ocupação">{p.rate === null ? "—" : percent(p.rate)}</td>
                       </tr>
                     ))}
                   </tbody>

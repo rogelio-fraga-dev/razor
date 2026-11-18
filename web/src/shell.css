@@ -167,6 +167,8 @@
   .app.sidebar-collapsed { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .topbar-mark { display: inline-grid; flex-shrink: 0; }
+  /* A marca do celular já é o "/" da topbar: o traço do título (h1::before) duplicava. */
+  .topbar h1::before { display: none; }
   .topbar { gap: 10px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
   .topbar h1 { flex: 1; min-width: 7em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* A hora já está na barra do celular; aqui ela só roubava o lugar do título. */
@@ -418,6 +420,10 @@
   .table.table-cards td.tc-full { grid-column: 1 / -1; }
   .table.table-cards td.tc-actions { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: stretch; gap: 8px; }
   .table.table-cards td.tc-actions:empty { display: none; }
+  /* Célula vira coluna flex: sem isto o badge ("Ativo", "Vencida", "mensal") esticava na
+     largura toda da célula, como uma barra. */
+  .table.table-cards td:not(.tc-actions) > * { align-self: flex-start; }
+  .table.table-cards td.tc-actions .btn { flex: 1 1 0; }
   .table.table-cards td.tc-actions > * + * { margin-left: 0; }
   .table.table-cards td.tc-actions .btn,
   .table.table-cards td.tc-actions .input { flex: 1 1 auto; min-height: 44px; }

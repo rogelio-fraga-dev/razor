@@ -148,7 +148,7 @@ export function CommissionSettlementPage() {
         <div className="card-head">
           <h3>Apuração do período<Hint term="acerto" label="acerto" /></h3>
           {s && (
-            <div className="row" style={{ gap: 10 }}>
+            <div className="row wrap" style={{ gap: 8 }}>
               <span className="badge badge-muted mono">apurado {money(s.totalComissao)}</span>
               <span className="badge badge-green mono">pago {money(s.totalPago)}</span>
               {s.totalVales > 0 && (

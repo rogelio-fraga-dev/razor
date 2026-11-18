@@ -126,7 +126,7 @@ function OpenCash({ summary, onChanged }: { summary: CashSessionSummary; onChang
         </div>
         {/* Vários valores num card só: em lista rótulo × valor. Enfileirados com "·" num número de
             18px eles quebravam no meio ("R$ 20,00 · R$ 65,00 · / R$ 172,00") e sem dizer qual era qual. */}
-        <div className="stat">
+        <div className="stat stat-wide">
           <div className="label">Por forma de pagamento</div>
           <ul className="stat-split">
             <li><span>Dinheiro</span><b className="mono">{money(t.vendasDinheiro)}</b></li>
@@ -138,7 +138,7 @@ function OpenCash({ summary, onChanged }: { summary: CashSessionSummary; onChang
             só o dinheiro entra na gaveta{t.taxas > 0 ? ` · taxas ${money(t.taxas)}` : ""}
           </div>
         </div>
-        <div className="stat">
+        <div className="stat stat-wide">
           <div className="label">Sangrias e suprimentos</div>
           <ul className="stat-split">
             <li>
@@ -297,9 +297,15 @@ function CloseCashModal({ summary, onClose, onClosed }: { summary: CashSessionSu
       title="Fechar o caixa"
       onClose={onClose}
       footer={
-        <button className="btn btn-primary" onClick={close} disabled={counted === "" || saving}>
-          {saving ? "Fechando…" : "Confirmar fechamento"}
-        </button>
+        <>
+          {/* Mesmo rodapé dos outros modais: sair sem fechar não pode depender só do "✕". */}
+          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>
+            Cancelar
+          </button>
+          <button className="btn btn-primary" onClick={close} disabled={counted === "" || saving}>
+            {saving ? "Fechando…" : "Confirmar fechamento"}
+          </button>
+        </>
       }
     >
       <div className="stack" style={{ gap: 14 }}>

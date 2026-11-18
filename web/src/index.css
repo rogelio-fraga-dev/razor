@@ -616,6 +616,8 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .stat-split { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .stat-split li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--text-muted); }
 .stat-split b { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; }
+/* No celular (grade de 2 colunas) a lista rótulo × valor não cabe em meia largura. */
+@media (max-width: 560px) { .stat-grid > .stat-wide { grid-column: 1 / -1; } }
 
 /* ---------- Auth ---------- */
 .auth-wrap {
@@ -855,6 +857,8 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
   background-clip: text;
   color: transparent;
 }
+/* Tema claro: o degradê branco→prata sumia no fundo branco da barra (o "RAZOR" ficava invisível). */
+:root[data-theme="light"] .brand .brand-word { background-image: linear-gradient(180deg, #16181d 40%, #4a5160 100%); }
 .nav a {
   transition: background 0.18s, color 0.18s, padding-left 0.18s;
 }
