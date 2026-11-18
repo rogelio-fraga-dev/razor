@@ -348,11 +348,40 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       (`/api/admin/admins`) e perfil da barbearia (`/api/admin/barbershop`); **relatórios**
       (`/api/admin/reports/{commissions,financial,agenda}`, JSON estruturado).
       _(Falta: textos/planos do bot — hoje ainda em config; migrar para o tenant/DB.)_
-- [~] **SPA React** (painel web em `/web`, Vite+TS) consumindo a API: **MVP amplo** —
+- [x] **SPA React** (painel web em `/web`, Vite+TS) consumindo a API: **MVP amplo** —
       login, Painel (financeiro do dia + agenda), Serviços, Profissionais (+comissão),
       Clientes, Planos, Comissões, Configurações (status do bot + WhatsApp por QR +
       textos + admins) e Perfil, com a identidade RAZOR aplicada.
-      _(Falta: agenda multiprofissional interativa.)_
+- [x] **Agenda multiprofissional interativa** (UX_BLUEPRINT §4.6) — `/api/admin/agenda` +
+      `AgendaPanelService`, tela *Agenda*:
+      - **Dia** com uma coluna por barbeiro (grade do expediente do tenant, slots de 30min,
+        altura do bloco = duração do serviço) e **Semana** por barbeiro; folgas/almoço e dias
+        fechados hachurados; coluna "Outros / sem barbeiro" para nada sumir da grade
+        (agendamento sem barbeiro ou de barbeiro inativo); avatar com foto quando o perfil
+        tiver `photoUrl`, iniciais senão.
+      - **Clique no horário vazio** → novo agendamento (busca/cadastro do cliente pelo
+        telefone, serviço do catálogo, barbeiro e hora preenchidos), gravado pelo
+        `AgendaBookingService` (mesmo caminho da IA: lembrete, fidelidade, limites).
+      - **Clique no bloco** → gaveta: remarcar, trocar barbeiro, cancelar, **compareceu/faltou**
+        (V39 `attendance_status`; falta cancela o pedido de avaliação e libera a cadeira) e
+        abrir a comanda vinculada (`appointment_id`).
+      - **Arrastar** (pointer events, sem dependência nova) para outro horário/barbeiro/dia,
+        com troca otimista e rollback + toast quando o servidor recusa. Validação no
+        servidor: dia aberto, expediente, folga/bloqueio, sobreposição pela duração,
+        barbeiro ativo, horário não passado.
+      - Remarcar/cancelar **avisa o cliente no WhatsApp** (desligável) e o **lembrete
+        acompanha o novo horário**.
+      - Celular: um barbeiro por vez (chips + deslizar); gaveta vira folha de baixo; no toque
+        a remarcação é pela gaveta (arrastar brigaria com a rolagem).
+      - RBAC: leitura para todos os papéis; escrita para dono e recepção.
+      _(Falta: barbeiro editar só os próprios horários — exige ligar o usuário do painel ao
+      cadastro de profissional; restrição "barbeiro atende este serviço" quando o perfil do
+      profissional tiver a lista; tirar faltas (NO_SHOW) da receita prevista nos relatórios;
+      oferecer o horário liberado à lista de espera quando o cancelamento vem do painel.)_
+- [x] **Cancelar um horário não derruba mais os lembretes dos outros** — as tarefas
+      (lembrete/avaliação) nascem presas ao agendamento (V39 `scheduled_tasks.appointment_id`);
+      antes o cancelamento era por telefone e apagava os lembretes de todos os horários do
+      cliente. Tarefas pré-V39 são reconhecidas pelo horário exato.
 - [ ] 🎯 **Perfil completo do barbeiro (hoje é só nome, telefone, comissão e ativo)** — o
       profissional é a cara da barbearia: aparece na agenda, no relatório de comissão e,
       principalmente, na **página da equipe do site white-label**. Campos a acrescentar,

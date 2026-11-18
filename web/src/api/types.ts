@@ -620,3 +620,53 @@ export interface PublicSite {
   team: { name: string }[];
   plans: { name: string; price: number; description: string | null }[];
 }
+
+// ---------- Agenda interativa (/api/admin/agenda) ----------
+
+export type AttendanceStatus = "ATTENDED" | "NO_SHOW";
+
+export interface AgendaPro {
+  id: string;
+  name: string;
+  active: boolean;
+  /** Foto do perfil do barbeiro, quando o cadastro tiver. Sem ela, a agenda usa as iniciais. */
+  photoUrl?: string | null;
+}
+
+export interface AgendaItem {
+  id: number;
+  date: string;
+  time: string | null;
+  durationMinutes: number;
+  customerName: string | null;
+  customerPhone: string | null;
+  service: string | null;
+  professionalId: string | null;
+  professionalName: string | null;
+  paymentStatus: PaymentStatus | null;
+  attendanceStatus: AttendanceStatus | null;
+  subscriber: boolean;
+  comandaId: string | null;
+  comandaStatus: string | null;
+}
+
+export interface AgendaBlock {
+  id: string;
+  professionalId: string | null;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  reason: string | null;
+}
+
+export interface AgendaBoard {
+  from: string;
+  to: string;
+  openingTime: string | null;
+  closingTime: string | null;
+  /** ISO 1=segunda … 7=domingo. */
+  openWeekdays: number[];
+  professionals: AgendaPro[];
+  appointments: AgendaItem[];
+  blocks: AgendaBlock[];
+}
