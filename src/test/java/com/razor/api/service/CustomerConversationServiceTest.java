@@ -59,6 +59,9 @@ class CustomerConversationServiceTest {
     @Mock private TenantAdminService tenantAdminService;
     @Mock private BarbershopSettingsService barbershopSettingsService;
     @Mock private PlanPricingService planPricingService;
+    @Mock private WaitlistOfferService waitlistOfferService;
+    @Mock private AppointmentConfirmationService confirmationService;
+    @Mock private NoShowDepositService noShowDepositService;
 
     // Store REAL (nao mock): a maquina de estados da conversa precisa gravar/ler de verdade.
     @org.mockito.Spy
@@ -625,5 +628,68 @@ class CustomerConversationServiceTest {
                 .send(eq("5511000000000"), argThat(m -> m.contains("IA INDISPONÍVEL")), eq("ADMIN"));
         // so as mensagens do cliente foram gravadas; nenhuma fala de BOT
         verify(interactionRepository, never()).save(argThat(i -> i.getType() == Interaction.InteractionType.BOT));
+    }
+
+    // ---------- anti-falta (V42) ----------
+
+    @Test
+    @DisplayName("resposta '1' a confirmacao da vespera e tratada sem a IA e sem abrir o agendamento do menu")
+    void confirmationReply_handledWithoutAi() {
+        givenExistingCustomer();
+        when(confirmationService.handleReply(PHONE, "1")).thenReturn(java.util.Optional.of("Show! ✅ Horário confirmado"));
+
+        service.processCustomerMessage(textWebhook("1"), PHONE);
+
+        assertThat(captureClientMessage()).contains("confirmado");
+        verify(openAIService, never()).processCustomerMessage(any(), any(), any(), anyInt(), any(), any());
+    }
+
+    @Test
+    @DisplayName("no meio da escolha de pagamento, '1' e PIX — nao vai para a confirmacao")
+    void paymentState_winsOverConfirmation() {
+        givenExistingCustomer();
+        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+                .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
+        service.processCustomerMessage(textWebhook("quero marcar"), PHONE);
+        when(agendaService.getAgendamentoMaisRecente(PHONE)).thenReturn(Appointment.builder().customerPhone(PHONE).build());
+        givenPixConfigured("pix@x.com");
+
+        service.processCustomerMessage(textWebhook("1"), PHONE);
+
+        verify(confirmationService, never()).handleReply(eq(PHONE), eq("1"));
+        verify(appointmentRepository).save(argThat(a -> a.getPaymentStatus() == PaymentStatus.PIX));
+    }
+
+    @Test
+    @DisplayName("cliente que falta muito: no lugar da pergunta de pagamento vai o PIX do sinal")
+    void depositRequired_replacesPaymentQuestion() {
+        givenExistingCustomer();
+        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+                .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
+        when(noShowDepositService.requireDepositIfNeeded(any(), any()))
+                .thenReturn(java.util.Optional.of("pré-reservado ... sinal ... CHAVE PIX"));
+
+        service.processCustomerMessage(textWebhook("quero marcar"), PHONE);
+        assertThat(lastClientMessage()).contains("sinal");
+
+        // Sem estado de pagamento: o "1" seguinte nao vira escolha de PIX.
+        service.processCustomerMessage(textWebhook("1"), PHONE);
+        verify(agendaService, never()).getAgendamentoMaisRecente(PHONE);
+    }
+
+    @Test
+    @DisplayName("vaga da lista de espera aceita conta como vaga reaproveitada")
+    void waitlistAccept_recordsRefill() {
+        givenExistingCustomer();
+        stateStore.put(com.razor.api.state.StateKeys.waitlistOffer(PHONE),
+                new WaitlistOfferService.WaitlistOffer(PHONE, "João", "20/12", "10:00", "Corte"), java.time.Duration.ofHours(1));
+
+        service.processCustomerMessage(textWebhook("sim"), PHONE);
+
+        verify(confirmationService).record(eq(com.razor.api.model.AiImpactEvent.Type.WAITLIST_REFILL), any());
     }
 }

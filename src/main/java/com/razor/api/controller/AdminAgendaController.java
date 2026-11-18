@@ -62,6 +62,12 @@ public class AdminAgendaController {
         return idOf(agendaPanelService.setAttendance(id, req.status()).getId());
     }
 
+    /** Sinal de cliente com faltas repetidas (V42) recebido. */
+    @PostMapping("/appointments/{id}/deposit-paid")
+    public Map<String, Object> depositPaid(@PathVariable Long id) {
+        return idOf(agendaPanelService.confirmDeposit(id).getId());
+    }
+
     private static Map<String, Object> idOf(Long id) {
         // Map.of nao aceita null.
         Map<String, Object> body = new HashMap<>();

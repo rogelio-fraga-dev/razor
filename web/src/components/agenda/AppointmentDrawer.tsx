@@ -7,7 +7,7 @@ import { FormError } from "../FormError";
 import { api, ApiError } from "../../api/client";
 import { useToast } from "../Toast";
 import { dateBr } from "../../lib/format";
-import { hhmmToMin, phoneBr } from "../../lib/agenda";
+import { CONFIRMATION_INFO, hhmmToMin, phoneBr } from "../../lib/agenda";
 import type { AgendaItem, AgendaPro, AttendanceStatus, PaymentStatus } from "../../api/types";
 
 const PAYMENT_LABEL: Record<PaymentStatus, string> = { PIX: "PIX", PRESENCIAL: "Presencial", PENDENTE: "Pendente" };
@@ -91,6 +91,14 @@ export function AppointmentDrawer({
       onClose();
     });
 
+  const depositPaid = () =>
+    run(async () => {
+      await api.post(`/api/admin/agenda/appointments/${item.id}/deposit-paid`);
+      toast.success("Sinal marcado como recebido ✓");
+      onChanged();
+      onClose();
+    });
+
   const openComanda = () =>
     run(async () => {
       if (!item.comandaId) {
@@ -155,6 +163,37 @@ export function AppointmentDrawer({
                 <span className="badge badge-muted">Agendado</span>
               )}
             </dd>
+            <dt>Confirmação</dt>
+            <dd>
+              {item.confirmationStatus ? (
+                <span className={`confirm-chip ${CONFIRMATION_INFO[item.confirmationStatus].cls}`}>
+                  {CONFIRMATION_INFO[item.confirmationStatus].icon} {CONFIRMATION_INFO[item.confirmationStatus].label}
+                </span>
+              ) : (
+                <span className="muted" title="A pergunta sai na véspera; horários marcados em cima da hora não são perguntados">
+                  Não perguntado
+                </span>
+              )}
+            </dd>
+            {item.depositStatus && (
+              <>
+                <dt>Sinal</dt>
+                <dd>
+                  {item.depositStatus === "PAID" ? (
+                    <span className="confirm-chip is-confirmed">✓ Sinal recebido</span>
+                  ) : (
+                    <span className="row wrap" style={{ gap: 8 }}>
+                      <span className="confirm-chip is-deposit">💰 Sinal pendente (PIX)</span>
+                      {canEdit && (
+                        <button className="btn btn-ghost btn-sm" onClick={depositPaid} disabled={busy}>
+                          Marcar como recebido
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </dd>
+              </>
+            )}
           </dl>
 
           {canEdit ? (

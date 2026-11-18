@@ -31,6 +31,7 @@ public class AdminReportController {
     private final ReportService reportService;
     private final OccupancyService occupancyService;
     private final RetentionService retentionService;
+    private final com.razor.api.service.AiImpactService aiImpactService;
 
     /** Comissoes por profissional num dia (padrao: hoje). Ex.: {@code /commissions?date=2026-07-21}. */
     @GetMapping("/commissions")
@@ -105,6 +106,20 @@ public class AdminReportController {
     @GetMapping("/retention")
     public RetentionResponse retention() {
         return retentionService.retention(AppointmentDates.today());
+    }
+
+    /**
+     * "O que a IA fez por voce" (V42). {@code period=month} (padrao: mes corrente ate hoje) ou
+     * {@code period=last30}. Dono e recepcao leem (ver SecurityConfig).
+     */
+    @GetMapping("/ai-impact")
+    public com.razor.api.dto.AiImpactResponse aiImpact(@RequestParam(required = false) String period) {
+        com.razor.api.service.AiImpactService.Period p = "last30".equalsIgnoreCase(period)
+                || "LAST_30_DAYS".equalsIgnoreCase(period)
+                ? com.razor.api.service.AiImpactService.Period.LAST_30_DAYS
+                : com.razor.api.service.AiImpactService.Period.MONTH;
+        LocalDate[] r = com.razor.api.service.AiImpactService.range(p, AppointmentDates.today());
+        return aiImpactService.impact(r[0], r[1]);
     }
 
     /** Agenda do dia (padrao: hoje). Ex.: {@code /agenda?date=2026-07-21}. */

@@ -85,9 +85,71 @@ public class AgendaTaskService {
             taskRepository.save(reviewTask);
             log.info("[AGENDA] Tarefa de AVALIAÇÃO criada para {} às {}", ag.getCustomerPhone(), reviewTime);
 
+            criarTarefasDeConfirmacao(ag, apptDateTime, pNome);
+
         } catch (Exception e) {
             log.error("[AGENDA] Erro ao criar tarefas agendadas para {}: {}", ag.getCustomerPhone(), e.getMessage());
         }
+    }
+
+    /** Tipo da pergunta "1 confirma / 2 desmarca" da vespera (V42). */
+    public static final String CONFIRMATION_REQUEST = "CONFIRMATION_REQUEST";
+    /** Prazo da confirmacao: nao envia nada ao cliente; avisa o dono (e libera, se configurado). */
+    public static final String CONFIRMATION_DEADLINE = "CONFIRMATION_DEADLINE";
+
+    /** Quando sai a pergunta e quando vence o prazo de resposta de um horario. */
+    public record ConfirmationPlan(LocalDateTime askAt, LocalDateTime deadline) {
+    }
+
+    /**
+     * Plano da confirmacao de um horario, ou vazio quando ela nao se aplica.
+     *
+     * <p>A pergunta sai na <b>vespera</b>, na hora configurada (padrao 18:00). Horario marcado
+     * depois desse momento (ex.: na vespera a noite, ou para hoje mesmo) <b>nao</b> recebe
+     * confirmacao: quem acabou de marcar nao precisa ser perguntado se vem, e o lembrete de 1h
+     * antes continua saindo. Tambem nao se aplica quando o prazo de resposta cairia antes da
+     * propria pergunta (horario de madrugada com pergunta tarde da noite).
+     */
+    public static java.util.Optional<ConfirmationPlan> planConfirmation(LocalDateTime appointment, LocalDateTime now,
+                                                                        int hour, int deadlineHours) {
+        LocalDateTime askAt = appointment.toLocalDate().minusDays(1).atTime(hour, 0);
+        LocalDateTime deadline = appointment.minusHours(deadlineHours);
+        if (!askAt.isAfter(now) || !deadline.isAfter(askAt)) return java.util.Optional.empty();
+        return java.util.Optional.of(new ConfirmationPlan(askAt, deadline));
+    }
+
+    private void criarTarefasDeConfirmacao(Appointment ag, LocalDateTime apptDateTime, String pNome) {
+        BarbershopSettingsService.NoShowSettings cfg = barbershopSettingsService.getNoShowSettings();
+        if (cfg == null || !cfg.confirmationEnabled() || ag.getId() == null) return;
+        var plan = planConfirmation(apptDateTime, LocalDateTime.now(ZONE), cfg.confirmationHour(), cfg.deadlineHours());
+        if (plan.isEmpty()) {
+            log.info("[ANTI-FALTA] Agendamento {} marcado depois da hora da confirmacao: sem pergunta", ag.getId());
+            return;
+        }
+        String dia = ag.getAppointmentDate().getDayOfWeek()
+                .getDisplayName(java.time.format.TextStyle.FULL, new java.util.Locale("pt", "BR"));
+        String msg = "Oi, " + pNome + "! 💈 Passando pra confirmar: amanhã (" + dia + ", "
+                + AppointmentDates.formatDate(ag.getAppointmentDate()) + ") às *"
+                + AppointmentDates.formatTime(ag.getAppointmentTime()) + "* você tem *" + ag.getService()
+                + "* na " + barbershopSettingsService.resolve().displayName() + ".\n\n"
+                + "Responde *1* pra confirmar ou *2* pra desmarcar.";
+        taskRepository.save(ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
+                .customerPhone(ag.getCustomerPhone())
+                .appointmentId(ag.getId())
+                .executionTime(plan.get().askAt())
+                .taskType(CONFIRMATION_REQUEST)
+                .messageContent(msg)
+                .status(ScheduledTask.TaskStatus.PENDING)
+                .build());
+        taskRepository.save(ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
+                .customerPhone(ag.getCustomerPhone())
+                .appointmentId(ag.getId())
+                .executionTime(plan.get().deadline())
+                .taskType(CONFIRMATION_DEADLINE)
+                .status(ScheduledTask.TaskStatus.PENDING)
+                .build());
+        log.info("[ANTI-FALTA] Confirmacao do agendamento {} programada para {} (prazo {})",
+                ag.getId(), plan.get().askAt(), plan.get().deadline());
     }
 
     /**

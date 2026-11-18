@@ -118,6 +118,39 @@ public class BarbershopSettings {
     /** Mesmo default da coluna (V36): vale tambem para o tenant que ainda nao tem linha. */
     public static final int DEFAULT_MAX_FUTURE_BOOKINGS = 2;
 
+    // --- V42: confirmacao da vespera e sinal para quem falta muito ---
+
+    /** Pergunta "1 confirma / 2 desmarca" na vespera de cada horario. */
+    @Builder.Default
+    @Column(name = "confirmation_enabled", nullable = false)
+    private Boolean confirmationEnabled = Boolean.TRUE;
+
+    /** Hora do dia anterior em que a pergunta sai (0-23). */
+    @Builder.Default
+    @Column(name = "confirmation_hour", nullable = false)
+    private Integer confirmationHour = DEFAULT_CONFIRMATION_HOUR;
+
+    /** Quantas horas antes do horario vence o prazo para responder. */
+    @Builder.Default
+    @Column(name = "confirmation_deadline_hours", nullable = false)
+    private Integer confirmationDeadlineHours = DEFAULT_CONFIRMATION_DEADLINE_HOURS;
+
+    /** Sem resposta no prazo: libera o horario para a lista de espera (opt-in). */
+    @Builder.Default
+    @Column(name = "confirmation_auto_release", nullable = false)
+    private Boolean confirmationAutoRelease = Boolean.FALSE;
+
+    /** A partir de quantas faltas (180 dias) o bot exige sinal via PIX. NULL = desligado. */
+    @Column(name = "no_show_deposit_after")
+    private Integer noShowDepositAfter;
+
+    /** Valor do sinal. NULL = preco do servico. */
+    @Column(name = "no_show_deposit_amount", precision = 10, scale = 2)
+    private BigDecimal noShowDepositAmount;
+
+    public static final int DEFAULT_CONFIRMATION_HOUR = 18;
+    public static final int DEFAULT_CONFIRMATION_DEADLINE_HOURS = 3;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

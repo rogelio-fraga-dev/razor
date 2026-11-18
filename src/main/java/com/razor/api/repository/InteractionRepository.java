@@ -23,6 +23,17 @@ public interface InteractionRepository extends JpaRepository<Interaction, UUID> 
     @Query("SELECT i FROM Interaction i WHERE i.customer.id = :customerId ORDER BY i.timestamp DESC")
     List<Interaction> findRecentInteractionsByCustomerId(@Param("customerId") UUID customerId, Pageable pageable);
     
+    /** Horarios das mensagens de um tipo no intervalo [from, to) — so a coluna, sem o texto. */
+    @Query("""
+            SELECT i.timestamp FROM Interaction i
+             WHERE i.barbershopId = :shop AND i.type = :type
+               AND i.timestamp >= :from AND i.timestamp < :to
+            """)
+    List<java.time.LocalDateTime> findTimestamps(@Param("shop") UUID barbershopId,
+                                                 @Param("type") Interaction.InteractionType type,
+                                                 @Param("from") java.time.LocalDateTime from,
+                                                 @Param("to") java.time.LocalDateTime to);
+
     default List<Interaction> findRecentInteractionsByCustomerId(UUID customerId) {
         return findRecentInteractionsByCustomerId(customerId, Pageable.ofSize(10));
     }

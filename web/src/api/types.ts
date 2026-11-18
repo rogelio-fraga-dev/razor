@@ -809,6 +809,10 @@ export interface AgendaItem {
   paymentStatus: PaymentStatus | null;
   attendanceStatus: AttendanceStatus | null;
   subscriber: boolean;
+  /** Confirmação da véspera (V42); null = não foi perguntado. */
+  confirmationStatus?: ConfirmationStatus | null;
+  /** Sinal de quem falta muito (V42); null = não exigido. */
+  depositStatus?: DepositStatus | null;
   comandaId: string | null;
   comandaStatus: string | null;
 }
@@ -833,3 +837,39 @@ export interface AgendaBoard {
   appointments: AgendaItem[];
   blocks: AgendaBlock[];
 }
+
+/** "O que a IA fez por você" (V42) — /api/admin/reports/ai-impact. */
+export interface AiImpactChannel {
+  appointments: number;
+  revenue: number;
+}
+
+export interface AiImpact {
+  from: string;
+  to: string;
+  bot: AiImpactChannel;
+  site: AiImpactChannel;
+  panel: AiImpactChannel;
+  botMessages: number;
+  botMessagesOutsideHours: number;
+  rescuedCustomers: number;
+  confirmationsReceived: number;
+  slotsFreedInAdvance: number;
+  autoReleased: number;
+  waitlistRefills: number;
+  noShowsAvoided: number;
+}
+
+/** Anti-falta (V42) — /api/admin/settings/no-show. */
+export interface NoShowSettings {
+  confirmationEnabled: boolean;
+  confirmationHour: number;
+  confirmationDeadlineHours: number;
+  autoReleaseUnconfirmed: boolean;
+  noShowDepositAfter: number | null;
+  noShowDepositAmount: number | null;
+  pixConfigured?: boolean;
+}
+
+export type ConfirmationStatus = "PENDING" | "CONFIRMED" | "DECLINED" | "NO_RESPONSE";
+export type DepositStatus = "PENDING" | "PAID";

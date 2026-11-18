@@ -1921,3 +1921,82 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 @media (max-width: 520px) {
   .pro-grid { grid-template-columns: 1fr; padding: 12px; }
 }
+
+/* ---------- "O que a IA fez por você" (V42) ---------- */
+.ai-impact {
+  margin-bottom: 24px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  border-color: var(--accent);
+  background:
+    radial-gradient(120% 140% at 100% 0%, var(--accent-soft) 0%, transparent 55%),
+    var(--surface);
+}
+.ai-impact-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+}
+.ai-impact-headline {
+  margin: 10px 0 0;
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--text);
+}
+.ai-impact-headline strong { font-weight: 800; }
+.ai-impact-money { color: var(--green); white-space: nowrap; }
+.ai-impact-sub {
+  display: block;
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.ai-impact-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+.ai-impact-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raise);
+  min-width: 0;
+}
+.ai-impact-num { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.ai-impact-label { font-size: 13px; font-weight: 600; }
+.ai-impact-hint { font-size: 12px; color: var(--text-muted); }
+@media (max-width: 900px) {
+  .ai-impact-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .ai-impact { padding: 18px 16px; }
+  .ai-impact-headline { font-size: 19px; }
+  .ai-impact-stats { gap: 8px; }
+  .ai-impact-stat { padding: 10px; }
+  .ai-impact-num { font-size: 19px; }
+}
+
+/* Confirmação da véspera / sinal na agenda (V42) */
+.confirm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.confirm-chip.is-confirmed { background: var(--green-soft); color: var(--green); }
+.confirm-chip.is-pending { background: var(--blue-soft); color: var(--blue); }
+.confirm-chip.is-noresp { background: var(--amber-soft); color: var(--amber); }
+.confirm-chip.is-deposit { background: var(--plasma-soft); color: var(--plasma); }

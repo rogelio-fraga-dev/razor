@@ -7,6 +7,7 @@ import { Cockpit } from "../components/Cockpit";
 import { ActivationChecklist } from "../components/ActivationChecklist";
 import { RevenueChart } from "../components/RevenueChart";
 import { MonthlyGoalCard } from "../components/MonthlyGoalCard";
+import { AiImpactCard } from "../components/AiImpactCard";
 import { EmptyState } from "../components/EmptyState";
 import { SkeletonStats, Skeleton } from "../components/Skeleton";
 import { Tour, isTourDone, type TourStep } from "../components/Tour";
@@ -88,6 +89,9 @@ export function Dashboard() {
       <Cockpit name={session?.name ?? ""} />
 
       <ActivationChecklist />
+
+      {/* O diferencial do produto em números: o que o bot fez sozinho neste mês (V42) */}
+      <AiImpactCard />
 
       {/* Meta do mês: alvo definido pelo dono × faturamento real */}
       {!month.loading && !goals.loading && !month.error && !goals.error && (
