@@ -32,8 +32,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanWrapper;
-import org.springframework.beans.PropertyAccessorFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -347,22 +345,10 @@ public class AgendaPanelService {
         return out;
     }
 
-    /**
-     * Foto do profissional, quando o cadastro tiver o campo ({@code photoUrl}, perfil completo do
-     * barbeiro). Lido por propriedade para nao acoplar esta tela a uma migracao de outra frente:
-     * sem o campo, a agenda mostra as iniciais.
-     */
+    /** Foto do profissional (data URI do perfil completo, V37); sem foto, a agenda mostra as iniciais. */
     private static String photoUrlOf(Professional p) {
-        try {
-            BeanWrapper bw = PropertyAccessorFactory.forBeanPropertyAccess(p);
-            if (bw.isReadableProperty("photoUrl")) {
-                Object v = bw.getPropertyValue("photoUrl");
-                return v instanceof String s && !s.isBlank() ? s : null;
-            }
-        } catch (Exception ignored) {
-            // foto e enfeite: nunca derruba a agenda
-        }
-        return null;
+        String v = p.getPhotoData();
+        return v != null && !v.isBlank() ? v : null;
     }
 
     private void send(Appointment ag, String message) {
