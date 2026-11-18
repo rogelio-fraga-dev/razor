@@ -32,6 +32,12 @@ export function SellProductModal({
   const [method, setMethod] = useState<CashPaymentMethod>("DINHEIRO");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Se a lista de barbeiros nao carregou, o select mostraria so "Sem barbeiro" e a venda sairia
+  // sem comissao sem ninguem perceber. Entao a venda fica travada ate o operador confirmar que
+  // quer mesmo registrar sem barbeiro (ou recarregar a lista).
+  const [allowWithoutBarber, setAllowWithoutBarber] = useState(false);
+  const barbersUnavailable = professionals.loading || !!professionals.error;
+  const blockedByBarbers = barbersUnavailable && !allowWithoutBarber;
 
   const qty = Number(quantity);
   const validQty = Number.isInteger(qty) && qty > 0;
@@ -70,7 +76,7 @@ export function SellProductModal({
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancelar</button>
-          <button className="btn btn-primary" onClick={sell} disabled={saving || !validQty}>
+          <button className="btn btn-primary" onClick={sell} disabled={saving || !validQty || blockedByBarbers}>
             {saving ? "Registrando…" : `Vender ${money(total)}`}
           </button>
         </>
@@ -115,6 +121,7 @@ export function SellProductModal({
             className="input"
             value={professionalId}
             onChange={(e) => setProfessionalId(e.target.value)}
+            disabled={barbersUnavailable}
           >
             <option value="">Sem barbeiro — não gera comissão</option>
             {activeProfessionals.map((p) => (
@@ -122,9 +129,26 @@ export function SellProductModal({
             ))}
           </select>
             </label>
-          <span className="faint" style={{ fontSize: 12 }}>
-            Com barbeiro escolhido, a venda entra na comissão dele no relatório do dia.
-          </span>
+          {professionals.error ? (
+            <div className="error" role="alert" style={{ fontSize: 12.5 }}>
+              Não foi possível carregar os barbeiros ({professionals.error}).{" "}
+              <button type="button" className="btn btn-ghost btn-sm" onClick={professionals.reload}>
+                Tentar de novo
+              </button>
+              <label style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={allowWithoutBarber}
+                  onChange={(e) => setAllowWithoutBarber(e.target.checked)}
+                />
+                Registrar sem barbeiro mesmo assim (não gera comissão)
+              </label>
+            </div>
+          ) : (
+            <span className="faint" style={{ fontSize: 12 }}>
+              Com barbeiro escolhido, a venda entra na comissão dele no relatório do dia.
+            </span>
+          )}
         </div>
 
         <div className="row between" style={{ paddingTop: 4 }}>

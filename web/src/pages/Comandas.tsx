@@ -109,7 +109,15 @@ export function Comandas() {
           <h3>Fechadas hoje</h3>
           {closedTotal > 0 && <span className="badge badge-green mono">{money(closedTotal)}</span>}
         </div>
-        {closedToday.length === 0 ? (
+        {/* Falha ao carregar nao pode virar "nenhuma fechada": o operador concluiria que o
+            caixa do dia esta zerado. */}
+        {today.loading && !today.data ? (
+          <div className="card-pad faint">Carregando…</div>
+        ) : today.error ? (
+          <div className="card-pad error" role="alert">
+            Não foi possível carregar as comandas fechadas hoje ({today.error}). Recarregue a página.
+          </div>
+        ) : closedToday.length === 0 ? (
           <div className="card-pad faint">Nenhuma comanda fechada hoje.</div>
         ) : (
           <div style={{ overflowX: "auto" }}>

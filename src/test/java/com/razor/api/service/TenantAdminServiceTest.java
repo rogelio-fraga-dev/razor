@@ -123,6 +123,8 @@ class TenantAdminServiceTest {
         BarbershopAdmin a = BarbershopAdmin.builder()
                 .id(id).barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID).phone("5521970001111").build();
         when(barbershopAdminRepository.findById(id)).thenReturn(java.util.Optional.of(a));
+        when(barbershopAdminRepository.findByBarbershopId(TenantContext.DEFAULT_BARBERSHOP_ID))
+                .thenReturn(List.of(a, admin("5521970002222")));
 
         tenantAdminService.remove(id);
 
@@ -139,5 +141,36 @@ class TenantAdminServiceTest {
 
         assertThatThrownBy(() -> tenantAdminService.remove(id)).isInstanceOf(NotFoundException.class);
         verify(barbershopAdminRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("remove recusa o ultimo admin do tenant (409)")
+    void remove_lastAdmin_conflict() {
+        UUID id = UUID.randomUUID();
+        BarbershopAdmin a = BarbershopAdmin.builder()
+                .id(id).barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID).phone("5521970001111").build();
+        when(barbershopAdminRepository.findById(id)).thenReturn(java.util.Optional.of(a));
+        when(barbershopAdminRepository.findByBarbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)).thenReturn(List.of(a));
+
+        assertThatThrownBy(() -> tenantAdminService.remove(id))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("ultimo administrador");
+        verify(barbershopAdminRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("tenant que NAO e o padrao, sem admins: nao herda os telefones do config global")
+    void adminPhones_otherTenantEmpty_noFallback() {
+        UUID other = UUID.randomUUID();
+        TenantContext.set(other);
+        try {
+            when(barbershopAdminRepository.findByBarbershopId(other)).thenReturn(List.of());
+            givenConfigAdmins("5511988887777");
+
+            assertThat(tenantAdminService.adminPhones()).isEmpty();
+            assertThat(tenantAdminService.isAdmin("5511988887777")).isFalse();
+        } finally {
+            TenantContext.clear();
+        }
     }
 }

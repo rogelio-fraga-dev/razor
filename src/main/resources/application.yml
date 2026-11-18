@@ -54,7 +54,9 @@ razor:
   state:
     store: "${RAZOR_STATE_STORE:memory}"
   admin:
-    phones: "${ADMIN_PHONES}"
+    # Telefones admin do tenant PADRAO enquanto ele nao tiver admins cadastrados no painel.
+    # Nunca vale para outras barbearias (ver TenantAdminService). Vazio = nenhum.
+    phones: "${ADMIN_PHONES:}"
   evolution:
     # Fora do Docker a Evolution atende em localhost:8080; dentro do compose o nome do servico
     # e evolution-api, por isso o endereco e configuravel.
@@ -74,6 +76,10 @@ razor:
     # Segredo dos JWT do painel web. Vazio = chave aleatória no boot (dev). Em produção defina
     # RAZOR_JWT_SECRET com uma string longa e secreta (>= 32 caracteres).
     jwt-secret: "${RAZOR_JWT_SECRET:}"
+    # Trava de producao (opt-in): com true (ou profile "prod") o boot falha se algum segredo
+    # estiver vazio, curto ou com cara de exemplo (TROCAR_, dev-, barberbot...). Desligado em dev
+    # para os defaults locais continuarem funcionando. Ver StrictSecretsValidator.
+    strict-secrets: "${RAZOR_STRICT_SECRETS:false}"
     jwt-expiration-minutes: 720
     # O JWT do painel vai num cookie HttpOnly (nunca no localStorage). Secure=true e o padrao;
     # so desligue para dev em http fora de localhost (ex.: Safari, IP da rede local).

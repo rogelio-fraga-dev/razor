@@ -60,7 +60,12 @@ public class WhatsAppConnectionService {
         return new WhatsAppConnectResponse(instance, state, base64, pairing);
     }
 
-    /** Desconecta (logout) a sessao de WhatsApp do tenant, mantendo a instancia para reconectar. */
+    /**
+     * Desconecta (logout) a sessao de WhatsApp do tenant, mantendo a instancia para reconectar.
+     * So "instancia nao existe" (404) conta como sucesso — ja esta desconectada. Qualquer outra
+     * falha sobe como {@link UpstreamServiceException}: engolir o erro fazia o painel mostrar
+     * "desconectado" com o bot ainda conectado e respondendo.
+     */
     public void disconnect() {
         String instance = ensureInstanceName();
         try {
@@ -72,26 +77,51 @@ public class WhatsAppConnectionService {
                     .block(TIMEOUT);
             log.info("[WPP] Logout da instancia '{}' (tenant {})", instance, TenantContext.getCurrent());
         } catch (WebClientResponseException.NotFound ignored) {
-            // ja desconectada
+            log.debug("[WPP] Instancia '{}' inexistente na Evolution; nada a desconectar", instance);
         } catch (Exception e) {
             log.warn("[WPP] Falha no logout de '{}': {}", instance, e.getMessage());
+            throw new UpstreamServiceException("Nao foi possivel desconectar o WhatsApp agora. Tente novamente.");
         }
     }
 
     /**
      * Nome da instancia do tenant atual; deriva do slug e persiste quando ainda nao ha um definido,
-     * para o dono nao precisar escolher nada.
+     * para o dono nao precisar escolher nada. O nome roteia o webhook para o tenant, entao nunca
+     * pode repetir o de outra barbearia: se o slug ja estiver em uso como instancia de outro tenant
+     * (instancia definida no onboarding), recebe um sufixo do id. O indice UNIQUE de
+     * barbershops.whatsapp_instance (V40) e a ultima barreira.
      */
     public String ensureInstanceName() {
         Barbershop shop = currentShop();
         String instance = shop.getWhatsappInstance();
         if (instance == null || instance.isBlank()) {
-            instance = shop.getSlug();
+            instance = availableInstanceName(shop);
             shop.setWhatsappInstance(instance);
             barbershopRepository.save(shop);
-            log.info("[WPP] Instancia derivada do slug '{}' para o tenant {}", instance, shop.getId());
+            log.info("[WPP] Instancia '{}' derivada do slug para o tenant {}", instance, shop.getId());
         }
         return instance;
+    }
+
+    private String availableInstanceName(Barbershop shop) {
+        String base = shop.getSlug();
+        if (isFree(base, shop)) {
+            return base;
+        }
+        String compactId = shop.getId().toString().replace("-", "");
+        for (int len = 8; len <= compactId.length(); len += 8) {
+            String candidate = base + "-" + compactId.substring(0, len);
+            if (isFree(candidate, shop)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Nao foi possivel definir um nome unico de instancia de WhatsApp.");
+    }
+
+    private boolean isFree(String instance, Barbershop shop) {
+        return barbershopRepository.findByWhatsappInstance(instance)
+                .map(other -> other.getId().equals(shop.getId()))
+                .orElse(true);
     }
 
     // --- Evolution API (chamadas sincronas; endpoints de admin, baixa frequencia) ---

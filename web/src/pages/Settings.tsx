@@ -171,14 +171,12 @@ function ProfileCard({ reloadKey }: { reloadKey: number }) {
   );
   const toast = useToast();
   const [name, setName] = useState("");
-  const [instance, setInstance] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (data) {
       setName(data.name);
-      setInstance(data.whatsappInstance ?? "");
     }
   }, [data]);
 
@@ -188,7 +186,7 @@ function ProfileCard({ reloadKey }: { reloadKey: number }) {
     setSaving(true);
     setSaveError(null);
     try {
-      await api.put("/api/admin/barbershop", { name: name.trim(), whatsappInstance: instance.trim() || null });
+      await api.put("/api/admin/barbershop", { name: name.trim() });
       toast.success("Perfil salvo ✓");
       reload();
     } catch (e) {
@@ -217,10 +215,13 @@ function ProfileCard({ reloadKey }: { reloadKey: number }) {
             </label>
             </div>
             <div className="field">
+              {/* So leitura: a instancia decide para qual barbearia o WhatsApp entrega as
+                  mensagens, entao e definida pela plataforma (onboarding ou derivada do slug ao
+                  conectar), nunca digitada aqui. */}
               <label>Instância do WhatsApp
-              <input className="input" value={instance} onChange={(e) => setInstance(e.target.value)} placeholder="ex.: minha-barbearia-wa" />
+              <input className="input mono" value={data?.whatsappInstance ?? ""} readOnly disabled placeholder="definida ao conectar o WhatsApp" />
             </label>
-              <span className="faint" style={{ fontSize: 12 }}>Nome da instância na Evolution API por onde o bot envia as mensagens.</span>
+              <span className="faint" style={{ fontSize: 12 }}>Gerada automaticamente quando você conecta o WhatsApp abaixo.</span>
             </div>
             <div className="row">
               <button className="btn btn-primary" onClick={save} disabled={saving || !name.trim()}>

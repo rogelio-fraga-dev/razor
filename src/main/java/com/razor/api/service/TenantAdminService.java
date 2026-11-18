@@ -17,9 +17,13 @@ import org.springframework.stereotype.Service;
  * barbearia atual e se um remetente e admin — base do roteamento admin vs cliente e das
  * notificacoes internas.
  *
- * <p><b>Fallback sem regressao:</b> enquanto o tenant nao tiver admins cadastrados em
- * {@code barbershop_admins}, recai nos telefones do config global ({@code razor.admin.phones}).
- * Assim o tenant padrao (tabela vazia) se comporta exatamente como antes desta mudanca.
+ * <p><b>Fallback so no tenant padrao:</b> enquanto o tenant padrao
+ * ({@link TenantContext#DEFAULT_BARBERSHOP_ID}) nao tiver admins cadastrados em
+ * {@code barbershop_admins}, recai nos telefones do config global ({@code razor.admin.phones}) —
+ * assim a instalacao single-tenant original continua funcionando. Qualquer OUTRO tenant sem
+ * admins fica sem admin nenhum: aplicar o fallback a ele daria ao dono da plataforma (ou a quem
+ * estiver no config) poder de admin dentro de uma barbearia alheia. Para nao chegar a esse
+ * estado pelo painel, remover o ultimo admin de um tenant e recusado (409).
  */
 @Slf4j
 @Service
@@ -29,11 +33,19 @@ public class TenantAdminService {
     private final BarbershopAdminRepository barbershopAdminRepository;
     private final RazorProperties properties;
 
-    /** Telefones admin do tenant atual; se nao houver cadastro, usa o config global (fallback). */
+    /**
+     * Telefones admin do tenant atual. Sem cadastro: o tenant padrao usa o config global
+     * (fallback); os demais nao tem admin.
+     */
     public List<String> adminPhones() {
-        List<BarbershopAdmin> rows = barbershopAdminRepository.findByBarbershopId(TenantContext.getCurrent());
+        UUID tenant = TenantContext.getCurrent();
+        List<BarbershopAdmin> rows = barbershopAdminRepository.findByBarbershopId(tenant);
         if (rows == null || rows.isEmpty()) {
-            return properties.getAdmin().getPhones();
+            if (!TenantContext.DEFAULT_BARBERSHOP_ID.equals(tenant)) {
+                return List.of();
+            }
+            List<String> fallback = properties.getAdmin().getPhones();
+            return fallback != null ? fallback : List.of();
         }
         return rows.stream().map(BarbershopAdmin::getPhone).collect(Collectors.toList());
     }
@@ -64,11 +76,19 @@ public class TenantAdminService {
         return barbershopAdminRepository.findByBarbershopId(TenantContext.getCurrent());
     }
 
-    /** Remove um admin do tenant atual (isolamento: rejeita admin de outro tenant). */
+    /**
+     * Remove um admin do tenant atual (isolamento: rejeita admin de outro tenant). Recusa remover o
+     * ultimo: o tenant ficaria sem ninguem para comandar o bot e receber alertas.
+     */
     public void remove(UUID id) {
         BarbershopAdmin admin = barbershopAdminRepository.findById(id)
                 .filter(a -> TenantContext.getCurrent().equals(a.getBarbershopId()))
                 .orElseThrow(() -> new NotFoundException("Administrador nao encontrado."));
+        List<BarbershopAdmin> current = barbershopAdminRepository.findByBarbershopId(TenantContext.getCurrent());
+        if (current == null || current.size() <= 1) {
+            throw new ConflictException(
+                    "Nao e possivel remover o ultimo administrador. Cadastre outro telefone antes de remover este.");
+        }
         barbershopAdminRepository.delete(admin);
         log.info("[ADMIN] Administrador removido do tenant {}", TenantContext.getCurrent());
     }

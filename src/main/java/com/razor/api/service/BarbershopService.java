@@ -8,8 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Perfil da barbearia (tenant atual) para o painel web: leitura e edicao de nome e instancia de
- * WhatsApp. Slug e imutavel (identidade de URL). Sempre escopado no tenant atual.
+ * Perfil da barbearia (tenant atual) para o painel web: leitura e edicao do nome. Slug e imutavel (identidade de URL). Sempre escopado no tenant atual.
  */
 @Slf4j
 @Service
@@ -23,19 +22,14 @@ public class BarbershopService {
                 .orElseThrow(() -> new NotFoundException("Barbearia nao encontrada."));
     }
 
-    /** Atualiza nome e instancia de WhatsApp; a instancia deve ser unica entre tenants. */
-    public Barbershop updateProfile(String name, String whatsappInstance) {
+    /**
+     * Atualiza o nome. A instancia de WhatsApp nao passa por aqui de proposito: ela decide para
+     * qual tenant o webhook entrega as mensagens, entao so o onboarding (chave de plataforma) ou a
+     * derivacao pelo slug a definem.
+     */
+    public Barbershop updateProfile(String name) {
         Barbershop shop = current();
-        String instance = (whatsappInstance == null || whatsappInstance.isBlank()) ? null : whatsappInstance.trim();
-        if (instance != null) {
-            barbershopRepository.findByWhatsappInstance(instance)
-                    .filter(other -> !other.getId().equals(shop.getId()))
-                    .ifPresent(other -> {
-                        throw new IllegalArgumentException("A instancia de WhatsApp '" + instance + "' ja esta em uso.");
-                    });
-        }
         shop.setName(name);
-        shop.setWhatsappInstance(instance);
         Barbershop saved = barbershopRepository.save(shop);
         log.info("[BARBEARIA] Perfil do tenant {} atualizado", shop.getId());
         return saved;

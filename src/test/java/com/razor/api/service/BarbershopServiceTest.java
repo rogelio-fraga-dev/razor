@@ -11,7 +11,6 @@ import com.razor.api.model.Barbershop;
 import com.razor.api.repository.BarbershopRepository;
 import com.razor.api.tenant.TenantContext;
 import java.util.Optional;
-import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,29 +47,17 @@ class BarbershopServiceTest {
     }
 
     @Test
-    @DisplayName("updateProfile altera nome e instância")
-    void updateProfile_updates() {
+    @DisplayName("updateProfile altera o nome e preserva a instância (dono não escolhe instância)")
+    void updateProfile_updatesNameOnly() {
         Barbershop s = shop();
         when(barbershopRepository.findById(TenantContext.DEFAULT_BARBERSHOP_ID)).thenReturn(Optional.of(s));
-        when(barbershopRepository.findByWhatsappInstance("nova-inst")).thenReturn(Optional.empty());
         when(barbershopRepository.save(any(Barbershop.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Barbershop saved = service.updateProfile("Nova", "nova-inst");
+        Barbershop saved = service.updateProfile("Nova");
 
         assertThat(saved.getName()).isEqualTo("Nova");
-        assertThat(saved.getWhatsappInstance()).isEqualTo("nova-inst");
-    }
-
-    @Test
-    @DisplayName("updateProfile rejeita instância já usada por outro tenant")
-    void updateProfile_instanceInUse_throws() {
-        when(barbershopRepository.findById(TenantContext.DEFAULT_BARBERSHOP_ID)).thenReturn(Optional.of(shop()));
-        when(barbershopRepository.findByWhatsappInstance("nova-inst"))
-                .thenReturn(Optional.of(Barbershop.builder().id(UUID.randomUUID()).build()));
-
-        assertThatThrownBy(() -> service.updateProfile("Nova", "nova-inst"))
-                .isInstanceOf(IllegalArgumentException.class);
-        verify(barbershopRepository, never()).save(any());
+        assertThat(saved.getWhatsappInstance()).isEqualTo("inst-antiga");
+        verify(barbershopRepository, never()).findByWhatsappInstance(any());
     }
 
     @Test

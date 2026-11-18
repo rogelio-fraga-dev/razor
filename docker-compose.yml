@@ -11,6 +11,14 @@
 #   API       http://localhost:8081
 #   postgres  localhost:5433
 #
+# Postgres, API e Evolution escutam so em 127.0.0.1: acessiveis desta maquina, invisiveis para
+# a rede. O painel (3000) e a landing (8000) sao a porta de entrada publica — o painel ja
+# encaminha /api para o backend pela rede interna do compose.
+#
+# Os segredos abaixo tem defaults de DESENVOLVIMENTO para o `up` funcionar sem .env. Em
+# servidor, use o override de producao, que exige cada segredo e liga a validacao estrita:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
 # A Evolution fica fora por padrao porque so faz sentido quando voce vai parear um WhatsApp
 # de verdade; sem ela o painel e a API funcionam inteiros.
 #
@@ -29,7 +37,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-barberbot_pass}
     ports:
       # 5433 no host para nao brigar com um Postgres ja instalado na maquina.
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -54,8 +62,11 @@ services:
       # e o painel ja trata chave com "dummy" como IA nao configurada. Ponha a chave real no
       # .env quando quiser que o bot responda.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-dummy-local}
-      ADMIN_PHONES: ${ADMIN_PHONES:-5511999999999}
+      # Sem default: telefone admin e dado real de cada ambiente. Vazio = sem admin global
+      # (cadastre os admins pelo painel em Configuracoes).
+      ADMIN_PHONES: ${ADMIN_PHONES:-}
 
+      # Defaults de DEV (o docker-compose.prod.yml os torna obrigatorios e recusa estes valores).
       RAZOR_JWT_SECRET: ${RAZOR_JWT_SECRET:-dev-jwt-secret-local-troque-em-producao-0123456789}
       ONBOARDING_API_KEY: ${ONBOARDING_API_KEY:-dev-onboarding-key}
       WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:-dev-webhook-token}
@@ -71,7 +82,7 @@ services:
       # em localhost, o Safari nao — por isso false aqui. Em producao (HTTPS) use true.
       RAZOR_COOKIE_SECURE: ${RAZOR_COOKIE_SECURE:-false}
     ports:
-      - "${BACKEND_PORT:-8081}:8081"
+      - "127.0.0.1:${BACKEND_PORT:-8081}:8081"
     depends_on:
       postgres:
         condition: service_healthy
@@ -149,7 +160,8 @@ services:
       WEBHOOK_EVENTS_MESSAGES_UPSERT: "true"
       WEBHOOK_EVENTS_CONNECTION_UPDATE: "true"
     ports:
-      - "${EVOLUTION_PORT:-8080}:8080"
+      # A Evolution expoe uma API de administracao (cria/derruba sessoes de WhatsApp): so local.
+      - "127.0.0.1:${EVOLUTION_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy

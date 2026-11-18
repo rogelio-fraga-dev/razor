@@ -1,5 +1,6 @@
 package com.razor.api.controller;
 
+import com.razor.api.service.ConflictException;
 import com.razor.api.service.NotFoundException;
 import com.razor.api.service.UpstreamServiceException;
 import java.util.Map;
@@ -11,7 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 /**
  * Mapeia excecoes de dominio para respostas HTTP consistentes na API do painel:
  * {@link NotFoundException} → 404, {@link IllegalArgumentException} (validacao de dominio) → 400 e
- * {@link UpstreamServiceException} (servico externo fora do ar) → 502, sempre com corpo
+ * {@link ConflictException} → 409, {@link UpstreamServiceException} (servico externo fora do ar) → 502, sempre com corpo
  * {@code {"error": "..."}}. Erros de bean validation continuam 400 pelo padrao do Spring.
  */
 @RestControllerAdvice(basePackages = "com.razor.api.controller")
@@ -25,6 +26,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleBadRequest(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<Object> handleConflict(ConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
     }
 
     @ExceptionHandler(UpstreamServiceException.class)

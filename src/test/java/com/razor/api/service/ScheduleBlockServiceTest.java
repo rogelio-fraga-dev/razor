@@ -6,11 +6,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.razor.api.model.ScheduleBlock;
+import com.razor.api.model.Professional;
+import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.repository.ScheduleBlockRepository;
 import com.razor.api.tenant.TenantContext;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +35,7 @@ class ScheduleBlockServiceTest {
     private static final UUID RAFAEL = UUID.randomUUID();
 
     @Mock private ScheduleBlockRepository repository;
+    @Mock private ProfessionalRepository professionalRepository;
     @InjectMocks private ScheduleBlockService service;
 
     @AfterEach
@@ -118,5 +122,27 @@ class ScheduleBlockServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.create(null, QUINTA, null, LocalTime.of(14, 0), null, "x"))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("create recusa profissional de outra barbearia (isolamento) e não salva")
+    void create_professionalOfOtherShop_notFound() {
+        UUID alheio = UUID.randomUUID();
+        when(professionalRepository.findById(alheio)).thenReturn(Optional.of(
+                Professional.builder().id(alheio).barbershopId(UUID.randomUUID()).name("X").build()));
+
+        assertThatThrownBy(() -> service.create(alheio, QUINTA, null, null, null, "folga"))
+                .isInstanceOf(NotFoundException.class);
+        org.mockito.Mockito.verify(repository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    @DisplayName("create aceita profissional do próprio tenant")
+    void create_professionalOfThisShop_saves() {
+        when(professionalRepository.findById(DIEGO)).thenReturn(Optional.of(
+                Professional.builder().id(DIEGO).barbershopId(TenantContext.getCurrent()).name("Diego").build()));
+        when(repository.save(any(ScheduleBlock.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(service.create(DIEGO, QUINTA, null, null, null, "folga").getProfessionalId()).isEqualTo(DIEGO);
     }
 }

@@ -425,6 +425,24 @@ class SecurityConfigIT {
     }
 
     @Test
+    @DisplayName("RECEPÇÃO não altera o plano do cliente (só o dono concede assinatura)")
+    void reception_cannotChangeCustomerPlan() throws Exception {
+        String token = login("recepcao@loja.com");
+        String anyId = java.util.UUID.randomUUID().toString();
+
+        // A recepcao continua vendo clientes...
+        mockMvc.perform(get("/api/admin/customers").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        // ...mas o PUT do plano e barrado antes de chegar no controller.
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/admin/customers/" + anyId + "/plan")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("senha errada no login responde 401")
     void login_wrongPassword_unauthorized() throws Exception {
         String body = "{\"email\":\"it@loja.com\",\"password\":\"errada\"}";

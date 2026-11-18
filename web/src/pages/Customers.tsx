@@ -6,6 +6,7 @@ import { Pagination } from "../components/Pagination";
 import { SkeletonRows } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
+import { useAuth } from "../auth/AuthContext";
 import { api, ApiError } from "../api/client";
 import type { Customer, CustomerSummary, PageMeta, SubscriptionPlan } from "../api/types";
 
@@ -36,6 +37,10 @@ const FILTERS: { id: Filter; label: string }[] = [
 
 export function Customers() {
   const toast = useToast();
+  // Vincular plano e so do dono (SecurityConfig: PUT /customers/*/plan = OWNER). A recepcao ve o
+  // plano do cliente, mas sem o seletor — e sem buscar /plans, que tambem e so do dono.
+  const { session } = useAuth();
+  const canEditPlan = session?.role === "OWNER";
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("ALL");
   const [page, setPage] = useState(0);
@@ -69,7 +74,10 @@ export function Customers() {
     [query, version],
   );
   const summary = useApi<CustomerSummary>(() => api.get("/api/admin/customers/summary"), [version]);
-  const plans = useApi<SubscriptionPlan[]>(() => api.get("/api/admin/plans"), []);
+  const plans = useApi<SubscriptionPlan[] | null>(
+    () => (canEditPlan ? api.get("/api/admin/plans") : Promise.resolve(null)),
+    [canEditPlan],
+  );
 
   const activePlans = useMemo(() => (plans.data ?? []).filter((p) => p.active), [plans.data]);
 
@@ -159,6 +167,7 @@ export function Customers() {
 
                   <div className="rw-side">
                     <div className="rw-actions">
+                      {canEditPlan ? (
                       <select
                         className="input"
                         style={{ maxWidth: 170, padding: "7px 10px", fontSize: 13 }}
@@ -175,6 +184,9 @@ export function Customers() {
                           <option key={p.id} value={p.id}>{p.name}</option>
                         ))}
                       </select>
+                      ) : (
+                        <span className="faint" style={{ fontSize: 13 }}>{c.planName ?? "Avulso"}</span>
+                      )}
                     </div>
                   </div>
                 </article>

@@ -91,7 +91,10 @@ echo -e "    ${GREEN}screen -dmS bot bash -c 'export \$(grep -v \"^#\" .env | xa
 echo -e " 4. Para ver os logs do bot rodando, use: ${GREEN}screen -r bot${NC}"
 echo -e " 5. Para sair da tela de logs sem desligar o bot, aperte: ${GREEN}Ctrl + A e depois a tecla D${NC}"
 echo -e "${CYAN}====================================================${NC}"
-echo -e "Lembre-se de adicionar as portas ${YELLOW}8080${NC} e ${YELLOW}8081${NC} nas Regras de Entrada (Security Group) da AWS!"
+echo -e "Security Group da AWS: libere so ${YELLOW}22${NC} (SSH, de preferencia so do seu IP) e ${YELLOW}80/443${NC}."
+echo -e "${YELLOW}NAO${NC} abra 5433, 8080 (Evolution) nem 8081 (API): elas escutam so em 127.0.0.1 e"
+echo -e "o painel ja encaminha /api para o backend. Em producao suba com o override que exige segredos:"
+echo -e "    ${GREEN}docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build${NC}"
 echo -e "${CYAN}====================================================${NC}"
 echo -e "Deseja que apliquemos as novas permissões do grupo docker nesta sessão? [s/N]"
 read -r shell_response

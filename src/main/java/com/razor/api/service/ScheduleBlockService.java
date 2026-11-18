@@ -1,6 +1,7 @@
 package com.razor.api.service;
 
 import com.razor.api.model.ScheduleBlock;
+import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.repository.ScheduleBlockRepository;
 import com.razor.api.tenant.TenantContext;
 import java.time.LocalDate;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 public class ScheduleBlockService {
 
     private final ScheduleBlockRepository repository;
+    private final ProfessionalRepository professionalRepository;
 
     public List<ScheduleBlock> listAll() {
         return repository.findByBarbershopId(TenantContext.getCurrent());
@@ -43,6 +45,7 @@ public class ScheduleBlockService {
     public ScheduleBlock create(UUID professionalId, LocalDate blockDate, Short weekday,
                                 LocalTime startTime, LocalTime endTime, String reason) {
         validate(blockDate, weekday, startTime, endTime);
+        requireProfessionalOfThisShop(professionalId, TenantContext.getCurrent());
         ScheduleBlock saved = repository.save(ScheduleBlock.builder()
                 .barbershopId(TenantContext.getCurrent())
                 .professionalId(professionalId)
@@ -61,6 +64,14 @@ public class ScheduleBlockService {
                 .filter(b -> TenantContext.getCurrent().equals(b.getBarbershopId()))
                 .orElseThrow(() -> new NotFoundException("Bloqueio nao encontrado."));
         repository.delete(block);
+    }
+
+    /** Isolamento: barbeiro de outra barbearia (ou inexistente) nao recebe bloqueio por aqui. */
+    private void requireProfessionalOfThisShop(UUID professionalId, UUID shop) {
+        if (professionalId == null) return;
+        professionalRepository.findById(professionalId)
+                .filter(p -> shop.equals(p.getBarbershopId()))
+                .orElseThrow(() -> new NotFoundException("Profissional nao encontrado."));
     }
 
     /** Mesmas regras das constraints da V16, com mensagem amigavel antes de bater no banco. */

@@ -41,8 +41,12 @@ public class AdminScheduleBlockController {
     public ResponseEntity<ScheduleBlockPayload> create(@RequestBody ScheduleBlockPayload req) {
         ScheduleBlock created = scheduleBlockService.create(
                 req.professionalId(), req.date(), req.weekday(), req.startTime(), req.endTime(), req.reason());
+        // Busca escopada no tenant (o servico ja recusou profissional de outra barbearia; o filtro
+        // aqui garante que o nome nunca venha de outro tenant).
         String nome = created.getProfessionalId() == null ? null
-                : professionalRepository.findById(created.getProfessionalId()).map(Professional::getName).orElse(null);
+                : professionalRepository.findById(created.getProfessionalId())
+                        .filter(p -> TenantContext.getCurrent().equals(p.getBarbershopId()))
+                        .map(Professional::getName).orElse(null);
         return ResponseEntity.status(HttpStatus.CREATED).body(ScheduleBlockPayload.from(created, nome));
     }
 
