@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 /**
@@ -52,6 +51,7 @@ public class AdminCommandService {
     private final EvolutionMediaService evolutionMediaService;
     private final StateStore stateStore;
     private final BarbershopSettingsService barbershopSettingsService;
+    private final BroadcastService broadcastService;
 
     /** Fluxo do admin abandonado no meio expira sozinho. */
     private static final Duration ADMIN_TTL = Duration.ofMinutes(30);
@@ -433,33 +433,18 @@ public class AdminCommandService {
         sendMsg(phoneNumber, fullMenu, "ADMIN");
     }
 
-    @Async
+    /**
+     * Disparo imediato para a base toda. O laco (cabecalho, pausa entre envios, falha por contato)
+     * mora no {@link BroadcastService}, compartilhado com o disparo por grupo do painel (V36).
+     *
+     * <p>Sem {@code @Async}: era chamado de dentro da propria classe, entao a anotacao nunca teve
+     * efeito (o proxy do Spring nao intercepta chamada interna) — rodava sincrono, como continua.
+     */
     public void performBroadcast(String adminPhone, String message, boolean isProspecting) {
         List<Customer> allCustomers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
         sendMsg(adminPhone, "🚀 Iniciando disparo para " + allCustomers.size() + " contatos...", "ADMIN");
-
-        // Nome resolvido uma vez, fora do laco: o disparo percorre a base inteira e nao ha
-        // motivo para reler as configuracoes do tenant a cada contato.
-        String barbershopName = barbershopSettingsService.resolve().displayName();
-
-        List<String> contatosSucesso = new ArrayList<>();
-        for (Customer customer : allCustomers) {
-            try {
-                if (customer.getPhoneNumber().contains(adminPhone)) continue;
-                String header = isProspecting
-                        ? "💈 *" + barbershopName + " - Promoção* 💈\n\n"
-                        : "📢 *Aviso da " + barbershopName + "*\n\n";
-                sendMsg(customer.getPhoneNumber(), header + message, "DISPARO");
-                contatosSucesso.add("✅ " + customer.getName());
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.warn("[DISPARO] Interrompido durante o envio para {}", customer.getPhoneNumber());
-                break;
-            } catch (Exception e) {
-                log.warn("[DISPARO] Falha ao enviar para {}: {}", customer.getPhoneNumber(), e.getMessage());
-            }
-        }
-        sendMsg(adminPhone, "📊 *Relatório de Disparo*\nTotal alcançado: " + contatosSucesso.size() + "\n\n" + String.join("\n", contatosSucesso), "ADMIN");
+        List<String> enviados = broadcastService.deliver(allCustomers, message, isProspecting, adminPhone);
+        List<String> linhas = enviados.stream().map(n -> "✅ " + n).toList();
+        sendMsg(adminPhone, "📊 *Relatório de Disparo*\nTotal alcançado: " + linhas.size() + "\n\n" + String.join("\n", linhas), "ADMIN");
     }
 }

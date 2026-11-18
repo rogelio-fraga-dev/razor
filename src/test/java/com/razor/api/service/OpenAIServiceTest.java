@@ -147,4 +147,13 @@ class OpenAIServiceTest {
 
         assertThat(table).contains("45,00").doesNotContain("plano");
     }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("aviso de limite no prompt usa o limite configurado, nao o '2' cravado")
+    void bookingLimitHint_usesConfiguredLimit() {
+        assertThat(OpenAIService.bookingLimitHint(0, 2)).isEmpty();
+        assertThat(OpenAIService.bookingLimitHint(1, 3)).contains("ainda pode agendar").contains("3");
+        assertThat(OpenAIService.bookingLimitHint(3, 3)).contains("LIMITE ATINGIDO").contains("3");
+        assertThat(OpenAIService.bookingLimitHint(5, null)).doesNotContain("LIMITE ATINGIDO");
+    }
 }

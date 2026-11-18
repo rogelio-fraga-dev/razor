@@ -58,12 +58,16 @@ public class AgendaService {
         return booking.processAgenda(jsonAgenda);
     }
 
-    public Appointment getAgendamentoCliente(String phone) {
-        return booking.getAgendamentoCliente(phone);
+    public Appointment getAgendamentoMaisRecente(String phone) {
+        return booking.getAgendamentoMaisRecente(phone);
     }
 
-    public List<Appointment> getAgendamentosClienteList(String phone) {
-        return booking.getAgendamentosClienteList(phone);
+    public List<Appointment> getAgendamentosFuturos(String phone) {
+        return booking.getAgendamentosFuturos(phone);
+    }
+
+    public java.util.Optional<AgendaBookingService.BookingLimitExceeded> checkBookingLimit(String phone) {
+        return booking.checkBookingLimit(phone);
     }
 
     public boolean hasAgendamentoFuturo(String phone) {
@@ -74,8 +78,8 @@ public class AgendaService {
         return booking.cancelarAgendamentoExato(ag);
     }
 
-    public boolean cancelarAgendamentoCliente(String phone) {
-        return booking.cancelarAgendamentoCliente(phone);
+    public boolean cancelarAgendamentoMaisRecente(String phone) {
+        return booking.cancelarAgendamentoMaisRecente(phone);
     }
 
     // ---- Tarefas agendadas ----

@@ -46,6 +46,7 @@ class AdminCommandServiceTest {
     @Mock private WaitlistRepository waitlistRepository;
     @Mock private WhatsAppMessenger messenger;
     @Mock private EvolutionMediaService evolutionMediaService;
+    @Mock private BroadcastService broadcastService;
 
     // Store REAL (nao mock): a maquina de estados da conversa precisa gravar/ler de verdade.
     @org.mockito.Spy

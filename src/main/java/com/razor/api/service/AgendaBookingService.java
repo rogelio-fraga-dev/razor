@@ -16,6 +16,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Comparator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,7 +30,9 @@ import org.springframework.stereotype.Service;
  *       e registra o ponto de fidelidade) e {@link #processAgenda} (lote em JSON do admin).</li>
  *   <li><b>Cancelar</b>: {@link #cancelarAgendamentoExato} / {@link #cancelarAgendamentoCliente},
  *       que tambem cancelam as tarefas pendentes do telefone.</li>
- *   <li><b>Consultar</b>: agendamentos do cliente e se ele tem horario futuro ativo.</li>
+ *   <li><b>Consultar</b>: horarios futuros do cliente e se ele tem horario futuro ativo.</li>
+ *   <li><b>Limite</b>: {@link #checkBookingLimit} — quantos horarios futuros um cliente pode ter
+ *       ao mesmo tempo (V36). Reaproveitavel por qualquer caminho que crie agendamento.</li>
  * </ul>
  * Tarefas agendadas ficam no {@link AgendaTaskService}. Extraido do antigo {@link AgendaService}.
  */
@@ -54,8 +57,84 @@ public class AgendaBookingService {
     }
 
     /**
+     * Cliente que ja tem o maximo de horarios futuros permitido pela barbearia (V36).
+     *
+     * @param limit    o limite configurado
+     * @param upcoming os horarios futuros que ele ja tem, do mais proximo ao mais distante
+     */
+    public record BookingLimitExceeded(int limit, List<Appointment> upcoming) {
+
+        /**
+         * Resposta gentil ao cliente: diz o limite, lista o que ele ja tem e oferece remarcar.
+         * Mora aqui (e nao no fluxo do bot) para o agendamento online falar a mesma coisa.
+         */
+        public String customerMessage(String firstName) {
+            String nome = (firstName == null || firstName.isBlank()) ? "" : ", " + firstName.trim();
+            StringBuilder sb = new StringBuilder("Poxa").append(nome).append("! 😅 ")
+                    .append(limit == 1
+                            ? "Por aqui cada cliente pode ter *1 horário* marcado por vez"
+                            : "Por aqui cada cliente pode ter até *" + limit + " horários* marcados ao mesmo tempo")
+                    .append(", e você já está com ")
+                    .append(upcoming.size() == 1 ? "este:" : "estes:")
+                    .append("\n\n");
+            for (Appointment a : upcoming) {
+                sb.append("🔹 ").append(a.getService() == null ? "Atendimento" : a.getService())
+                  .append(" — ").append(AppointmentDates.formatDate(a.getAppointmentDate()))
+                  .append(" às ").append(AppointmentDates.formatTime(a.getAppointmentTime()))
+                  .append("\n");
+            }
+            sb.append("\nSe quiser trocar algum deles de dia ou horário, é só digitar ")
+              .append("*cancelar meu horário* e escolher qual liberar — aí eu marco o novo pra você! 💈");
+            return sb.toString();
+        }
+    }
+
+    /** Lancada por quem tenta criar agendamento passando do limite sem ter conferido antes. */
+    public static class BookingLimitExceededException extends RuntimeException {
+        private final transient BookingLimitExceeded detail;
+
+        public BookingLimitExceededException(BookingLimitExceeded detail) {
+            super("Cliente ja tem " + detail.upcoming().size() + " agendamento(s) futuro(s); o limite da barbearia e "
+                    + detail.limit() + ".");
+            this.detail = detail;
+        }
+
+        public BookingLimitExceeded detail() {
+            return detail;
+        }
+    }
+
+    /**
+     * O cliente ainda pode marcar mais um horario? Vazio = pode; presente = ja esta no limite,
+     * com os horarios que ele tem (para a resposta listar e oferecer remarcacao).
+     *
+     * <p>Conta so horarios <b>futuros</b> — historico nao trava ninguem. Recebe a barbearia
+     * explicita porque o agendamento online (site publico) nao tem tenant no contexto. Limite
+     * nulo, zero ou negativo = sem limite.
+     */
+    public Optional<BookingLimitExceeded> checkBookingLimit(UUID barbershopId, String phone) {
+        Integer limit = barbershopSettingsService.getMaxFutureBookingsPerCustomer(barbershopId);
+        if (limit == null || limit <= 0 || phone == null || phone.isBlank()) {
+            return Optional.empty();
+        }
+        List<Appointment> upcoming = upcomingFor(barbershopId, phone);
+        return upcoming.size() >= limit
+                ? Optional.of(new BookingLimitExceeded(limit, upcoming))
+                : Optional.empty();
+    }
+
+    /** {@link #checkBookingLimit(UUID, String)} no tenant atual. */
+    public Optional<BookingLimitExceeded> checkBookingLimit(String phone) {
+        return checkBookingLimit(TenantContext.getCurrent(), phone);
+    }
+
+    /**
      * Cria um agendamento e atribui um profissional (barbeiro): usa o {@code preferredProfessionalId}
      * se informado e livre; caso contrario auto-atribui o barbeiro livre menos ocupado no dia.
+     *
+     * @throws BookingLimitExceededException se o cliente ja esta no limite de horarios futuros.
+     *         O bot confere antes ({@link #checkBookingLimit}) para responder com jeito; esta
+     *         trava e a garantia para quem esquecer de conferir.
      */
     public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
                                           UUID preferredProfessionalId) {
@@ -68,6 +147,12 @@ public class AgendaBookingService {
             log.error("[AGENDA] Nao foi possivel criar agendamento para {} — data/hora invalida ('{}' '{}'): {}", phone, date, time, e.getMessage());
             return;
         }
+
+        checkBookingLimit(phone).ifPresent(excedido -> {
+            log.info("[AGENDA] Agendamento recusado para {}: ja tem {} horario(s) futuro(s), limite {}",
+                    phone, excedido.upcoming().size(), excedido.limit());
+            throw new BookingLimitExceededException(excedido);
+        });
 
         UUID professionalId = professionalAssignmentService.assign(parsedDate, parsedTime, preferredProfessionalId);
 
@@ -134,6 +219,9 @@ public class AgendaBookingService {
     /**
      * Lote de agendamentos enviado pelo admin ({@code {"items":[{name,time,date,service}]}}).
      * Retorna quantos foram de clientes conhecidos (com telefone, e portanto com lembrete).
+     *
+     * <p>Nao passa pelo limite de horarios por cliente (V36): quem lanca e o dono, e o limite
+     * existe para conter o cliente que reserva "para garantir" — nao para travar a barbearia.
      */
     public int processAgenda(String jsonAgenda) {
         int agendados = 0;
@@ -188,12 +276,31 @@ public class AgendaBookingService {
         }
     }
 
-    public Appointment getAgendamentoCliente(String phone) {
-        return appointmentRepository.findByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phone).stream().findFirst().orElse(null);
+    /**
+     * Horarios do cliente que ainda vao acontecer, do mais proximo ao mais distante. E isto —
+     * e nao o historico inteiro — que o bot chama de "seus agendamentos": listar, cancelar e
+     * contar para o limite so faz sentido sobre o que ainda nao aconteceu.
+     */
+    public List<Appointment> getAgendamentosFuturos(String phone) {
+        return upcomingFor(TenantContext.getCurrent(), phone);
     }
 
-    public List<Appointment> getAgendamentosClienteList(String phone) {
-        return appointmentRepository.findByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phone);
+    /**
+     * O horario futuro <b>marcado por ultimo</b> — o que acabou de ser criado no fluxo do bot.
+     * E o alvo da escolha de pagamento e do "desistir" logo depois de agendar; antes era o
+     * primeiro registro qualquer do telefone, que podia ser um atendimento de meses atras.
+     */
+    public Appointment getAgendamentoMaisRecente(String phone) {
+        return getAgendamentosFuturos(phone).stream()
+                .max(Comparator.comparing(Appointment::getCreatedAt,
+                        Comparator.nullsFirst(Comparator.naturalOrder())))
+                .orElse(null);
+    }
+
+    private List<Appointment> upcomingFor(UUID barbershopId, String phone) {
+        LocalDateTime agora = LocalDateTime.now(ZONE);
+        return appointmentRepository.findUpcomingByCustomer(
+                barbershopId, phone, agora.toLocalDate(), agora.toLocalTime());
     }
 
     public boolean hasAgendamentoFuturo(String phone) {
@@ -228,8 +335,9 @@ public class AgendaBookingService {
         return false;
     }
 
-    public boolean cancelarAgendamentoCliente(String phone) {
-        Appointment ag = getAgendamentoCliente(phone);
+    /** Cancela o horario futuro marcado por ultimo (ver {@link #getAgendamentoMaisRecente}). */
+    public boolean cancelarAgendamentoMaisRecente(String phone) {
+        Appointment ag = getAgendamentoMaisRecente(phone);
         if (ag != null) {
             appointmentRepository.delete(ag);
             log.info("[AGENDA] Cancelamento feito para o cliente do número: {}", phone);

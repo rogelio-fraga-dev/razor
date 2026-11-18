@@ -107,6 +107,17 @@ public class BarbershopSettings {
     @Column(name = "monthly_revenue_goal", precision = 12, scale = 2)
     private BigDecimal monthlyRevenueGoal;
 
+    /**
+     * Quantos horarios FUTUROS um mesmo cliente pode ter ao mesmo tempo (V36). NULL = sem limite.
+     * O default do banco e 2; ver {@code BarbershopSettingsService#getMaxFutureBookingsPerCustomer}.
+     */
+    @Builder.Default
+    @Column(name = "max_future_bookings_per_customer")
+    private Integer maxFutureBookingsPerCustomer = DEFAULT_MAX_FUTURE_BOOKINGS;
+
+    /** Mesmo default da coluna (V36): vale tambem para o tenant que ainda nao tem linha. */
+    public static final int DEFAULT_MAX_FUTURE_BOOKINGS = 2;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
