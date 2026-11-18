@@ -9,6 +9,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -36,9 +37,15 @@ public class FidelityService {
      * Registra a visita do cliente: soma um ponto e, ao completar a cartela, zera e emite o
      * cupom de recompensa.
      *
+     * <p><b>Sempre numa transacao NOVA ({@code REQUIRES_NEW}).</b> O chamador real e o
+     * fechamento da comanda, que chama aqui no {@code afterCommit}: nesse momento a transacao do
+     * fechamento ja foi confirmada, mas os recursos dela ainda estao presos a thread. Com
+     * {@code REQUIRED} o metodo "participava" dessa transacao morta — o save era feito num
+     * contexto que nunca mais faz flush/commit, e o ponto (e o cupom) se perdiam em silencio.
+     *
      * @return o cupom emitido, quando a cartela fechou nesta visita; vazio caso contrario.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<Coupon> registerVisit(String phone) {
         Customer customer = customerRepository
                 .findByBarbershopIdAndPhoneNumber(TenantContext.getCurrent(), phone)

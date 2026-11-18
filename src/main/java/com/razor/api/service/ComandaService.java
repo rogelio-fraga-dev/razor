@@ -177,7 +177,6 @@ public class ComandaService {
     /** Forma unica + cupom opcional (V29). Ver {@link #close(UUID, List, String)}. */
     @Transactional
     public Comanda close(UUID comandaId, CashPaymentMethod method, String couponCode) {
-        requireOpen(comandaId);
         if (method == null) {
             throw new IllegalArgumentException("Escolha a forma de pagamento da comanda.");
         }
@@ -198,7 +197,6 @@ public class ComandaService {
      */
     @Transactional
     public Comanda close(UUID comandaId, List<Payment> payments, String couponCode) {
-        requireOpen(comandaId);
         if (payments == null || payments.isEmpty()) {
             throw new IllegalArgumentException("Informe como a comanda foi paga.");
         }
@@ -208,10 +206,17 @@ public class ComandaService {
     /**
      * Fechamento de fato. Recebe ou as partes ({@code payments}) ou a forma unica
      * ({@code singleMethod}), que vira uma parte so com o total.
+     *
+     * <p>Comeca TRAVANDO a comanda ({@code FOR UPDATE}) e so depois olha a situacao dela: dois
+     * fechamentos simultaneos da mesma comanda fazem fila, e o segundo encontra FECHADA. A trava
+     * vem antes de qualquer outra leitura da comanda nesta transacao — se ela ja estivesse no
+     * contexto de persistencia, o Hibernate devolveria a copia velha (ABERTA) mesmo travando.
      */
     private Comanda doClose(UUID comandaId, List<Payment> payments, CashPaymentMethod singleMethod,
                             String couponCode) {
-        Comanda comanda = requireOpen(comandaId);
+        Comanda comanda = comandaRepository.lockByIdAndBarbershopId(comandaId, TenantContext.getCurrent())
+                .orElseThrow(() -> new NotFoundException("Comanda nao encontrada."));
+        requireStillOpen(comanda);
 
         List<ComandaItem> items = itemRepository.findByComandaIdOrderByCreatedAtAsc(comandaId);
         if (items.isEmpty()) {
@@ -225,9 +230,16 @@ public class ComandaService {
         BigDecimal desconto = BigDecimal.ZERO;
         CouponService.Validation cupom = null;
         if (couponCode != null && !couponCode.isBlank()) {
-            cupom = couponService.validate(couponCode, subtotal, comanda.getCustomerPhone(),
-                    AppointmentDates.today());
-            desconto = cupom.discount();
+            if (subtotal.signum() == 0) {
+                // Tudo pago pelo pacote: o cupom nao teria o que descontar. Nao e gasto (continua
+                // valendo para a proxima) — a pre-visualizacao ja avisou a recepcao disso.
+                log.info("[COMANDA] Cupom '{}' ignorado na comanda {}: total coberto por pacote",
+                        couponCode, comandaId);
+            } else {
+                cupom = couponService.validate(couponCode, subtotal, comanda.getCustomerPhone(),
+                        AppointmentDates.today());
+                desconto = cupom.discount();
+            }
         }
         BigDecimal total = subtotal.subtract(desconto);
 
@@ -267,7 +279,7 @@ public class ComandaService {
         comanda.setPaymentMethod(method);
         comanda.setCashMovementId(movementId);
         comanda.setClosedAt(now);
-        if (cupom != null) {
+        if (cupom != null && desconto.signum() > 0) {
             comanda.setCouponId(cupom.coupon().getId());
             comanda.setDiscountAmount(desconto);
         }
@@ -275,7 +287,7 @@ public class ComandaService {
 
         // O uso e registrado depois do caixa aceitar: cupom nao pode ficar "gasto" numa
         // comanda que falhou em cobrar.
-        if (cupom != null) {
+        if (cupom != null && desconto.signum() > 0) {
             couponService.redeem(cupom.coupon(), desconto, comanda.getId(), comanda.getCustomerPhone());
         }
 
@@ -315,20 +327,90 @@ public class ComandaService {
         return normalized;
     }
 
+    /** Aviso da pre-visualizacao quando o pacote cobre tudo e o cupom nao seria usado. */
+    static final String CUPOM_SEM_USO =
+            "A comanda ficou toda paga pelo pacote: o cupom não será usado e continua valendo.";
+
+    /** Um item (ou parte dele) que o pacote vai pagar no fechamento. */
+    public record CoveredItem(UUID itemId, String name, int uses) {}
+
     /**
-     * Simula o cupom nesta comanda (V35): o painel precisa do total ja descontado para montar o
-     * split antes de fechar. O subtotal vem dos itens, nunca do cliente.
+     * O que o fechamento cobraria AGORA: subtotal dos itens, quanto o pacote cobre, desconto do
+     * cupom (sobre o que sobra depois do pacote) e o total. {@code couponError} explica por que o
+     * cupom nao entrou — a simulacao nunca falha por causa do cupom.
+     */
+    public record ClosePreview(BigDecimal subtotal, BigDecimal packageCovered, BigDecimal couponDiscount,
+                               BigDecimal total, List<CoveredItem> coveredItems, String couponError) {}
+
+    /**
+     * Simula o fechamento (pacote + cupom) sem gravar nada e sem segurar trava. Usa a MESMA regra
+     * do {@link #doClose}: a baixa de pacote vem do mesmo planejador ({@link PackageService#plan})
+     * e o cupom e validado sobre o subtotal ja sem o pacote — e por isso que o painel consegue
+     * montar o split com o valor exato que o fechamento vai exigir.
+     */
+    public ClosePreview previewClose(UUID comandaId, String couponCode) {
+        Simulacao sim = simulate(requireOpen(comandaId), couponCode, false);
+        return new ClosePreview(sim.subtotal(), sim.packageCovered(), sim.discount(), sim.total(),
+                sim.coveredItems(), sim.couponError());
+    }
+
+    /**
+     * Simula o cupom nesta comanda (V35). Mantido para o painel antigo: agora delega para a mesma
+     * simulacao do {@link #previewClose} (o subtotal ja vem sem o que o pacote paga), e cupom
+     * invalido continua sendo erro.
      */
     public CouponPreview previewCoupon(UUID comandaId, String couponCode) {
-        Comanda comanda = requireOpen(comandaId);
-        BigDecimal subtotal = currentTotal(comandaId);
-        CouponService.Validation v = couponService.validate(couponCode, subtotal,
-                comanda.getCustomerPhone(), AppointmentDates.today());
-        return new CouponPreview(v.coupon().getCode(), subtotal, v.discount(), subtotal.subtract(v.discount()));
+        Simulacao sim = simulate(requireOpen(comandaId), couponCode, true);
+        BigDecimal base = sim.subtotal().subtract(sim.packageCovered());
+        String code = sim.coupon() != null ? sim.coupon().coupon().getCode() : couponCode;
+        return new CouponPreview(code, base, sim.discount(), sim.total());
     }
 
     /** Resultado da simulacao de cupom no fechamento. */
     public record CouponPreview(String code, BigDecimal subtotal, BigDecimal discount, BigDecimal finalTotal) {}
+
+    private record Simulacao(BigDecimal subtotal, BigDecimal packageCovered, BigDecimal discount, BigDecimal total,
+                             List<CoveredItem> coveredItems, String couponError, CouponService.Validation coupon) {}
+
+    /** @param strict {@code true} = cupom invalido lanca (contrato do coupon-preview antigo) */
+    private Simulacao simulate(Comanda comanda, String couponCode, boolean strict) {
+        List<ComandaItem> items = itemRepository.findByComandaIdOrderByCreatedAtAsc(comanda.getId());
+        BigDecimal subtotal = items.stream().map(ComandaItem::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<PackageService.Coverage> coverages = items.isEmpty() ? null
+                : packageService.previewForComanda(comanda, items);
+        if (coverages == null) coverages = List.of();
+        BigDecimal covered = coverages.stream().map(PackageService.Coverage::coveredValue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        java.util.Map<UUID, CoveredItem> porItem = new java.util.LinkedHashMap<>();
+        for (PackageService.Coverage c : coverages) {
+            ComandaItem it = c.item();
+            porItem.merge(it.getId(), new CoveredItem(it.getId(), it.getDescription(), c.uses()),
+                    (x, y) -> new CoveredItem(x.itemId(), x.name(), x.uses() + y.uses()));
+        }
+        BigDecimal base = subtotal.subtract(covered);
+
+        BigDecimal desconto = BigDecimal.ZERO;
+        String erro = null;
+        CouponService.Validation cupom = null;
+        if (couponCode != null && !couponCode.isBlank()) {
+            if (base.signum() == 0 && !items.isEmpty()) {
+                erro = CUPOM_SEM_USO;
+            } else {
+                try {
+                    cupom = couponService.validate(couponCode, base, comanda.getCustomerPhone(),
+                            AppointmentDates.today());
+                    desconto = cupom.discount();
+                } catch (IllegalArgumentException | NotFoundException e) {
+                    if (strict) throw e;
+                    erro = e.getMessage();
+                }
+            }
+        }
+        if (strict && erro != null) throw new IllegalArgumentException(erro);
+        return new Simulacao(subtotal, covered, desconto, base.subtract(desconto),
+                List.copyOf(porItem.values()), erro, cupom);
+    }
 
     /** Partes do pagamento de uma comanda (V35). Vazio enquanto aberta ou cancelada. */
     public List<CashMovement> payments(Comanda comanda) {
@@ -443,7 +525,10 @@ public class ComandaService {
 
     /** Comanda fechada ou cancelada nao aceita mais mudanca — a conta ja virou dinheiro. */
     private Comanda requireOpen(UUID comandaId) {
-        Comanda comanda = get(comandaId);
+        return requireStillOpen(get(comandaId));
+    }
+
+    private static Comanda requireStillOpen(Comanda comanda) {
         if (comanda.getStatus() != Comanda.Status.ABERTA) {
             throw new IllegalArgumentException(
                     "Esta comanda ja foi " + comanda.getStatus().name().toLowerCase() + ".");

@@ -95,6 +95,17 @@ public class AdminComandaController {
      * para dividir o pagamento. Fica sob /comandas para a recepcao — que fecha a conta — poder
      * usar; o subtotal vem dos itens, nunca do corpo.
      */
+    /**
+     * Simula o fechamento: quanto o pacote do cliente cobre, o desconto do cupom (sobre o que
+     * sobra) e o total exato que o {@code /close} vai exigir — para o painel montar o split. Nao
+     * grava nada. Mesma permissao do fechamento (dono e recepcao, via /comandas/**).
+     */
+    @PostMapping("/{id}/close-preview")
+    public ComandaService.ClosePreview closePreview(@PathVariable UUID id,
+                                                    @RequestBody(required = false) ComandaRequests.ClosePreview req) {
+        return comandaService.previewClose(id, req == null ? null : req.couponCode());
+    }
+
     @PostMapping("/{id}/coupon-preview")
     public ComandaService.CouponPreview couponPreview(@PathVariable UUID id,
                                                      @Valid @RequestBody ComandaRequests.CouponPreview req) {

@@ -28,6 +28,22 @@ public interface CustomerPackageRepository extends JpaRepository<CustomerPackage
             """)
     List<CustomerPackage> findUsable(@Param("shop") UUID barbershopId, @Param("today") LocalDate today);
 
+    /** Pacotes usaveis destes clientes, SEM trava — a pre-visualizacao do fechamento. */
+    @Query("""
+            select cp from CustomerPackage cp
+             where cp.barbershopId = :shop
+               and cp.customerId in :customers
+               and cp.remainingUses > 0
+               and cp.expiresAt >= :today
+             order by cp.expiresAt asc, cp.purchasedAt asc
+            """)
+    List<CustomerPackage> findUsableForCustomers(@Param("shop") UUID barbershopId,
+                                                 @Param("customers") Collection<UUID> customerIds,
+                                                 @Param("today") LocalDate today);
+
+    /** O cliente tem algum pacote (usado ou nao)? Apagar o cadastro dele e recusado (FK RESTRICT). */
+    boolean existsByCustomerId(UUID customerId);
+
     /**
      * Os mesmos pacotes usaveis, restritos a clientes e <b>travados para escrita</b>: duas
      * comandas do mesmo cliente fechando ao mesmo tempo nao podem gastar o mesmo uso.

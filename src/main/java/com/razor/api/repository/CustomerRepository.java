@@ -19,6 +19,9 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     // entao lookups por telefone/nome sempre passam o barbershop_id.
     Optional<Customer> findByBarbershopIdAndPhoneNumber(UUID barbershopId, String phoneNumber);
 
+    /** Cadastros do telefone em qualquer das grafias dadas (ver {@code PhoneNumbers.variants}). */
+    List<Customer> findByBarbershopIdAndPhoneNumberIn(UUID barbershopId, java.util.Collection<String> phoneNumbers);
+
     Optional<Customer> findByBarbershopIdAndNameIgnoreCase(UUID barbershopId, String name);
 
     List<Customer> findByBarbershopId(UUID barbershopId);

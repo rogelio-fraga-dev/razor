@@ -25,6 +25,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -215,6 +218,40 @@ public class PackageService {
     // ---------- baixa automatica ----------
 
     /**
+     * Uma parte de um item de comanda paga por um pacote.
+     *
+     * @param item          o item de comanda coberto (inteiro ou em parte)
+     * @param pkg           o pacote que paga
+     * @param uses          quantos usos (unidades do item) saem deste pacote
+     * @param originalPrice preco de tabela por unidade que deixa de ser cobrado
+     * @param unitValue     valor de cada uso para a comissao — o unitario do pacote, ou o resto
+     *                      do preco quando este e o ULTIMO uso do pacote
+     */
+    public record Coverage(ComandaItem item, CustomerPackage pkg, int uses, BigDecimal originalPrice,
+                           BigDecimal unitValue) {
+
+        /** Quanto da comanda o pacote deixa de cobrar nesta parte. */
+        public BigDecimal coveredValue() {
+            return originalPrice.multiply(BigDecimal.valueOf(uses));
+        }
+    }
+
+    /**
+     * Simula a baixa — o que o fechamento faria AGORA com os pacotes do cliente — sem gravar nada
+     * e sem travar nada. Mesmo algoritmo do {@link #consumeForComanda} ({@link #plan}): o total da
+     * pre-visualizacao e exatamente o do fechamento, salvo se o saldo mudar entre um e outro.
+     */
+    public List<Coverage> previewForComanda(Comanda comanda, List<ComandaItem> items) {
+        if (!mayHaveCoverage(comanda, items)) return List.of();
+        LocalDate today = AppointmentDates.today();
+        Set<UUID> owners = ownersOfPhone(comanda.getBarbershopId(), comanda.getCustomerPhone());
+        if (owners.isEmpty()) return List.of();
+        List<CustomerPackage> packages = customerPackageRepository.findUsableForCustomers(
+                comanda.getBarbershopId(), owners, today);
+        return plan(packages, items, today);
+    }
+
+    /**
      * Aplica os pacotes do cliente da comanda aos servicos dela, <b>antes</b> do total ser
      * calculado. Cada servico coberto sai a R$ 0,00 e consome um uso por unidade.
      *
@@ -226,44 +263,48 @@ public class PackageService {
      */
     @Transactional
     public List<ComandaItem> consumeForComanda(Comanda comanda, List<ComandaItem> items) {
-        if (comanda.getCustomerPhone() == null || comanda.getCustomerPhone().isBlank()) return items;
-        if (items.stream().noneMatch(i -> i.getKind() == ComandaItem.Kind.SERVICO)) return items;
+        if (!mayHaveCoverage(comanda, items)) return items;
 
         UUID shop = comanda.getBarbershopId();
         LocalDate today = AppointmentDates.today();
-        List<CustomerPackage> packages = lockPackagesOfPhone(shop, comanda.getCustomerPhone(), today);
-        if (packages.isEmpty()) return items;
+        Set<UUID> owners = ownersOfPhone(shop, comanda.getCustomerPhone());
+        if (owners.isEmpty()) return items;
+        // Travados para escrita: duas comandas do mesmo cliente fechando juntas nao gastam o
+        // mesmo uso.
+        List<CustomerPackage> packages = customerPackageRepository.lockUsableForCustomers(shop, owners, today);
+        if (packages == null || packages.isEmpty()) return items;
+
+        List<Coverage> coverages = plan(packages, items, today);
+        if (coverages.isEmpty()) return items;
+
+        Map<ComandaItem, List<Coverage>> byItem = new IdentityHashMap<>();
+        for (Coverage c : coverages) {
+            byItem.computeIfAbsent(c.item(), k -> new ArrayList<>()).add(c);
+        }
 
         List<ComandaItem> result = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
         for (ComandaItem item : items) {
             result.add(item);
-            if (item.getKind() != ComandaItem.Kind.SERVICO) continue;
-            if (item.getUnitPrice().signum() == 0) continue; // ja zerado: nada a cobrir
-            if (item.getId() != null && usageRepository.existsByComandaItemId(item.getId())) continue;
+            List<Coverage> doItem = byItem.get(item);
+            if (doItem == null) continue;
 
             int index = result.size() - 1;
             ComandaItem current = item;
-            while (current != null && current.getQuantity() > 0) {
-                CustomerPackage pkg = pickPackage(packages, current.getReferenceId(), today);
-                if (pkg == null) break;
-
-                int covered = Math.min(current.getQuantity(), pkg.getRemainingUses());
-                BigDecimal originalPrice = current.getUnitPrice();
+            for (Coverage cov : doItem) {
                 ComandaItem coveredItem;
-                if (covered == current.getQuantity()) {
-                    // O item inteiro e pago pelo pacote.
+                if (cov.uses() == current.getQuantity()) {
+                    // O que sobrou do item e inteiro pago pelo pacote.
                     current.setUnitPrice(BigDecimal.ZERO);
                     current.setTotal(BigDecimal.ZERO);
-                    current.setDescription(current.getDescription() + PACKAGE_SUFFIX);
+                    current.setDescription(stripSuffix(current.getDescription()) + PACKAGE_SUFFIX);
                     coveredItem = comandaItemRepository.save(current);
                     result.set(index, coveredItem);
-                    current = null;
                 } else {
-                    // Saldo menor que a quantidade: o resto continua cobrado.
-                    int rest = current.getQuantity() - covered;
+                    // Saldo menor que a quantidade (ou ultimo uso separado): o resto continua cobrado.
+                    int rest = current.getQuantity() - cov.uses();
                     current.setQuantity(rest);
-                    current.setTotal(originalPrice.multiply(BigDecimal.valueOf(rest)));
+                    current.setTotal(cov.originalPrice().multiply(BigDecimal.valueOf(rest)));
                     comandaItemRepository.save(current);
                     coveredItem = comandaItemRepository.save(ComandaItem.builder()
                             .comandaId(current.getComandaId())
@@ -272,13 +313,14 @@ public class PackageService {
                             .referenceId(current.getReferenceId())
                             .description(stripSuffix(current.getDescription()) + PACKAGE_SUFFIX)
                             .unitPrice(BigDecimal.ZERO)
-                            .quantity(covered)
+                            .quantity(cov.uses())
                             .total(BigDecimal.ZERO)
                             .build());
                     result.add(coveredItem);
                 }
 
-                pkg.setRemainingUses(pkg.getRemainingUses() - covered);
+                CustomerPackage pkg = cov.pkg();
+                pkg.setRemainingUses(pkg.getRemainingUses() - cov.uses());
                 customerPackageRepository.save(pkg);
                 usageRepository.save(PackageUsage.builder()
                         .barbershopId(shop)
@@ -288,59 +330,113 @@ public class PackageService {
                         .appointmentId(comanda.getAppointmentId())
                         .professionalId(comanda.getProfessionalId())
                         .serviceName(stripSuffix(coveredItem.getDescription()))
-                        .uses(covered)
-                        .unitValue(pkg.getUnitValue())
-                        .originalPrice(originalPrice)
+                        .uses(cov.uses())
+                        .unitValue(cov.unitValue())
+                        .originalPrice(cov.originalPrice())
                         .usageDate(comanda.getComandaDate() != null ? comanda.getComandaDate() : today)
                         .usedAt(now)
                         .build());
                 log.info("[PACOTE] Baixa de {} uso(s) do pacote {} na comanda {} (restam {})",
-                        covered, pkg.getId(), comanda.getId(), pkg.getRemainingUses());
+                        cov.uses(), pkg.getId(), comanda.getId(), pkg.getRemainingUses());
             }
         }
         return result;
     }
 
+    /**
+     * O plano da baixa, sem efeito colateral: quais itens cada pacote paga e quantos usos. O saldo
+     * e contado num mapa proprio — as entidades nao sao tocadas, entao a simulacao nunca vira
+     * escrita por acidente (flush de entidade gerenciada).
+     *
+     * <p>Quando uma parte consome o ULTIMO uso do pacote e o preco nao divide exato, essa ultima
+     * unidade sai separada, valendo o resto ({@code preco - unitario * (usos - 1)}): a soma das
+     * baixas fecha exatamente o preco pago — comissao sem centavo sobrando nem faltando.
+     */
+    List<Coverage> plan(List<CustomerPackage> packages, List<ComandaItem> items, LocalDate today) {
+        List<Coverage> out = new ArrayList<>();
+        if (packages == null || packages.isEmpty()) return out;
+        Map<UUID, Integer> remaining = new HashMap<>();
+        for (CustomerPackage p : packages) {
+            remaining.put(p.getId(), p.getRemainingUses() == null ? 0 : p.getRemainingUses());
+        }
+        for (ComandaItem item : items) {
+            if (item.getKind() != ComandaItem.Kind.SERVICO) continue;
+            if (item.getUnitPrice() == null || item.getUnitPrice().signum() == 0) continue; // ja zerado
+            if (item.getId() != null && usageRepository.existsByComandaItemId(item.getId())) continue;
+
+            int left = item.getQuantity();
+            while (left > 0) {
+                CustomerPackage pkg = pickPackage(packages, remaining, item.getReferenceId(), today);
+                if (pkg == null) break;
+                int saldo = remaining.get(pkg.getId());
+                int covered = Math.min(left, saldo);
+                BigDecimal ultimo = lastUseValue(pkg);
+                if (covered == saldo && ultimo != null && pkg.getUnitValue() != null
+                        && ultimo.compareTo(pkg.getUnitValue()) != 0) {
+                    if (covered > 1) {
+                        out.add(new Coverage(item, pkg, covered - 1, item.getUnitPrice(), pkg.getUnitValue()));
+                    }
+                    out.add(new Coverage(item, pkg, 1, item.getUnitPrice(), ultimo));
+                } else {
+                    out.add(new Coverage(item, pkg, covered, item.getUnitPrice(), pkg.getUnitValue()));
+                }
+                remaining.put(pkg.getId(), saldo - covered);
+                left -= covered;
+            }
+        }
+        return out;
+    }
+
+    /** Valor do ultimo uso: o que sobra do preco depois dos outros usos pelo unitario. */
+    static BigDecimal lastUseValue(CustomerPackage pkg) {
+        if (pkg.getPrice() == null || pkg.getTotalUses() == null || pkg.getUnitValue() == null) {
+            return pkg.getUnitValue();
+        }
+        BigDecimal resto = pkg.getPrice().subtract(
+                pkg.getUnitValue().multiply(BigDecimal.valueOf(pkg.getTotalUses() - 1L)));
+        return resto.signum() < 0 ? BigDecimal.ZERO.setScale(2) : resto;
+    }
+
     // ---------- apoio ----------
 
+    private static boolean mayHaveCoverage(Comanda comanda, List<ComandaItem> items) {
+        if (comanda.getCustomerPhone() == null || comanda.getCustomerPhone().isBlank()) return false;
+        return items.stream().anyMatch(i -> i.getKind() == ComandaItem.Kind.SERVICO);
+    }
+
     /**
-     * Pacotes usaveis do cliente dono do telefone, travados para escrita. O telefone e
-     * comparado normalizado (com/sem DDI, com/sem o nono digito), igual ao resto do sistema.
+     * Clientes donos do telefone da comanda. A busca e pelas grafias do numero (com/sem DDI,
+     * com/sem o nono digito) direto no banco — antes carregava os pacotes usaveis da barbearia
+     * inteira e os clientes deles, so para comparar o telefone em Java.
      */
-    private List<CustomerPackage> lockPackagesOfPhone(UUID shop, String phone, LocalDate today) {
-        String target = PhoneNumbers.normalizeBrazilian(phone);
-        if (target.isEmpty()) return List.of();
-
-        Set<UUID> withPackage = customerPackageRepository.findUsable(shop, today).stream()
-                .map(CustomerPackage::getCustomerId)
-                .collect(Collectors.toSet());
-        if (withPackage.isEmpty()) return List.of();
-
-        Set<UUID> owners = customerRepository.findAllById(withPackage).stream()
-                .filter(c -> shop.equals(c.getBarbershopId()))
-                .filter(c -> target.equals(PhoneNumbers.normalizeBrazilian(c.getPhoneNumber())))
-                .map(Customer::getId)
-                .collect(Collectors.toSet());
-        if (owners.isEmpty()) return List.of();
-
-        return new ArrayList<>(customerPackageRepository.lockUsableForCustomers(shop, owners, today));
+    private Set<UUID> ownersOfPhone(UUID shop, String phone) {
+        Set<String> variants = PhoneNumbers.variants(phone);
+        if (variants.isEmpty()) return Set.of();
+        List<Customer> donos = customerRepository.findByBarbershopIdAndPhoneNumberIn(shop, variants);
+        if (donos == null) return Set.of();
+        return donos.stream().map(Customer::getId).collect(Collectors.toSet());
     }
 
     /**
      * Qual pacote paga este servico: primeiro o especifico daquele servico, depois o "qualquer
      * servico"; dentro de cada grupo, o que vence primeiro.
      */
-    private CustomerPackage pickPackage(List<CustomerPackage> packages, UUID serviceId, LocalDate today) {
+    private CustomerPackage pickPackage(List<CustomerPackage> packages, Map<UUID, Integer> remaining,
+                                        UUID serviceId, LocalDate today) {
         Comparator<CustomerPackage> order = Comparator
                 .comparing((CustomerPackage cp) -> cp.getServiceId() == null ? 1 : 0)
                 .thenComparing(CustomerPackage::getExpiresAt);
         return packages.stream()
-                .filter(cp -> cp.isUsableOn(today))
+                .filter(cp -> remaining.getOrDefault(cp.getId(), 0) > 0 && !cp.isExpiredOn(today))
                 .filter(cp -> cp.getServiceId() == null || cp.getServiceId().equals(serviceId))
                 .min(order)
                 .orElse(null);
     }
 
+    /**
+     * Valor de cada uso: preco / usos, arredondado ao centavo. O arredondamento sobra (ou falta)
+     * no ULTIMO uso, que vale o resto — ver {@link #lastUseValue}.
+     */
     static BigDecimal unitValue(BigDecimal price, int quantity) {
         return price.divide(BigDecimal.valueOf(quantity), 2, RoundingMode.HALF_UP);
     }
