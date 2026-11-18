@@ -69,32 +69,7 @@
   --focus-ring: 0 0 0 3px rgba(62, 99, 255, 0.3);
 }
 
-/* Light Mode Overrides (Optional / Clean) */
-:root[data-theme="light"] {
-  --obsidian: #f6f7f9;
-  --graphite: #ffffff;
-  --graphite-raise: #f0f2f6;
-  --steel: #5d6572;
-  --steel-dark: #98a0ab;
-  --chrome: #16181d;
-  --chrome-pure: #0a0a0c;
-
-  --voltage: #2f51e6;
-  --voltage-hover: #2543c4;
-  --voltage-soft: #e9eeff;
-  --voltage-glow: rgba(47, 81, 230, 0.2);
-
-  --border-subtle: rgba(0, 0, 0, 0.08);
-  --border-bright: rgba(0, 0, 0, 0.16);
-  --border-voltage: rgba(47, 81, 230, 0.4);
-
-  --dark-mesh: radial-gradient(800px 400px at 50% -100px, rgba(47, 81, 230, 0.05), transparent 80%);
-
-  /* Faltavam no tema claro: o verde e o vermelho ficavam com o valor do tema escuro e
-     reprovavam contraste sobre branco (--signal dava 2,2:1 na coluna de comissao do Painel). */
-  --signal: #128c3f;
-  --danger: #dc2626;
-}
+/* Tema claro: ver theme-light.css (fonte única da paleta clara). */
 
 /* ============================================================================
    GLOBAL BASE STYLES

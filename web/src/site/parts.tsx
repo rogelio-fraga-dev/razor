@@ -3,9 +3,9 @@
 // Serviços, equipe, planos e rodapé mostram o MESMO dado nos três — o que muda entre templates é
 // a composição da página, não o conteúdo. Duplicar estes blocos faria uma correção de preço ou de
 // acessibilidade precisar ser feita três vezes, e a terceira seria esquecida.
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { PublicSite } from "../api/types";
-import { bookLabel, section } from "./content";
+import { bookLabel, howSteps, section } from "./content";
 import { useTilt } from "./fx";
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -303,13 +303,6 @@ export function Stats({ site }: { site: PublicSite }) {
   );
 }
 
-/** Os três passos do agendamento por WhatsApp — descrevem o produto, não a barbearia. */
-const STEPS = [
-  { t: "Chama no WhatsApp", d: "Sem baixar app e sem criar conta. É a mesma conversa que você já usa todo dia." },
-  { t: "Escolhe o horário", d: "Respondemos na hora com os horários livres — pode mandar áudio se preferir." },
-  { t: "Pronto", d: "Você recebe a confirmação e um lembrete uma hora antes. Só chegar." },
-];
-
 /**
  * "Como funciona" em três passos.
  *
@@ -325,10 +318,10 @@ export function HowItWorks({ site }: { site: PublicSite }) {
       <div className="rz-wrap">
         <Head eyebrow={s.eyebrow} title={s.title} text={s.text} id="rz-como" />
         <ol className="rz-steps">
-          {STEPS.map((st) => (
-            <li className="rz-step" key={st.t} data-reveal>
-              <h3>{st.t}</h3>
-              <p>{st.d}</p>
+          {howSteps(site).map((st, i) => (
+            <li className="rz-step" key={i} data-reveal>
+              <h3>{st.title}</h3>
+              <p>{st.text}</p>
             </li>
           ))}
         </ol>

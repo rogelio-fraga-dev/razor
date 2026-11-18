@@ -107,9 +107,14 @@ razor:
       signup-window-seconds: 3600
   openai:
     api-key: "${OPENAI_API_KEY}"
-    model: "gpt-4o"
+    # Chat: gpt-4o-mini por padrao (rapido e barato); o gpt-4o so entra quando o mini falha ou
+    # devolve uma tag de agendamento quebrada (escalation-model).
+    model: "${OPENAI_MODEL:gpt-4o-mini}"
+    escalation-model: "${OPENAI_ESCALATION_MODEL:gpt-4o}"
     vision-model: "gpt-4o"
-    whisper-model: "whisper-1"
+    # Transcricao: gpt-4o-mini-transcribe (mais rapido); whisper-1 de reserva se ele falhar.
+    whisper-model: "${OPENAI_TRANSCRIBE_MODEL:gpt-4o-mini-transcribe}"
+    whisper-fallback-model: "whisper-1"
     temperature: 0.7
   schedule:
     delay-minutes: 60

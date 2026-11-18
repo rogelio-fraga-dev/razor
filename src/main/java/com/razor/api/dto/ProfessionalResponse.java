@@ -24,6 +24,12 @@ public record ProfessionalResponse(
         /** Vazio = atende todos os servicos. */
         List<UUID> serviceIds) {
 
+    /** A mesma resposta sem os percentuais de comissao (lista da equipe para a recepcao). */
+    public ProfessionalResponse withoutCommission() {
+        return new ProfessionalResponse(id, name, phone, active, null, null, photoUrl, nickname,
+                displayName, bio, specialties, instagramUrl, serviceIds);
+    }
+
     public static ProfessionalResponse from(Professional p) {
         return new ProfessionalResponse(p.getId(), p.getName(), p.getPhone(), p.isActive(),
                 p.getCommissionPercent(), p.getProductCommissionPercent(),

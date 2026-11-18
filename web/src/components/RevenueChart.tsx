@@ -50,21 +50,21 @@ export function RevenueChart({ points }: { points: SeriesPoint[] }) {
       >
         <defs>
           <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3E63FF" stopOpacity="0.45" />
-            <stop offset="100%" stopColor="#3E63FF" stopOpacity="0.0" />
+            <stop offset="0%" style={{ stopColor: "var(--chart-fill-stop, #3E63FF)" }} stopOpacity="0.45" />
+            <stop offset="100%" style={{ stopColor: "var(--chart-fill-stop, #3E63FF)" }} stopOpacity="0.0" />
           </linearGradient>
         </defs>
 
-        <line x1={PAD_X} y1={PAD_TOP} x2={SVG_W - PAD_X} y2={PAD_TOP} stroke="rgba(255,255,255,0.06)" strokeDasharray="4" />
-        <line x1={PAD_X} y1={PAD_TOP + drawH / 2} x2={SVG_W - PAD_X} y2={PAD_TOP + drawH / 2} stroke="rgba(255,255,255,0.06)" strokeDasharray="4" />
-        <line x1={PAD_X} y1={baseline} x2={SVG_W - PAD_X} y2={baseline} stroke="rgba(255,255,255,0.1)" />
+        <line x1={PAD_X} y1={PAD_TOP} x2={SVG_W - PAD_X} y2={PAD_TOP} style={{ stroke: "var(--chart-grid, rgba(255,255,255,0.06))" }} strokeDasharray="4" />
+        <line x1={PAD_X} y1={PAD_TOP + drawH / 2} x2={SVG_W - PAD_X} y2={PAD_TOP + drawH / 2} style={{ stroke: "var(--chart-grid, rgba(255,255,255,0.06))" }} strokeDasharray="4" />
+        <line x1={PAD_X} y1={baseline} x2={SVG_W - PAD_X} y2={baseline} style={{ stroke: "var(--chart-grid, rgba(255,255,255,0.1))" }} />
 
         {hasMovement && <polygon points={polygon} fill="url(#chartGrad)" />}
-        <polyline fill="none" stroke="#37E2FF" strokeWidth="3" points={polyline} />
+        <polyline fill="none" style={{ stroke: "var(--chart-line, #37E2FF)" }} strokeWidth="3" points={polyline} />
 
         {plotted.map((p) => (
           <g key={p.label}>
-            <circle cx={p.x} cy={p.y} r="5" fill="#3E63FF" stroke="#37E2FF" strokeWidth="2.5" />
+            <circle cx={p.x} cy={p.y} r="5" style={{ fill: "var(--chart-dot, #3E63FF)", stroke: "var(--chart-line, #37E2FF)" }} strokeWidth="2.5" />
             {p.value > 0 && (
               <text x={p.x} y={p.y - 10} textAnchor="middle" fill="var(--chrome)" fontSize="10" fontWeight="700" fontFamily="var(--font-mono)">
                 {money(p.value)}

@@ -1,6 +1,6 @@
 // Progresso da meta do mês. A meta é do dono (definida em Configurações) e o realizado é o
 // faturamento apurado — sem meta definida o card não aparece, em vez de inventar um alvo.
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { money } from "../lib/format";
 
 const MONTH_FMT = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });

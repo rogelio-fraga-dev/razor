@@ -10,7 +10,7 @@ import { Avatar } from "../components/Avatar";
 import { dateBr, money, percent, todayIso } from "../lib/format";
 import { addDays, weekStart } from "../lib/agenda";
 import { Hint } from "../components/Hint";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 type PeriodId = "today" | "yesterday" | "week" | "fortnight" | "month" | "custom";
 

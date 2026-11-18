@@ -120,4 +120,67 @@ class SiteContentPolicyTest {
         assertThat(SiteContentPolicy.fromJson("{quebrado")).isNull();
         assertThat(SiteContentPolicy.fromJson(null)).isNull();
     }
+
+    // ---- Passos de "Como agendar" ----------------------------------------------------------
+
+    private static Map<String, Object> step(String title, String text) {
+        Map<String, Object> m = new HashMap<>();
+        if (title != null) m.put("title", title);
+        if (text != null) m.put("text", text);
+        return m;
+    }
+
+    @Test
+    @DisplayName("passos: posição preservada, vazio no meio fica como 'padrão', vazios do fim saem")
+    void steps_normalized() {
+        SiteContent c = SiteContentPolicy.normalize(sections(Map.of("how", Map.of("steps", List.of(
+                step(" Chama a gente ", null), step("", " "), step(null, "Pronto, \nsó chegar."))))));
+
+        List<SiteContent.Step> steps = c.sections().get("how").steps();
+        assertThat(steps).containsExactly(
+                new SiteContent.Step("Chama a gente", null),
+                new SiteContent.Step(null, null),
+                new SiteContent.Step(null, "Pronto,  só chegar.")); // texto do passo é de uma linha
+
+        SiteContent soFim = SiteContentPolicy.normalize(sections(Map.of("how", Map.of("steps", List.of(
+                step("Um", null), step(null, null), step(" ", ""))))));
+        assertThat(soFim.sections().get("how").steps()).containsExactly(new SiteContent.Step("Um", null));
+
+        assertThat(SiteContentPolicy.normalize(sections(Map.of("how", Map.of("steps", List.of(step("", ""))))))).isNull();
+    }
+
+    @Test
+    @DisplayName("passos: só em 'Como agendar', no máximo 3, só título e texto, com limite")
+    void steps_rejected() {
+        assertThatThrownBy(() -> SiteContentPolicy.normalize(sections(Map.of("cta", Map.of("steps", List.of(step("x", null)))))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("steps");
+        assertThatThrownBy(() -> SiteContentPolicy.normalize(sections(Map.of("how", Map.of("steps", List.of(
+                step("1", null), step("2", null), step("3", null), step("4", null)))))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("3 passos");
+        assertThatThrownBy(() -> SiteContentPolicy.normalize(sections(Map.of("how", Map.of("steps", List.of(
+                Map.of("icon", "x")))))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("icon");
+        assertThatThrownBy(() -> SiteContentPolicy.normalize(sections(Map.of("how", Map.of("steps", "texto")))))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(SiteContentPolicy.normalize(sections(Map.of("how", Map.of("steps", List.of(
+                step("a".repeat(SiteContentPolicy.MAX_STEP_TITLE), "b".repeat(SiteContentPolicy.MAX_STEP_TEXT))))))))
+                .isNotNull();
+        assertThatThrownBy(() -> SiteContentPolicy.normalize(sections(Map.of("how", Map.of("steps", List.of(
+                step("a".repeat(SiteContentPolicy.MAX_STEP_TITLE + 1), null)))))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("passo 1");
+        assertThatThrownBy(() -> SiteContentPolicy.normalize(sections(Map.of("how", Map.of("steps", List.of(
+                step(null, "b".repeat(SiteContentPolicy.MAX_STEP_TEXT + 1))))))))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("passos sobrevivem à ida e volta pela coluna JSON")
+    void steps_roundTrip() {
+        SiteContent c = SiteContentPolicy.normalize(sections(Map.of("how", Map.of("steps", List.of(
+                step(null, null), step("Escolhe", "Pelo WhatsApp."))))));
+
+        SiteContent back = SiteContentPolicy.fromJson(SiteContentPolicy.toJson(c));
+
+        assertThat(back).isEqualTo(c);
+    }
 }

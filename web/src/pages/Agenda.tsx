@@ -5,7 +5,7 @@
 // (folga, conflito, fora do expediente…), volta para onde estava com o motivo num toast. Quem
 // decide é sempre o backend — a tela só antecipa.
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { ErrorState } from "../components/ErrorState";
 import { Layout } from "../components/Layout";
 import { EmptyState } from "../components/EmptyState";
@@ -13,10 +13,11 @@ import { Skeleton } from "../components/Skeleton";
 import { ScheduleBlocksModal } from "../components/ScheduleBlocksModal";
 import { NewAppointmentModal, type NewSlot } from "../components/agenda/NewAppointmentModal";
 import { AppointmentDrawer } from "../components/agenda/AppointmentDrawer";
-import { Switch } from "../components/Modal";
+import { Modal, Switch } from "../components/Modal";
 import { useToast } from "../components/Toast";
 import { useAuth } from "../auth/AuthContext";
 import { useApi } from "../lib/useApi";
+import { canChangeAppointment, canManageAgenda } from "../lib/access";
 import { api, ApiError } from "../api/client";
 import type { AgendaBlock, AgendaBoard, AgendaItem, AgendaPro, PaymentStatus } from "../api/types";
 import { todayIso } from "../lib/format";
@@ -110,8 +111,16 @@ interface PendingMove {
 export function Agenda() {
   const toast = useToast();
   const { session } = useAuth();
-  const canEdit = session?.role === "OWNER" || session?.role === "RECEPTION";
+  // Dono e recepção: a agenda inteira. Barbeiro: só remarca/cancela/marca comparecimento dos
+  // PRÓPRIOS horários (profissional ligado ao login) — a API recusa o resto (AgendaPermissions).
+  const canEdit = canManageAgenda(session?.role);
+  const myProId = session?.role === "BARBER" ? session.professionalId ?? null : null;
+  const canChange = (item: AgendaItem) => canChangeAppointment(session, item.professionalId);
+  const canDrag = canEdit || !!myProId;
   const narrow = useNarrow();
+  // Barra do topo compacta (‹ Hoje › + "⋯"): no celular e também em notebook, onde a fileira
+  // inteira (visão, datas, folgas, agendar, relógio) quebrava em duas linhas.
+  const compactBar = useNarrow("(max-width: 1360px)");
 
   const [view, setView] = useState<View>("day");
   const [date, setDate] = useState(todayIso());
@@ -121,6 +130,8 @@ export function Agenda() {
   const [newSlot, setNewSlot] = useState<NewSlot | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [notifyOnDrag, setNotifyOnDrag] = useState(true);
+  // Celular: a barra do topo fica em UMA linha (‹ Hoje › + "⋯"); o resto abre numa folha.
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const from = view === "day" ? date : weekStart(date);
   const to = view === "day" ? date : addDays(from, 6);
@@ -292,7 +303,7 @@ export function Agenda() {
     if (e.button !== 0) return;
     // Toque: o gesto é de rolagem/clique. Remarcar no celular é pela gaveta (mais seguro que
     // brigar com a rolagem da página).
-    const draggable = canEdit && e.pointerType !== "touch" && item.attendanceStatus !== "ATTENDED";
+    const draggable = canChange(item) && e.pointerType !== "touch" && item.attendanceStatus !== "ATTENDED";
     const top = e.currentTarget.getBoundingClientRect().top;
     const state: DragState = {
       item,
@@ -327,6 +338,10 @@ export function Agenda() {
     if (!col || !d.target) return;
     if (!col.proId) {
       toast.error("Solte o horário na coluna de um barbeiro.");
+      return;
+    }
+    if (!canEdit && col.proId !== myProId) {
+      toast.error("Você só pode remarcar para a sua própria agenda.");
       return;
     }
     const time = minToHhmm(d.target.min);
@@ -392,22 +407,40 @@ export function Agenda() {
       flush
       title="Agenda"
       actions={
-        <div className="chip-row">
-          <div className="ag-seg" role="group" aria-label="Visão">
-            <button className={`chip-btn ${view === "day" ? "active" : ""}`} onClick={() => setView("day")} aria-pressed={view === "day"}>
-              Dia
+        compactBar ? (
+          <div className="chip-row ag-compact">
+            <button className="chip-btn" onClick={() => setDate(addDays(date, -step))} aria-label={view === "day" ? "Dia anterior" : "Semana anterior"}>‹</button>
+            <button className={`chip-btn ${isToday ? "active" : ""}`} onClick={() => setDate(todayIso())}>Hoje</button>
+            <button className="chip-btn" onClick={() => setDate(addDays(date, step))} aria-label={view === "day" ? "Próximo dia" : "Próxima semana"}>›</button>
+            <button
+              className="chip-btn ag-more"
+              onClick={() => setSheetOpen(true)}
+              aria-haspopup="dialog"
+              aria-label="Filtros e ações da agenda"
+              title="Filtros e ações"
+            >
+              ⋯
             </button>
-            <button className={`chip-btn ${view === "week" ? "active" : ""}`} onClick={() => setView("week")} aria-pressed={view === "week"}>
-              Semana
-            </button>
+            {!narrow && canEdit && <button className="btn btn-primary btn-sm" onClick={quickNew}>+ Agendar</button>}
           </div>
-          <button className="chip-btn" onClick={() => setDate(addDays(date, -step))} aria-label={view === "day" ? "Dia anterior" : "Semana anterior"}>‹</button>
-          <button className={`chip-btn ${isToday ? "active" : ""}`} onClick={() => setDate(todayIso())}>Hoje</button>
-          <button className="chip-btn" onClick={() => setDate(addDays(date, step))} aria-label={view === "day" ? "Próximo dia" : "Próxima semana"}>›</button>
-          <input className="input" type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} style={{ width: 158, padding: "6px 10px" }} aria-label="Ir para a data" />
-          {canEdit && <button className="chip-btn" onClick={() => setShowBlocks(true)}>🌴 Folgas</button>}
-          {canEdit && <button className="btn btn-primary btn-sm" onClick={quickNew}>+ Agendar</button>}
-        </div>
+        ) : (
+          <div className="chip-row">
+            <div className="ag-seg" role="group" aria-label="Visão">
+              <button className={`chip-btn ${view === "day" ? "active" : ""}`} onClick={() => setView("day")} aria-pressed={view === "day"}>
+                Dia
+              </button>
+              <button className={`chip-btn ${view === "week" ? "active" : ""}`} onClick={() => setView("week")} aria-pressed={view === "week"}>
+                Semana
+              </button>
+            </div>
+            <button className="chip-btn" onClick={() => setDate(addDays(date, -step))} aria-label={view === "day" ? "Dia anterior" : "Semana anterior"}>‹</button>
+            <button className={`chip-btn ${isToday ? "active" : ""}`} onClick={() => setDate(todayIso())}>Hoje</button>
+            <button className="chip-btn" onClick={() => setDate(addDays(date, step))} aria-label={view === "day" ? "Próximo dia" : "Próxima semana"}>›</button>
+            <input className="input" type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} style={{ width: 158, padding: "6px 10px" }} aria-label="Ir para a data" />
+            {canEdit && <button className="chip-btn" onClick={() => setShowBlocks(true)}>🌴 Folgas</button>}
+            {canEdit && <button className="btn btn-primary btn-sm" onClick={quickNew}>+ Agendar</button>}
+          </div>
+        )
       }
     >
       <div className="page-panel">
@@ -422,7 +455,7 @@ export function Agenda() {
             <span className="lg-item">💎 Assinante</span>
             <span className="lg-item"><i className="lg-line-now" />Agora</span>
           </div>
-          {canEdit && (
+          {canDrag && (
             <span className="ag-notify">
               <Switch checked={notifyOnDrag} onChange={setNotifyOnDrag} label="Avisar cliente ao arrastar" />
             </span>
@@ -584,7 +617,7 @@ export function Agenda() {
                             att === "NO_SHOW" ? "ev-noshow" : "",
                             att === "ATTENDED" ? "ev-done" : "",
                             dragging ? "is-ghost" : "",
-                            canEdit && att !== "ATTENDED" ? "is-draggable" : "",
+                            canChange(a) && att !== "ATTENDED" ? "is-draggable" : "",
                           ].join(" ")}
                           style={{
                             top: (startMin - range.start) * PX_PER_MIN,
@@ -669,6 +702,55 @@ export function Agenda() {
         )}
       </div>
 
+      {sheetOpen && (
+        <Modal title="Agenda" onClose={() => setSheetOpen(false)}>
+          <div className="stack ag-sheet">
+            <div className="field">
+              <span className="field-legend">Visão</span>
+              <div className="ag-seg" role="group" aria-label="Visão">
+                <button className={`chip-btn ${view === "day" ? "active" : ""}`} onClick={() => setView("day")} aria-pressed={view === "day"}>
+                  Dia
+                </button>
+                <button className={`chip-btn ${view === "week" ? "active" : ""}`} onClick={() => setView("week")} aria-pressed={view === "week"}>
+                  Semana
+                </button>
+              </div>
+            </div>
+            <div className="field">
+              <label>
+                Ir para a data
+                <input className="input" type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
+              </label>
+            </div>
+            {canDrag && (
+              <Switch checked={notifyOnDrag} onChange={setNotifyOnDrag} label="Avisar o cliente ao remarcar" />
+            )}
+            {canEdit && (
+              <div className="row wrap" style={{ gap: 8 }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setSheetOpen(false);
+                    quickNew();
+                  }}
+                >
+                  + Agendar
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    setSheetOpen(false);
+                    setShowBlocks(true);
+                  }}
+                >
+                  🌴 Folgas e bloqueios
+                </button>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
       {showBlocks && <ScheduleBlocksModal onClose={() => setShowBlocks(false)} onChanged={() => board.reload()} />}
 
       {newSlot && (
@@ -689,7 +771,9 @@ export function Agenda() {
           key={opened.id}
           item={opened}
           pros={pros}
-          canEdit={canEdit}
+          canEdit={canChange(opened)}
+          canManage={canEdit}
+          ownProfessionalId={canEdit ? null : myProId}
           onClose={() => setOpenId(null)}
           onMove={move}
           onChanged={() => board.reload()}

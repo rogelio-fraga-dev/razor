@@ -1,0 +1,267 @@
+/* ============================================================================
+   RAZOR · Tema CLARO — fonte única da paleta clara (tokens + ajustes de componente).
+   Importado por ÚLTIMO no main.tsx: vence index.css, razor-design-system.css e shell.css.
+
+   Direção: "papel e tinta". O tema escuro ganha profundidade com brilho e borda acesa; no claro
+   isso vira mancha (o halo azul no topo do menu, a grade técnica no fundo, o triângulo de
+   gradiente nos cartões). Aqui a profundidade vem de superfície branca sobre fundo cinza-frio,
+   borda fina e uma sombra curta — e o azul fica para o que é ação ou estado ativo.
+
+   Contraste (WCAG AA, texto normal ≥ 4,5:1), medido sobre branco / fundo / --surface-2:
+     --text 18,4 · --text-muted 7,3 · --text-faint 5,3 / 4,9 / 4,8 · --accent 6,4
+     verde 5,6 · âmbar 6,3 · vermelho 5,9 · roxo 5,9
+     selos (texto sobre o próprio fundo suave): verde 4,9 · azul 5,5 · âmbar 5,6 · roxo 5,1
+   Os valores antigos reprovavam: --text-faint #7a828d dava 3,9:1 e o verde #169e4c 3,5:1.
+   ========================================================================== */
+
+/* Tokens. Dois seletores para o MESMO bloco: o atributo (depois que o JS roda) e a preferência
+   do sistema (a janela antes do applyTheme do boot — sem ela, quem usa claro veria um flash
+   escuro a cada carregamento). */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Superfícies */
+  --bg: #f4f5f8;
+  --bg-raise: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1f3f7;
+  --border: #e2e5eb;
+  --border-hi: #cdd2db;
+
+  /* Texto */
+  --text: #12141a;
+  --text-muted: #4f5764;
+  --text-faint: #646c7a;
+
+  /* Marca e estados */
+  --accent: #2b4ee0;
+  --accent-hover: #213fc0;
+  --accent-soft: #e8edff;
+  --edge: #0e8fb0;
+  --plasma: #6a45e0;
+  --plasma-soft: #f0ebff;
+  --green: #13773a;
+  --green-soft: #e2f4e8;
+  --blue: #2b4ee0;
+  --blue-soft: #e8edff;
+  --amber: #9a4a05;
+  --amber-soft: #fdf0dc;
+  --red: #c42020;
+  --edge-gradient: linear-gradient(68deg, #2b4ee0, #0e8fb0);
+
+  /* Fundo: sem halo e sem grade (no claro, os dois liam como sujeira na tela) */
+  --content-glow: none;
+  --grid-line: transparent;
+
+  /* Sombras curtas, frias, de papel */
+  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.05);
+  --shadow: 0 1px 2px rgba(17, 24, 39, 0.05), 0 2px 8px rgba(17, 24, 39, 0.05);
+  --shadow-lg: 0 12px 40px rgba(17, 24, 39, 0.16), 0 2px 6px rgba(17, 24, 39, 0.06);
+  --focus-ring: 0 0 0 3px rgba(43, 78, 224, 0.22);
+
+  /* Gráficos */
+  --chart-line: #2b4ee0;
+  --chart-fill: rgba(43, 78, 224, 0.16);
+  --chart-grid: #e2e5eb;
+  --chart-dot: #ffffff;
+  --chart-fill-stop: #2b4ee0;
+
+  /* Nomes do razor-design-system.css (mesma paleta, outro vocabulário) */
+  --obsidian: #f4f5f8;
+  --graphite: #ffffff;
+  --graphite-raise: #f1f3f7;
+  --steel: #4f5764;
+  --steel-dark: #646c7a;
+  --chrome: #12141a;
+  --chrome-pure: #0a0a0c;
+  --voltage: #2b4ee0;
+  --voltage-hover: #213fc0;
+  --voltage-soft: #e8edff;
+  --voltage-glow: rgba(43, 78, 224, 0.18);
+  --signal: #13773a;
+  --signal-soft: #e2f4e8;
+  --amber-soft: #fdf0dc;
+  --danger: #c42020;
+  --danger-soft: #fde8e8;
+  --border-subtle: #e2e5eb;
+  --border-bright: #cdd2db;
+  --border-voltage: rgba(43, 78, 224, 0.45);
+  --dark-mesh: none;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg: #f4f5f8;
+    --bg-raise: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f1f3f7;
+    --border: #e2e5eb;
+    --border-hi: #cdd2db;
+    --text: #12141a;
+    --text-muted: #4f5764;
+    --text-faint: #646c7a;
+    --accent: #2b4ee0;
+    --content-glow: none;
+    --grid-line: transparent;
+    --obsidian: #f4f5f8;
+    --graphite: #ffffff;
+    --chrome: #12141a;
+    --steel: #4f5764;
+    --dark-mesh: none;
+  }
+}
+
+/* ---------- Base ---------- */
+:root[data-theme="light"] body { background: var(--bg); color: var(--text); }
+:root[data-theme="light"] ::selection { background: rgba(43, 78, 224, 0.2); }
+:root[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c3c8d1; border-color: var(--bg); }
+:root[data-theme="light"] .main { background-image: none; }
+
+/* ---------- Menu lateral ---------- */
+:root[data-theme="light"] .sidebar {
+  background: #ffffff;
+  color: var(--text-muted);
+  border-right: 1px solid var(--border);
+}
+:root[data-theme="light"] .sidebar::before { display: none; } /* o halo azul do topo */
+:root[data-theme="light"] .brand { color: var(--text); }
+:root[data-theme="light"] .brand .brand-word { background-image: none; color: var(--text); -webkit-text-fill-color: currentColor; }
+:root[data-theme="light"] .sidebar .brand-tag {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+:root[data-theme="light"] .nav-label { color: var(--text-faint); }
+:root[data-theme="light"] .nav a,
+:root[data-theme="light"] .nav-group-toggle { color: var(--text-muted); }
+:root[data-theme="light"] .nav a:hover,
+:root[data-theme="light"] .nav-group-toggle:hover { color: var(--text); background: var(--surface-2); }
+:root[data-theme="light"] .nav a.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+:root[data-theme="light"] .nav a.active .ico,
+:root[data-theme="light"] .nav-group.has-active > .nav-group-toggle .ico { color: var(--accent); }
+:root[data-theme="light"] .nav a:hover .ico { color: var(--text); }
+:root[data-theme="light"] .nav-group.has-active > .nav-group-toggle { color: var(--text); }
+:root[data-theme="light"] .user-name { color: var(--text); }
+:root[data-theme="light"] a.user-chip:hover { background: var(--surface-2); }
+:root[data-theme="light"] .sidebar-foot { border-top-color: var(--border); }
+
+/* ---------- Barra do topo ---------- */
+:root[data-theme="light"] .topbar {
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: saturate(1.4) blur(10px);
+}
+:root[data-theme="light"] .kbd-hint { background: var(--surface); border-color: var(--border-hi); color: var(--text-muted); }
+:root[data-theme="light"] .kbd-hint kbd { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
+:root[data-theme="light"] .iconbtn { color: var(--text-muted); }
+
+/* ---------- Cartões, KPIs, painéis ---------- */
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .stat,
+:root[data-theme="light"] .kpi-card,
+:root[data-theme="light"] .auth-card,
+:root[data-theme="light"] .page-panel {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+:root[data-theme="light"] .card:hover,
+:root[data-theme="light"] .stat:hover { border-color: #c4cdee; box-shadow: var(--shadow); }
+/* O triângulo de gradiente no canto ("edge cut") vira um fio de 3px no topo: no branco ele lia
+   como uma etiqueta colada no cartão. */
+:root[data-theme="light"] .card-edge::after {
+  clip-path: none;
+  width: auto;
+  left: 0;
+  height: 3px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  opacity: 1;
+}
+:root[data-theme="light"] .stat::before { opacity: 0.6; }
+:root[data-theme="light"] .card-head h3::before { background: var(--border-hi); }
+:root[data-theme="light"] .card:hover .card-head h3::before { background: var(--accent); }
+:root[data-theme="light"] .kpi-title,
+:root[data-theme="light"] .stat .label { color: var(--text-muted); }
+
+/* ---------- Botões ---------- */
+:root[data-theme="light"] .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 1px 2px rgba(17, 24, 39, 0.12); }
+:root[data-theme="light"] .btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 14px rgba(43, 78, 224, 0.28);
+}
+/* Desabilitado: cinza legível em vez do azul lavado (opacidade sobre branco sumia). */
+:root[data-theme="light"] .btn:disabled { opacity: 1; }
+:root[data-theme="light"] .btn-primary:disabled { background: #e3e6ec; color: #6b7280; box-shadow: none; }
+:root[data-theme="light"] .btn-ghost:disabled,
+:root[data-theme="light"] .btn-danger:disabled { color: #8a919d; border-color: var(--border); background: transparent; }
+:root[data-theme="light"] .btn-ghost { background: var(--surface); color: var(--text-muted); border-color: var(--border-hi); }
+:root[data-theme="light"] .btn-ghost:hover:not(:disabled) { background: var(--surface-2); color: var(--text); border-color: #b4bac5; }
+:root[data-theme="light"] .btn-secondary { background: var(--surface); border-color: var(--border-hi); color: var(--text); }
+:root[data-theme="light"] .btn-secondary:hover { background: var(--surface-2); }
+:root[data-theme="light"] .btn-danger { background: var(--surface); }
+:root[data-theme="light"] .btn-danger:hover:not(:disabled) { background: #fdecec; border-color: var(--red); }
+
+/* ---------- Chips e abas ---------- */
+:root[data-theme="light"] .chip-btn { background: var(--surface); border-color: var(--border-hi); color: var(--text-muted); }
+:root[data-theme="light"] .chip-btn:hover { color: var(--text); border-color: #b4bac5; }
+:root[data-theme="light"] .chip-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+:root[data-theme="light"] .tabs { border-bottom-color: var(--border); }
+:root[data-theme="light"] .tab { color: var(--text-muted); }
+:root[data-theme="light"] .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+/* ---------- Selos (badges) ---------- */
+:root[data-theme="light"] .badge-green { background: var(--green-soft); color: var(--green); }
+:root[data-theme="light"] .badge-blue { background: var(--blue-soft); color: var(--blue); }
+:root[data-theme="light"] .badge-amber { background: var(--amber-soft); color: var(--amber); }
+:root[data-theme="light"] .badge-muted { background: var(--surface-2); color: var(--text-muted); box-shadow: inset 0 0 0 1px var(--border); }
+:root[data-theme="light"] .badge-plan { background: var(--plasma-soft); color: var(--plasma); }
+
+/* ---------- Campos ---------- */
+:root[data-theme="light"] .input { background: #ffffff; border-color: var(--border-hi); color: var(--text); }
+:root[data-theme="light"] .input:hover:not(:focus):not(:disabled) { border-color: #b4bac5; }
+:root[data-theme="light"] .input::placeholder { color: #6b7280; }
+:root[data-theme="light"] .input:disabled { background: var(--surface-2); color: var(--text-muted); }
+:root[data-theme="light"] .switch input:not(:checked) + .track { background: #cdd2db; }
+
+/* ---------- Tabelas ---------- */
+:root[data-theme="light"] .table th { color: var(--text-faint); background: #fafbfc; }
+:root[data-theme="light"] .table tbody tr:nth-child(even) { background: #fafbfc; }
+:root[data-theme="light"] .table tbody tr:hover { background: #f3f5fa; }
+
+/* ---------- Diálogos, gavetas, avisos ---------- */
+:root[data-theme="light"] .modal-overlay,
+:root[data-theme="light"] .drawer-overlay { background: rgba(17, 24, 39, 0.4); backdrop-filter: blur(3px); }
+:root[data-theme="light"] .modal,
+:root[data-theme="light"] .drawer,
+:root[data-theme="light"] .cmdk {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow-lg);
+}
+:root[data-theme="light"] .toast { background: var(--surface); border-color: var(--border); box-shadow: var(--shadow-lg); color: var(--text); }
+:root[data-theme="light"] .toast-error .toast-ico { background: #fde8e8; }
+
+/* ---------- Agenda ---------- */
+:root[data-theme="light"] .cal-head { background: var(--surface); }
+:root[data-theme="light"] .cal-slot { border-top-color: #eceef2; }
+:root[data-theme="light"] .cal-slot.hour { border-top-color: var(--border); }
+:root[data-theme="light"] .cal-col { border-left-color: var(--border); }
+:root[data-theme="light"] .cal-slot.is-free:hover { background: rgba(43, 78, 224, 0.06); }
+:root[data-theme="light"] .cal-event { background: var(--surface); box-shadow: var(--shadow-sm); }
+:root[data-theme="light"] .cal-event:hover { box-shadow: 0 6px 18px rgba(17, 24, 39, 0.12); }
+:root[data-theme="light"] .ev-pix { background: var(--green-soft); border-color: #2f9e5a; }
+:root[data-theme="light"] .ev-presencial { background: var(--blue-soft); border-color: #5674ea; }
+:root[data-theme="light"] .ev-pendente { background: var(--amber-soft); border-color: #d08a2a; }
+:root[data-theme="light"] .ev-time,
+:root[data-theme="light"] .ev-service { color: var(--text-muted); }
+:root[data-theme="light"] .ev-pay { color: var(--text-faint); }
+:root[data-theme="light"] .cal-block {
+  background: repeating-linear-gradient(-45deg, rgba(100, 108, 122, 0.12) 0 6px, transparent 6px 12px);
+}
+:root[data-theme="light"] .cal-block span { color: var(--text-muted); border: 1px solid var(--border); }
+:root[data-theme="light"] .cal-now { box-shadow: none; }
+

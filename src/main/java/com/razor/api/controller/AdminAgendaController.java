@@ -2,7 +2,9 @@ package com.razor.api.controller;
 
 import com.razor.api.dto.AgendaBoardResponse;
 import com.razor.api.dto.AgendaRequests;
+import com.razor.api.security.TenantUserPrincipal;
 import com.razor.api.service.AgendaPanelService;
+import com.razor.api.service.AgendaPermissions;
 import com.razor.api.util.AppointmentDates;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
@@ -12,12 +14,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Agenda interativa do painel (tenant vem do JWT). Leitura para todos os papeis; escrita para
- * dono e recepcao — ver {@code SecurityConfig}. As regras de encaixe e os avisos ao cliente
- * moram no {@link AgendaPanelService}.
+ * Agenda interativa do painel (tenant vem do JWT). Leitura para todos os papeis; criar e marcar
+ * sinal para dono e recepcao; remarcar, cancelar e comparecimento tambem para o barbeiro, mas so
+ * nos proprios horarios — ver {@code SecurityConfig} e {@link AgendaPermissions}. As regras de
+ * encaixe e os avisos ao cliente moram no {@link AgendaPanelService}.
  */
 @RestController
 @RequestMapping("/api/admin/agenda")
@@ -25,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminAgendaController {
 
     private final AgendaPanelService agendaPanelService;
+    private final AgendaPermissions agendaPermissions;
 
     /** Grade de [from, to] (padrao: hoje). Ex.: {@code /api/admin/agenda?from=2026-11-16&to=2026-11-22}. */
     @GetMapping
@@ -44,21 +49,27 @@ public class AdminAgendaController {
     }
 
     @PatchMapping("/appointments/{id}")
-    public Map<String, Object> move(@PathVariable Long id, @Valid @RequestBody AgendaRequests.Move req) {
+    public Map<String, Object> move(@AuthenticationPrincipal TenantUserPrincipal principal,
+                                    @PathVariable Long id, @Valid @RequestBody AgendaRequests.Move req) {
+        agendaPermissions.requireCanChange(principal, id, req.professionalId());
         var saved = agendaPanelService.move(id, req.date(), req.time(), req.professionalId(),
                 AgendaRequests.shouldNotify(req.notifyCustomer()));
         return idOf(saved.getId());
     }
 
     @PostMapping("/appointments/{id}/cancel")
-    public ResponseEntity<Void> cancel(@PathVariable Long id,
+    public ResponseEntity<Void> cancel(@AuthenticationPrincipal TenantUserPrincipal principal,
+                                       @PathVariable Long id,
                                        @RequestBody(required = false) AgendaRequests.Cancel req) {
+        agendaPermissions.requireCanChange(principal, id, null);
         agendaPanelService.cancel(id, AgendaRequests.shouldNotify(req != null ? req.notifyCustomer() : null));
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/appointments/{id}/attendance")
-    public Map<String, Object> attendance(@PathVariable Long id, @RequestBody AgendaRequests.Attendance req) {
+    public Map<String, Object> attendance(@AuthenticationPrincipal TenantUserPrincipal principal,
+                                          @PathVariable Long id, @RequestBody AgendaRequests.Attendance req) {
+        agendaPermissions.requireCanChange(principal, id, null);
         return idOf(agendaPanelService.setAttendance(id, req.status()).getId());
     }
 

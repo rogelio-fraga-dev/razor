@@ -64,9 +64,8 @@ class OccupancyServiceTest {
     private void givenAppointments(Appointment... apps) {
         when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any()))
                 .thenReturn(List.of(apps));
-        when(pricingService.resolveDurations()).thenReturn(
-                Map.of(PricingService.ServiceCategory.SIMPLES, 30,
-                        PricingService.ServiceCategory.COMBO, 60));
+        when(pricingService.quoter()).thenReturn(PricingService.Quoter.legacy(null, Map.of(PricingService.ServiceCategory.SIMPLES, 30,
+                        PricingService.ServiceCategory.COMBO, 60)));
         when(pricingService.categorize("Corte")).thenReturn(PricingService.ServiceCategory.SIMPLES);
         when(pricingService.categorize("Combo")).thenReturn(PricingService.ServiceCategory.COMBO);
     }

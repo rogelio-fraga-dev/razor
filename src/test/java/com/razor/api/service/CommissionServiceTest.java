@@ -60,10 +60,10 @@ class CommissionServiceTest {
     }
 
     private void givenPrices() {
-        when(pricingService.resolvePrices()).thenReturn(Map.of(
+        when(pricingService.quoter()).thenReturn(PricingService.Quoter.legacy(Map.of(
                 ServiceCategory.SIMPLES, new BigDecimal("35.00"),
                 ServiceCategory.BARBA, new BigDecimal("30.00"),
-                ServiceCategory.COMBO, new BigDecimal("60.00")));
+                ServiceCategory.COMBO, new BigDecimal("60.00")), null));
         when(pricingService.categorize("Corte")).thenReturn(ServiceCategory.SIMPLES);
         when(pricingService.categorize("Combo")).thenReturn(ServiceCategory.COMBO);
         when(pricingService.categorize("Barba")).thenReturn(ServiceCategory.BARBA);
@@ -113,6 +113,24 @@ class CommissionServiceTest {
 
         assertThat(r.faturamento()).isEqualByComparingTo("30.00");  // 35 de tabela -> 30 do pacote
         assertThat(r.comissao()).isEqualByComparingTo("15.00");
+    }
+
+    @Test
+    @DisplayName("falta (NO_SHOW) não gera faturamento nem comissão para o barbeiro")
+    void commissions_ignoresNoShows() {
+        LocalDate hoje = AppointmentDates.today();
+        UUID rafael = UUID.randomUUID();
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
+        Appointment faltou = appt(rafael, "Combo", hoje);
+        faltou.setAttendanceStatus(com.razor.api.model.AttendanceStatus.NO_SHOW);
+        givenAppointments(List.of(faltou, appt(rafael, "Corte", hoje)));
+        givenPrices();
+
+        ProfessionalCommission r = service.commissionsForDay(hoje).get(0);
+
+        assertThat(r.atendimentos()).isEqualTo(1);
+        assertThat(r.faturamento()).isEqualByComparingTo("35.00");
+        assertThat(r.comissao()).isEqualByComparingTo("17.50");
     }
 
     @Test

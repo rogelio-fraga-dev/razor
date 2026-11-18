@@ -44,6 +44,7 @@ class EvolutionMediaServiceTest {
         // mesmo um valor hostil sai escapado (defesa em profundidade alem da validacao)
         var hostil = new ObjectMapper().readTree(service.buildPayload("a\"b"));
         assertThat(hostil.at("/message/key/id").asText()).isEqualTo("a\"b");
-        assertThat(hostil.size()).isEqualTo(1);
+        assertThat(hostil.size()).isEqualTo(2);
+        assertThat(hostil.get("convertToMp4").asBoolean()).isFalse();
     }
 }

@@ -45,6 +45,28 @@ public class EvolutionClient {
     }
 
     /**
+     * "Digitando..." / "gravando audio..." no WhatsApp do cliente enquanto o bot processa
+     * ({@code composing} ou {@code recording}), por {@code delayMs} milissegundos. Nao envia
+     * mensagem nenhuma — so o indicador de presenca.
+     */
+    public Mono<String> sendPresence(String instance, String phone, String presence, int delayMs) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("number", formatPhone(phone));
+        body.put("presence", presence);
+        body.put("delay", delayMs);
+
+        return webClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/chat/sendPresence/{instance}")
+                        .build(instance))
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("apikey", properties.getEvolution().getApiKey())
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(String.class);
+    }
+
+    /**
      * Envia imagem com legenda pela {@code instance} do tenant.
      */
     public Mono<String> sendImageMessage(String instance, String phone, String imageUrl, String caption) {

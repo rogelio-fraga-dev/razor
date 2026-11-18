@@ -3,7 +3,7 @@
 // Nada aqui é presumido: se os dados não carregam, o card não aparece (em vez de fingir
 // que a barbearia está zerada e mandar o dono refazer coisa já feita).
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useApi } from "../lib/useApi";
 import { getOnce } from "../lib/dedupe";
 import { api } from "../api/client";

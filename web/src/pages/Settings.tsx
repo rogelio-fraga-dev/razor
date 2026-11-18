@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ErrorState } from "../components/ErrorState";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { Layout } from "../components/Layout";
 import { Switch } from "../components/Modal";
 import { Skeleton, SkeletonRows } from "../components/Skeleton";
@@ -9,6 +9,7 @@ import { ConfigChecklist } from "../components/ConfigChecklist";
 import { Tabs, panelId, tabId, type TabDef } from "../components/Tabs";
 import { BookingLimitCard } from "../components/BookingLimitCard";
 import { NoShowSettingsCard } from "../components/NoShowSettingsCard";
+import { ReviewSettingsCard } from "../components/ReviewSettingsCard";
 import { evaluateConfig } from "../lib/configCompleteness";
 import { fillBot } from "../lib/botSettings";
 import { matchSpeechMode, SPEECH_MODES } from "../lib/speechModes";
@@ -22,7 +23,7 @@ import { getOnce } from "../lib/dedupe";
 import { useWhatsAppConnection } from "../lib/useWhatsAppConnection";
 import { api, ApiError } from "../api/client";
 import { money } from "../lib/format";
-import type { AdminContact, Barbershop, BotSettings, BotStatus, Goals } from "../api/types";
+import type { AdminContact, Barbershop, BotSettings, BotStatus, Goals, ServiceOffering } from "../api/types";
 
 function StatusDot({ ok, warn }: { ok: boolean; warn?: boolean }) {
   const color = ok ? "var(--green)" : warn ? "var(--amber)" : "var(--red)";
@@ -365,12 +366,14 @@ const filled = (v: string | null | undefined) => (v ?? "").trim() !== "";
  */
 function BotSummaryCard({
   data,
+  services,
   loading,
   error,
   onEdit,
   onRetry,
 }: {
   data: BotSettings | null;
+  services: ServiceOffering[] | null;
   loading: boolean;
   error: string | null;
   onEdit: (step: number) => void;
@@ -404,7 +407,10 @@ function BotSummaryCard({
     {
       step: WIZARD_STEPS.services,
       title: "Serviços e preços",
-      value: preview(data?.servicesText),
+      value:
+        services && services.length > 0
+          ? preview(services.map((s) => `${s.name} ${money(s.price)}`).join(" · "))
+          : preview(data?.servicesText),
       empty: "Sem tabela — o bot não informa preços",
     },
     { step: WIZARD_STEPS.speech, title: "Modo de fala", value: modeLabel, empty: "Padrão (Parceiro)" },
@@ -521,10 +527,13 @@ export function Settings() {
   const shop = useApi<Barbershop>(() => api.get("/api/admin/barbershop"), [configVersion]);
   const status = useApi<BotStatus>(() => api.get("/api/admin/settings/bot/status"), [configVersion]);
   const admins = useApi<AdminContact[]>(() => api.get("/api/admin/admins"), [configVersion]);
+  // Catálogo real (V46): é dele que o bot tira preço e duração — a "tabela" em texto ficou de reserva.
+  const services = useApi<ServiceOffering[]>(() => api.get("/api/admin/services"), [configVersion]);
+  const activeServices = services.data ? services.data.filter((s) => s.active) : null;
 
   const refreshAll = () => setConfigVersion((v) => v + 1);
 
-  const config = evaluateConfig(bot.data, status.data, admins.data);
+  const config = evaluateConfig(bot.data, status.data, admins.data, activeServices ? activeServices.length : null);
   const shopSlug = shop.data?.slug ?? null;
   // Só decide depois que as três consultas responderam: avaliar com dados pela metade abriria o
   // modal na cara de quem já configurou tudo.
@@ -595,9 +604,10 @@ export function Settings() {
       {panel(
         "bot",
         <div className="stack">
-          <BotSummaryCard data={bot.data} loading={bot.loading} error={bot.error} onEdit={openWizardAt} onRetry={bot.reload} />
+          <BotSummaryCard data={bot.data} services={activeServices} loading={bot.loading} error={bot.error} onEdit={openWizardAt} onRetry={bot.reload} />
           <BookingLimitCard reloadKey={configVersion} />
           <NoShowSettingsCard reloadKey={configVersion} />
+          <ReviewSettingsCard reloadKey={configVersion} />
         </div>,
       )}
       {panel(

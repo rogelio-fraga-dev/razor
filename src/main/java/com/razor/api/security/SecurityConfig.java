@@ -169,11 +169,17 @@ public class SecurityConfig {
                         // recepcao — sem isso a recepcao concederia plano de graca.
                         .requestMatchers(HttpMethod.PUT, "/api/admin/customers/*/plan").hasRole(OWNER)
                         // --- Agenda interativa (V39) -----------------------------------------
-                        // Ler a grade: todo mundo (o barbeiro ve com quem atende). Mexer nela
-                        // (criar, arrastar, cancelar, comparecimento): dono e recepcao. O barbeiro
-                        // fica so na leitura porque o usuario do painel ainda nao e ligado a um
-                        // cadastro de profissional — nao ha como restringi-lo "aos proprios".
+                        // Ler a grade: todo mundo (o barbeiro ve com quem atende). Remarcar,
+                        // cancelar e comparecimento: tambem o barbeiro, mas SO nos proprios
+                        // horarios — o login dele e ligado a um profissional (V44) e o
+                        // AgendaPermissions recusa (403) o horario de colega. Criar horario e
+                        // marcar sinal recebido continuam com dono e recepcao.
                         .requestMatchers(HttpMethod.GET, "/api/admin/agenda", "/api/admin/agenda/**")
+                        .hasAnyRole(OWNER, RECEPTION, BARBER)
+                        .requestMatchers(HttpMethod.PATCH, "/api/admin/agenda/appointments/*")
+                        .hasAnyRole(OWNER, RECEPTION, BARBER)
+                        .requestMatchers(HttpMethod.POST, "/api/admin/agenda/appointments/*/cancel",
+                                "/api/admin/agenda/appointments/*/attendance")
                         .hasAnyRole(OWNER, RECEPTION, BARBER)
                         .requestMatchers("/api/admin/agenda", "/api/admin/agenda/**")
                         .hasAnyRole(OWNER, RECEPTION)
@@ -193,6 +199,11 @@ public class SecurityConfig {
                         // A tela de comanda precisa listar servicos e produtos para montar a
                         // conta; escrever no catalogo (preco) continua sendo so do dono.
                         .requestMatchers(HttpMethod.GET, "/api/admin/services/**", "/api/admin/products/**")
+                        .hasAnyRole(OWNER, RECEPTION)
+                        // A lista da equipe tambem: comanda, venda de balcao e folgas escolhem o
+                        // barbeiro. Para quem nao e dono a resposta sai SEM os percentuais de
+                        // comissao (AdminProfessionalController); editar a equipe segue com o dono.
+                        .requestMatchers(HttpMethod.GET, "/api/admin/professionals")
                         .hasAnyRole(OWNER, RECEPTION)
 
                         // --- Tudo mais sob /api/admin: so o dono ------------------------------
