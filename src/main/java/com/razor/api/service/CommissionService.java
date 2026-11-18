@@ -95,6 +95,8 @@ public class CommissionService {
 
         Map<UUID, Acumulador> porProf = new LinkedHashMap<>();
         for (Appointment ag : doPeriodo) {
+            // Falta nao gera faturamento nem comissao (mesma regra do resumo financeiro).
+            if (!ReportService.countsAsRevenue(ag)) continue;
             UUID pid = ag.getProfessionalId();
 
             BigDecimal valor = precos.get(pricingService.categorize(ag.getService()));

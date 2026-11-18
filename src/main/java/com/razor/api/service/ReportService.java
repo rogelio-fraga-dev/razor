@@ -133,6 +133,9 @@ public class ReportService {
         // Filtro no banco: antes esta consulta trazia todos os agendamentos historicos do tenant
         // e descartava em Java o que estivesse fora do periodo.
         for (Appointment ag : appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(shop, from, to)) {
+            // Falta nao e faturamento (nem previsto): a cadeira ficou vazia e ninguem pagou.
+            // Cancelado nem chega aqui — cancelar apaga o agendamento.
+            if (!countsAsRevenue(ag)) continue;
 
             ServiceCategory cat = pricingService.categorize(ag.getService());
             BigDecimal valor = precos.get(cat);
@@ -276,6 +279,7 @@ public class ReportService {
         // So a janela do grafico vem do banco — o resto do historico do tenant nao interessa aqui.
         for (Appointment ag : appointmentRepository
                 .findByBarbershopIdAndAppointmentDateBetween(shop, windowStart, windowEnd)) {
+            if (!countsAsRevenue(ag)) continue; // mesma regra do resumo: falta nao fatura
             addToBucket(buckets, totals, ag.getAppointmentDate(),
                     precos.get(pricingService.categorize(ag.getService())));
         }
@@ -289,6 +293,15 @@ public class ReportService {
             series.add(new RevenuePoint(b.label(), b.from(), b.to(), scale(totals[i])));
         }
         return series;
+    }
+
+    /**
+     * Agendamento que entra no faturamento (realizado ou previsto). Falta ({@code NO_SHOW}) fica
+     * de fora: contar o corte de quem nao veio inflava o "a receber" e o faturamento do mes com
+     * dinheiro que nunca vai entrar. Regra unica para resumo, grafico e comissao.
+     */
+    static boolean countsAsRevenue(Appointment ag) {
+        return ag != null && ag.getAttendanceStatus() != com.razor.api.model.AttendanceStatus.NO_SHOW;
     }
 
     /** "ter." -> "ter": o rotulo do eixo do grafico e curto e nao leva ponto de abreviacao. */

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ErrorState } from "../components/ErrorState";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { Layout } from "../components/Layout";
 import { Switch } from "../components/Modal";
 import { Skeleton, SkeletonRows } from "../components/Skeleton";

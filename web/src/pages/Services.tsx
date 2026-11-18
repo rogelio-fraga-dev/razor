@@ -9,6 +9,8 @@ import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { ServiceOffering } from "../api/types";
 import { money } from "../lib/format";
+import { useAuth } from "../auth/AuthContext";
+import { canEditCatalog } from "../lib/access";
 
 interface Draft {
   id: string | null;
@@ -23,6 +25,10 @@ const EMPTY: Draft = { id: null, name: "", price: "", durationMinutes: "30", act
 export function Services() {
   const { data, loading, error, reload } = useApi<ServiceOffering[]>(() => api.get("/api/admin/services"), []);
   const toast = useToast();
+  // A recepção lê o catálogo (a comanda precisa dele), mas preço e duração são do dono — a API
+  // recusa a escrita, então a tela nem oferece.
+  const { session } = useAuth();
+  const canEdit = canEditCatalog(session?.role);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -60,7 +66,10 @@ export function Services() {
   };
 
   return (
-    <Layout title="Serviços" actions={<button className="btn btn-primary btn-sm" onClick={openNew}>+ Novo serviço</button>}>
+    <Layout
+      title="Serviços"
+      actions={canEdit ? <button className="btn btn-primary btn-sm" onClick={openNew}>+ Novo serviço</button> : undefined}
+    >
       <div className="card">
         <div className="card-head">
           <h3>Catálogo</h3>
@@ -74,8 +83,8 @@ export function Services() {
           <EmptyState
             icon="✂"
             title="Nenhum serviço no catálogo."
-            hint="A IA usa esses preços e durações para agendar — cadastre o primeiro."
-            action={<button className="btn btn-primary" onClick={openNew}>+ Criar serviço</button>}
+            hint={canEdit ? "A IA usa esses preços e durações para agendar — cadastre o primeiro." : "Peça ao dono para cadastrar os serviços."}
+            action={canEdit ? <button className="btn btn-primary" onClick={openNew}>+ Criar serviço</button> : undefined}
           />
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -86,7 +95,7 @@ export function Services() {
                   <th className="num">Preço</th>
                   <th>Duração</th>
                   <th>Status</th>
-                  <th></th>
+                  {canEdit && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -98,9 +107,11 @@ export function Services() {
                     <td data-label="Status">
                       {s.active ? <span className="badge badge-green">Ativo</span> : <span className="badge badge-muted">Inativo</span>}
                     </td>
-                    <td className="right tc-actions">
-                      <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>Editar</button>
-                    </td>
+                    {canEdit && (
+                      <td className="right tc-actions">
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>Editar</button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -109,7 +120,7 @@ export function Services() {
         )}
       </div>
 
-      {draft && (
+      {canEdit && draft && (
         <Modal
           title={draft.id ? "Editar serviço" : "Novo serviço"}
           onClose={() => setDraft(null)}

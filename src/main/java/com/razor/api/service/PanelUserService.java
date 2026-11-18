@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>a barbearia nunca fica sem dono ativo — desativar ou rebaixar o ultimo e recusado;</li>
  *   <li>senha alheia so e redefinida aqui; a propria se troca em "Meu perfil" (pede a atual).</li>
  * </ul>
- * Toda mudanca de papel, ativo ou senha incrementa a {@code token_version} do usuario: as
+ * Toda mudanca de papel, ativo, senha ou e-mail incrementa a {@code token_version} do usuario: as
  * sessoes abertas dele caem na hora (ver {@link SessionValidator}).
  */
 @Slf4j
@@ -39,6 +39,7 @@ public class PanelUserService {
     /** Mesma regra da troca de senha em "Meu perfil" e do onboarding (min. 8). */
     static final int MIN_PASSWORD = 8;
     static final int MAX_PASSWORD = 100;
+    static final int MAX_NAME = 120;
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     private final TenantUserRepository tenantUserRepository;
@@ -90,6 +91,51 @@ public class PanelUserService {
             // Corrida: outro cadastro com o mesmo email (ou o mesmo profissional) entre a checagem
             // e o insert. O indice unico do banco decide; aqui so vira mensagem.
             throw new ConflictException("Esse e-mail (ou profissional) acabou de ser usado em outro login.");
+        }
+    }
+
+    /**
+     * Corrige nome e/ou e-mail de um login. O e-mail e o login: normalizado (minusculas, sem
+     * espacos), validado e unico na plataforma. Trocar o e-mail derruba as sessoes abertas da
+     * pessoa (como papel e senha); so o nome nao — nao muda nada do acesso. Campo nulo = mantem.
+     */
+    @Transactional
+    public TenantUser updateIdentity(UUID userId, String name, String email) {
+        TenantUser user = findInTenant(userId);
+        boolean emailChanged = false;
+        if (name != null) {
+            String trimmed = name.trim();
+            if (trimmed.isEmpty()) {
+                throw new IllegalArgumentException("Informe o nome.");
+            }
+            if (trimmed.length() > MAX_NAME) {
+                throw new IllegalArgumentException("O nome pode ter no máximo " + MAX_NAME + " caracteres.");
+            }
+            user.setName(trimmed);
+        }
+        if (email != null) {
+            String normalized = AuthService.normalizeEmail(email);
+            if (normalized.length() > 255 || !EMAIL.matcher(normalized).matches()) {
+                throw new IllegalArgumentException("E-mail inválido.");
+            }
+            if (!normalized.equals(user.getEmail())) {
+                if (tenantUserRepository.existsByEmail(normalized)) {
+                    throw new ConflictException("Já existe um login com o e-mail " + normalized + ".");
+                }
+                user.setEmail(normalized);
+                emailChanged = true;
+            }
+        }
+        try {
+            if (emailChanged) {
+                TenantUser saved = saveAndRevoke(user, "e-mail alterado");
+                tenantUserRepository.flush();
+                return saved;
+            }
+            return tenantUserRepository.save(user);
+        } catch (DataIntegrityViolationException e) {
+            // Corrida com outro cadastro usando o mesmo e-mail: o indice unico do banco decide.
+            throw new ConflictException("Esse e-mail acabou de ser usado em outro login.");
         }
     }
 

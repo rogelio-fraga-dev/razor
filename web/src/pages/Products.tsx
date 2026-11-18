@@ -14,6 +14,8 @@ import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { Product, ProductSale } from "../api/types";
 import { money } from "../lib/format";
+import { useAuth } from "../auth/AuthContext";
+import { canEditCatalog } from "../lib/access";
 
 interface Draft {
   id: string | null;
@@ -29,6 +31,9 @@ const TIME_FMT = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-
 export function Products() {
   const { data, loading, error, reload } = useApi<Product[]>(() => api.get("/api/admin/products"), []);
   const toast = useToast();
+  // Recepção vende no balcão; cadastro, preço e estoque são do dono (a API recusa o resto).
+  const { session } = useAuth();
+  const canEdit = canEditCatalog(session?.role);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [selling, setSelling] = useState<Product | null>(null);
   const [stockOf, setStockOf] = useState<Product | null>(null);
@@ -75,7 +80,7 @@ export function Products() {
   return (
     <Layout
       title="Produtos"
-      actions={<button className="btn btn-primary btn-sm" onClick={openNew}>+ Novo produto</button>}
+      actions={canEdit ? <button className="btn btn-primary btn-sm" onClick={openNew}>+ Novo produto</button> : undefined}
     >
       <div className="card">
         <div className="card-head">
@@ -95,7 +100,7 @@ export function Products() {
             icon="🧴"
             title="Nenhum produto no catálogo."
             hint="Cadastre o que você vende no balcão — pomada, bebida, cera. Depois dá para registrar a venda junto do atendimento."
-            action={<button className="btn btn-primary" onClick={openNew}>+ Criar produto</button>}
+            action={canEdit ? <button className="btn btn-primary" onClick={openNew}>+ Criar produto</button> : undefined}
           />
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -137,8 +142,12 @@ export function Products() {
                           Vender
                         </button>
                       )}
-                      <button className="btn btn-ghost btn-sm" onClick={() => setStockOf(p)}>Estoque</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>Editar</button>
+                      {canEdit && (
+                        <>
+                          <button className="btn btn-ghost btn-sm" onClick={() => setStockOf(p)}>Estoque</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>Editar</button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}

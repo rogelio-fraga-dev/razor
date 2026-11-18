@@ -1,7 +1,7 @@
 // Detalhe de um agendamento (gaveta lateral; no celular, folha de baixo): remarcar, trocar de
 // barbeiro, cancelar, marcar comparecimento e abrir a comanda do atendimento.
 import { useId, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Switch } from "../Modal";
 import { FormError } from "../FormError";
 import { api, ApiError } from "../../api/client";
@@ -19,13 +19,20 @@ export function AppointmentDrawer({
   item,
   pros,
   canEdit,
+  canManage = canEdit,
+  ownProfessionalId = null,
   onClose,
   onMove,
   onChanged,
 }: {
   item: AgendaItem;
   pros: AgendaPro[];
+  /** Pode remarcar, cancelar e marcar comparecimento DESTE agendamento. */
   canEdit: boolean;
+  /** Dono/recepção: também sinal recebido e comanda (o barbeiro não mexe em dinheiro). */
+  canManage?: boolean;
+  /** Barbeiro: remarca só para a própria agenda — a troca de barbeiro fica travada nele. */
+  ownProfessionalId?: string | null;
   onClose: () => void;
   /** Remarcação otimista da página (a mesma do arrastar). Devolve se deu certo. */
   onMove: (item: AgendaItem, date: string, time: string, professionalId: string, notify: boolean) => Promise<boolean>;
@@ -193,7 +200,7 @@ export function AppointmentDrawer({
                   ) : (
                     <span className="row wrap" style={{ gap: 8 }}>
                       <span className="confirm-chip is-deposit">💰 Sinal pendente (PIX)</span>
-                      {canEdit && (
+                      {canManage && (
                         <button className="btn btn-ghost btn-sm" onClick={depositPaid} disabled={busy}>
                           Marcar como recebido
                         </button>
@@ -229,9 +236,11 @@ export function AppointmentDrawer({
                 ) : (
                   <p className="muted">Disponível quando o horário começar.</p>
                 )}
-                <button className="btn btn-ghost btn-sm" onClick={openComanda} disabled={busy}>
-                  {item.comandaId ? "Ver comanda" : "🧾 Abrir comanda deste atendimento"}
-                </button>
+                {canManage && (
+                  <button className="btn btn-ghost btn-sm" onClick={openComanda} disabled={busy}>
+                    {item.comandaId ? "Ver comanda" : "🧾 Abrir comanda deste atendimento"}
+                  </button>
+                )}
               </section>
 
               {item.attendanceStatus !== "ATTENDED" && (
@@ -253,9 +262,15 @@ export function AppointmentDrawer({
                     <div className="field">
                       <label>
                         Barbeiro
-                        <select className="input" value={professionalId} onChange={(e) => setProfessionalId(e.target.value)}>
+                        <select
+                          className="input"
+                          value={professionalId}
+                          onChange={(e) => setProfessionalId(e.target.value)}
+                          disabled={!!ownProfessionalId}
+                          title={ownProfessionalId ? "Você remarca só na sua agenda." : undefined}
+                        >
                           {!professionalId && <option value="">Escolha…</option>}
-                          {pros.filter((p) => p.active).map((p) => (
+                          {pros.filter((p) => p.active || p.id === ownProfessionalId).map((p) => (
                             <option key={p.id} value={p.id}>{p.name}</option>
                           ))}
                         </select>
@@ -294,7 +309,11 @@ export function AppointmentDrawer({
               </div>
             </>
           ) : (
-            <p className="muted">Só a recepção e o dono alteram a agenda.</p>
+            <p className="muted">
+              {canManage
+                ? "Este horário não pode ser alterado."
+                : "Você altera só os seus próprios horários. Os dos colegas ficam com a recepção e o dono."}
+            </p>
           )}
         </div>
       </aside>

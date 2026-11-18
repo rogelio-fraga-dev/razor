@@ -54,3 +54,35 @@ export function homeFor(role: UserRole | undefined): string {
   if (role === "BARBER") return "/meu-dia";
   return "/";
 }
+
+// ---------------------------------------------------------------------------------------------
+// Ações (escrita) — espelho do que a API aceita de cada papel. Mesma ressalva do topo: quem
+// recusa de verdade é o backend; aqui só se evita oferecer o botão que ia dar 403.
+
+/** Criar/editar serviço, produto, estoque e preços: só o dono (o balcão só lê o catálogo). */
+export function canEditCatalog(role: UserRole | undefined): boolean {
+  return role === "OWNER";
+}
+
+/** Criar horário, folgas/bloqueios, sinal recebido e abrir comanda pela agenda: dono e recepção. */
+export function canManageAgenda(role: UserRole | undefined): boolean {
+  return role === "OWNER" || role === "RECEPTION";
+}
+
+/**
+ * Remarcar, cancelar e marcar comparecimento de UM agendamento. Dono e recepção: qualquer um.
+ * Barbeiro: só os do profissional ligado ao login dele (AgendaPermissions no backend); sem
+ * vínculo, nenhum.
+ */
+export function canChangeAppointment(
+  session: { role: UserRole; professionalId?: string | null } | null | undefined,
+  appointmentProfessionalId: string | null | undefined,
+): boolean {
+  if (!session) return false;
+  if (canManageAgenda(session.role)) return true;
+  return (
+    session.role === "BARBER" &&
+    !!session.professionalId &&
+    session.professionalId === appointmentProfessionalId
+  );
+}

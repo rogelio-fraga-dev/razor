@@ -6,8 +6,9 @@
 // um ato separado de salvar: dá para montar o site com calma sem que um rascunho pela metade vá
 // ao ar com o endereço já impresso no cartão.
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useBlocker } from "react-router";
 import { SkeletonRows } from "./Skeleton";
-import { Switch } from "./Modal";
+import { Modal, Switch } from "./Modal";
 import { useToast } from "./Toast";
 import { useApi } from "../lib/useApi";
 import { photoForSite } from "../lib/photo";
@@ -29,7 +30,7 @@ import { Group, TextField } from "./siteEditor/fields";
 import { GalleryEditor, MAX_GALLERY, PhotoPicker, type UploadFn } from "./siteEditor/photos";
 import { PhotoLibrary } from "./siteEditor/library";
 import { SectionsEditor } from "./siteEditor/sections";
-import { SitePreviewPanel } from "./siteEditor/preview";
+import { SitePreviewFullscreen, SitePreviewPanel } from "./siteEditor/preview";
 import "./siteEditor/site-editor.css";
 
 /** O formulário é o próprio rascunho da prévia, mais o estado de publicação. */
@@ -100,6 +101,15 @@ function cleanContent(c: SiteContent): SiteContent {
     const out: Record<string, unknown> = {};
     if (s.visible === false) out.visible = false;
     for (const f of ["eyebrow", "title", "text"] as const) if (s[f]?.trim()) out[f] = s[f]!.trim();
+    // Passos de "Como agendar": posição preservada, campos vazios fora, vazios do fim fora.
+    const steps = (s.steps ?? []).map((st) => {
+      const o: { title?: string; text?: string } = {};
+      if (st?.title?.trim()) o.title = st.title.trim();
+      if (st?.text?.trim()) o.text = st.text.trim();
+      return o;
+    });
+    while (steps.length && !steps[steps.length - 1].title && !steps[steps.length - 1].text) steps.pop();
+    if (steps.length) out.steps = steps;
     if (Object.keys(out).length) sections[k as keyof typeof sections] = out;
   }
   const res: SiteContent = {};
@@ -145,6 +155,7 @@ export function SiteEditor({ slug }: { slug: string | null }) {
   const wide = useWide();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewMounted, setPreviewMounted] = useState(false);
+  const [fullPreview, setFullPreview] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -170,6 +181,14 @@ export function SiteEditor({ slug }: { slug: string | null }) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+
+  // Navegar DENTRO do painel (menu, Ctrl+K, voltar) ou trocar de aba em Configurações (a aba vive
+  // no ?tab= da URL) com alteração não salva: segura a navegação e pergunta. O beforeunload acima
+  // só cobre fechar/recarregar a aba do navegador.
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      dirty && (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search),
+  );
 
   // Prévia no celular: tela cheia por cima do editor; trava a rolagem de trás e fecha no Esc.
   useEffect(() => {
@@ -215,14 +234,15 @@ export function SiteEditor({ slug }: { slug: string | null }) {
     [form],
   );
 
-  const save = async (publicar?: boolean) => {
+  /** Salva (e publica/despublica, se pedido). Devolve se deu certo. */
+  const save = async (publicar?: boolean): Promise<boolean> => {
     setFormError(null);
     if (Object.values(errors).some(Boolean)) {
       setTouched((t) => ({ ...t, whatsappNumber: true, instagramUrl: true, mapsUrl: true, logoUrl: true, heroImageUrl: true }));
       if (errors.whatsappNumber || errors.instagramUrl || errors.mapsUrl) toggleGroup("contato", true);
       if (errors.logoUrl || errors.heroImageUrl) toggleGroup("fotos", true);
       setFormError("Confira os campos destacados antes de salvar.");
-      return;
+      return false;
     }
     setSaving(true);
     const { gallery, ...rest } = draft;
@@ -239,8 +259,10 @@ export function SiteEditor({ slug }: { slug: string | null }) {
       setSaved(snapshot(f));
       setLibraryKey((k) => k + 1);
       toast.success(publicar === true ? "Site publicado ✓" : publicar === false ? "Site tirado do ar" : "Site salvo ✓");
+      return true;
     } catch (e) {
       setFormError(e instanceof ApiError ? e.message : "Erro ao salvar.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -572,8 +594,46 @@ export function SiteEditor({ slug }: { slug: string | null }) {
 
       {(wide || previewMounted) && (
         <aside className={`se-preview${!wide && previewOpen ? " is-open" : ""}`} aria-label="Prévia do site" hidden={!wide && !previewOpen}>
-          <SitePreviewPanel draft={draft} onClose={wide ? undefined : () => setPreviewOpen(false)} />
+          <SitePreviewPanel
+            draft={draft}
+            onClose={wide ? undefined : () => setPreviewOpen(false)}
+            onFullscreen={() => setFullPreview(true)}
+          />
         </aside>
+      )}
+
+      {fullPreview && <SitePreviewFullscreen draft={draft} onClose={() => setFullPreview(false)} />}
+
+      {blocker.state === "blocked" && (
+        <Modal
+          title="Sair sem salvar o site?"
+          onClose={() => blocker.reset()}
+          footer={
+            <>
+              <button type="button" className="btn btn-ghost" onClick={() => blocker.reset()} disabled={saving}>
+                Continuar editando
+              </button>
+              <button type="button" className="btn btn-danger" onClick={() => blocker.proceed()} disabled={saving}>
+                Descartar alterações
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={saving}
+                onClick={async () => {
+                  if (await save()) blocker.proceed();
+                  else blocker.reset();
+                }}
+              >
+                {saving ? "Salvando…" : "Salvar e sair"}
+              </button>
+            </>
+          }
+        >
+          <p style={{ margin: 0 }}>
+            Você mexeu no site e ainda não salvou. Se sair agora, essas alterações se perdem.
+          </p>
+        </Modal>
       )}
     </div>
   );

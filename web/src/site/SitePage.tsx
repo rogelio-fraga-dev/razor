@@ -3,7 +3,7 @@
 // Fica FORA do bloco autenticado do App — é um site, e site não pede login. O tenant vem do slug
 // da URL e o backend recusa slug inexistente ou site não publicado com o mesmo 404.
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type { PublicSite, SiteTemplate, SiteTheme } from "../api/types";
 import { TEMPLATES } from "./templates";

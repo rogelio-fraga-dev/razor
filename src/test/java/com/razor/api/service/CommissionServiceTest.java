@@ -116,6 +116,24 @@ class CommissionServiceTest {
     }
 
     @Test
+    @DisplayName("falta (NO_SHOW) não gera faturamento nem comissão para o barbeiro")
+    void commissions_ignoresNoShows() {
+        LocalDate hoje = AppointmentDates.today();
+        UUID rafael = UUID.randomUUID();
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
+        Appointment faltou = appt(rafael, "Combo", hoje);
+        faltou.setAttendanceStatus(com.razor.api.model.AttendanceStatus.NO_SHOW);
+        givenAppointments(List.of(faltou, appt(rafael, "Corte", hoje)));
+        givenPrices();
+
+        ProfessionalCommission r = service.commissionsForDay(hoje).get(0);
+
+        assertThat(r.atendimentos()).isEqualTo(1);
+        assertThat(r.faturamento()).isEqualByComparingTo("35.00");
+        assertThat(r.comissao()).isEqualByComparingTo("17.50");
+    }
+
+    @Test
     @DisplayName("agendamentos sem barbeiro atribuído são ignorados")
     void commissions_ignoresUnassigned() {
         LocalDate hoje = AppointmentDates.today();

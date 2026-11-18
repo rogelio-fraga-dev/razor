@@ -28,13 +28,41 @@ Achados no teste real de 18/11 (agendamento #380, 5 serviços, áudio):
 - [ ] **Serviços na config do bot:** editor em linhas (nome | preço | duração | +) em vez de texto livre.
 
 ## Parte 2 — Painel e tema claro (V48)
-- [ ] Recepção sem "Editar" em Serviços; barbeiro só mexe nos próprios agendamentos.
-- [ ] Editar nome e e-mail de usuário do painel.
-- [ ] Editor do site: aviso de alteração não salva ao trocar de aba; "Como agendar" editável;
-      prévia em tela cheia.
-- [ ] Faturamento previsto sem faltas (usando o cálculo único da Parte 1).
-- [ ] react-router 7; agenda compacta no celular; PWA instalável com botão "Instalar app".
-- [ ] **Tema claro refeito:** paleta, contraste, cartões, sombras e gráficos revisados tela a tela.
+- [x] Recepção sem "Editar" em Serviços; barbeiro só mexe nos próprios agendamentos.
+  - Recepção: Serviços/Produtos só leitura (sem Novo/Editar/Estoque, também no Ctrl+K); a lista
+    da equipe passou a abrir para ela (comanda, venda e folgas precisavam) sem os percentuais de
+    comissão.
+  - Barbeiro: remarca, cancela e marca comparecimento só dos horários do profissional ligado ao
+    login (`AgendaPermissions`, 403 no resto); arrastar só os próprios e só para a própria coluna;
+    criar horário, sinal e comanda seguem com dono/recepção.
+- [x] Editar nome e e-mail de usuário do painel (e-mail único, minúsculo; trocar e-mail derruba as
+      sessões da pessoa; o próprio dono continua logado com cookie novo).
+- [x] Editor do site: aviso de alteração não salva ao trocar de aba/navegar (`useBlocker`);
+      "Como agendar" com os 3 passos editáveis; prévia em tela cheia (computador/celular, Esc).
+- [x] Faturamento previsto sem faltas: resumo financeiro, "a receber", gráfico e comissão ignoram
+      `NO_SHOW` (cancelado já não entra — cancelar apaga o agendamento). Se o cálculo único de
+      preço da Parte 1 entrar depois, manter o filtro `ReportService.countsAsRevenue`.
+- [x] react-router 7 (data router; `npm audit` sem o alerta); agenda compacta no celular e no
+      notebook (‹ Hoje › + "⋯"); PWA instalável (ícones 192/512 + maskable, screenshots, atalhos)
+      com botão "Instalar app" (no iPhone, o passo a passo do "Adicionar à Tela de Início").
+- [x] **Tema claro refeito:** paleta única em `web/src/theme-light.css` (contraste AA medido),
+      sem halo/grade no fundo, cartões com sombra curta, selos, gráfico, agenda e diálogos revisados.
+- Pendente: `npm audit` ainda acusa esbuild/vite (só servidor de dev) — exige vite 6+, fora deste
+  item.
+
+### Play Store (quando houver domínio com HTTPS)
+O PWA já passa nos critérios de instalação do Chrome; a Play Store aceita o mesmo app empacotado
+como TWA (Trusted Web Activity):
+1. Publicar o painel no domínio definitivo com HTTPS (ex.: `app.<dominio>`), com o
+   `manifest.webmanifest` e o `sw.js` na raiz.
+2. `npm i -g @bubblewrap/cli` e `bubblewrap init --manifest https://app.<dominio>/manifest.webmanifest`
+   (pacote ex.: `br.com.<dominio>.painel`; ícones e cores saem do manifest).
+3. `bubblewrap build` gera o `.aab` e a chave de assinatura — guardar a chave fora do repositório.
+4. Publicar `https://app.<dominio>/.well-known/assetlinks.json` com o SHA-256 da chave
+   (`bubblewrap fingerprint`; com "Assinatura de apps do Google Play", usar o SHA-256 que o Play
+   Console mostra). Sem ele o app abre com a barra do navegador.
+5. Play Console: conta de desenvolvedor, ficha (screenshots de `web/public/screenshots`), política
+   de privacidade (Parte 5) e envio para teste interno antes da produção.
 
 ## Parte 3 — Console do desenvolvedor / plataforma (V50 + V51)
 Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com 2FA):
@@ -119,5 +147,5 @@ Números bons viram a prova social da landing; só então anúncio e Reels.
 - Cobrança da assinatura do Razor (recorrência, teste com cartão, inadimplência).
 - Pagamentos para as barbearias: sinal PIX automático, pagamento online, clube recorrente; gateway.
 - NFS-e (provedor + prefeitura). Direct do Instagram (app Meta verificado).
-- App Android na Play Store (TWA/Bubblewrap, exige domínio + assetlinks.json); iOS via "Adicionar à Tela".
+- App Android na Play Store (TWA/Bubblewrap, exige domínio + assetlinks.json — passos na Parte 2); iOS via "Adicionar à Tela".
 - Domínio, subdomínio por barbearia, HTTPS e deploy.

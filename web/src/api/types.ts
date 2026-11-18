@@ -829,6 +829,15 @@ export interface SiteSectionContent {
   title?: string;
   /** Texto de apoio (até 600). */
   text?: string;
+  /** Só em "Como agendar": até 3 passos; a posição é o número do passo. Campo vazio = padrão. */
+  steps?: SiteStepContent[];
+}
+
+export interface SiteStepContent {
+  /** Até 60. */
+  title?: string;
+  /** Até 200. */
+  text?: string;
 }
 
 export type SiteMotion = "full" | "subtle" | "off";

@@ -4,7 +4,7 @@
 // faturamento alto significa cadeira sobrando; retenção caindo com ocupação alta significa que a
 // casa está cheia de gente que não volta. Separá-las faria o dono comparar dois relatórios.
 import { Layout } from "../components/Layout";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Hint } from "../components/Hint";
 import { ErrorState } from "../components/ErrorState";
 import { EmptyState } from "../components/EmptyState";
