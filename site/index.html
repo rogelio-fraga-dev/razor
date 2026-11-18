@@ -16,8 +16,16 @@
   <meta property="og:title" content="RAZOR — Sua barbearia, no piloto automático" />
   <meta property="og:description" content="IA no WhatsApp que agenda, confirma e cobra. Painel de gestão e site próprio para a sua barbearia." />
   <meta property="og:url" content="https://razor.com.br/" />
-  <meta property="og:image" content="https://razor.com.br/logo.svg" />
-  <meta name="twitter:card" content="summary" />
+  <!-- og:image PRECISA de URL absoluta: WhatsApp, Instagram e Facebook ignoram caminho relativo
+       e não abrem SVG. "razor.com.br" é provisório — trocar pelo domínio real no deploy
+       (ver docs/MVP-PILOTO.md). Fonte da imagem: site/og/og-image.html. -->
+  <meta property="og:image" content="https://razor.com.br/og-image.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="RAZOR — a IA no WhatsApp que agenda, confirma e cobra pela sua barbearia" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://razor.com.br/og-image.png" />
   <meta name="twitter:title" content="RAZOR — Sua barbearia, no piloto automático" />
   <meta name="twitter:description" content="IA no WhatsApp que agenda, confirma e cobra. Painel de gestão e site próprio inclusos." />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -664,9 +672,9 @@
       </nav>
       <nav class="foot-col" aria-label="Legal">
         <h4>Legal</h4>
-        <a href="#">Termos de uso</a>
-        <a href="#">Privacidade (LGPD)</a>
-        <a href="#">Política de cancelamento</a>
+        <a href="termos.html">Termos de uso</a>
+        <a href="privacidade.html">Privacidade (LGPD)</a>
+        <a href="cancelamento.html">Política de cancelamento</a>
       </nav>
     </div>
     <div class="foot-bottom">

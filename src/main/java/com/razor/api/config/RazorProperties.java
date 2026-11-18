@@ -15,6 +15,7 @@ public class RazorProperties {
     /** Textos e links do menu (opcional; se vazio usamos valores padrão no código) */
     private Menu menu = new Menu();
     private Onboarding onboarding = new Onboarding();
+    private Signup signup = new Signup();
     private Security security = new Security();
     private Webhook webhook = new Webhook();
 
@@ -40,6 +41,15 @@ public class RazorProperties {
          * desabilita o onboarding (fail-closed): o endpoint rejeita qualquer requisicao.
          */
         private String apiKey = "";
+    }
+
+    /** Cadastro sozinho pela landing (V49). */
+    @Data
+    public static class Signup {
+        /** Liga/desliga o cadastro publico. Desligado = 404, como se a rota nao existisse. */
+        private boolean enabled = true;
+        /** Dias de teste gratis gravados em {@code trial_ends_at}. So informativo, por enquanto. */
+        private int trialDays = 14;
     }
 
     @Data
@@ -95,6 +105,15 @@ public class RazorProperties {
         private int bookingPerWindow = 10;
         /** Janela do limite de agendamento online, em segundos (1h). */
         private int bookingWindowSeconds = 3600;
+        /**
+         * Cadastros de barbearia (POST {@code /api/signup}) aceitos por IP dentro de
+         * {@link #signupWindowSeconds} (V49). Quem abre uma barbearia faz isso uma vez; um robo
+         * criando contas em laco para usar o bot de graca esbarra aqui. Conta tambem as tentativas
+         * recusadas (e-mail repetido, senha curta), por isso nao e 1 ou 2.
+         */
+        private int signupPerWindow = 10;
+        /** Janela do limite de cadastro, em segundos (1h). */
+        private int signupWindowSeconds = 3600;
     }
 
     @Data

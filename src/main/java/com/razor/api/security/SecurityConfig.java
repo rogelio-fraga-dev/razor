@@ -139,6 +139,9 @@ public class SecurityConfig {
                         // Agendamento online (V38): o unico POST publico do site. Contido pelo
                         // limite por IP proprio no RateLimitFilter e pelo honeypot.
                         .requestMatchers(HttpMethod.POST, "/api/site/*/booking").permitAll()
+                        // Cadastro sozinho pela landing (V49): publico, contido pelo limite por
+                        // IP por hora (RateLimitFilter), honeypot e e-mail unico.
+                        .requestMatchers(HttpMethod.POST, "/api/signup").permitAll()
                         .requestMatchers("/api/webhook/**", "/api/auth/**", "/api/onboarding",
                                 "/actuator/health", "/error").permitAll()
 
