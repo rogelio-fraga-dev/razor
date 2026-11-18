@@ -3,6 +3,8 @@
 Objetivo: deixar o Razor pronto para rodar em 3–5 barbearias piloto, ainda local/sem domínio.
 Pagamentos ficam de fora até a decisão de modelo (ver "Decisões pendentes").
 
+**Ordem combinada (18/11):** Parte 5 → Parte 4 → Parte 3 → demais → vídeo por último.
+
 **Como executamos:** em PARTES, no máximo 2 frentes por vez (para não estourar o limite de uso).
 Cada parte termina com testes + build + Docker no ar + push, antes de abrir a próxima.
 
@@ -87,7 +89,7 @@ Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com
 - [ ] Imagem de capa (og:image).
 - [x] Seção de teste grátis em destaque na landing.
 
-## Parte 6 — Vídeo para Reels
+## Parte 6 — Vídeo para Reels (POR ÚLTIMO, depois de todas as atualizações, para mostrar o produto final)
 - [ ] Roteiro 30–45 s para narração + vídeo vertical dinâmico (limpo e legendado), fonte editável.
 
 ## Parte 7 — WhatsApp oficial (Cloud API)
