@@ -14,6 +14,9 @@ import com.razor.api.model.CashPaymentMethod;
 import com.razor.api.model.CashRegisterSession;
 import com.razor.api.repository.CashMovementRepository;
 import com.razor.api.repository.CashRegisterSessionRepository;
+import com.razor.api.repository.PaymentMethodFeeRepository;
+import com.razor.api.model.PaymentMethodFee;
+import static org.mockito.ArgumentMatchers.eq;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +40,7 @@ class CashRegisterServiceTest {
 
     @Mock private CashRegisterSessionRepository sessionRepository;
     @Mock private CashMovementRepository movementRepository;
+    @Mock private PaymentMethodFeeRepository feeRepository;
     @InjectMocks private CashRegisterService service;
 
     private CashRegisterSession openSession(BigDecimal opening) {
@@ -163,6 +167,56 @@ class CashRegisterServiceTest {
         assertThat(out.closingCounted()).isEqualByComparingTo("165.00");
         assertThat(out.difference()).isEqualByComparingTo("5.00");
         assertThat(session.getStatus()).isEqualTo(CashRegisterSession.Status.CLOSED);
+    }
+
+    @Test
+    @DisplayName("comanda em split: só a parte em dinheiro entra na gaveta esperada")
+    void splitComanda_onlyCashPartAffectsDrawer() {
+        CashRegisterSession session = openSession(new BigDecimal("100"));
+        when(sessionRepository.findByBarbershopIdAndStatus(any(), any())).thenReturn(Optional.of(session));
+        UUID comanda = UUID.randomUUID();
+        CashMovement dinheiro = venda(new BigDecimal("20"), CashPaymentMethod.DINHEIRO);
+        dinheiro.setComandaId(comanda);
+        CashMovement credito = venda(new BigDecimal("60"), CashPaymentMethod.CREDITO);
+        credito.setComandaId(comanda);
+        credito.setFeeAmount(new BigDecimal("2.10"));
+        when(movementRepository.findBySessionIdOrderByCreatedAtAsc(any())).thenReturn(List.of(
+                dinheiro, credito, venda(new BigDecimal("15"), CashPaymentMethod.OUTRO)));
+
+        CashSessionSummary out = service.currentSummary();
+
+        // 100 de fundo + 20 em dinheiro; crédito e "outro" não vão para a gaveta
+        assertThat(out.expectedDrawer()).isEqualByComparingTo("120.00");
+        assertThat(out.totals().vendasDinheiro()).isEqualByComparingTo("20.00");
+        assertThat(out.totals().vendasCredito()).isEqualByComparingTo("60.00");
+        assertThat(out.totals().vendasOutro()).isEqualByComparingTo("15.00");
+        assertThat(out.totals().vendasTotal()).isEqualByComparingTo("95.00");
+        assertThat(out.totals().taxas()).isEqualByComparingTo("2.10");
+    }
+
+    @Test
+    @DisplayName("venda grava a taxa da forma de pagamento (snapshot) e a comanda de origem")
+    void recordMovement_snapshotsFeeAndComanda() {
+        when(sessionRepository.findByBarbershopIdAndStatus(any(), any()))
+                .thenReturn(Optional.of(openSession(new BigDecimal("100"))));
+        when(feeRepository.findByBarbershopIdAndPaymentMethod(any(), eq(CashPaymentMethod.CREDITO)))
+                .thenReturn(Optional.of(PaymentMethodFee.builder()
+                        .paymentMethod(CashPaymentMethod.CREDITO).feePercent(new BigDecimal("3.50")).build()));
+        when(movementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        UUID comanda = UUID.randomUUID();
+
+        CashMovement credito = service.recordMovement(
+                CashMovementType.VENDA, CashPaymentMethod.CREDITO, new BigDecimal("60"), "Comanda", comanda);
+        CashMovement pix = service.recordMovement(
+                CashMovementType.VENDA, CashPaymentMethod.PIX, new BigDecimal("40"), "Comanda", comanda);
+        CashMovement sangria = service.recordMovement(
+                CashMovementType.SANGRIA, null, new BigDecimal("10"), null, comanda);
+
+        assertThat(credito.getFeeAmount()).isEqualByComparingTo("2.10");
+        assertThat(credito.getComandaId()).isEqualTo(comanda);
+        assertThat(pix.getFeeAmount()).isEqualByComparingTo("0"); // sem taxa cadastrada
+        assertThat(sangria.getFeeAmount()).isEqualByComparingTo("0");
+        assertThat(sangria.getComandaId()).isNull(); // só VENDA pertence a comanda
     }
 
     @Test

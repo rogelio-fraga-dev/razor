@@ -305,6 +305,32 @@ assinaturas) sem sair do Razor.
 - [x] **Limite de agendamentos por cliente (V36)** — impede o cliente de reservar vários horários
       "para garantir" e travar a agenda. Configurável no painel (padrão 2, vazio = sem limite);
       conta só horários **futuros**. Ver *Limite de agendamentos e grupos de clientes*, abaixo.
+- [ ] **Pacotes** (ex.: 10 cortes pré-pagos) com **baixa automática** no atendimento —
+      diferente do clube (recorrência); é crédito pré-pago.
+- [x] **Múltiplas formas de pagamento por atendimento + split (V35)** — o fechamento da comanda
+      aceita `payments: [{method, amount}]` (DINHEIRO | DEBITO | CREDITO | PIX | **OUTRO**) e a
+      soma tem que bater **ao centavo** com o total já com cupom (a recusa diz quanto falta ou
+      sobra). **Cada parte vira o seu movimento de caixa**, com a sua forma e amarrada à comanda
+      (`cash_movements.comanda_id`), então a conferência da gaveta continua certa sem mudar a
+      regra: só a parte em dinheiro entra na gaveta esperada. O contrato antigo
+      (`paymentMethod` único) segue funcionando. A comanda guarda como `paymentMethod` /
+      `cash_movement_id` a parte **principal** (a maior) — é a que os produtos vendidos
+      referenciam em `product_sales`, para o dinheiro continuar entrando uma vez só.
+      **Taxa por forma de pagamento** (`payment_method_fees`, ex.: crédito 3,5%) calculada e
+      **congelada no movimento** (`fee_amount`) na hora da venda — mudar a taxa hoje não reescreve
+      o líquido do mês passado; vale também para a venda de balcão. `/reports/financial` ganhou
+      `receipts` (bruto, taxa e líquido por forma, lido dos movimentos — o split aparece em cada
+      forma) e o **DRE** deduz `paymentFees` antes do resultado (`netRevenue`). Painel: modal de
+      fechamento com várias linhas, "restante" ao vivo, botões **"Restante em…"** e cupom
+      simulado (`POST /comandas/{id}/coupon-preview`, liberado à recepção); card de
+      recebimentos + editor de taxas na tela de Despesas/DRE.
+      **Junto, correção de segurança:** abrir comanda com `appointmentId` agora exige agendamento
+      **deste tenant, de hoje e sem outra comanda** — antes qualquer id era aceito, e como o
+      financeiro ignora comanda vinculada, dava para "sumir" com receita.
+      _(Próximos passos: marcar o `paymentStatus` do agendamento como pago quando a comanda
+      vinculada fecha; taxa de crédito parcelado por número de parcelas.)_
+- [ ] **Limite de agendamentos por cliente** — impede o cliente de reservar vários horários
+      "para garantir" e travar a agenda. _(Boa ideia da Frizzar; barato de implementar.)_
 
 **🟠 Alto valor (diferenciam na venda)**
 

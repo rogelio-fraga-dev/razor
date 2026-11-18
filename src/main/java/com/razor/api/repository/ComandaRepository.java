@@ -24,4 +24,6 @@ public interface ComandaRepository extends JpaRepository<Comanda, UUID> {
 
     /** Comandas ligadas a estes agendamentos — a agenda mostra "comanda aberta" no bloco. */
     List<Comanda> findByBarbershopIdAndAppointmentIdIn(UUID barbershopId, java.util.Collection<Long> appointmentIds);
+    /** Ja existe comanda (em qualquer situacao) vinculada a este agendamento? */
+    boolean existsByAppointmentId(Long appointmentId);
 }

@@ -3,20 +3,9 @@
 import { useState } from "react";
 import { useToast } from "./Toast";
 import { api, ApiError } from "../api/client";
-import type {
-  CashPaymentMethod,
-  Comanda,
-  Product,
-  ServiceOffering,
-} from "../api/types";
+import type { Comanda, Product, ServiceOffering } from "../api/types";
 import { money } from "../lib/format";
-
-const PAYMENT_METHODS: { value: CashPaymentMethod; label: string }[] = [
-  { value: "DINHEIRO", label: "Dinheiro" },
-  { value: "PIX", label: "PIX" },
-  { value: "DEBITO", label: "Débito" },
-  { value: "CREDITO", label: "Crédito" },
-];
+import { CloseComandaModal } from "./CloseComandaModal";
 
 const TIME_FMT = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
@@ -34,7 +23,7 @@ export function ComandaCard({
   const toast = useToast();
   const [pick, setPick] = useState("");
   const [quantity, setQuantity] = useState("1");
-  const [method, setMethod] = useState<CashPaymentMethod>("DINHEIRO");
+  const [closing, setClosing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,12 +65,6 @@ export function ComandaCard({
 
   const removeItem = (itemId: string) =>
     run(() => api.del(`/api/admin/comandas/${comanda.id}/items/${itemId}`));
-
-  const close = () =>
-    run(
-      () => api.post(`/api/admin/comandas/${comanda.id}/close`, { paymentMethod: method }),
-      `Comanda fechada ✓ ${money(comanda.currentTotal)} no caixa.`,
-    );
 
   const cancel = () => run(() => api.post(`/api/admin/comandas/${comanda.id}/cancel`), "Comanda cancelada.");
 
@@ -167,20 +150,9 @@ export function ComandaCard({
         </div>
 
         <div className="row wrap" style={{ gap: 8 }}>
-          <select
-            className="input"
-            aria-label="Forma de pagamento"
-            style={{ maxWidth: 150 }}
-            value={method}
-            onChange={(e) => setMethod(e.target.value as CashPaymentMethod)}
-          >
-            {PAYMENT_METHODS.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
-          </select>
           <button
             className="btn btn-primary"
-            onClick={close}
+            onClick={() => setClosing(true)}
             disabled={busy || comanda.items.length === 0}
             title={comanda.items.length === 0 ? "Adicione ao menos um item" : undefined}
           >
@@ -193,6 +165,10 @@ export function ComandaCard({
 
         {error && <div className="error" style={{ marginTop: 10 }}>{error}</div>}
       </div>
+
+      {closing && (
+        <CloseComandaModal comanda={comanda} onClose={() => setClosing(false)} onClosed={onChanged} />
+      )}
     </div>
   );
 }

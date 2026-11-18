@@ -35,12 +35,16 @@ public record CashSessionSummary(
             CashMovementType type,
             CashPaymentMethod paymentMethod,
             BigDecimal amount,
+            /** Taxa do meio de pagamento (V35); zero fora de VENDA. */
+            BigDecimal feeAmount,
+            /** Comanda de origem (V35): partes do mesmo split compartilham o id. */
+            UUID comandaId,
             String description,
             LocalDateTime createdAt) {
 
         public static MovementView from(CashMovement m) {
             return new MovementView(m.getId(), m.getType(), m.getPaymentMethod(),
-                    m.getAmount(), m.getDescription(), m.getCreatedAt());
+                    m.getAmount(), m.getFeeAmount(), m.getComandaId(), m.getDescription(), m.getCreatedAt());
         }
     }
 
@@ -49,7 +53,11 @@ public record CashSessionSummary(
             BigDecimal vendasPix,
             BigDecimal vendasDebito,
             BigDecimal vendasCredito,
+            /** Vale, transferencia, permuta (V35). */
+            BigDecimal vendasOutro,
             BigDecimal vendasTotal,
+            /** Taxas dos meios de pagamento sobre as vendas da sessao (V35). */
+            BigDecimal taxas,
             BigDecimal sangrias,
             BigDecimal suprimentos) {
     }

@@ -17,6 +17,10 @@ import java.util.List;
  * <p>Por isso {@code expensesPaid} e {@code expensesUnpaid} vem separados: somam o mesmo
  * {@code totalExpenses}, mas dizem quanto daquilo ja saiu de fato.
  *
+ * <p><b>Taxas de pagamento (V35)</b> sao deducao da receita: {@code result = netRevenue -
+ * totalExpenses}, com {@code netRevenue = totalRevenue - paymentFees}. Sem taxa cadastrada,
+ * {@code paymentFees} e zero e nada muda.
+ *
  * <p>{@code marginPercent} e <b>nulo</b> quando nao houve receita no periodo. Dividir por zero
  * daria infinito e mostrar {@code 0%} seria pior: sugere margem nula quando o certo e "nao ha o
  * que medir".
@@ -27,6 +31,10 @@ public record DreResponse(
         BigDecimal servicesRevenue,
         BigDecimal productsRevenue,
         BigDecimal totalRevenue,
+        /** Taxas dos meios de pagamento no periodo (V35) — deducao da receita. */
+        BigDecimal paymentFees,
+        /** {@code totalRevenue - paymentFees}: o que de fato fica com a barbearia. */
+        BigDecimal netRevenue,
         List<ExpenseLine> expenses,
         BigDecimal totalExpenses,
         BigDecimal expensesPaid,

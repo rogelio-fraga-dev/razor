@@ -48,6 +48,7 @@ class ReportServiceTest {
     @Mock private PricingService pricingService;
     @Mock private CustomerService customerService;
     @Mock private ExpenseService expenseService;
+    @Mock private com.razor.api.repository.CashMovementRepository cashMovementRepository;
 
     @InjectMocks private ReportService service;
 
@@ -356,6 +357,62 @@ class ReportServiceTest {
         assertThat(dre.marginPercent()).isEqualByComparingTo("75.0");
         assertThat(dre.expenses()).singleElement()
                 .satisfies(l -> assertThat(l.shareOfRevenue()).isEqualByComparingTo("25.0"));
+    }
+
+    private com.razor.api.model.CashMovement vendaCaixa(com.razor.api.model.CashPaymentMethod m, String valor,
+                                                        String taxa, UUID comanda) {
+        return com.razor.api.model.CashMovement.builder()
+                .type(com.razor.api.model.CashMovementType.VENDA).paymentMethod(m)
+                .amount(new BigDecimal(valor)).feeAmount(new BigDecimal(taxa)).comandaId(comanda).build();
+    }
+
+    @Test
+    @DisplayName("recebimentos por forma de pagamento refletem o split: cada parte na sua linha, com taxa e líquido")
+    void financialSummary_receiptsReflectSplitPayments() {
+        givenRevenue180();
+        UUID comandaSplit = UUID.randomUUID();
+        when(cashMovementRepository.findByBarbershopIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                any(), any(), any(), any())).thenReturn(List.of(
+                // comanda de R$ 80 paga em split: 20 dinheiro + 60 crédito (3,5% = 2,10)
+                vendaCaixa(com.razor.api.model.CashPaymentMethod.DINHEIRO, "20.00", "0", comandaSplit),
+                vendaCaixa(com.razor.api.model.CashPaymentMethod.CREDITO, "60.00", "2.10", comandaSplit),
+                // outra comanda, inteira no crédito
+                vendaCaixa(com.razor.api.model.CashPaymentMethod.CREDITO, "40.00", "1.40", UUID.randomUUID()),
+                vendaCaixa(com.razor.api.model.CashPaymentMethod.PIX, "35.00", "0", null)));
+
+        FinancialSummaryResponse s = service.financialSummary(JUL_1, JUL_31);
+
+        var r = s.receipts();
+        assertThat(r.methods()).extracting(FinancialSummaryResponse.MethodLine::method).containsExactly(
+                com.razor.api.model.CashPaymentMethod.DINHEIRO, com.razor.api.model.CashPaymentMethod.PIX,
+                com.razor.api.model.CashPaymentMethod.CREDITO);
+        var credito = r.methods().get(2);
+        assertThat(credito.count()).isEqualTo(2);
+        assertThat(credito.gross()).isEqualByComparingTo("100.00");
+        assertThat(credito.fees()).isEqualByComparingTo("3.50");
+        assertThat(credito.net()).isEqualByComparingTo("96.50");
+        assertThat(r.methods().get(0).gross()).isEqualByComparingTo("20.00");
+        assertThat(r.gross()).isEqualByComparingTo("155.00");
+        assertThat(r.fees()).isEqualByComparingTo("3.50");
+        assertThat(r.net()).isEqualByComparingTo("151.50");
+    }
+
+    @Test
+    @DisplayName("DRE: taxa dos meios de pagamento é deduzida da receita antes do resultado")
+    void dre_deductsPaymentFees() {
+        givenRevenue180();
+        when(cashMovementRepository.findByBarbershopIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                any(), any(), any(), any())).thenReturn(List.of(
+                vendaCaixa(com.razor.api.model.CashPaymentMethod.CREDITO, "100.00", "3.50", null)));
+        when(expenseService.totalsByCategory(any(), any())).thenReturn(Map.of());
+        when(expenseService.betweenDueDates(any(), any())).thenReturn(List.of());
+
+        var dre = service.dre(JUL_1, JUL_31, LocalDate.of(2026, 7, 20));
+
+        assertThat(dre.totalRevenue()).isEqualByComparingTo("180.00");
+        assertThat(dre.paymentFees()).isEqualByComparingTo("3.50");
+        assertThat(dre.netRevenue()).isEqualByComparingTo("176.50");
+        assertThat(dre.result()).isEqualByComparingTo("176.50");
     }
 
     @Test

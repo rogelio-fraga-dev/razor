@@ -231,6 +231,24 @@ export interface FinancialSummary {
   totalRevenue: number;
   /** Serviços ÷ atendimentos — produto fica fora para não inflar o ticket. */
   averageTicket: number;
+  /** O que entrou no caixa por forma de pagamento (V35), com split e taxas. */
+  receipts: Receipts;
+}
+
+export interface ReceiptMethodLine {
+  method: CashPaymentMethod;
+  /** Partes de pagamento (uma comanda em split conta uma vez em cada forma). */
+  count: number;
+  gross: number;
+  fees: number;
+  net: number;
+}
+
+export interface Receipts {
+  methods: ReceiptMethodLine[];
+  gross: number;
+  fees: number;
+  net: number;
 }
 
 export interface CommissionItem {
@@ -255,13 +273,17 @@ export interface CommissionReport {
 // ---------- Caixa (V18) ----------
 
 export type CashMovementType = "VENDA" | "SANGRIA" | "SUPRIMENTO";
-export type CashPaymentMethod = "DINHEIRO" | "PIX" | "DEBITO" | "CREDITO";
+export type CashPaymentMethod = "DINHEIRO" | "PIX" | "DEBITO" | "CREDITO" | "OUTRO";
 
 export interface CashMovementView {
   id: string;
   type: CashMovementType;
   paymentMethod: CashPaymentMethod | null;
   amount: number;
+  /** Taxa do meio de pagamento congelada na venda (V35); 0 fora de VENDA. */
+  feeAmount: number;
+  /** Comanda de origem (V35) — as partes de um split compartilham o id. */
+  comandaId: string | null;
   description: string | null;
   createdAt: string;
 }
@@ -271,7 +293,10 @@ export interface CashTotals {
   vendasPix: number;
   vendasDebito: number;
   vendasCredito: number;
+  vendasOutro: number;
   vendasTotal: number;
+  /** Taxas dos meios de pagamento sobre as vendas da sessão (V35). */
+  taxas: number;
   sangrias: number;
   suprimentos: number;
 }
@@ -377,8 +402,25 @@ export interface Comanda {
   closedAt: string | null;
   currentTotal: number;
   total: number | null;
+  /** Forma da parte principal (a maior). Com split, veja `payments`. */
   paymentMethod: CashPaymentMethod | null;
   items: ComandaItem[];
+  /** Partes do pagamento (V35): uma por forma usada. Vazio enquanto aberta. */
+  payments: ComandaPaymentPart[];
+}
+
+export interface ComandaPaymentPart {
+  method: CashPaymentMethod;
+  amount: number;
+  feeAmount: number;
+}
+
+/** Simulação de cupom no fechamento da comanda (V35). */
+export interface ComandaCouponPreview {
+  code: string;
+  subtotal: number;
+  discount: number;
+  finalTotal: number;
 }
 
 // ---------- Comissões pagas (V25) ----------
@@ -562,6 +604,10 @@ export interface Dre {
   servicesRevenue: number;
   productsRevenue: number;
   totalRevenue: number;
+  /** Taxas dos meios de pagamento no período (V35) — deduzidas antes do resultado. */
+  paymentFees: number;
+  /** `totalRevenue − paymentFees`. */
+  netRevenue: number;
   expenses: DreExpenseLine[];
   totalExpenses: number;
   expensesPaid: number;

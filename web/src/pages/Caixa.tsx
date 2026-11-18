@@ -10,18 +10,13 @@ import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import { money } from "../lib/format";
+import { METHOD_LABEL } from "../lib/paymentMethods";
 import type { CashMovementType, CashPaymentMethod, CashSessionSummary } from "../api/types";
 
 const TYPE_LABEL: Record<CashMovementType, string> = {
   VENDA: "Venda",
   SANGRIA: "Sangria",
   SUPRIMENTO: "Suprimento",
-};
-const METHOD_LABEL: Record<CashPaymentMethod, string> = {
-  DINHEIRO: "Dinheiro",
-  PIX: "PIX",
-  DEBITO: "Débito",
-  CREDITO: "Crédito",
 };
 
 function timeOf(iso: string): string {
@@ -128,11 +123,14 @@ function OpenCash({ summary, onChanged }: { summary: CashSessionSummary; onChang
           <div className="sub">{summary.movements.filter((m) => m.type === "VENDA").length} venda(s)</div>
         </div>
         <div className="stat">
-          <div className="label">Dinheiro / PIX / Cartão</div>
+          <div className="label">Dinheiro / PIX / Cartão{t.vendasOutro > 0 ? " / Outro" : ""}</div>
           <div className="value" style={{ fontSize: 18 }}>
             {money(t.vendasDinheiro)} · {money(t.vendasPix)} · {money(cartao)}
+            {t.vendasOutro > 0 ? ` · ${money(t.vendasOutro)}` : ""}
           </div>
-          <div className="sub">só o dinheiro entra na gaveta</div>
+          <div className="sub">
+            só o dinheiro entra na gaveta{t.taxas > 0 ? ` · taxas ${money(t.taxas)}` : ""}
+          </div>
         </div>
         <div className="stat">
           <div className="label">Sangrias / Suprimentos</div>
@@ -158,6 +156,7 @@ function OpenCash({ summary, onChanged }: { summary: CashSessionSummary; onChang
                       {TYPE_LABEL[m.type]}
                       {m.paymentMethod && <span className="muted" style={{ fontWeight: 400 }}> · {METHOD_LABEL[m.paymentMethod]}</span>}
                       {m.description && <span className="muted" style={{ fontWeight: 400 }}> · {m.description}</span>}
+                      {m.feeAmount > 0 && <span className="faint" style={{ fontWeight: 400 }}> · taxa {money(m.feeAmount)}</span>}
                     </div>
                     <div className="mono" style={{ fontSize: 12, color: "var(--text-faint)" }}>{timeOf(m.createdAt)}</div>
                   </div>

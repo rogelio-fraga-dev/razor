@@ -12,6 +12,7 @@ import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import { Pagination } from "../components/Pagination";
+import { PaymentReceiptsCard } from "../components/PaymentReceiptsCard";
 import type { Dre, Expense, ExpenseCategory, ExpenseCategoryOption, PageMeta } from "../api/types";
 import { dateBr, money, percent, todayIso } from "../lib/format";
 
@@ -208,6 +209,7 @@ export function Expenses() {
                 <div className="kpi-value mono">{money(dre.data.totalRevenue)}</div>
                 <div className="kpi-sub">
                   Serviços {money(dre.data.servicesRevenue)} · produtos {money(dre.data.productsRevenue)}
+                  {dre.data.paymentFees > 0 && <> · taxas − {money(dre.data.paymentFees)}</>}
                 </div>
               </div>
               <div className="card kpi-card">
@@ -274,6 +276,9 @@ export function Expenses() {
           </>
         ) : null}
       </div>
+
+      {/* ---------- Recebimentos por forma de pagamento (V35) ---------- */}
+      {dre.data && <PaymentReceiptsCard from={dre.data.from} to={dre.data.to} label={periodLabel} />}
 
       {/* ---------- Contas ---------- */}
       <div className="card">

@@ -17,6 +17,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     // Acesso escopado por tenant (Fase 1).
     List<Appointment> findByBarbershopId(UUID barbershopId);
 
+    /** Leitura por id escopada no tenant: id adivinhado de outra barbearia nao e encontrado. */
+    java.util.Optional<Appointment> findByIdAndBarbershopId(Long id, UUID barbershopId);
+
     List<Appointment> findByBarbershopIdAndCustomerPhone(UUID barbershopId, String customerPhone);
 
     List<Appointment> findByBarbershopIdAndAppointmentDate(UUID barbershopId, LocalDate appointmentDate);
