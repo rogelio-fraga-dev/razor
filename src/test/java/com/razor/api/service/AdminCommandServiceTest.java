@@ -47,6 +47,7 @@ class AdminCommandServiceTest {
     @Mock private WhatsAppMessenger messenger;
     @Mock private EvolutionMediaService evolutionMediaService;
     @Mock private BarbershopSettingsService barbershopSettingsService;
+    @Mock private BroadcastService broadcastService;
 
     // Store REAL (nao mock): a maquina de estados da conversa precisa gravar/ler de verdade.
     @org.mockito.Spy
@@ -174,13 +175,12 @@ class AdminCommandServiceTest {
     @Test
     @DisplayName("relatório do disparo conta só quem recebeu de fato (envio síncrono) e informa as falhas")
     void broadcast_reportCountsOnlyDelivered() {
-        when(barbershopSettingsService.resolve())
-                .thenReturn(new BarbershopSettingsService.BotSettings("", "", "", null, ""));
         var ok = com.razor.api.model.Customer.builder().phoneNumber("5511111111111").name("Ana").build();
         var falha = com.razor.api.model.Customer.builder().phoneNumber("5522222222222").name("Bia").build();
         when(customerRepository.findByBarbershopId(any())).thenReturn(java.util.List.of(ok, falha));
-        Mockito.doThrow(new WhatsAppService.WhatsAppSendException("fora", new RuntimeException()))
-                .when(messenger).sendSync(eq("5522222222222"), any(), eq("DISPARO"));
+        // O envio (sincrono, um a um) mora no BroadcastService; aqui so o relatorio ao dono.
+        when(broadcastService.deliver(any(), eq("Promo!"), eq(false), eq(ADMIN)))
+                .thenReturn(new BroadcastService.Resultado(java.util.List.of("Ana"), 1));
 
         service.performBroadcast(ADMIN, "Promo!", false);
 

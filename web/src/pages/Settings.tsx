@@ -6,6 +6,7 @@ import { Skeleton } from "../components/Skeleton";
 import { ConfigWizard, WIZARD_STEPS } from "../components/ConfigWizard";
 import { ConfigChecklist } from "../components/ConfigChecklist";
 import { Tabs, panelId, tabId, type TabDef } from "../components/Tabs";
+import { BookingLimitCard } from "../components/BookingLimitCard";
 import { evaluateConfig } from "../lib/configCompleteness";
 import { fillBot } from "../lib/botSettings";
 import { matchSpeechMode, SPEECH_MODES } from "../lib/speechModes";
@@ -574,7 +575,10 @@ export function Settings() {
       {panel("whatsapp", <WhatsAppCard reloadKey={configVersion} />)}
       {panel(
         "bot",
-        <BotSummaryCard data={bot.data} loading={bot.loading} error={bot.error} onEdit={openWizardAt} />,
+        <div className="stack">
+          <BotSummaryCard data={bot.data} loading={bot.loading} error={bot.error} onEdit={openWizardAt} />
+          <BookingLimitCard reloadKey={configVersion} />
+        </div>,
       )}
       {panel("equipe", <AdminsCard reloadKey={configVersion} />)}
       {panel(

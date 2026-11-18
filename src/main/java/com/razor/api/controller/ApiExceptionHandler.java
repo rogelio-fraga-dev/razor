@@ -39,6 +39,16 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
     }
 
+    /** Limite de horarios por cliente (V36) → 409: o pedido e valido, o estado da agenda nao deixa. */
+    @ExceptionHandler(com.razor.api.service.AgendaBookingService.BookingLimitExceededException.class)
+    public ResponseEntity<Object> handleBookingLimit(
+            com.razor.api.service.AgendaBookingService.BookingLimitExceededException e) {
+        var d = e.detail();
+        String msg = "Você já tem " + d.upcoming().size() + " horário(s) marcado(s) e o limite desta barbearia é "
+                + d.limit() + ". Desmarque um deles para agendar outro.";
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", msg, "limit", d.limit()));
+    }
+
     @ExceptionHandler(UpstreamServiceException.class)
     public ResponseEntity<Object> handleUpstream(UpstreamServiceException e) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("error", e.getMessage()));

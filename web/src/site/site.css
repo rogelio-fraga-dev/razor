@@ -651,7 +651,6 @@ html:has(.tpl) { scroll-behavior: smooth; }
 .tpl-vitrine .rz-cta h2 { font-weight: 400; text-transform: uppercase; font-size: clamp(40px, 7vw, 88px); line-height: 0.95; }
 .tpl-vitrine .rz-member-badge { font-weight: 400; }
 .tpl-vitrine .rz-story-quote { font-family: var(--font-body); font-weight: 800; letter-spacing: -0.02em; }
-=======
 /* ============================================================================
    EQUIPE — perfil do barbeiro (V37).
    Foto (ou inicial em disco de acento), apelido, bio, especialidades e

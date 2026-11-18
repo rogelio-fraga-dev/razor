@@ -71,7 +71,7 @@ class AgendaSlotGridTest {
         ProfessionalAssignmentService assignment = new ProfessionalAssignmentService(
                 professionalRepository, appointmentRepository, scheduleBlockService, serviceOfferingRepository);
         booking = new AgendaBookingService(appointmentRepository, customerService, assignment,
-                taskService, availability);
+                taskService, availability, settingsService);
 
         // Expediente padrao: 09:00-19:00, seg a sab.
         when(settingsService.resolve()).thenReturn(new BarbershopSettingsService.BotSettings("", "", "", null, ""));

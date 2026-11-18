@@ -33,6 +33,9 @@ import org.springframework.data.domain.Pageable;
 class AdminCustomerControllerTest {
 
     @Mock private CustomerService customerService;
+    @Mock private com.razor.api.service.CustomerSegmentService customerSegmentService;
+    @Mock private com.razor.api.service.CustomerTagService customerTagService;
+    @Mock private com.razor.api.service.CustomerStatusService customerStatusService;
     @InjectMocks private AdminCustomerController controller;
 
     private Customer c(String name) {
@@ -45,11 +48,11 @@ class AdminCustomerControllerTest {
         UUID planId = UUID.randomUUID();
         Customer ana = c("Ana");
         ana.setSubscriptionPlanId(planId);
-        when(customerService.searchCustomers(any(), any(), any()))
+        when(customerSegmentService.search(any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(ana, c("Zeca"))));
         when(customerService.planNamesByTenant()).thenReturn(Map.of(planId, "VIP"));
 
-        PageResponse<CustomerResponse> out = controller.list(null, null, null, null);
+        PageResponse<CustomerResponse> out = controller.list(null, null, null, null, null, null);
 
         assertThat(out.items()).hasSize(2);
         assertThat(out.items().get(0).planName()).isEqualTo("VIP");
@@ -60,14 +63,14 @@ class AdminCustomerControllerTest {
     @Test
     @DisplayName("a ordenação por nome desce para o banco — ordenar a página já recortada mentiria")
     void list_delegatesSortingToRepository() {
-        when(customerService.searchCustomers(any(), any(), any())).thenReturn(Page.empty());
+        when(customerSegmentService.search(any(), any(), any(), any(), any())).thenReturn(Page.empty());
         when(customerService.planNamesByTenant()).thenReturn(Map.of());
 
-        controller.list(2, 15, "ana", CustomerService.CustomerFilter.SUBSCRIBERS);
+        controller.list(2, 15, "ana", CustomerService.CustomerFilter.SUBSCRIBERS, null, null);
 
         ArgumentCaptor<Pageable> cap = ArgumentCaptor.forClass(Pageable.class);
-        verify(customerService).searchCustomers(
-                eq("ana"), eq(CustomerService.CustomerFilter.SUBSCRIBERS), cap.capture());
+        verify(customerSegmentService).search(
+                eq("ana"), eq(CustomerService.CustomerFilter.SUBSCRIBERS), isNull(), isNull(), cap.capture());
 
         Pageable p = cap.getValue();
         assertThat(p.getPageNumber()).isEqualTo(2);
@@ -79,13 +82,13 @@ class AdminCustomerControllerTest {
     @Test
     @DisplayName("busca e filtro ausentes viram base inteira, com o padrão de paginação")
     void list_defaults() {
-        when(customerService.searchCustomers(any(), any(), any())).thenReturn(Page.empty());
+        when(customerSegmentService.search(any(), any(), any(), any(), any())).thenReturn(Page.empty());
         when(customerService.planNamesByTenant()).thenReturn(Map.of());
 
-        controller.list(null, null, null, null);
+        controller.list(null, null, null, null, null, null);
 
         ArgumentCaptor<Pageable> cap = ArgumentCaptor.forClass(Pageable.class);
-        verify(customerService).searchCustomers(isNull(), eq(CustomerService.CustomerFilter.ALL), cap.capture());
+        verify(customerSegmentService).search(isNull(), eq(CustomerService.CustomerFilter.ALL), isNull(), isNull(), cap.capture());
         assertThat(cap.getValue().getPageNumber()).isZero();
         assertThat(cap.getValue().getPageSize()).isEqualTo(PageResponse.DEFAULT_SIZE);
     }
@@ -103,5 +106,28 @@ class AdminCustomerControllerTest {
 
         assertThat(out.planId()).isEqualTo(planId);
         assertThat(out.planName()).isEqualTo("VIP");
+    }
+
+    @Test
+    @DisplayName("cada linha volta com as tags e o status calculado (V36)")
+    void list_includesTagsAndStatus() {
+        Customer ana = c("Ana");
+        com.razor.api.model.CustomerTag vip = com.razor.api.model.CustomerTag.builder()
+                .id(UUID.randomUUID()).name("VIP").color("#FFAA00").build();
+        when(customerSegmentService.search(any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(ana)));
+        when(customerService.planNamesByTenant()).thenReturn(Map.of());
+        when(customerTagService.tagsByCustomer(any())).thenReturn(Map.of(ana.getId(), List.of(vip)));
+        when(customerStatusService.statuses()).thenReturn(
+                Map.of(ana.getId(), com.razor.api.model.CustomerStatus.SUMIDO));
+
+        PageResponse<CustomerResponse> out = controller.list(null, null, null, null, vip.getId(),
+                com.razor.api.model.CustomerStatus.SUMIDO);
+
+        CustomerResponse row = out.items().get(0);
+        assertThat(row.tags()).extracting(com.razor.api.dto.CustomerTagResponse::name).containsExactly("VIP");
+        assertThat(row.status()).isEqualTo(com.razor.api.model.CustomerStatus.SUMIDO);
+        verify(customerSegmentService).search(isNull(), eq(CustomerService.CustomerFilter.ALL),
+                eq(vip.getId()), eq(com.razor.api.model.CustomerStatus.SUMIDO), any());
     }
 }

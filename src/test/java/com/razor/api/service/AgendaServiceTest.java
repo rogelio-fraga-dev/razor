@@ -66,6 +66,7 @@ class AgendaServiceTest {
      * rede de seguranca para a quebra do antigo God class em servicos menores.
      */
     private AgendaService service;
+    private AgendaBookingService bookingService;
 
     @org.junit.jupiter.api.BeforeEach
     void buildService() {
@@ -75,8 +76,8 @@ class AgendaServiceTest {
                 professionalRepository, pricingService, barbershopSettingsService, scheduleBlockService);
         service = new AgendaService(
                 availability,
-                new AgendaBookingService(appointmentRepository, customerService,
-                        professionalAssignmentService, tasks, availability),
+                bookingService = new AgendaBookingService(appointmentRepository, customerService,
+                        professionalAssignmentService, tasks, availability, barbershopSettingsService),
                 tasks,
                 new AgendaReportService(appointmentRepository, reportService));
         // Sem restricao de servico nos testes daqui: o filtro devolve os livres como vieram.
@@ -318,6 +319,11 @@ class AgendaServiceTest {
         verify(taskRepository).save(pending);
     }
 
+    private void givenUpcoming(Appointment... apps) {
+        when(appointmentRepository.findUpcomingByCustomer(any(UUID.class), eq(PHONE), any(LocalDate.class), any(LocalTime.class)))
+                .thenReturn(List.of(apps));
+    }
+
     @Test
     @DisplayName("cancelar UM agendamento não cancela os lembretes dos OUTROS horários do cliente")
     void cancelExato_keepsTasksOfOtherAppointments() {
@@ -391,22 +397,97 @@ class AgendaServiceTest {
     }
 
     @Test
-    @DisplayName("cancelarAgendamentoCliente sem agendamento retorna false")
-    void cancelCliente_none() {
-        when(appointmentRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE))).thenReturn(List.of());
-        assertThat(service.cancelarAgendamentoCliente(PHONE)).isFalse();
+    @DisplayName("cancelarAgendamentoMaisRecente sem horario futuro retorna false")
+    void cancelMaisRecente_none() {
+        givenUpcoming();
+        assertThat(service.cancelarAgendamentoMaisRecente(PHONE)).isFalse();
         verify(appointmentRepository, never()).delete(any());
     }
 
     @Test
-    @DisplayName("cancelarAgendamentoCliente com agendamento deleta e retorna true")
-    void cancelCliente_deletes() {
-        Appointment ag = appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0));
-        when(appointmentRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE))).thenReturn(List.of(ag));
+    @DisplayName("cancelarAgendamentoMaisRecente apaga o horario futuro criado por ultimo, nao o primeiro achado")
+    void cancelMaisRecente_deletesLastCreated() {
+        Appointment antigo = appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0));
+        antigo.setCreatedAt(java.time.LocalDateTime.of(2026, 11, 1, 9, 0));
+        Appointment recente = appt("Barba", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 18), LocalTime.of(15, 0));
+        recente.setCreatedAt(java.time.LocalDateTime.of(2026, 11, 10, 9, 0));
+        givenUpcoming(recente, antigo); // ordenado por data, como o banco devolve
         when(taskRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE))).thenReturn(List.of());
 
-        assertThat(service.cancelarAgendamentoCliente(PHONE)).isTrue();
-        verify(appointmentRepository).delete(ag);
+        assertThat(service.cancelarAgendamentoMaisRecente(PHONE)).isTrue();
+        verify(appointmentRepository).delete(recente);
+        verify(appointmentRepository, never()).delete(antigo);
+    }
+
+    @Test
+    @DisplayName("agendamentos do cliente = so os futuros: o historico nunca e consultado")
+    void agendamentosFuturos_useUpcomingQuery() {
+        Appointment futuro = appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0));
+        givenUpcoming(futuro);
+
+        assertThat(service.getAgendamentosFuturos(PHONE)).containsExactly(futuro);
+        verify(appointmentRepository, never()).findByBarbershopIdAndCustomerPhone(any(), any());
+    }
+
+    // ---------- limite de agendamentos por cliente (V36) ----------
+
+    @Test
+    @DisplayName("limite: abaixo do maximo libera o agendamento")
+    void limit_belowMax_allows() {
+        when(barbershopSettingsService.getMaxFutureBookingsPerCustomer(any(UUID.class))).thenReturn(2);
+        givenUpcoming(appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0)));
+
+        assertThat(service.checkBookingLimit(PHONE)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("limite: no maximo recusa e devolve os horarios que o cliente ja tem")
+    void limit_atMax_refusesWithUpcoming() {
+        Appointment a = appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0));
+        Appointment b = appt("Barba", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 27), LocalTime.of(11, 0));
+        when(barbershopSettingsService.getMaxFutureBookingsPerCustomer(any(UUID.class))).thenReturn(2);
+        givenUpcoming(a, b);
+
+        var out = service.checkBookingLimit(PHONE);
+
+        assertThat(out).isPresent();
+        assertThat(out.get().limit()).isEqualTo(2);
+        assertThat(out.get().upcoming()).containsExactly(a, b);
+        String msg = out.get().customerMessage("João");
+        assertThat(msg).contains("João").contains("2 horários").contains("20/12").contains("27/12")
+                .contains("cancelar meu horário");
+    }
+
+    @Test
+    @DisplayName("limite nulo = sem limite, nem consulta a agenda")
+    void limit_null_isUnlimited() {
+        when(barbershopSettingsService.getMaxFutureBookingsPerCustomer(any(UUID.class))).thenReturn(null);
+
+        assertThat(service.checkBookingLimit(PHONE)).isEmpty();
+        verify(appointmentRepository, never()).findUpcomingByCustomer(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("adicionarAgendamentoViaIA no limite lanca e NAO salva (trava para quem nao conferiu)")
+    void adicionar_atLimit_throwsAndDoesNotSave() {
+        when(barbershopSettingsService.getMaxFutureBookingsPerCustomer(any(UUID.class))).thenReturn(1);
+        givenUpcoming(appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0)));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        service.adicionarAgendamentoViaIA("João", PHONE, "21/12", "10:00", "Corte"))
+                .isInstanceOf(AgendaBookingService.BookingLimitExceededException.class);
+        verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("limite com barbearia explicita (agendamento online, sem tenant no contexto)")
+    void limit_explicitBarbershop() {
+        UUID outra = UUID.randomUUID();
+        when(barbershopSettingsService.getMaxFutureBookingsPerCustomer(outra)).thenReturn(1);
+        when(appointmentRepository.findUpcomingByCustomer(eq(outra), eq(PHONE), any(LocalDate.class), any(LocalTime.class)))
+                .thenReturn(List.of(appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0))));
+
+        assertThat(bookingService.checkBookingLimit(outra, PHONE)).isPresent();
     }
 
     // ---------- agendamento via IA ----------

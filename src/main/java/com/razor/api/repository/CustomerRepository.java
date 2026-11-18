@@ -73,6 +73,40 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
                                       @Param("createdSince") LocalDateTime createdSince,
                                       Pageable pageable);
 
+    /**
+     * Mesma busca, restrita a um conjunto de clientes ja recortado por tag e/ou status (V36). O
+     * status e calculado em Java (ver {@code CustomerStatusRules}), entao o recorte chega pronto
+     * como lista de ids; quem chama garante que ela nao e vazia.
+     */
+    @Query("""
+            select c from Customer c
+             where c.barbershopId = :shop
+               and c.id in :ids
+               and (:term is null or lower(c.name) like :term or c.phoneNumber like :term)
+               and (:onlySubscribers = false or c.subscriptionPlanId is not null)
+            """)
+    Page<Customer> searchAmong(@Param("shop") UUID barbershopId,
+                               @Param("ids") java.util.Collection<UUID> ids,
+                               @Param("term") String term,
+                               @Param("onlySubscribers") boolean onlySubscribers,
+                               Pageable pageable);
+
+    /** {@link #searchAmong} restrita a quem foi cadastrado a partir de {@code createdSince}. */
+    @Query("""
+            select c from Customer c
+             where c.barbershopId = :shop
+               and c.id in :ids
+               and (:term is null or lower(c.name) like :term or c.phoneNumber like :term)
+               and (:onlySubscribers = false or c.subscriptionPlanId is not null)
+               and c.createdAt >= :createdSince
+            """)
+    Page<Customer> searchAmongCreatedSince(@Param("shop") UUID barbershopId,
+                                           @Param("ids") java.util.Collection<UUID> ids,
+                                           @Param("term") String term,
+                                           @Param("onlySubscribers") boolean onlySubscribers,
+                                           @Param("createdSince") LocalDateTime createdSince,
+                                           Pageable pageable);
+
     /** Quantos assinantes a barbearia tem — o contador do topo da tela, contado no banco. */
     long countByBarbershopIdAndSubscriptionPlanIdIsNotNull(UUID barbershopId);
 

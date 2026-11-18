@@ -198,6 +198,31 @@ public class OpenAIService {
     }
 
     /**
+     * Aviso de limite de horarios no prompt (V36), com o limite <b>configurado</b> da barbearia.
+     * Antes o "2 por semana" estava cravado aqui e contava o historico inteiro do cliente. O
+     * aviso so orienta a conversa: quem de fato barra e o {@code AgendaBookingService}.
+     *
+     * @param futureAppointments horarios futuros que o cliente ja tem
+     * @param limit              limite configurado; nulo, zero ou negativo = sem limite
+     */
+    static String bookingLimitHint(int futureAppointments, Integer limit) {
+        if (futureAppointments <= 0) return "";
+        if (limit == null || limit <= 0) {
+            return "\n\n⚠️ AVISO: O cliente já possui " + futureAppointments + " horário(s) futuro(s) marcado(s). "
+                    + "Se for marcar outro, mencione isso sutilmente ('Vi que você já tem horário com a gente, vamos marcar mais esse!').";
+        }
+        if (futureAppointments >= limit) {
+            return "\n\n⚠️ LIMITE ATINGIDO: Este cliente já possui " + futureAppointments + " horário(s) futuro(s) marcado(s) "
+                    + "e o limite da barbearia é " + limit + " por cliente. É PROIBIDO oferecer horários ou marcar mais. "
+                    + "Explique com gentileza, diga quais horários ele já tem e ofereça remarcar: para trocar, ele envia "
+                    + "'cancelar meu horário', escolhe qual liberar e depois você marca o novo.";
+        }
+        return "\n\n⚠️ AVISO DE MULTIPLOS AGENDAMENTOS: O cliente já possui " + futureAppointments + " horário(s) futuro(s). "
+                + "Avise-o sutilmente ('Vi que você já tem um horário marcado conosco, mas vamos marcar esse outro!'). "
+                + "O limite da barbearia é " + limit + " horários futuros por cliente, então ele ainda pode agendar este.";
+    }
+
+    /**
      * @throws AiUnavailableException se a IA falhar (rede, cota, timeout) — nunca devolve um
      *         texto de erro disfarcado de resposta.
      */
@@ -232,11 +257,8 @@ public class OpenAIService {
                     .replace("{{tabelaServicos}}", buildServiceTable(customer))
                     .replace("{{funcionamento}}", buildOpeningHours(cfg));
                     
-            if (activeAppointments == 1) {
-                finalPrompt += "\n\n⚠️ AVISO DE MULTIPLOS AGENDAMENTOS: O cliente já possui 1 agendamento ativo nesta semana. Avise-o sutilmente no começo da conversa ('Vi que você já tem um horário marcado conosco, mas vamos marcar esse outro!'). O limite do sistema são 2 agendamentos, portanto ele ainda pode agendar este.";
-            } else if (activeAppointments >= 2) {
-                finalPrompt += "\n\n⚠️ LIMITE ATINGIDO: Este cliente já possui " + activeAppointments + " agendamentos ativos na semana. É PROIBIDO oferecer horários ou marcar mais agendamentos. Diga de forma educada que ele atingiu o limite de 2 agendamentos semanais. Caso queira marcar outro, peça para ele primeiro cancelar um dos atuais enviando 'cancelar meu horário'.";
-            }
+            finalPrompt += bookingLimitHint(activeAppointments,
+                    barbershopSettingsService.getMaxFutureBookingsPerCustomer());
                     
             messages.add(SystemMessage.from(finalPrompt));
             

@@ -167,6 +167,38 @@ public class BarbershopSettingsService {
         return valid;
     }
 
+    /**
+     * Limite de horarios futuros por cliente (V36) da barbearia informada. {@code null} = sem
+     * limite. Sem linha de configuracao vale o default da coluna (2), o mesmo de quem tem linha
+     * e nunca mexeu. Recebe o id explicito porque o agendamento online (site publico) nao tem
+     * tenant no contexto.
+     */
+    public Integer getMaxFutureBookingsPerCustomer(java.util.UUID barbershopId) {
+        return repository.findById(barbershopId)
+                .map(BarbershopSettings::getMaxFutureBookingsPerCustomer)
+                .orElse(BarbershopSettings.DEFAULT_MAX_FUTURE_BOOKINGS);
+    }
+
+    /** Mesmo limite, para o tenant atual. */
+    public Integer getMaxFutureBookingsPerCustomer() {
+        return getMaxFutureBookingsPerCustomer(TenantContext.getCurrent());
+    }
+
+    /**
+     * Define o limite de horarios futuros por cliente. {@code null} (ou zero/negativo, que nao
+     * significam nada) = sem limite.
+     */
+    public Integer setMaxFutureBookingsPerCustomer(Integer limit) {
+        Integer valid = (limit == null || limit <= 0) ? null : limit;
+        BarbershopSettings s = repository.findById(TenantContext.getCurrent())
+                .orElseGet(() -> BarbershopSettings.builder().barbershopId(TenantContext.getCurrent()).build());
+        s.setMaxFutureBookingsPerCustomer(valid);
+        repository.save(s);
+        log.info("[AGENDA] Limite de agendamentos por cliente do tenant {} definido como {}",
+                TenantContext.getCurrent(), valid == null ? "sem limite" : valid);
+        return valid;
+    }
+
     /** O bot atende clientes neste tenant? Sem linha (tenant novo) = ligado. */
     public boolean isBotEnabled() {
         return repository.findById(TenantContext.getCurrent())

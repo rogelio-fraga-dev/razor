@@ -162,6 +162,11 @@ public class CustomerConversationService {
         if (pendingOffer.isPresent() && (msgLower.equals("sim") || msgLower.equals("s") || msgLower.contains("quero"))) {
             WaitlistOffer offer = pendingOffer.get();
             stateStore.remove(StateKeys.waitlistOffer(phoneNumber));
+            var limite = agendaService.checkBookingLimit(phoneNumber);
+            if (limite.isPresent()) {
+                saveAndSend(customer, limite.get().customerMessage(primeiroNome(offer.getName())), phoneNumber);
+                return;
+            }
             if (agendaService.adicionarAgendamentoViaIA(offer.getName(), phoneNumber, offer.getDate(), offer.getTime(), offer.getService()).isEmpty()) {
                 saveAndSend(customer, BOOKING_FAILED_MSG, phoneNumber);
                 return;
@@ -248,12 +253,13 @@ public class CustomerConversationService {
 
         // 3. Estado: Esperando escolha de pagamento (PIX / Presencial)
         if ("ESPERANDO_PAGAMENTO".equals(cState)) {
-            Appointment ag = agendaService.getAgendamentoCliente(phoneNumber);
+            // O horario marcado por ultimo (o que acabou de nascer), nunca um atendimento antigo.
+            Appointment ag = agendaService.getAgendamentoMaisRecente(phoneNumber);
 
             // Escape: cancelar a pré-reserva
             if (msgLower.contains("cancelar") || msgLower.contains("desistir") || msgLower.contains("não quero") || msgLower.contains("nao quero")) {
                 clearCustomerState(phoneNumber);
-                agendaService.cancelarAgendamentoCliente(phoneNumber);
+                agendaService.cancelarAgendamentoMaisRecente(phoneNumber);
                 // Histórico mantido para a IA ter contexto de cancelamento
                 saveAndSend(customer, "❌ Agendamento cancelado! Se mudar de ideia, é só digitar *menu* para recomeçar. 😊", phoneNumber);
                 return;
@@ -387,7 +393,7 @@ public class CustomerConversationService {
     }
 
     private void trataVisualizarAgendamentos(Customer customer, String phoneNumber) {
-        List<Appointment> apps = agendaService.getAgendamentosClienteList(phoneNumber);
+        List<Appointment> apps = agendaService.getAgendamentosFuturos(phoneNumber);
         if (!apps.isEmpty()) {
             StringBuilder sb = new StringBuilder("📅 *Seus Agendamentos:*\n\n");
             for (Appointment ag : apps) {
@@ -408,8 +414,13 @@ public class CustomerConversationService {
         saveAndSend(customer, resp, phoneNumber);
     }
 
+    /**
+     * Cancelamento pedido pelo cliente — pelo texto exato ou pela IA. So enxerga horarios
+     * <b>futuros</b>: atendimento ja feito (e pago) nao e "agendamento ativo" e nunca pode ser
+     * apagado por aqui. Com mais de um, pergunta qual; a IA nao escolhe pelo cliente.
+     */
     private void trataCancelarAgendamento(Customer customer, String phoneNumber) {
-        List<Appointment> apps = agendaService.getAgendamentosClienteList(phoneNumber);
+        List<Appointment> apps = agendaService.getAgendamentosFuturos(phoneNumber);
 
         if (apps.isEmpty()) {
             saveAndSend(customer, "❌ Não encontrei nenhum agendamento seu ativo para cancelar.", phoneNumber);
@@ -432,6 +443,8 @@ public class CustomerConversationService {
                 if (diaSemana != null) {
                     verificarListaEsperaECanalizar(diaSemana, apptDate, apptTime, apptService);
                 }
+            } else {
+                saveAndSend(customer, "❌ Não foi possível cancelar esse agendamento.", phoneNumber);
             }
         } else {
             setCustomerState(phoneNumber, "ESPERANDO_CANCELAMENTO_MULTIPLO");
@@ -448,7 +461,8 @@ public class CustomerConversationService {
     private void chamaIAETrataMensagem(Customer customer, String prompt, String phoneNumber) {
         log.info("[IA] Chamando o GPT-4o para processar a intencao do cliente.");
         String agendaContext = agendaService.getHorariosOcupadosParaIA();
-        int activeAppointments = agendaService.getAgendamentosClienteList(phoneNumber).size();
+        // So os horarios por vir: contar o historico fazia o cliente fiel ouvir "limite atingido".
+        int activeAppointments = agendaService.getAgendamentosFuturos(phoneNumber).size();
         String knownName = (customer.getName() != null && !customer.getName().isBlank()) ? customer.getName() : "Desconhecido";
         String aiResponse;
         try {
@@ -463,14 +477,13 @@ public class CustomerConversationService {
 
         if (intent instanceof AiIntent.NovoAgendamento novoAgendamento) {
             responseToSend = tratarNovoAgendamento(customer, phoneNumber, novoAgendamento);
-        } else if (intent instanceof AiIntent.Cancelar cancelar) {
-            responseToSend = cancelar.cleanedResponse();
-            boolean cancelled = agendaService.cancelarAgendamentoCliente(phoneNumber);
-            if (cancelled) {
-                log.info("[AGENDA] Cancelamento via IA executado para {}", phoneNumber);
-            } else {
-                log.info("[AGENDA] IA tentou cancelar mas nao havia agendamento para {}", phoneNumber);
-            }
+        } else if (intent instanceof AiIntent.Cancelar) {
+            // O texto da IA ("cancelado ✅") e descartado de proposito: ela escreve antes de saber
+            // se havia o que cancelar, e com dois horarios nao sabe qual. O fluxo deterministico
+            // responde o que de fato aconteceu — cancela o unico, pergunta qual, ou diz que nao ha.
+            log.info("[AGENDA] IA pediu cancelamento para {}", phoneNumber);
+            trataCancelarAgendamento(customer, phoneNumber);
+            return;
         } else if (intent instanceof AiIntent.ListaDeEspera listaDeEspera) {
             responseToSend = tratarListaDeEspera(phoneNumber, listaDeEspera);
         } else {
@@ -500,13 +513,21 @@ public class CustomerConversationService {
         final java.time.LocalDate naDate = parsedDate;
         final java.time.LocalTime naTime = parsedTime;
 
-        List<Appointment> apps = agendaService.getAgendamentosClienteList(phoneNumber);
+        List<Appointment> apps = agendaService.getAgendamentosFuturos(phoneNumber);
         boolean isDuplicado = naDate != null && naTime != null && apps.stream()
                 .anyMatch(a -> naDate.equals(a.getAppointmentDate()) && naTime.equals(a.getAppointmentTime()));
 
         if (isDuplicado) {
             log.info("[AGENDA] Ignorando tag duplicada gerada pela IA, pois o cliente ja possui este agendamento exato.");
             return "Tudo certo! Seu agendamento para o dia " + date + " às " + time + " já está garantido no sistema. Te esperamos lá!\n\n_Para voltar ao início ou ver outras opções, digite *Menu*._";
+        }
+
+        // Limite de horarios futuros por cliente (V36). Conferido aqui, antes de perguntar o
+        // barbeiro ou reservar, para a resposta ser gentil e listar o que ele ja tem — a IA pode
+        // ter ignorado o aviso do prompt, e o texto dela ("agendado!") seria mentira.
+        var limite = agendaService.checkBookingLimit(phoneNumber);
+        if (limite.isPresent()) {
+            return limite.get().customerMessage(primeiroNome(name != null && !name.isBlank() ? name : customer.getName()));
         }
 
         // Atualiza o nome do cliente no banco de dados para a IA "lembrar" dele no futuro
@@ -608,18 +629,40 @@ public class CustomerConversationService {
     private void finalizarAgendamentoMultiprofissional(Customer customer, String phoneNumber, PendingBooking pend,
                                                        java.util.UUID escolhido, String nomeEscolhido) {
         stateStore.remove(StateKeys.pendingBooking(phoneNumber));
-        if (agendaService.adicionarAgendamentoViaIA(pend.getName(), phoneNumber, pend.getDate(), pend.getTime(), pend.getService(), escolhido).isEmpty()) {
+        java.util.Optional<com.razor.api.model.Appointment> criado;
+        try {
+            criado = agendaService.adicionarAgendamentoViaIA(pend.getName(), phoneNumber, pend.getDate(), pend.getTime(), pend.getService(), escolhido);
+        } catch (AgendaBookingService.BookingLimitExceededException e) {
+            // Marcou outro horario enquanto escolhia o barbeiro (ex.: pelo site): vale o limite.
+            clearCustomerState(phoneNumber);
+            saveAndSend(customer, e.detail().customerMessage(primeiroNome(pend.getName())), phoneNumber);
+            return;
+        }
+        if (criado.isEmpty()) {
             clearCustomerState(phoneNumber);
             saveAndSend(customer, BOOKING_FAILED_MSG, phoneNumber);
             return;
         }
 
-        String comQuem = nomeEscolhido != null ? "com *" + nomeEscolhido + "* " : "";
+        // O barbeiro que FICOU com o horario: se o escolhido ocupou nesse meio-tempo, a agenda
+        // atribui outro — e o cliente precisa ouvir o nome certo, nao o que pediu.
+        java.util.UUID atribuido = criado.get().getProfessionalId();
+        String nomeAtribuido = atribuido == null ? null : pend.getOptions().stream()
+                .filter(o -> atribuido.equals(o.getId()))
+                .map(ProfessionalOption::getName)
+                .findFirst()
+                .orElse(atribuido.equals(escolhido) ? nomeEscolhido : null);
+        String comQuem = nomeAtribuido != null ? "com *" + nomeAtribuido + "* " : "";
         String confirm = "Fechado! Seu horário " + comQuem + "para *" + pend.getDate() + "* às *" + pend.getTime() + "* está reservado. 🎉";
         String response = anexarPerguntaPagamento(confirm);
         setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
         log.info("[AGENDA] Agendamento multiprofissional concluído para {}; estado ESPERANDO_PAGAMENTO", phoneNumber);
         saveAndSend(customer, response, phoneNumber);
+    }
+
+    private static String primeiroNome(String nome) {
+        if (nome == null || nome.isBlank()) return null;
+        return nome.trim().split("\\s+")[0];
     }
 
     private String tratarListaDeEspera(String phoneNumber, AiIntent.ListaDeEspera le) {
