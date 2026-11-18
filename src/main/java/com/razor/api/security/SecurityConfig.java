@@ -85,6 +85,16 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/admin/reports/agenda")
                         .hasAnyRole(OWNER, RECEPTION, BARBER)
 
+                        // --- Agenda interativa (V39) -----------------------------------------
+                        // Ler a grade: todo mundo (o barbeiro ve com quem atende). Mexer nela
+                        // (criar, arrastar, cancelar, comparecimento): dono e recepcao. O barbeiro
+                        // fica so na leitura porque o usuario do painel ainda nao e ligado a um
+                        // cadastro de profissional — nao ha como restringi-lo "aos proprios".
+                        .requestMatchers(HttpMethod.GET, "/api/admin/agenda", "/api/admin/agenda/**")
+                        .hasAnyRole(OWNER, RECEPTION, BARBER)
+                        .requestMatchers("/api/admin/agenda", "/api/admin/agenda/**")
+                        .hasAnyRole(OWNER, RECEPTION)
+
                         // --- Operacao do balcao ----------------------------------------------
                         // Recepcao abre comanda, vende, mexe no caixa e bloqueia horario. Nao
                         // configura preco, comissao nem o bot.

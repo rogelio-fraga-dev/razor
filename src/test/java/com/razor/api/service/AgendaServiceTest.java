@@ -297,10 +297,13 @@ class AgendaServiceTest {
     }
 
     @Test
-    @DisplayName("cancelarAgendamentoExato deleta e cancela tarefas pendentes")
+    @DisplayName("cancelarAgendamentoExato deleta e cancela as tarefas pendentes DAQUELE agendamento")
     void cancelExato_deletes() {
         Appointment ag = appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0));
-        ScheduledTask pending = ScheduledTask.builder().customerPhone(PHONE).status(ScheduledTask.TaskStatus.PENDING).build();
+        ag.setId(7L);
+        ScheduledTask pending = task(7L, "REMINDER", LocalDate.of(2026, 12, 20).atTime(9, 0));
+        when(taskRepository.findByBarbershopIdAndAppointmentIdAndStatus(any(UUID.class), eq(7L),
+                eq(ScheduledTask.TaskStatus.PENDING))).thenReturn(List.of(pending));
         when(taskRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE))).thenReturn(List.of(pending));
 
         boolean ok = service.cancelarAgendamentoExato(ag);
@@ -309,6 +312,78 @@ class AgendaServiceTest {
         verify(appointmentRepository).delete(ag);
         assertThat(pending.getStatus()).isEqualTo(ScheduledTask.TaskStatus.CANCELLED);
         verify(taskRepository).save(pending);
+    }
+
+    @Test
+    @DisplayName("cancelar UM agendamento não cancela os lembretes dos OUTROS horários do cliente")
+    void cancelExato_keepsTasksOfOtherAppointments() {
+        // O bug: a única chave da tarefa era o telefone. Quem tinha corte na terça e na sexta e
+        // desmarcava a terça deixava de receber o lembrete da sexta.
+        Appointment terca = appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 15), LocalTime.of(10, 0));
+        terca.setId(1L);
+        ScheduledTask lembreteTerca = task(1L, "REMINDER", LocalDate.of(2026, 12, 15).atTime(9, 0));
+        ScheduledTask avaliacaoTerca = task(1L, "REVIEW_REQUEST", LocalDate.of(2026, 12, 15).atTime(11, 0));
+        ScheduledTask lembreteSexta = task(2L, "REMINDER", LocalDate.of(2026, 12, 18).atTime(9, 0));
+        ScheduledTask disparo = task(null, "BROADCAST_SCHEDULED", LocalDate.of(2026, 12, 16).atTime(8, 0));
+        when(taskRepository.findByBarbershopIdAndAppointmentIdAndStatus(any(UUID.class), eq(1L),
+                eq(ScheduledTask.TaskStatus.PENDING))).thenReturn(List.of(lembreteTerca, avaliacaoTerca));
+        when(taskRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE)))
+                .thenReturn(List.of(lembreteTerca, avaliacaoTerca, lembreteSexta, disparo));
+
+        assertThat(service.cancelarAgendamentoExato(terca)).isTrue();
+
+        assertThat(lembreteTerca.getStatus()).isEqualTo(ScheduledTask.TaskStatus.CANCELLED);
+        assertThat(avaliacaoTerca.getStatus()).isEqualTo(ScheduledTask.TaskStatus.CANCELLED);
+        assertThat(lembreteSexta.getStatus()).isEqualTo(ScheduledTask.TaskStatus.PENDING);
+        assertThat(disparo.getStatus()).isEqualTo(ScheduledTask.TaskStatus.PENDING);
+        verify(taskRepository, never()).save(lembreteSexta);
+        verify(taskRepository, never()).save(disparo);
+    }
+
+    @Test
+    @DisplayName("tarefa antiga (sem vínculo, pré-V39) é reconhecida pelo horário exato do agendamento")
+    void cancelExato_legacyTasksMatchedByExactTime() {
+        Appointment terca = appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 15), LocalTime.of(10, 0));
+        terca.setId(1L);
+        ScheduledTask lembreteLegado = task(null, "REMINDER", LocalDate.of(2026, 12, 15).atTime(9, 0));
+        ScheduledTask avaliacaoLegada = task(null, "REVIEW_REQUEST", LocalDate.of(2026, 12, 15).atTime(11, 0));
+        ScheduledTask lembreteOutroDia = task(null, "REMINDER", LocalDate.of(2026, 12, 18).atTime(9, 0));
+        when(taskRepository.findByBarbershopIdAndAppointmentIdAndStatus(any(UUID.class), eq(1L),
+                eq(ScheduledTask.TaskStatus.PENDING))).thenReturn(List.of());
+        when(taskRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE)))
+                .thenReturn(List.of(lembreteLegado, avaliacaoLegada, lembreteOutroDia));
+
+        service.cancelarAgendamentoExato(terca);
+
+        assertThat(lembreteLegado.getStatus()).isEqualTo(ScheduledTask.TaskStatus.CANCELLED);
+        assertThat(avaliacaoLegada.getStatus()).isEqualTo(ScheduledTask.TaskStatus.CANCELLED);
+        assertThat(lembreteOutroDia.getStatus()).isEqualTo(ScheduledTask.TaskStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("tarefas novas nascem presas ao agendamento (V39)")
+    void criarTarefas_linksAppointment() {
+        when(barbershopSettingsService.resolve()).thenReturn(
+                new BarbershopSettingsService.BotSettings("", "http://maps", "", null, ""));
+        Appointment ag = appt("Corte", PaymentStatus.PENDENTE, AppointmentDates.today().plusDays(3), LocalTime.of(15, 0));
+        ag.setId(42L);
+
+        new AgendaTaskService(taskRepository, customerRepository, barbershopSettingsService, tenantAdminService)
+                .criarTarefasAgendadas(ag);
+
+        ArgumentCaptor<ScheduledTask> captor = ArgumentCaptor.forClass(ScheduledTask.class);
+        verify(taskRepository, times(2)).save(captor.capture());
+        assertThat(captor.getAllValues()).allSatisfy(t -> assertThat(t.getAppointmentId()).isEqualTo(42L));
+    }
+
+    private ScheduledTask task(Long appointmentId, String type, java.time.LocalDateTime when) {
+        return ScheduledTask.builder()
+                .customerPhone(PHONE)
+                .appointmentId(appointmentId)
+                .taskType(type)
+                .executionTime(when)
+                .status(ScheduledTask.TaskStatus.PENDING)
+                .build();
     }
 
     @Test

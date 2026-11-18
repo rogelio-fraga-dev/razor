@@ -26,7 +26,8 @@ import org.springframework.stereotype.Service;
  *
  * <ul>
  *   <li><b>Criar</b>: {@link #adicionarAgendamentoViaIA} (atribui barbeiro, cria lembrete/avaliacao
- *       e registra o ponto de fidelidade) e {@link #processAgenda} (lote em JSON do admin).</li>
+ *       e registra o ponto de fidelidade), {@link #agendarPeloPainel} (agenda interativa) e
+ *       {@link #processAgenda} (lote em JSON do admin).</li>
  *   <li><b>Cancelar</b>: {@link #cancelarAgendamentoExato} / {@link #cancelarAgendamentoCliente},
  *       que tambem cancelam as tarefas pendentes do telefone.</li>
  *   <li><b>Consultar</b>: agendamentos do cliente e se ele tem horario futuro ativo.</li>
@@ -81,16 +82,48 @@ public class AgendaBookingService {
             .professionalId(professionalId)
             .paymentStatus(PaymentStatus.PENDENTE)
             .build();
-        appointmentRepository.save(app);
         if (professionalId != null) {
             log.info("[AGENDA] Profissional {} atribuido ao agendamento de {}", professionalId, phone);
         }
+        registrarNovoAgendamento(app);
+    }
 
-        log.info("[AGENDA] Novo agendamento salvo: {} para o dia {} às {}", name, AppointmentDates.formatDate(parsedDate), AppointmentDates.formatTime(parsedTime));
+    /**
+     * Agendamento criado pela recepcao/dono no painel (agenda interativa): o barbeiro e o horario
+     * vem escolhidos e ja validados pelo {@link AgendaPanelService} — aqui nao ha auto-atribuicao.
+     *
+     * <p>Passa pelo MESMO caminho de gravacao do agendamento da IA ({@link #registrarNovoAgendamento}):
+     * lembrete, avaliacao e ponto de fidelidade iguais, e qualquer regra nova de criacao (ex.: limite
+     * de agendamentos por cliente) colocada ali vale para os dois canais.
+     */
+    public Appointment agendarPeloPainel(String name, String phone, LocalDate date, LocalTime time,
+                                         String service, UUID professionalId) {
+        Appointment app = Appointment.builder()
+            .barbershopId(TenantContext.getCurrent())
+            .customerName(name)
+            .customerPhone(phone)
+            .appointmentDate(date)
+            .appointmentTime(time)
+            .service(service)
+            .professionalId(professionalId)
+            .paymentStatus(PaymentStatus.PENDENTE)
+            .build();
+        return registrarNovoAgendamento(app);
+    }
 
-        agendaTaskService.criarTarefasAgendadas(app);
+    /** Grava um agendamento novo e dispara o que nasce com ele (tarefas e fidelidade). */
+    private Appointment registrarNovoAgendamento(Appointment app) {
+        Appointment saved = appointmentRepository.save(app);
+        // save() com mock (testes) devolve null; com JPA devolve a mesma instancia com o id.
+        Appointment ag = saved != null ? saved : app;
 
-        registrarPontoFidelidade(phone);
+        log.info("[AGENDA] Novo agendamento salvo: {} para o dia {} às {}", ag.getCustomerName(),
+                AppointmentDates.formatDate(ag.getAppointmentDate()), AppointmentDates.formatTime(ag.getAppointmentTime()));
+
+        agendaTaskService.criarTarefasAgendadas(ag);
+
+        registrarPontoFidelidade(ag.getCustomerPhone());
+        return ag;
     }
 
     /**
@@ -221,8 +254,10 @@ public class AgendaBookingService {
 
     public boolean cancelarAgendamentoExato(Appointment ag) {
         if (ag != null) {
+            // Tarefas antes do delete: o reconhecimento das tarefas legadas usa o horario dele.
+            // So as DESTE horario — os lembretes dos outros agendamentos do cliente ficam.
+            agendaTaskService.cancelarTarefasDoAgendamento(ag);
             appointmentRepository.delete(ag);
-            agendaTaskService.cancelarTarefasClienteExato(ag.getCustomerPhone());
             return true;
         }
         return false;
@@ -231,9 +266,9 @@ public class AgendaBookingService {
     public boolean cancelarAgendamentoCliente(String phone) {
         Appointment ag = getAgendamentoCliente(phone);
         if (ag != null) {
+            agendaTaskService.cancelarTarefasDoAgendamento(ag);
             appointmentRepository.delete(ag);
             log.info("[AGENDA] Cancelamento feito para o cliente do número: {}", phone);
-            agendaTaskService.cancelarTarefasBanco(phone);
             return true;
         }
         return false;

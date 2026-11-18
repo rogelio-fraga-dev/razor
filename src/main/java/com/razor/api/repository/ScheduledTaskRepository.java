@@ -28,4 +28,8 @@ public interface ScheduledTaskRepository extends JpaRepository<ScheduledTask, UU
 
     // Acesso escopado por tenant (Fase 1).
     List<ScheduledTask> findByBarbershopIdAndCustomerPhone(UUID barbershopId, String customerPhone);
+
+    /** Tarefas de UM agendamento (V39) — cancelar/remarcar nao pode mexer nos outros horarios. */
+    List<ScheduledTask> findByBarbershopIdAndAppointmentIdAndStatus(
+            UUID barbershopId, Long appointmentId, ScheduledTask.TaskStatus status);
 }

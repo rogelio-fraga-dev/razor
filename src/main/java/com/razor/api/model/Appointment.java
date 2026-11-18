@@ -49,6 +49,11 @@ public class Appointment {
     @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.PENDENTE;
 
+    /** Comparecimento (V39): null = agendado; ATTENDED/NO_SHOW marcados pelo painel. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "attendance_status", length = 20)
+    private AttendanceStatus attendanceStatus;
+
     @Column(name = "notified")
     @Builder.Default
     private boolean notified = false;
