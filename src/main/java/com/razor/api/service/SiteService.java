@@ -4,6 +4,7 @@ import com.razor.api.dto.SitePayload;
 import com.razor.api.model.BarbershopSite;
 import com.razor.api.repository.BarbershopSiteRepository;
 import com.razor.api.tenant.TenantContext;
+import com.razor.api.util.SiteUrlPolicy;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,13 @@ public class SiteService {
 
     @Transactional
     public BarbershopSite update(SitePayload p) {
+        // Antes de tocar na entidade: URL recusada nao pode deixar meio site alterado.
+        SiteUrlPolicy.requireHttps(p.logoUrl(), "logo");
+        SiteUrlPolicy.requireHttps(p.heroImageUrl(), "capa");
+        SiteUrlPolicy.requireGallery(p.galleryUrls());
+        SiteUrlPolicy.requireInstagram(p.instagramUrl());
+        SiteUrlPolicy.requireMaps(p.mapsUrl());
+
         BarbershopSite s = getOrDefaults();
 
         if (p.templateId() != null) s.setTemplateId(p.templateId());
@@ -46,6 +54,7 @@ public class SiteService {
         if (p.showTeam() != null) s.setShowTeam(p.showTeam());
         if (p.showPlans() != null) s.setShowPlans(p.showPlans());
         if (p.showPrices() != null) s.setShowPrices(p.showPrices());
+        if (p.onlineBookingEnabled() != null) s.setOnlineBookingEnabled(p.onlineBookingEnabled());
 
         // Publicar carimba a data uma vez; despublicar nao apaga o carimbo — saber QUANDO o site
         // foi ao ar pela primeira vez e util, e regravar a cada salvamento perderia isso.

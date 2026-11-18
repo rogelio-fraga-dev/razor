@@ -28,6 +28,8 @@ interface SiteForm {
   showPlans: boolean;
   showPrices: boolean;
   published: boolean;
+  /** Página pública de agendamento online (V38). */
+  onlineBookingEnabled: boolean;
 }
 
 /** Sugestões prontas: o dono escolhe uma cor boa sem abrir seletor. */
@@ -50,6 +52,7 @@ const EMPTY: SiteForm = {
   showPlans: true,
   showPrices: true,
   published: false,
+  onlineBookingEnabled: false,
 };
 
 export function SiteEditor({ slug }: { slug: string | null }) {
@@ -252,6 +255,15 @@ export function SiteEditor({ slug }: { slug: string | null }) {
             <Switch checked={form.showPrices} onChange={(v) => set("showPrices", v)} label="Mostrar preços no site" />
             <Switch checked={form.showTeam} onChange={(v) => set("showTeam", v)} label="Mostrar a equipe" />
             <Switch checked={form.showPlans} onChange={(v) => set("showPlans", v)} label="Mostrar os planos" />
+            <Switch
+              checked={form.onlineBookingEnabled}
+              onChange={(v) => set("onlineBookingEnabled", v)}
+              label="Agendamento online pelo site"
+            />
+            <p className="faint" style={{ fontSize: 12.5, margin: "-4px 0 0" }}>
+              Ligado, o botão “Agendar” do site abre uma página onde o cliente escolhe serviço, barbeiro e
+              horário livre, sem login. Ele recebe a confirmação no WhatsApp e você recebe o aviso.
+            </p>
 
             {formError && <div className="error" role="alert">{formError}</div>}
 

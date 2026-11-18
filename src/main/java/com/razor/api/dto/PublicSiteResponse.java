@@ -39,7 +39,9 @@ public record PublicSiteResponse(
 
         List<Service> services,
         List<TeamMember> team,
-        List<Plan> plans) {
+        List<Plan> plans,
+        /** Agendamento online ligado (V38): o "Agendar" do site leva a /b/{slug}/agendar. */
+        boolean onlineBooking) {
 
     /** {@code price} nulo quando o dono optou por nao publicar precos. */
     public record Service(String name, BigDecimal price, Integer durationMinutes) {

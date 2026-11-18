@@ -71,12 +71,13 @@ class AgendaServiceTest {
     void buildService() {
         AgendaTaskService tasks = new AgendaTaskService(
                 taskRepository, customerRepository, barbershopSettingsService, tenantAdminService);
+        AgendaAvailabilityService availability = new AgendaAvailabilityService(appointmentRepository,
+                professionalRepository, pricingService, barbershopSettingsService, scheduleBlockService);
         service = new AgendaService(
-                new AgendaAvailabilityService(appointmentRepository, professionalRepository,
-                        pricingService, barbershopSettingsService, scheduleBlockService),
+                availability,
                 new AgendaBookingService(appointmentRepository, customerService,
                         professionalAssignmentService, tasks, fidelityService, whatsAppService,
-                        barbershopSettingsService),
+                        barbershopSettingsService, availability),
                 tasks,
                 new AgendaReportService(appointmentRepository, reportService));
     }

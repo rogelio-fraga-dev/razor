@@ -3,13 +3,14 @@
 // Serviços, equipe, planos e rodapé mostram o MESMO dado nos três — o que muda entre templates é
 // a composição da página, não o conteúdo. Duplicar estes blocos faria uma correção de preço ou de
 // acessibilidade precisar ser feita três vezes, e a terceira seria esquecida.
+import { Link } from "react-router-dom";
 import type { PublicSite } from "../api/types";
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 export const money = (v: number) => BRL.format(v);
 
-/** Link de agendamento pelo WhatsApp — a porta de entrada do produto. */
-export function bookingHref(site: PublicSite): string | null {
+/** Conversa no WhatsApp da barbearia, já com a mensagem de agendamento. */
+export function whatsappHref(site: Pick<PublicSite, "whatsappNumber" | "barbershopName">): string | null {
   if (!site.whatsappNumber) return null;
   const digits = site.whatsappNumber.replace(/\D/g, "");
   if (!digits) return null;
@@ -17,13 +18,34 @@ export function bookingHref(site: PublicSite): string | null {
   return `https://wa.me/${digits}?text=${msg}`;
 }
 
+/** Caminho da página de agendamento online (rota do SPA, mesma origem). */
+export const onlineBookingPath = (slug: string) => `/b/${encodeURIComponent(slug)}/agendar`;
+
+/**
+ * Para onde o "Agendar" leva — a porta de entrada do produto. Com o agendamento online ligado,
+ * a página própria (o cliente vê os horários livres e marca sozinho); senão, o WhatsApp.
+ */
+export function bookingHref(site: PublicSite): string | null {
+  if (site.onlineBooking) return onlineBookingPath(site.slug);
+  return whatsappHref(site);
+}
+
 export function BookButton({ site, ghost }: { site: PublicSite; ghost?: boolean }) {
-  const href = bookingHref(site);
+  const cls = `rz-btn ${ghost ? "rz-btn-ghost" : "rz-btn-primary"}`;
+  if (site.onlineBooking) {
+    // Link do router: navegação interna, sem recarregar o app nem abrir aba.
+    return (
+      <Link className={cls} to={onlineBookingPath(site.slug)}>
+        Agendar horário
+      </Link>
+    );
+  }
+  const href = whatsappHref(site);
   // Sem WhatsApp configurado o botão não aparece: um "Agendar" que não leva a lugar nenhum é
   // pior que a ausência dele.
   if (!href) return null;
   return (
-    <a className={`rz-btn ${ghost ? "rz-btn-ghost" : "rz-btn-primary"}`} href={href} target="_blank" rel="noopener noreferrer">
+    <a className={cls} href={href} target="_blank" rel="noopener noreferrer">
       Agendar pelo WhatsApp
     </a>
   );
@@ -118,7 +140,8 @@ export function Footer({ site }: { site: PublicSite }) {
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
           {site.mapsUrl && <a href={site.mapsUrl} target="_blank" rel="noopener noreferrer">Como chegar</a>}
           {site.instagramUrl && <a href={site.instagramUrl} target="_blank" rel="noopener noreferrer">Instagram</a>}
-          {bookingHref(site) && <a href={bookingHref(site)!} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
+          {/* WhatsApp continua como canal secundário mesmo com o agendamento online ligado. */}
+          {whatsappHref(site) && <a href={whatsappHref(site)!} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
         </div>
       </div>
     </footer>
@@ -207,7 +230,8 @@ export function Gallery({ site, title = "Nosso trabalho", mosaic }: { site: Publ
  * visitante hesita justamente no clique que o site inteiro persegue.
  */
 export function HowItWorks({ site }: { site: PublicSite }) {
-  if (!bookingHref(site)) return null;
+  // O passo a passo descreve o WhatsApp; com agendamento online a própria página já guia.
+  if (site.onlineBooking || !whatsappHref(site)) return null;
   return (
     <section className="rz-section rz-section-alt">
       <div className="rz-wrap">

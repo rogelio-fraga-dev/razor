@@ -3,6 +3,7 @@ package com.razor.api.service;
 import com.razor.api.model.Appointment;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -45,13 +46,15 @@ public class AgendaService {
 
     // ---- Agendamentos (criar / cancelar / consultar) ----
 
-    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
-        booking.adicionarAgendamentoViaIA(name, phone, date, time, service);
+    /** Vazio quando o horario nao cabe mais (overbooking) ou a data e invalida — ver {@link AgendaBookingService#agendar}. */
+    public Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
+        return booking.adicionarAgendamentoViaIA(name, phone, date, time, service);
     }
 
-    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
-                                          UUID preferredProfessionalId) {
-        booking.adicionarAgendamentoViaIA(name, phone, date, time, service, preferredProfessionalId);
+    /** Idem; o barbeiro do agendamento devolvido pode nao ser o preferido (auto-atribuicao). */
+    public Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
+                                                           UUID preferredProfessionalId) {
+        return booking.adicionarAgendamentoViaIA(name, phone, date, time, service, preferredProfessionalId);
     }
 
     public int processAgenda(String jsonAgenda) {

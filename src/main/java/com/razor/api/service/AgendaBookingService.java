@@ -3,6 +3,7 @@ package com.razor.api.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razor.api.model.Appointment;
+import com.razor.api.model.AppointmentSource;
 import com.razor.api.model.Coupon;
 import com.razor.api.model.Customer;
 import com.razor.api.model.PaymentStatus;
@@ -14,8 +15,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -47,18 +50,44 @@ public class AgendaBookingService {
     private final FidelityService fidelityService;
     private final WhatsAppService whatsAppService;
     private final BarbershopSettingsService barbershopSettingsService;
+    private final AgendaAvailabilityService agendaAvailabilityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
-        adicionarAgendamentoViaIA(name, phone, date, time, service, null);
+    /**
+     * Pedido de agendamento, venha de onde vier (bot, painel, site).
+     *
+     * @param durationMinutes         duracao do servico; {@code null} = pela tabela do catalogo
+     * @param preferredProfessionalId barbeiro pedido, ou {@code null}
+     * @param exigirPreferido         {@code true} = recusa se o pedido estiver ocupado, em vez de
+     *                                atribuir outro (site: o cliente escolheu o barbeiro na grade)
+     */
+    public record NovoAgendamento(String name, String phone, LocalDate date, LocalTime time, String service,
+                                  Integer durationMinutes, UUID preferredProfessionalId,
+                                  boolean exigirPreferido, AppointmentSource source) {
     }
 
     /**
-     * Cria um agendamento e atribui um profissional (barbeiro): usa o {@code preferredProfessionalId}
-     * se informado e livre; caso contrario auto-atribui o barbeiro livre menos ocupado no dia.
+     * Trava por barbearia em volta de "checar e gravar". Sem ela, duas requisicoes simultaneas
+     * (o site e o bot, ou dois visitantes) leem a mesma cadeira livre e as duas gravam. Em memoria:
+     * resolve o caso real (uma instancia). Com varias instancias, trocar por lock no banco.
      */
-    public void adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
-                                          UUID preferredProfessionalId) {
+    private final Map<UUID, Object> travas = new ConcurrentHashMap<>();
+
+    public Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
+        return adicionarAgendamentoViaIA(name, phone, date, time, service, null);
+    }
+
+    /**
+     * Cria um agendamento vindo do bot e atribui um profissional (barbeiro): usa o
+     * {@code preferredProfessionalId} se informado e livre; caso contrario auto-atribui o barbeiro
+     * livre menos ocupado no dia.
+     *
+     * @return o agendamento gravado — vazio quando a data/hora e invalida ou o horario nao cabe
+     *         mais (overbooking). Quem chama so confirma ao cliente se veio preenchido, e usa o
+     *         {@code professionalId} DEVOLVIDO (pode nao ser o preferido).
+     */
+    public Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
+                                                           UUID preferredProfessionalId) {
         LocalDate parsedDate;
         LocalTime parsedTime;
         try {
@@ -66,31 +95,68 @@ public class AgendaBookingService {
             parsedTime = AppointmentDates.parseTime(time);
         } catch (Exception e) {
             log.error("[AGENDA] Nao foi possivel criar agendamento para {} — data/hora invalida ('{}' '{}'): {}", phone, date, time, e.getMessage());
-            return;
+            return Optional.empty();
+        }
+        return agendar(new NovoAgendamento(name, phone, parsedDate, parsedTime, service, null,
+                preferredProfessionalId, false, AppointmentSource.BOT));
+    }
+
+    /**
+     * Porta UNICA de criacao de agendamento de cliente: checa o horario na hora de gravar, atribui
+     * o barbeiro, grava e dispara os efeitos colaterais (lembrete, avaliacao, ponto de fidelidade).
+     *
+     * <p>Regras de negocio por cliente (ex.: limite de agendamentos futuros) entram AQUI, para
+     * valerem igual no bot, no painel e no site.
+     *
+     * @return vazio quando o horario nao comporta mais um agendamento (todas as cadeiras ocupadas,
+     *         barbeiro pedido ocupado com {@code exigirPreferido}, ou bloqueio)
+     */
+    public Optional<Appointment> agendar(NovoAgendamento req) {
+        UUID shop = TenantContext.getCurrent();
+        int duracao = req.durationMinutes() != null && req.durationMinutes() > 0
+                ? req.durationMinutes()
+                : agendaAvailabilityService.duracaoDoServico(req.service());
+
+        Appointment app;
+        synchronized (travas.computeIfAbsent(shop, k -> new Object())) {
+            AgendaAvailabilityService.Checagem checagem = agendaAvailabilityService.checarHorario(
+                    req.date(), req.time(), duracao, req.preferredProfessionalId(), req.exigirPreferido());
+            if (!checagem.livre()) {
+                log.info("[AGENDA] Horario {} {} recusado para {}: sem cadeira livre pelos {}min do servico.",
+                        AppointmentDates.formatDate(req.date()), AppointmentDates.formatTime(req.time()),
+                        req.phone(), duracao);
+                return Optional.empty();
+            }
+
+            UUID professionalId = checagem.temProfissionais()
+                    ? professionalAssignmentService.escolherEntre(
+                            checagem.profissionaisLivres(), req.date(), req.preferredProfessionalId())
+                    : null;
+
+            app = Appointment.builder()
+                .barbershopId(shop)
+                .customerName(req.name())
+                .customerPhone(req.phone())
+                .appointmentDate(req.date())
+                .appointmentTime(req.time())
+                .service(req.service())
+                .professionalId(professionalId)
+                .paymentStatus(PaymentStatus.PENDENTE)
+                .source(req.source() != null ? req.source() : AppointmentSource.BOT)
+                .build();
+            appointmentRepository.save(app);
+        }
+        if (app.getProfessionalId() != null) {
+            log.info("[AGENDA] Profissional {} atribuido ao agendamento de {}", app.getProfessionalId(), req.phone());
         }
 
-        UUID professionalId = professionalAssignmentService.assign(parsedDate, parsedTime, preferredProfessionalId);
-
-        Appointment app = Appointment.builder()
-            .barbershopId(TenantContext.getCurrent())
-            .customerName(name)
-            .customerPhone(phone)
-            .appointmentDate(parsedDate)
-            .appointmentTime(parsedTime)
-            .service(service)
-            .professionalId(professionalId)
-            .paymentStatus(PaymentStatus.PENDENTE)
-            .build();
-        appointmentRepository.save(app);
-        if (professionalId != null) {
-            log.info("[AGENDA] Profissional {} atribuido ao agendamento de {}", professionalId, phone);
-        }
-
-        log.info("[AGENDA] Novo agendamento salvo: {} para o dia {} às {}", name, AppointmentDates.formatDate(parsedDate), AppointmentDates.formatTime(parsedTime));
+        log.info("[AGENDA] Novo agendamento ({}) salvo: {} para o dia {} às {}", app.getSource(), req.name(),
+                AppointmentDates.formatDate(req.date()), AppointmentDates.formatTime(req.time()));
 
         agendaTaskService.criarTarefasAgendadas(app);
 
-        registrarPontoFidelidade(phone);
+        registrarPontoFidelidade(req.phone());
+        return Optional.of(app);
     }
 
     /**

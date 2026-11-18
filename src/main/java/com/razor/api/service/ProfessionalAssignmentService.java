@@ -64,6 +64,25 @@ public class ProfessionalAssignmentService {
                 .orElse(null);
     }
 
+    /**
+     * Escolhe entre barbeiros JA checados como livres pela duracao inteira do servico
+     * ({@link AgendaAvailabilityService#checarHorario}): o preferido, se estiver entre eles; senao
+     * o menos ocupado no dia. {@code null} quando a lista vem vazia.
+     */
+    public UUID escolherEntre(List<UUID> livres, LocalDate date, UUID preferredProfessionalId) {
+        if (livres == null || livres.isEmpty()) return null;
+        if (preferredProfessionalId != null && livres.contains(preferredProfessionalId)) {
+            return preferredProfessionalId;
+        }
+        if (preferredProfessionalId != null) {
+            log.info("[PROFISSIONAL] Preferido {} ocupado; auto-atribuindo outro.", preferredProfessionalId);
+        }
+        UUID shop = TenantContext.getCurrent();
+        return livres.stream()
+                .min(Comparator.comparingInt(p -> countNoDia(shop, p, date)))
+                .orElse(null);
+    }
+
     private boolean isFree(UUID shop, UUID professionalId, LocalDate date, LocalTime time) {
         return appointmentRepository
                 .findByBarbershopIdAndProfessionalIdAndAppointmentDate(shop, professionalId, date)

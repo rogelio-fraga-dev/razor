@@ -8,6 +8,7 @@ import { api, ApiError } from "../api/client";
 import type { PublicSite } from "../api/types";
 import { TEMPLATES } from "./templates";
 import { bookingHref } from "./parts";
+import { sanitizeSite } from "./safeUrl";
 import "./site.css";
 
 type Scheme = "light" | "dark";
@@ -75,7 +76,8 @@ function useSeo(site: PublicSite | null) {
     const comPreco = site.services.filter((s) => s.price != null).map((s) => s.price!);
     if (comPreco.length) ld.priceRange = `R$ ${Math.min(...comPreco)} - R$ ${Math.max(...comPreco)}`;
     const reservar = bookingHref(site);
-    if (reservar) ld.potentialAction = { "@type": "ReserveAction", target: reservar };
+    // Com agendamento online o alvo é a página própria (absoluta: o Google não resolve relativo).
+    if (reservar) ld.potentialAction = { "@type": "ReserveAction", target: new URL(reservar, window.location.origin).href };
 
     const script = document.createElement("script");
     script.type = "application/ld+json";
@@ -116,7 +118,8 @@ export function SitePage() {
     let vivo = true;
     api
       .get<PublicSite>(`/api/site/${encodeURIComponent(slug)}`)
-      .then((s) => vivo && setSite(s))
+      // Toda URL do dono passa pela barreira antes de chegar a qualquer template (ver safeUrl.ts).
+      .then((s) => vivo && setSite(sanitizeSite(s)))
       .catch((e) => vivo && setError(e instanceof ApiError ? e.message : "Não foi possível carregar."));
     return () => {
       vivo = false;

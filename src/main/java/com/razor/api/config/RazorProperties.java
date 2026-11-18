@@ -79,6 +79,15 @@ public class RazorProperties {
          * barbearia movimentada nao chega perto disso, um laco de injecao passa facil.
          */
         private int webhookPerMinute = 120;
+        /**
+         * Requisicoes por janela nas rotas publicas do site ({@code /api/site/**}): a pagina, as
+         * opcoes e a grade de horarios. Um visitante trocando de dia na grade gasta poucas.
+         */
+        private int sitePerMinute = 120;
+        /** Agendamentos online (POST) aceitos por IP dentro de {@link #bookingWindowSeconds}. */
+        private int bookingPerWindow = 10;
+        /** Janela do limite de agendamento online, em segundos (1h). */
+        private int bookingWindowSeconds = 3600;
     }
 
     @Data

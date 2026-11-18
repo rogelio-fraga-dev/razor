@@ -1,5 +1,6 @@
 package com.razor.api.controller;
 
+import com.razor.api.service.BookingConflictException;
 import com.razor.api.service.NotFoundException;
 import com.razor.api.service.UpstreamServiceException;
 import java.util.Map;
@@ -25,6 +26,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleBadRequest(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(BookingConflictException.class)
+    public ResponseEntity<Object> handleBookingConflict(BookingConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
     }
 
     @ExceptionHandler(UpstreamServiceException.class)

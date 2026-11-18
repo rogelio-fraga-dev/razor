@@ -79,6 +79,10 @@ public class BarbershopSite {
     @Column(name = "show_prices", nullable = false)
     private boolean showPrices;
 
+    /** Pagina publica de agendamento online ligada (V38). Desligada, o site so oferece o WhatsApp. */
+    @Column(name = "online_booking_enabled", nullable = false)
+    private boolean onlineBookingEnabled;
+
     /** Rascunho ate o dono publicar: site nao publicado responde 404 no endereco publico. */
     @Column(nullable = false)
     private boolean published;

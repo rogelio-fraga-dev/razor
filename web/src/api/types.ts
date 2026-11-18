@@ -619,4 +619,35 @@ export interface PublicSite {
   services: { name: string; price: number | null; durationMinutes: number | null }[];
   team: { name: string }[];
   plans: { name: string; price: number; description: string | null }[];
+  /** Agendamento online ligado (V38): o "Agendar" leva a /b/:slug/agendar em vez do WhatsApp. */
+  onlineBooking: boolean;
+}
+
+// ---------- Agendamento online (V38) — espelha PublicBookingDtos ----------
+
+export interface BookingOptions {
+  slug: string;
+  barbershopName: string;
+  theme: SiteTheme;
+  accentColor: string;
+  logoUrl: string | null;
+  whatsappNumber: string | null;
+  maxDaysAhead: number;
+  /** ISO 1=seg … 7=dom. */
+  openWeekdays: number[];
+  services: { id: string; name: string; durationMinutes: number; price: number | null }[];
+  professionals: { id: string; name: string }[];
+}
+
+export interface BookingSlots {
+  date: string;
+  slots: string[];
+}
+
+export interface BookingConfirmation {
+  barbershopName: string;
+  serviceName: string;
+  professionalName: string | null;
+  date: string;
+  time: string;
 }
