@@ -54,6 +54,7 @@ public class CustomerConversationService {
     private final WaitlistOfferService waitlistOfferService;
     private final AppointmentConfirmationService confirmationService;
     private final NoShowDepositService noShowDepositService;
+    private final ProfessionalAssignmentService professionalAssignmentService;
 
     // Publicas + construtor vazio: sao serializadas em JSON pelo StateStore.
 
@@ -468,13 +469,18 @@ public class CustomerConversationService {
 
     private void chamaIAETrataMensagem(Customer customer, String prompt, String phoneNumber) {
         log.info("[IA] Chamando o GPT-4o para processar a intencao do cliente.");
-        String agendaContext = agendaService.getHorariosOcupadosParaIA();
+        List<Interaction> history = getRecentHistory(customer.getId());
+        // Servico que o cliente ja citou (mensagem atual ou anteriores): os horarios que vao para
+        // a IA passam a contar so os barbeiros que o fazem. Desconhecido = barbearia toda.
+        ProfessionalAssignmentService.ServicoPedido servico =
+                professionalAssignmentService.servicoCitado(falasDoCliente(prompt, history));
+        String agendaContext = agendaService.getHorariosOcupadosParaIA(servico);
         // So os horarios por vir: contar o historico fazia o cliente fiel ouvir "limite atingido".
         int activeAppointments = agendaService.getAgendamentosFuturos(phoneNumber).size();
         String knownName = (customer.getName() != null && !customer.getName().isBlank()) ? customer.getName() : "Desconhecido";
         String aiResponse;
         try {
-            aiResponse = openAIService.processCustomerMessage(prompt, getRecentHistory(customer.getId()), agendaContext, activeAppointments, knownName, customer);
+            aiResponse = openAIService.processCustomerMessage(prompt, history, agendaContext, activeAppointments, knownName, customer, servico);
         } catch (AiUnavailableException e) {
             tratarIaIndisponivel(phoneNumber, e);
             return;
@@ -820,6 +826,21 @@ public class CustomerConversationService {
     }
 
     /** Historico com TIPO (USER/BOT): o papel no chat da IA vem dele, nunca da posicao na lista. */
+    /** Mensagem atual e as falas anteriores do cliente, da mais recente para a mais antiga. */
+    static List<String> falasDoCliente(String atual, List<Interaction> history) {
+        List<String> falas = new java.util.ArrayList<>();
+        if (atual != null && !atual.isBlank()) falas.add(atual);
+        if (history != null) {
+            history.stream()
+                    .filter(i -> i.getType() == Interaction.InteractionType.USER && i.getContent() != null)
+                    .sorted(java.util.Comparator.comparing(Interaction::getTimestamp,
+                            java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+                    .map(Interaction::getContent)
+                    .forEach(falas::add);
+        }
+        return falas;
+    }
+
     private List<Interaction> getRecentHistory(java.util.UUID customerId) {
         return interactionRepository.findRecentInteractionsByCustomerId(customerId);
     }

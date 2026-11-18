@@ -117,6 +117,96 @@ public class AgendaAvailabilityService {
         return montarHorariosLivres(target, expandirSlotsOcupados(apps), professionalId);
     }
 
+    // ------------------------------------------------------------------------------------------
+    // Texto da IA quando o servico pedido e conhecido
+    // ------------------------------------------------------------------------------------------
+
+    /**
+     * Ate 4 horarios livres do dia para o {@code servico} (nome do catalogo), contando so os
+     * barbeiros {@code aptos} a ele. Usa a MESMA regra da gravacao ({@link #horariosLivres} →
+     * {@link #checarHorario}): duracao do servico, capacidade, bloqueios por barbeiro — o bot nao
+     * oferece horario em que so esta livre quem nao faz o servico, e que seria recusado ao gravar.
+     * {@code aptos} nulo ou vazio = servico desconhecido: cai no {@link #getHorariosDisponiveisDoDia(String)}.
+     */
+    public String getHorariosDisponiveisDoDia(String date, String servico, java.util.Collection<UUID> aptos) {
+        if (servico == null || servico.isBlank() || aptos == null || aptos.isEmpty()) {
+            return getHorariosDisponiveisDoDia(date);
+        }
+        LocalDate target;
+        try {
+            target = AppointmentDates.parseDate(date);
+        } catch (Exception e) {
+            return NENHUM_HORARIO;
+        }
+        List<String> livres = horariosLivres(target, duracaoDoServico(servico), null, aptos).stream()
+                .map(AppointmentDates::formatTime)
+                .toList();
+        if (livres.isEmpty()) return NENHUM_HORARIO;
+        return String.join(", ", espalhar(livres));
+    }
+
+    /**
+     * {@link #getHorariosOcupadosParaIA()} para um servico conhecido: lista, por data, os horarios
+     * (perto dos agendamentos existentes) em que NENHUM barbeiro apto ao servico esta livre pela
+     * duracao inteira. Sem isto o "status da agenda" so marcava ocupado quando TODAS as cadeiras
+     * estavam cheias — inclusive as de quem nao faz o servico.
+     * {@code aptos} nulo ou vazio = servico desconhecido: cai no texto geral.
+     */
+    public String getHorariosOcupadosParaIA(String servico, java.util.Collection<UUID> aptos) {
+        if (servico == null || servico.isBlank() || aptos == null || aptos.isEmpty()) {
+            return getHorariosOcupadosParaIA();
+        }
+        UUID shop = TenantContext.getCurrent();
+        LocalDate hoje = AppointmentDates.today();
+        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopIdAndAppointmentDateGreaterThanEqual(shop, hoje);
+        if (agendaAtiva == null || agendaAtiva.isEmpty()) return AGENDA_LIVRE;
+
+        int duracao = Math.max(SLOT_MINUTES, duracaoDoServico(servico));
+        java.util.SortedSet<LocalDate> datas = agendaAtiva.stream()
+                .filter(a -> a.getAppointmentDate() != null && a.getAppointmentTime() != null)
+                .map(Appointment::getAppointmentDate)
+                .collect(Collectors.toCollection(java.util.TreeSet::new));
+
+        StringBuilder sb = new StringBuilder("Horários INDISPONÍVEIS para " + servico
+                + " por data (nenhum barbeiro que faz esse serviço livre):\n");
+        boolean algum = false;
+        for (LocalDate data : datas) {
+            Ocupacao dia = ocupacaoDoDia(data);
+            // Candidatos: todo inicio cujo intervalo [t, t+duracao) encosta em algum agendamento
+            // do dia. Fora disso a cadeira esta vazia e o horario nao entra na lista.
+            java.util.SortedSet<Integer> candidatos = new java.util.TreeSet<>();
+            for (Intervalo i : dia.agendamentos()) {
+                for (int t = i.inicio() - duracao + SLOT_MINUTES; t < i.fim(); t += SLOT_MINUTES) {
+                    if (t >= 0 && t + duracao <= 24 * 60) candidatos.add(t);
+                }
+            }
+            List<String> cheios = new ArrayList<>();
+            for (int t : candidatos) {
+                if (!avaliar(dia, data, t, duracao, null, false, aptos).livre()) {
+                    cheios.add(AppointmentDates.formatTime(LocalTime.of(t / 60, t % 60)));
+                }
+            }
+            if (!cheios.isEmpty()) {
+                algum = true;
+                sb.append("  - ").append(AppointmentDates.formatDate(data)).append(": ")
+                        .append(String.join(", ", cheios)).append("\n");
+            }
+        }
+        if (!algum) return AGENDA_LIVRE;
+        return sb.toString().trim();
+    }
+
+    /** Corta a lista em ate 4 opcoes espacadas (primeiro, 1/3, 2/3, ultimo) — sem flood no WhatsApp. */
+    private static List<String> espalhar(List<String> livres) {
+        if (livres.size() <= 4) return livres;
+        List<String> spread = new ArrayList<>();
+        spread.add(livres.get(0));
+        spread.add(livres.get(livres.size() / 3));
+        spread.add(livres.get(livres.size() * 2 / 3));
+        spread.add(livres.get(livres.size() - 1));
+        return spread.stream().distinct().limit(4).collect(Collectors.toList());
+    }
+
     /**
      * Expande cada agendamento nos slots de 30min que ele realmente ocupa, conforme a duracao do
      * servico (do catalogo): um combo de 60min ocupa dois slots consecutivos, e nao apenas o inicial.
@@ -177,16 +267,7 @@ public class AgendaAvailabilityService {
         if (livres.isEmpty()) return NENHUM_HORARIO;
 
         // Limita a 4 opções espaçadas para evitar flood
-        if (livres.size() > 4) {
-            List<String> spread = new ArrayList<>();
-            spread.add(livres.get(0)); // Primeiro livre
-            spread.add(livres.get(livres.size() / 3)); // 1/3 do dia livre
-            spread.add(livres.get(livres.size() * 2 / 3)); // 2/3 do dia livre
-            spread.add(livres.get(livres.size() - 1)); // Último livre
-            livres = spread.stream().distinct().limit(4).collect(Collectors.toList());
-        }
-
-        return String.join(", ", livres);
+        return String.join(", ", espalhar(livres));
     }
 
     // ------------------------------------------------------------------------------------------

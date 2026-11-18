@@ -924,6 +924,24 @@ começa a operar — tudo sozinho, e você acompanha pelo console do dono.
 
 ### 🐛 Pendências & débitos conhecidos
 
+- [x] **Tela de acessos do painel (2026-11-18)** — não havia como criar login de recepção ou de
+      barbeiro sem mexer no banco. *Configurações → Equipe & acesso → Acessos ao painel* (só o
+      dono): lista (nome, e-mail, papel, profissional ligado, ativo), **novo acesso** (nome, e-mail,
+      papel, senha inicial com a mesma regra de "Meu perfil" — mín. 8 —, profissional quando não é
+      recepção), **trocar papel**, **desativar/reativar** e **redefinir senha**. API em
+      `/api/admin/panel-users` (`POST`, `PUT /{id}/role|active|password|professional`), regras no
+      `PanelUserService`: escopo do tenant (outro tenant = 404), e-mail normalizado e único na
+      plataforma (409), hash pelo `PasswordEncoder`, nunca devolve hash; ninguém desativa nem muda
+      o **próprio** papel, e a barbearia **nunca fica sem dono ativo** (consulta com `FOR UPDATE`
+      nos donos ativos serializa dois rebaixamentos simultâneos); a própria senha só em "Meu
+      perfil". Papel, ativo e senha incrementam a `token_version` → as sessões da pessoa caem na
+      hora. Virar recepção desfaz o vínculo com o profissional (recepção não tem "Meu dia"). Sem
+      migração.
+- [x] **Comissões no celular sem rolagem lateral (2026-11-18)** — as tabelas de *Comissões* e do
+      *Acerto* (acerto por barbeiro, acertos registrados, vales) viram **cartões** até 640px com a
+      mesma marcação (`.table-cards` + `data-label` por célula, em `shell.css`): rótulo em cada
+      dado, nome como título do cartão e os botões *Vale*/*Pagar* na largura toda com 44px.
+
 - [x] **Topo do Painel renderizando vazio (`ActivationChecklist`)** — o card aparecia como uma
       barra escura sem conteúdo. Causa: a versão de 25/07 trocou as classes do design system por
       estilos inline e engolia falha de API com dados-padrão (`DEFAULT_STATUS`/`DEFAULT_BOT_TEXTS`),
@@ -1440,8 +1458,17 @@ Paginar catálogo seria ruído: dois botões mortos embaixo de uma lista de 7 se
   `CHECK` de comparecimento e de valores unitários, FKs compostas (cliente/pacote/tag + barbearia)
   e `barbershop_id` em `customer_tag_links`. A migração para com a lista se já houver horário
   duplicado. Apagar cliente com pacote pelo WhatsApp explica o motivo (FK continua RESTRICT).
-- **Ficou de fora:** o texto de horários livres do bot para o prompt da IA não sabe o serviço
-  (é montado antes do cliente pedir); a capacidade por serviço vale na checagem ao gravar.
+- **Ficou de fora:** ~~o texto de horários livres do bot para o prompt da IA não sabe o serviço
+  (é montado antes do cliente pedir); a capacidade por serviço vale na checagem ao gravar.~~
+  **Resolvido (2026-11-18):** antes de chamar a IA, `ProfessionalAssignmentService.servicoCitado`
+  procura nas falas do cliente (mensagem atual, depois as anteriores) um serviço do catálogo citado
+  por inteiro (`ServiceCapability.mentioned`: sem acento/caixa, palavra inteira, o combo vence as
+  partes). Achou e há barbeiro ativo que faz: os horários livres de hoje e o *status da agenda* do
+  prompt passam pelo **mesmo motor da gravação** (`horariosLivres`/`checarHorario` com os aptos e a
+  duração do serviço) — o bot não oferece horário em que só está livre quem não faz o serviço.
+  Serviço não citado, ou ninguém apto: texto antigo, da barbearia toda. *Limite:* o roteiro do
+  prompt pergunta o horário antes do serviço, então o filtro só vale quando o cliente já disse o
+  serviço; se disser depois, a gravação continua sendo a rede de segurança.
 
 ---
 

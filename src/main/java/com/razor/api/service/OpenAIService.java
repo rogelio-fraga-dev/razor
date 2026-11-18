@@ -227,6 +227,17 @@ public class OpenAIService {
      *         texto de erro disfarcado de resposta.
      */
     public String processCustomerMessage(String userMessage, List<com.razor.api.model.Interaction> recentHistory,String agendaContext, int activeAppointments, String knownCustomerName, com.razor.api.model.Customer customer) {
+        return processCustomerMessage(userMessage, recentHistory, agendaContext, activeAppointments, knownCustomerName, customer, null);
+    }
+
+    /**
+     * @param servicoPedido servico que o cliente ja citou na conversa e os barbeiros que o fazem
+     *                      (ver {@link ProfessionalAssignmentService#servicoCitado}); {@code null} =
+     *                      desconhecido, e os horarios livres de hoje olham a barbearia toda.
+     */
+    public String processCustomerMessage(String userMessage, List<com.razor.api.model.Interaction> recentHistory, String agendaContext,
+                                         int activeAppointments, String knownCustomerName, com.razor.api.model.Customer customer,
+                                         ProfessionalAssignmentService.ServicoPedido servicoPedido) {
         try {
             List<ChatMessage> messages = new ArrayList<>();
             LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
@@ -240,7 +251,13 @@ public class OpenAIService {
             
             // Calcula horários livres de HOJE para o prompt
             String dataHojeFormatada = hoje.format(DateTimeFormatter.ofPattern("dd/MM"));
-            String horariosLivresHoje = agendaService.getHorariosDisponiveisDoDia(dataHojeFormatada);
+            // Servico ja conhecido: so horarios em que um barbeiro QUE FAZ o servico esta livre
+            // (a mesma regra da gravacao) — o bot nao oferece horario que depois e recusado.
+            String horariosLivresHoje = agendaService.getHorariosDisponiveisDoDia(dataHojeFormatada, servicoPedido);
+            if (servicoPedido != null) {
+                horariosLivresHoje += " (já considerando só os barbeiros que fazem " + servicoPedido.nome()
+                        + "; se o cliente trocar de serviço, confirme o horário de novo)";
+            }
             
             // Identidade, catalogo e funcionamento vem do TENANT ATUAL — sem isso toda barbearia
             // teria um bot dizendo o nome e os precos de outra (bug multi-tenant).

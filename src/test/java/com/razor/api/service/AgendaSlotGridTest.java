@@ -256,4 +256,93 @@ class AgendaSlotGridTest {
         // Sem restricao, as 10:00 o BRUNO atende.
         assertThat(availability.horariosLivres(dia, 30, null)).contains(t("10:00"));
     }
+
+    // ---- Texto da IA com o servico pedido (so barbeiros aptos) --------------------------------
+
+    private static final UUID CORTE = UUID.randomUUID();
+    private static final UUID BARBA = UUID.randomUUID();
+
+    /** ANA so faz barba; BRUNO so faz corte. Catalogo: Corte, Barba. */
+    private ProfessionalAssignmentService catalogoComEspecialistas() {
+        Professional ana = Professional.builder().id(ANA).barbershopId(SHOP).name("Ana").active(true)
+                .serviceIds(new java.util.HashSet<>(java.util.Set.of(BARBA))).build();
+        Professional bruno = Professional.builder().id(BRUNO).barbershopId(SHOP).name("Bruno").active(true)
+                .serviceIds(new java.util.HashSet<>(java.util.Set.of(CORTE))).build();
+        when(professionalRepository.findByBarbershopIdAndActiveTrue(SHOP)).thenReturn(List.of(ana, bruno));
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(SHOP)).thenReturn(List.of(
+                com.razor.api.model.ServiceOffering.builder().id(CORTE).barbershopId(SHOP).name("Corte").build(),
+                com.razor.api.model.ServiceOffering.builder().id(BARBA).barbershopId(SHOP).name("Barba").build()));
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateGreaterThanEqual(eq(SHOP), any())).thenReturn(agenda);
+        return new ProfessionalAssignmentService(professionalRepository, appointmentRepository, scheduleBlockService,
+                serviceOfferingRepository);
+    }
+
+    @Test
+    @DisplayName("bot: serviço citado na conversa vira os barbeiros que o fazem; sem serviço ou ninguém apto = desconhecido")
+    void servicoCitado() {
+        ProfessionalAssignmentService assignment = catalogoComEspecialistas();
+
+        var barba = assignment.servicoCitado(List.of("amanhã às 10", "quero fazer a barba"));
+        assertThat(barba.nome()).isEqualTo("Barba");
+        assertThat(barba.aptos()).containsExactly(ANA);
+
+        assertThat(assignment.servicoCitado(List.of("oi, tem horário amanhã?"))).isNull();
+        // Ninguem faz corte E barba: segue a grade da barbearia toda (a gravacao tambem nao filtra).
+        assertThat(assignment.servicoCitado(List.of("corte e barba"))).isNull();
+        assertThat(assignment.servicoCitado(List.of())).isNull();
+    }
+
+    @Test
+    @DisplayName("bot: horários livres para o serviço só contam quem o faz — e todos passam na checagem da gravação")
+    void freeSlotsText_onlyQualified() {
+        ProfessionalAssignmentService assignment = catalogoComEspecialistas();
+        // A ANA (unica que faz barba) so tem as 15:00 livres; o BRUNO esta livre o dia todo.
+        for (LocalTime h = t("09:00"); h.isBefore(t("19:00")); h = h.plusMinutes(30)) {
+            if (!h.equals(t("15:00"))) ocupado(ANA, AppointmentDates.formatTime(h), "Barba");
+        }
+        var barba = assignment.servicoCitado(List.of("quero barba"));
+        String data = AppointmentDates.formatDate(dia);
+
+        assertThat(availability.getHorariosDisponiveisDoDia(data, barba.nome(), barba.aptos())).isEqualTo("15:00");
+        assertThat(availability.checarHorario(dia, t("15:00"), 30, null, false, barba.aptos()).livre()).isTrue();
+        // Para o corte (BRUNO) o dia inteiro serve: horario da barba nao vaza para outro servico.
+        var corte = assignment.servicoCitado(List.of("quero um corte"));
+        assertThat(availability.getHorariosDisponiveisDoDia(data, corte.nome(), corte.aptos())).contains("09:00");
+    }
+
+    @Test
+    @DisplayName("bot: serviço desconhecido mantém o texto antigo da barbearia toda")
+    void freeSlotsText_unknownServiceKeepsBehavior() {
+        barbeiros(ANA, BRUNO);
+        ocupado(ANA, "10:00", "Corte");
+        String data = AppointmentDates.formatDate(dia);
+        assertThat(availability.getHorariosDisponiveisDoDia(data, null, null))
+                .isEqualTo(availability.getHorariosDisponiveisDoDia(data));
+        assertThat(availability.getHorariosDisponiveisDoDia(data, "Barba", List.of()))
+                .isEqualTo(availability.getHorariosDisponiveisDoDia(data));
+    }
+
+    @Test
+    @DisplayName("bot: status da agenda marca ocupado quando nenhum barbeiro APTO está livre, mesmo com cadeira sobrando")
+    void busyText_onlyQualified() {
+        catalogoComEspecialistas();
+        ocupado(ANA, "10:00", "Barba");
+
+        // Visao geral: 2 cadeiras, 1 ocupada → nada lotado.
+        assertThat(availability.getHorariosOcupadosParaIA()).contains("Agenda totalmente livre");
+        // Para barba (so a ANA faz): 10:00 indisponivel; 10:30 segue livre.
+        String barba = availability.getHorariosOcupadosParaIA("Barba", List.of(ANA));
+        assertThat(barba).contains(AppointmentDates.formatDate(dia)).contains("10:00").doesNotContain("10:30");
+        // Corte (BRUNO livre): nada indisponivel.
+        assertThat(availability.getHorariosOcupadosParaIA("Corte", List.of(BRUNO))).contains("Agenda totalmente livre");
+    }
+
+    @Test
+    @DisplayName("bot: combo de 60min não cabe meia hora antes de um horário ocupado do único apto")
+    void busyText_respectsDuration() {
+        catalogoComEspecialistas();
+        ocupado(ANA, "10:30", "Barba");
+        String combo = availability.getHorariosOcupadosParaIA("Combo Corte + Barba", List.of(ANA));
+        assertThat(combo).contains("10:00").contains("10:30").doesNotContain("11:00");
+    }
 }

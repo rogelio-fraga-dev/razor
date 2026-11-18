@@ -62,6 +62,7 @@ class CustomerConversationServiceTest {
     @Mock private WaitlistOfferService waitlistOfferService;
     @Mock private AppointmentConfirmationService confirmationService;
     @Mock private NoShowDepositService noShowDepositService;
+    @Mock private ProfessionalAssignmentService professionalAssignmentService;
 
     // Store REAL (nao mock): a maquina de estados da conversa precisa gravar/ler de verdade.
     @org.mockito.Spy
@@ -189,16 +190,45 @@ class CustomerConversationServiceTest {
     @DisplayName("'oi, quero marcar um corte' NÃO vira saudação — vai para a IA agendar")
     void greetingWithIntent_goesToAI() {
         givenExistingCustomer();
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenReturn("Claro! Pra quando você quer o corte?");
 
         service.processCustomerMessage(textWebhook("oi, quero marcar um corte"), PHONE);
 
         // a IA respondeu — não caiu na saudação canned
         assertThat(captureClientMessage()).isEqualTo("Claro! Pra quando você quer o corte?");
-        verify(openAIService).processCustomerMessage(any(), any(), any(), anyInt(), any(), any());
+        verify(openAIService).processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("serviço citado pelo cliente vai para a agenda e para a IA: horários só de quem faz")
+    void serviceMentioned_scopesSlotsToQualified() {
+        givenExistingCustomer();
+        var barba = new ProfessionalAssignmentService.ServicoPedido("Barba", List.of(UUID.randomUUID()));
+        when(professionalAssignmentService.servicoCitado(argThat(falas -> falas != null
+                && !falas.isEmpty() && falas.get(0).contains("barba")))).thenReturn(barba);
+        when(agendaService.getHorariosOcupadosParaIA(barba)).thenReturn("ocupados da barba");
+        when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
+                .thenReturn("Tenho 10:00 ou 15:00.");
+
+        service.processCustomerMessage(textWebhook("quero marcar barba amanhã"), PHONE);
+
+        verify(openAIService).processCustomerMessage(any(), any(), eq("ocupados da barba"), anyInt(), any(), any(), eq(barba));
+    }
+
+    @Test
+    @DisplayName("falas do cliente: atual primeiro, depois as anteriores do cliente (sem as do bot), da mais nova à mais antiga")
+    void customerUtterancesOrder() {
+        java.time.LocalDateTime t0 = java.time.LocalDateTime.of(2026, 1, 1, 10, 0);
+        Interaction antiga = Interaction.builder().type(Interaction.InteractionType.USER).content("quero barba").timestamp(t0).build();
+        Interaction bot = Interaction.builder().type(Interaction.InteractionType.BOT).content("Corte?").timestamp(t0.plusMinutes(1)).build();
+        Interaction nova = Interaction.builder().type(Interaction.InteractionType.USER).content("amanhã").timestamp(t0.plusMinutes(2)).build();
+
+        assertThat(CustomerConversationService.falasDoCliente("às 15h", List.of(antiga, bot, nova)))
+                .containsExactly("às 15h", "amanhã", "quero barba");
     }
 
     @Test
@@ -297,9 +327,9 @@ class CustomerConversationServiceTest {
     @DisplayName("agendamento via IA entra em ESPERANDO_PAGAMENTO e o '1' confirma PIX")
     void aiNewAppointment_thenPixPayment() {
         givenExistingCustomer();
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
 
         // 1a mensagem: a IA devolve a tag de novo agendamento
@@ -323,9 +353,9 @@ class CustomerConversationServiceTest {
     @DisplayName("sem PIX configurado, o bot NÃO inventa chave — orienta pagamento presencial")
     void pixPayment_withoutConfiguredKey_doesNotInventKey() {
         givenExistingCustomer();
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
 
         // entra em ESPERANDO_PAGAMENTO pelo fluxo real
@@ -351,9 +381,9 @@ class CustomerConversationServiceTest {
     }
 
     private void givenAiReturnsAgendamentoTag() {
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
     }
 
@@ -445,9 +475,9 @@ class CustomerConversationServiceTest {
     @DisplayName("resposta da IA sem tag apenas repassa o texto limpo ao cliente")
     void aiPlainResponse_isForwarded() {
         givenExistingCustomer();
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenReturn("Claro! Temos horários de manhã e à tarde.");
 
         service.processCustomerMessage(textWebhook("voces atendem a tarde?"), PHONE);
@@ -467,9 +497,9 @@ class CustomerConversationServiceTest {
     @DisplayName("IA pede cancelamento sem horario futuro: resposta deterministica, nunca o 'cancelado ✅' da IA")
     void aiCancel_nothingToCancel_saysSo() {
         givenExistingCustomer();
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenReturn("Prontinho, cancelado ✅ [CANCELAR_AGENDAMENTO]");
 
         service.processCustomerMessage(textWebhook("cancela meu corte"), PHONE);
@@ -484,9 +514,9 @@ class CustomerConversationServiceTest {
     @DisplayName("IA pede cancelamento com 2 horarios futuros: pergunta qual, nao apaga nenhum")
     void aiCancel_multiple_asksWhich() {
         givenExistingCustomer();
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of(futuro(20, 10), futuro(27, 11)));
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenReturn("Cancelado ✅ [CANCELAR_AGENDAMENTO]");
 
         service.processCustomerMessage(textWebhook("quero cancelar"), PHONE);
@@ -500,11 +530,11 @@ class CustomerConversationServiceTest {
     void aiCancel_single_cancelsThatOne() {
         givenExistingCustomer();
         Appointment ag = futuro(20, 10);
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of(ag));
         when(agendaService.cancelarAgendamentoExato(ag)).thenReturn(true);
         when(waitlistRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenReturn("Cancelado ✅ [CANCELAR_AGENDAMENTO]");
 
         service.processCustomerMessage(textWebhook("quero cancelar"), PHONE);
@@ -519,11 +549,11 @@ class CustomerConversationServiceTest {
         givenExistingCustomer();
         Appointment a = futuro(20, 10);
         Appointment b = futuro(27, 11);
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of(a, b));
         when(agendaService.checkBookingLimit(PHONE)).thenReturn(java.util.Optional.of(
                 new AgendaBookingService.BookingLimitExceeded(2, List.of(a, b))));
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|30/12|10:00|Corte]");
 
         service.processCustomerMessage(textWebhook("quero marcar mais um"), PHONE);
@@ -539,13 +569,13 @@ class CustomerConversationServiceTest {
     @DisplayName("contexto da IA conta so horarios futuros (historico nao gera 'limite atingido')")
     void aiContext_countsOnlyFutureAppointments() {
         givenExistingCustomer();
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of(futuro(20, 10)));
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any())).thenReturn("Oi!");
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any())).thenReturn("Oi!");
 
         service.processCustomerMessage(textWebhook("voces abrem sabado?"), PHONE);
 
-        verify(openAIService).processCustomerMessage(any(), any(), any(), eq(1), any(), any());
+        verify(openAIService).processCustomerMessage(any(), any(), any(), eq(1), any(), any(), any());
     }
 
     private Interaction captureBotInteraction() {
@@ -612,10 +642,10 @@ class CustomerConversationServiceTest {
     @DisplayName("IA fora do ar: contingencia ao cliente sem gravar como fala do bot, e admin avisado uma vez")
     void aiUnavailable_contingencyNotSaved_adminAlertedOnce() {
         givenExistingCustomer();
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
         when(tenantAdminService.adminPhones()).thenReturn(List.of("5511000000000"));
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenThrow(new AiUnavailableException("fora", new RuntimeException("429")));
 
         service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
@@ -641,16 +671,16 @@ class CustomerConversationServiceTest {
         service.processCustomerMessage(textWebhook("1"), PHONE);
 
         assertThat(captureClientMessage()).contains("confirmado");
-        verify(openAIService, never()).processCustomerMessage(any(), any(), any(), anyInt(), any(), any());
+        verify(openAIService, never()).processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any());
     }
 
     @Test
     @DisplayName("no meio da escolha de pagamento, '1' e PIX — nao vai para a confirmacao")
     void paymentState_winsOverConfirmation() {
         givenExistingCustomer();
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
         service.processCustomerMessage(textWebhook("quero marcar"), PHONE);
         when(agendaService.getAgendamentoMaisRecente(PHONE)).thenReturn(Appointment.builder().customerPhone(PHONE).build());
@@ -666,9 +696,9 @@ class CustomerConversationServiceTest {
     @DisplayName("cliente que falta muito: no lugar da pergunta de pagamento vai o PIX do sinal")
     void depositRequired_replacesPaymentQuestion() {
         givenExistingCustomer();
-        when(agendaService.getHorariosOcupadosParaIA()).thenReturn("");
+        when(agendaService.getHorariosOcupadosParaIA(any())).thenReturn("");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
-        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any()))
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
                 .thenReturn("Agendado! [NOVO_AGENDAMENTO|João|20/12|10:00|Corte]");
         when(noShowDepositService.requireDepositIfNeeded(any(), any()))
                 .thenReturn(java.util.Optional.of("pré-reservado ... sinal ... CHAVE PIX"));

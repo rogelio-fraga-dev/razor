@@ -69,6 +69,27 @@ public final class ServiceCapability {
         return List.of();
     }
 
+    /**
+     * Servicos do catalogo citados por inteiro numa frase livre do cliente ("quero fazer a barba
+     * amanha" → Barba). Quando um citado esta contido em outro tambem citado ("Corte" dentro de
+     * "Corte e Barba"), fica so o mais longo. Ordem do catalogo; vazio = nada identificado. Mais
+     * conservador que {@link #requirements}: abreviacao NAO conta ("corte" sozinho nao vira
+     * "Corte Degrade"), porque aqui o texto e a conversa inteira, nao o nome do servico.
+     */
+    public static List<ServiceOffering> mentioned(String text, List<ServiceOffering> catalog) {
+        String t = normalize(text);
+        if (t.isEmpty() || catalog == null || catalog.isEmpty()) return List.of();
+        List<ServiceOffering> hits = catalog.stream()
+                .filter(s -> s.getId() != null && !normalize(s.getName()).isEmpty())
+                .filter(s -> containsWord(t, normalize(s.getName())))
+                .toList();
+        return hits.stream()
+                .filter(s -> hits.stream().noneMatch(o -> o != s
+                        && normalize(o.getName()).length() > normalize(s.getName()).length()
+                        && containsWord(normalize(o.getName()), normalize(s.getName()))))
+                .toList();
+    }
+
     /** O barbeiro atende o servico? Sem servicos configurados = atende todos. */
     public static boolean canPerform(Professional p, List<Set<UUID>> requirements) {
         if (p.servesAllServices() || requirements.isEmpty()) return true;

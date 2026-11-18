@@ -133,6 +133,52 @@ public class ProfessionalAssignmentService {
         return livres.stream().filter(aptos::contains).toList();
     }
 
+    /**
+     * Servico que o cliente pediu na conversa e os barbeiros ativos que o fazem — para o bot
+     * oferecer so horarios em que um barbeiro APTO esta livre (a mesma regra da gravacao).
+     *
+     * @param nome  servico(s) do catalogo citados, como o cliente leria ("Corte + Barba")
+     * @param aptos barbeiros ativos que fazem TODOS os servicos citados (nunca vazio)
+     */
+    public record ServicoPedido(String nome, List<UUID> aptos) {
+    }
+
+    /**
+     * Procura nas falas do cliente (da mais recente para a mais antiga) o primeiro texto que cita
+     * um servico do catalogo. {@code null} quando nenhuma fala cita servico, ou quando nenhum
+     * barbeiro ativo faz o servico citado — nos dois casos o bot segue com a grade da barbearia
+     * toda, como antes (a gravacao tambem nao filtra quando ninguem e apto).
+     */
+    public ServicoPedido servicoCitado(List<String> falasDoCliente) {
+        if (falasDoCliente == null || falasDoCliente.isEmpty()) return null;
+        UUID shop = TenantContext.getCurrent();
+        List<com.razor.api.model.ServiceOffering> catalogo =
+                serviceOfferingRepository.findByBarbershopIdAndActiveTrue(shop);
+        if (catalogo == null || catalogo.isEmpty()) return null;
+
+        for (String fala : falasDoCliente) {
+            List<com.razor.api.model.ServiceOffering> citados = ServiceCapability.mentioned(fala, catalogo);
+            if (citados.isEmpty()) continue;
+
+            // Cada citado vira um grupo exigido: "corte e barba" pede quem faz os dois.
+            List<java.util.Set<UUID>> exigencias = citados.stream()
+                    .map(s -> java.util.Set.of(s.getId()))
+                    .toList();
+            List<UUID> aptos = professionalRepository.findByBarbershopIdAndActiveTrue(shop).stream()
+                    .filter(p -> ServiceCapability.canPerform(p, exigencias))
+                    .map(Professional::getId)
+                    .toList();
+            if (aptos.isEmpty()) {
+                log.info("[PROFISSIONAL] Cliente citou {} mas nenhum barbeiro ativo faz; grade da barbearia toda.",
+                        citados.stream().map(com.razor.api.model.ServiceOffering::getName).toList());
+                return null;
+            }
+            String nome = String.join(" + ", citados.stream().map(com.razor.api.model.ServiceOffering::getName).toList());
+            return new ServicoPedido(nome, aptos);
+        }
+        return null;
+    }
+
     private boolean isFree(UUID shop, UUID professionalId, LocalDate date, LocalTime time) {
         return appointmentRepository
                 .findByBarbershopIdAndProfessionalIdAndAppointmentDate(shop, professionalId, date)

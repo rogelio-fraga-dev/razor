@@ -40,6 +40,18 @@ public class AgendaService {
         return availability.getHorariosDisponiveisDoDia(date);
     }
 
+    /** Ocupados para o servico pedido (so barbeiros aptos); {@code null} = barbearia toda. */
+    public String getHorariosOcupadosParaIA(ProfessionalAssignmentService.ServicoPedido servico) {
+        return servico == null ? availability.getHorariosOcupadosParaIA()
+                : availability.getHorariosOcupadosParaIA(servico.nome(), servico.aptos());
+    }
+
+    /** Livres do dia para o servico pedido (so barbeiros aptos); {@code null} = barbearia toda. */
+    public String getHorariosDisponiveisDoDia(String date, ProfessionalAssignmentService.ServicoPedido servico) {
+        return servico == null ? availability.getHorariosDisponiveisDoDia(date)
+                : availability.getHorariosDisponiveisDoDia(date, servico.nome(), servico.aptos());
+    }
+
     public String getHorariosDisponiveisDoProfissional(UUID professionalId, String date) {
         return availability.getHorariosDisponiveisDoProfissional(professionalId, date);
     }
