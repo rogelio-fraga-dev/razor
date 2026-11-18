@@ -62,6 +62,32 @@ class SiteUrlPolicyTest {
     }
 
     @Test
+    @DisplayName("foto nossa (/api/site/img/<uuid>) vale em campo de imagem, e só o padrão exato")
+    void ownImage() {
+        String id = "3f2b8c1e-9a4d-4e2f-8b7a-1c2d3e4f5a6b";
+        assertThatCode(() -> SiteUrlPolicy.requireImage("/api/site/img/" + id, "logo")).doesNotThrowAnyException();
+        assertThatCode(() -> SiteUrlPolicy.requireImage("https://cdn.exemplo.com/a.jpg", "logo")).doesNotThrowAnyException();
+        assertThatCode(() -> SiteUrlPolicy.requireGallery("/api/site/img/" + id + "\nhttps://a.com/1.jpg"))
+                .doesNotThrowAnyException();
+        org.assertj.core.api.Assertions.assertThat(SiteUrlPolicy.ownImageId("/api/site/img/" + id)).isPresent();
+        for (String bad : new String[] {
+                "/api/site/img/" + id + "?x=1",
+                "/api/site/img/" + id + "/../../admin",
+                "//evil.com/api/site/img/" + id,
+                "/api/site/img/nao-e-uuid",
+                "/api/site/img/" + id.toUpperCase(),
+                "/api/admin/site",
+                "/foto.jpg",
+                "javascript:/api/site/img/" + id}) {
+            assertThatThrownBy(() -> SiteUrlPolicy.requireImage(bad, "logo"))
+                    .as(bad).isInstanceOf(IllegalArgumentException.class);
+        }
+        // Link clicavel (Instagram, mapa, requireHttps) continua so https.
+        assertThatThrownBy(() -> SiteUrlPolicy.requireHttps("/api/site/img/" + id, "logo"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     @DisplayName("galeria: uma https por linha, no máximo 12")
     void gallery() {
         assertThatCode(() -> SiteUrlPolicy.requireGallery("https://a.com/1.jpg\n\nhttps://a.com/2.jpg\n"))

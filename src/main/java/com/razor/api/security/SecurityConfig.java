@@ -133,6 +133,8 @@ public class SecurityConfig {
                         // login nao e um site. O isolamento vem do slug da URL, e o que sai e
                         // limitado pelo PublicSiteResponse: nenhum dado de cliente, faturamento
                         // ou comissao passa por ali.
+                        // Inclui as fotos do site (V45), GET /api/site/img/{uuid}: publicas por
+                        // UUID aleatorio, servidas com nosniff e tipo detectado pelos bytes.
                         .requestMatchers(HttpMethod.GET, "/api/site/**").permitAll()
                         // Agendamento online (V38): o unico POST publico do site. Contido pelo
                         // limite por IP proprio no RateLimitFilter e pelo honeypot.

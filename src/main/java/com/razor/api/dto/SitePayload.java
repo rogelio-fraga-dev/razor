@@ -3,8 +3,10 @@ package com.razor.api.dto;
 import com.razor.api.model.BarbershopSite;
 import com.razor.api.model.SiteTemplate;
 import com.razor.api.model.SiteTheme;
+import com.razor.api.util.SiteContentPolicy;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.Map;
 
 /**
  * Conteudo do site como o painel edita. Mesmo record na ida e na volta: o editor carrega,
@@ -36,7 +38,13 @@ public record SitePayload(
         Boolean showPrices,
         Boolean published,
         /** Pagina publica de agendamento online (V38). */
-        Boolean onlineBookingEnabled) {
+        Boolean onlineBookingEnabled,
+        /**
+         * Textos e visibilidade por secao, botao de agendar e animacoes (V45). Mapa cru na entrada
+         * de proposito: o {@code SiteContentPolicy} precisa VER chave desconhecida para recusa-la —
+         * um record tipado a descartaria em silencio. Nulo = tudo no padrao do template.
+         */
+        Map<String, Object> content) {
 
     public static SitePayload from(BarbershopSite s) {
         return new SitePayload(
@@ -45,6 +53,7 @@ public record SitePayload(
                 s.getLogoUrl(), s.getHeroImageUrl(), s.getGalleryUrls(),
                 s.getWhatsappNumber(), s.getInstagramUrl(), s.getMapsUrl(),
                 s.isShowTeam(), s.isShowPlans(), s.isShowPrices(), s.isPublished(),
-                s.isOnlineBookingEnabled());
+                s.isOnlineBookingEnabled(),
+                SiteContentPolicy.asMap(SiteContentPolicy.fromJson(s.getContentJson())));
     }
 }

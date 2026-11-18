@@ -41,7 +41,9 @@ public record PublicSiteResponse(
         List<TeamMember> team,
         List<Plan> plans,
         /** Agendamento online ligado (V38): o "Agendar" do site leva a /b/{slug}/agendar. */
-        boolean onlineBooking) {
+        boolean onlineBooking,
+        /** Textos por secao, botao e animacoes do dono (V45). Nulo = padroes do template. */
+        SiteContent content) {
 
     /** {@code price} nulo quando o dono optou por nao publicar precos. */
     public record Service(String name, BigDecimal price, Integer durationMinutes) {

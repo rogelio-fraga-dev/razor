@@ -39,7 +39,9 @@ public class AdminSiteController {
      * dono publicaria as cegas para descobrir como ficou.
      */
     @GetMapping("/preview")
-    public PublicSiteResponse preview() {
-        return publicSiteService.preview(TenantContext.getCurrent());
+    public PublicSiteResponse preview(@RequestParam(name = "completo", defaultValue = "false") boolean completo) {
+        // ?completo=true: dados sem os interruptores do site salvo — a previa ao vivo aplica os
+        // do rascunho por cima (ver PublicSiteService#preview).
+        return publicSiteService.preview(TenantContext.getCurrent(), completo);
     }
 }

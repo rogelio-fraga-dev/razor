@@ -190,6 +190,43 @@ class PublicSiteServiceTest {
         assertThat(out.theme()).isEqualTo(com.razor.api.model.SiteTheme.AUTO);
     }
 
+    @Test
+    @DisplayName("prévia completa ignora os interruptores salvos (o editor aplica os do rascunho)")
+    void preview_complete_ignoresToggles() {
+        BarbershopSite s = site(false);
+        s.setShowPrices(false);
+        s.setShowTeam(false);
+        s.setShowPlans(false);
+        when(barbershopRepository.findById(shopId)).thenReturn(Optional.of(shop(true)));
+        when(siteRepository.findById(shopId)).thenReturn(Optional.of(s));
+
+        var normal = service.preview(shopId);
+        assertThat(normal.services().get(0).price()).isNull();
+        assertThat(normal.team()).isEmpty();
+        assertThat(normal.plans()).isEmpty();
+
+        var completo = service.preview(shopId, true);
+        assertThat(completo.services().get(0).price()).isEqualByComparingTo("45.00");
+        assertThat(completo.team()).hasSize(1);
+        assertThat(completo.plans()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("conteúdo por seção sai no site público; JSON inválido no banco vira padrão")
+    void content_isExposed() {
+        BarbershopSite s = site(true);
+        s.setContentJson("{\"sections\":{\"cta\":{\"title\":\"Vem cortar\"}},\"motion\":\"off\"}");
+        when(barbershopRepository.findBySlug("navalha")).thenReturn(Optional.of(shop(true)));
+        when(siteRepository.findById(shopId)).thenReturn(Optional.of(s));
+
+        var out = service.bySlug("navalha");
+        assertThat(out.content().sections().get("cta").title()).isEqualTo("Vem cortar");
+        assertThat(out.content().motion()).isEqualTo("off");
+
+        s.setContentJson("{\"sections\":{\"cta\":{\"onclick\":\"x\"}}}");
+        assertThat(service.bySlug("navalha").content()).isNull();
+    }
+
     /** Reflexão só para travar o formato do DTO público — ver o teste de equipe. */
     static final class PublicSiteResponseFields {
         static int teamFieldCount() {

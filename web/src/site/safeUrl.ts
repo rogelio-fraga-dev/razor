@@ -7,16 +7,31 @@
 import type { PublicSite } from "../api/types";
 
 /**
- * A URL normalizada se for http(s) absoluta; senão `null`.
+ * Foto enviada pelo painel (V45), servida por nós: `/api/site/img/<uuid>`. É a ÚNICA URL
+ * relativa aceita — o padrão é exato (prefixo fixo + UUID minúsculo, nada antes nem depois),
+ * igual ao do backend (SiteUrlPolicy), então não passa `../`, query, `//host` nem outra rota.
+ */
+export const OWN_IMAGE = /^\/api\/site\/img\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** Caminho público de uma foto enviada. */
+export const ownImageUrl = (id: string) => `/api/site/img/${id}`;
+
+/**
+ * A URL normalizada se for http(s) absoluta ou uma foto nossa (`/api/site/img/<uuid>`); senão
+ * `null`.
  *
  * Também escapa `(`, `)` e `'`, que a normalização do navegador deixa passar: a capa vai num
- * `url(...)` de CSS, e um parêntese ali fecharia a função.
+ * `url(...)` de CSS, e um parêntese ali fecharia a função. (A foto nossa não tem nenhum deles —
+ * o padrão só deixa passar hexadecimal e hífen.)
  */
 export function safeHttpUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
+  const trimmed = raw.trim();
+  if (OWN_IMAGE.test(trimmed)) return trimmed;
   let u: URL;
   try {
-    u = new URL(raw.trim());
+    // Sem base de propósito: qualquer outro relativo lança e cai no `null`.
+    u = new URL(trimmed);
   } catch {
     return null;
   }
