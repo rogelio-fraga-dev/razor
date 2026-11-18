@@ -45,6 +45,15 @@ V48 painel, V49 cadastro, V50 monitoramento, V51 área do cliente, V52 metas, V5
 - [ ] Testes de ponta a ponta com Playwright (roteiros dos principais fluxos).
 - [ ] Armazenamento de fotos com interface trocável: banco (padrão) ou S3 (opcional por config).
 
+### 6. Vídeo para Reels (marketing)
+- [ ] Roteiro de 30–45s para narração por cima (gancho nos 3 primeiros segundos, dor → solução →
+      prova visual → chamada), com marcação de tempo, texto da narração e o que aparece na tela.
+- [ ] Vídeo vertical 1080×1920, bem dinâmico (cortes rápidos, zooms, textos cinéticos, celular 3D com
+      a conversa do bot, agenda se preenchendo, site do cliente, card "O que a IA fez"), sem
+      narração gravada — com espaço para a voz e versão com legendas queimadas.
+- [ ] Fonte do vídeo versionada (cenas em HTML/CSS animado, renderizadas para MP4) para dar para
+      editar textos e regravar.
+
 ## Onda 2 (depois da onda 1)
 - Área do cliente no site (V51): entrar com código pelo WhatsApp; ver, remarcar e cancelar
   agendamentos; saldo de pacote; status do clube.
