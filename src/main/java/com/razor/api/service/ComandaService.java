@@ -49,6 +49,8 @@ public class ComandaService {
     private final CashRegisterService cashRegisterService;
     private final StockService stockService;
     private final CouponService couponService;
+    private final com.razor.api.repository.AppointmentRepository appointmentRepository;
+    private final FidelityVisitService fidelityVisitService;
 
     // ---------- consultas ----------
 
@@ -217,6 +219,8 @@ public class ComandaService {
 
         log.info("[COMANDA] Fechada {} por {} ({}) no tenant {}",
                 comanda.getId(), total, method, comanda.getBarbershopId());
+
+        registrarFidelidadeAposCommit(comanda, items);
         return saved;
     }
 
@@ -231,6 +235,45 @@ public class ComandaService {
     }
 
     // ---------- apoio ----------
+
+    /**
+     * O ponto de fidelidade e dado aqui, quando o SERVICO foi prestado e pago — e nao mais no
+     * agendamento. So conta comanda com ao menos um servico (venda so de produto nao e visita).
+     *
+     * <p>Roda depois do commit: uma falha na fidelidade (ou o envio do cupom) nunca pode desfazer
+     * o fechamento do caixa, e o ponto nao pode ser dado se o fechamento sofrer rollback.
+     */
+    private void registrarFidelidadeAposCommit(Comanda comanda, List<ComandaItem> items) {
+        boolean temServico = items.stream().anyMatch(i -> i.getKind() == ComandaItem.Kind.SERVICO);
+        if (!temServico) return;
+        String phone = telefoneDoCliente(comanda);
+        if (phone == null) return;
+
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            fidelityVisitService.registerCompletedVisit(phone);
+                        }
+                    });
+        } else {
+            fidelityVisitService.registerCompletedVisit(phone);
+        }
+    }
+
+    /** Telefone da comanda; sem ele, o do agendamento vinculado (mesmo tenant). */
+    private String telefoneDoCliente(Comanda comanda) {
+        if (comanda.getCustomerPhone() != null && !comanda.getCustomerPhone().isBlank()) {
+            return comanda.getCustomerPhone();
+        }
+        if (comanda.getAppointmentId() == null) return null;
+        return appointmentRepository.findById(comanda.getAppointmentId())
+                .filter(a -> comanda.getBarbershopId().equals(a.getBarbershopId()))
+                .map(com.razor.api.model.Appointment::getCustomerPhone)
+                .filter(p -> !p.isBlank() && !"N/A".equals(p))
+                .orElse(null);
+    }
 
     /**
      * Produtos da comanda viram venda para historico e comissao. O {@code cashMovementId} e o da

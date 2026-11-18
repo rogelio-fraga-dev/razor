@@ -58,6 +58,8 @@ class ComandaServiceTest {
     @Mock private ProfessionalRepository professionalRepository;
     @Mock private CashRegisterService cashRegisterService;
     @Mock private StockService stockService;
+    @Mock private com.razor.api.repository.AppointmentRepository appointmentRepository;
+    @Mock private FidelityVisitService fidelityVisitService;
 
     @InjectMocks private ComandaService service;
 
@@ -147,6 +149,64 @@ class ComandaServiceTest {
         assertThatThrownBy(() -> service.addProduct(comandaId, UUID.randomUUID(), 1))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("ja foi fechada");
+    }
+
+    // ---------- fidelidade no atendimento concluido ----------
+
+    @Test
+    @DisplayName("fechar comanda com servico registra o ponto de fidelidade do cliente")
+    void close_withService_registersFidelityVisit() {
+        Comanda c = openComanda(null);
+        c.setCustomerPhone("5511999990000");
+        givenItems(item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1));
+        givenCashAccepts();
+
+        service.close(comandaId, CashPaymentMethod.PIX);
+
+        verify(fidelityVisitService).registerCompletedVisit("5511999990000");
+    }
+
+    @Test
+    @DisplayName("sem telefone na comanda, usa o do agendamento vinculado")
+    void close_linkedAppointment_usesAppointmentPhone() {
+        Comanda c = openComanda(null);
+        c.setAppointmentId(42L);
+        when(appointmentRepository.findById(42L)).thenReturn(Optional.of(
+                com.razor.api.model.Appointment.builder().id(42L)
+                        .barbershopId(c.getBarbershopId()).customerPhone("5511888880000").build()));
+        givenItems(item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1));
+        givenCashAccepts();
+
+        service.close(comandaId, CashPaymentMethod.PIX);
+
+        verify(fidelityVisitService).registerCompletedVisit("5511888880000");
+    }
+
+    @Test
+    @DisplayName("comanda so de produto nao conta como visita")
+    void close_onlyProducts_noFidelity() {
+        Comanda c = openComanda(null);
+        c.setCustomerPhone("5511999990000");
+        givenItems(item(ComandaItem.Kind.PRODUTO, "Pomada", "29.90", 1));
+        givenCashAccepts();
+
+        service.close(comandaId, CashPaymentMethod.PIX);
+
+        verify(fidelityVisitService, never()).registerCompletedVisit(any());
+    }
+
+    @Test
+    @DisplayName("fechamento que falha nao da ponto de fidelidade")
+    void close_fails_noFidelity() {
+        Comanda c = openComanda(null);
+        c.setCustomerPhone("5511999990000");
+        givenItems(item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1));
+        when(cashRegisterService.recordMovement(any(), any(), any(), any()))
+                .thenThrow(new IllegalStateException("caixa fechado"));
+
+        assertThatThrownBy(() -> service.close(comandaId, CashPaymentMethod.PIX))
+                .isInstanceOf(IllegalStateException.class);
+        verify(fidelityVisitService, never()).registerCompletedVisit(any());
     }
 
     // ---------- fechamento (dinheiro) ----------
