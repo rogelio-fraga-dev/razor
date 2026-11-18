@@ -70,6 +70,13 @@ public class BarbershopSite {
     @Column(name = "maps_url", columnDefinition = "text")
     private String mapsUrl;
 
+    /**
+     * Textos e visibilidade por secao, texto do botao e animacoes (V45), em JSON. So entra aqui
+     * o que passou pelo {@code SiteContentPolicy}; nulo = tudo no padrao do template.
+     */
+    @Column(name = "content_json", columnDefinition = "text")
+    private String contentJson;
+
     @Column(name = "show_team", nullable = false)
     private boolean showTeam;
 

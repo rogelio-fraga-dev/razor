@@ -23,6 +23,7 @@ import { Settings } from "./pages/Settings";
 import { Profile } from "./pages/Profile";
 import { SitePage } from "./site/SitePage";
 import { BookingPage } from "./site/BookingPage";
+import { SitePreviewPage } from "./site/SitePreviewPage";
 
 function Protected() {
   const { session } = useAuth();
@@ -50,6 +51,10 @@ export default function App() {
           com login nao e um site. */}
       <Route path="/b/:slug" element={<SitePage />} />
       <Route path="/b/:slug/agendar" element={<BookingPage />} />
+      {/* Prévia ao vivo do editor do site (iframe). Fora do <Protected> para não carregar a
+          paleta de comandos dentro do iframe; a página confere o papel e a API recusa quem não
+          é dono. */}
+      <Route path="/site-previa" element={<SitePreviewPage />} />
       <Route path="/login" element={session ? <Navigate to={home} replace /> : <Login />} />
       <Route element={<Protected />}>
         <Route path="/" element={<Dashboard />} />

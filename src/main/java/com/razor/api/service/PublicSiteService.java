@@ -10,6 +10,7 @@ import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.repository.ServiceOfferingRepository;
 import com.razor.api.repository.SubscriptionPlanRepository;
 import com.razor.api.tenant.TenantContext;
+import com.razor.api.util.SiteContentPolicy;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -66,15 +67,34 @@ public class PublicSiteService {
      */
     @Transactional(readOnly = true)
     public PublicSiteResponse preview(UUID barbershopId) {
+        return preview(barbershopId, false);
+    }
+
+    /**
+     * @param ignoreToggles {@code true} traz precos, equipe e planos mesmo com o interruptor
+     *        desligado no site SALVO. E o que a previa ao vivo do editor (V45) precisa: ela aplica
+     *        os interruptores do RASCUNHO por cima — sem os dados completos, ligar "mostrar
+     *        precos" no rascunho nao teria preco nenhum para mostrar. So o dono autenticado chega
+     *        aqui, e sao dados dele.
+     */
+    @Transactional(readOnly = true)
+    public PublicSiteResponse preview(UUID barbershopId, boolean ignoreToggles) {
         Barbershop shop = barbershopRepository.findById(barbershopId)
                 .orElseThrow(() -> new NotFoundException("Barbearia nao encontrada."));
         BarbershopSite site = siteRepository.findById(barbershopId)
                 .orElseGet(() -> BarbershopSite.defaultsFor(barbershopId));
-        return assemble(shop, site);
+        return assemble(shop, site, ignoreToggles);
     }
 
     private PublicSiteResponse assemble(Barbershop shop, BarbershopSite site) {
+        return assemble(shop, site, false);
+    }
+
+    private PublicSiteResponse assemble(Barbershop shop, BarbershopSite site, boolean ignoreToggles) {
         UUID id = shop.getId();
+        boolean showPrices = ignoreToggles || site.isShowPrices();
+        boolean showTeam = ignoreToggles || site.isShowTeam();
+        boolean showPlans = ignoreToggles || site.isShowPlans();
         var cfg = settingsService.resolveFor(id);
 
         // Preco so sai quando o dono liga: barbearia que trabalha com orcamento nao quer tabela
@@ -83,13 +103,13 @@ public class PublicSiteService {
                 .stream()
                 .map(s -> new PublicSiteResponse.Service(
                         s.getName(),
-                        site.isShowPrices() ? s.getPrice() : null,
+                        showPrices ? s.getPrice() : null,
                         s.getDurationMinutes()))
                 .toList();
 
         // So barbeiro ATIVO e so campos de vitrine (V37). Telefone, comissao, id e servicos que
         // atende nao tem por que sair daqui — o mapeamento campo a campo e a fronteira.
-        List<PublicSiteResponse.TeamMember> team = site.isShowTeam()
+        List<PublicSiteResponse.TeamMember> team = showTeam
                 ? professionalRepository.findByBarbershopIdAndActiveTrue(id).stream()
                         .filter(Professional::isActive)
                         .map(p -> new PublicSiteResponse.TeamMember(
@@ -102,7 +122,7 @@ public class PublicSiteService {
                         .toList()
                 : List.of();
 
-        List<PublicSiteResponse.Plan> plans = site.isShowPlans()
+        List<PublicSiteResponse.Plan> plans = showPlans
                 ? planRepository.findByBarbershopIdAndActiveTrue(id).stream()
                         .map(p -> new PublicSiteResponse.Plan(p.getName(), p.getPrice(), p.getDescription()))
                         .toList()
@@ -130,7 +150,9 @@ public class PublicSiteService {
                 services,
                 team,
                 plans,
-                site.isOnlineBookingEnabled());
+                site.isOnlineBookingEnabled(),
+                // Relido pela politica: so sai o que ainda cabe na regra (ver SiteContentPolicy).
+                SiteContentPolicy.fromJson(site.getContentJson()));
     }
 
     private static String blankToNull(String s) {

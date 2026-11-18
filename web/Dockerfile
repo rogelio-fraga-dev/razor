@@ -29,6 +29,8 @@ FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Cabecalhos de seguranca (CSP etc.), incluidos em cada location do nginx.conf.
 COPY security-headers.conf /etc/nginx/snippets/razor-security-headers.conf
+# Variante para a previa do editor do site (/site-previa), enquadravel so pela propria origem.
+COPY security-headers-frameable.conf /etc/nginx/snippets/razor-security-headers-frameable.conf
 COPY --from=build /build/dist /usr/share/nginx/html
 
 EXPOSE 80
