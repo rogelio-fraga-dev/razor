@@ -436,4 +436,23 @@ class AgendaServiceTest {
         assertThat(count).isEqualTo(1);
         verify(appointmentRepository, times(2)).save(any(Appointment.class));
     }
+
+    @Test
+    @DisplayName("processAgenda com JSON invalido LANCA (antes devolvia 0 e o admin lia '✅ 0 clientes')")
+    void processAgenda_invalidJson_throws() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.processAgenda("isto nao e json {"))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("processAgenda propaga falha de banco no meio do lote")
+    void processAgenda_saveFails_throws() {
+        when(customerService.findByName(any())).thenReturn(null);
+        when(appointmentRepository.save(any(Appointment.class))).thenThrow(new RuntimeException("db fora"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.processAgenda(
+                "{\"items\":[{\"name\":\"Ana\",\"time\":\"10:00\",\"date\":\"20/12\"}]}"))
+                .hasMessageContaining("db fora");
+    }
 }

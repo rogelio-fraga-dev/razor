@@ -97,12 +97,25 @@ public class AgendaBookingService {
     /**
      * Lote de agendamentos enviado pelo admin ({@code {"items":[{name,time,date,service}]}}).
      * Retorna quantos foram de clientes conhecidos (com telefone, e portanto com lembrete).
+     *
+     * <p>Erro (JSON invalido da Visao IA, falha de banco) <b>sobe</b> e o lote inteiro e desfeito:
+     * antes o catch devolvia 0 e o admin lia "✅ 0 clientes", sem saber que a importacao falhou.
      */
+    @org.springframework.transaction.annotation.Transactional
     public int processAgenda(String jsonAgenda) {
         int agendados = 0;
+        JsonNode root;
         try {
-            JsonNode root = objectMapper.readTree(jsonAgenda);
-            JsonNode items = root.get("items");
+            root = objectMapper.readTree(jsonAgenda);
+        } catch (Exception e) {
+            log.error("[AGENDA] JSON de agenda invalido recebido: '{}'", truncate(jsonAgenda), e);
+            throw new IllegalArgumentException("JSON de agenda invalido", e);
+        }
+        try {
+            JsonNode items = root == null ? null : root.get("items");
+            if (items == null || !items.isArray()) {
+                log.warn("[AGENDA] JSON de agenda sem lista 'items': '{}'", truncate(jsonAgenda));
+            }
 
             if (items != null && items.isArray()) {
                 for (JsonNode item : items) {
@@ -145,10 +158,16 @@ public class AgendaBookingService {
                 }
             }
             return agendados;
-        } catch (Exception e) {
-            log.error("Erro Agenda JSON: {}", e.getMessage());
-            return 0;
+        } catch (RuntimeException e) {
+            log.error("[AGENDA] Falha ao importar o lote de agenda (desfeito). JSON: '{}'", truncate(jsonAgenda), e);
+            throw e;
         }
+    }
+
+    /** JSON no log sem estourar a linha (a Visao IA pode devolver textos longos). */
+    private static String truncate(String s) {
+        if (s == null) return "null";
+        return s.length() <= 500 ? s : s.substring(0, 500) + "...(" + s.length() + " chars)";
     }
 
     public Appointment getAgendamentoCliente(String phone) {
