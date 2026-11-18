@@ -105,7 +105,7 @@ Referência de mercado: Frizzar R$ 57–249 · Booksy R$ 99,90 + R$ 20/prof · C
 |---|---|---|---|---|
 | **Solo** | 1 barbeiro | **R$ 69,90** | R$ 58,25/mês (R$ 699/ano) | 1 barbeiro · 300 conversas de IA/mês |
 | **Equipe** ⭐ | barbearia com equipe | **R$ 149,90** | R$ 124,92/mês (R$ 1.499/ano) | até 5 barbeiros (+R$ 19,90/extra) · 1.000 conversas/mês |
-| **Pro** | rede / máximo | **R$ 249,90** | R$ 208,25/mês (R$ 2.499/ano) | barbeiros ilimitados · 3.000 conversas/mês · 1 unidade (+R$ 99/unidade) |
+| **Pro** | rede / máximo | **R$ 249,90** | R$ 208,25/mês (R$ 2.499/ano) | até 10 barbeiros (+R$ 19,90/extra) · 3.000 conversas/mês · 1 unidade (+R$ 99/unidade) |
 
 **Solo** — IA no WhatsApp (texto e áudio), agenda e agendamento online, site próprio (3 templates)
 com editor, confirmação anti-falta, lembretes, lista de espera automática, avaliações no Google,
