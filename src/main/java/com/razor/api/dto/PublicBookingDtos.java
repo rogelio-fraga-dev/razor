@@ -43,7 +43,11 @@ public final class PublicBookingDtos {
     public record ServiceOption(UUID id, String name, int durationMinutes, BigDecimal price) {
     }
 
-    public record ProfessionalOption(UUID id, String name) {
+    /**
+     * @param serviceIds servicos (ids de {@code services}) que este barbeiro faz — a pagina so o
+     *                   oferece para esses (V37). Barbeiro sem restricao lista todos.
+     */
+    public record ProfessionalOption(UUID id, String name, List<UUID> serviceIds) {
     }
 
     /** Horarios livres ("HH:mm") de um dia para o servico/barbeiro pedidos. So os horarios. */

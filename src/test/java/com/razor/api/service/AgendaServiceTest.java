@@ -77,7 +77,7 @@ class AgendaServiceTest {
         service = new AgendaService(
                 availability,
                 bookingService = new AgendaBookingService(appointmentRepository, customerService,
-                        professionalAssignmentService, tasks, availability, barbershopSettingsService),
+                        professionalAssignmentService, tasks, availability, barbershopSettingsService, BookingLock.inline()),
                 tasks,
                 new AgendaReportService(appointmentRepository, reportService));
         // Sem restricao de servico nos testes daqui: o filtro devolve os livres como vieram.
@@ -178,7 +178,7 @@ class AgendaServiceTest {
         LocalDate d1 = LocalDate.of(2026, 12, 20);
         LocalDate d2 = LocalDate.of(2026, 12, 21);
         when(professionalRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(prof())); // capacidade 1
-        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateGreaterThanEqual(any(UUID.class), any())).thenReturn(List.of(
                 appt("Corte", PaymentStatus.PENDENTE, d1, LocalTime.of(10, 0)),
                 appt("Corte", PaymentStatus.PENDENTE, d1, LocalTime.of(11, 0)),
                 appt("Corte", PaymentStatus.PENDENTE, d2, LocalTime.of(14, 0))));
@@ -193,7 +193,7 @@ class AgendaServiceTest {
     void horariosOcupados_onlyFullWhenAllChairsBusy() {
         LocalDate dia = LocalDate.of(2026, 12, 20);
         when(professionalRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(prof(), prof())); // capacidade 2
-        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateGreaterThanEqual(any(UUID.class), any())).thenReturn(List.of(
                 // 10:00 tem 1 agendamento (ainda há cadeira livre) -> disponível
                 appt("Corte", PaymentStatus.PENDENTE, dia, LocalTime.of(10, 0)),
                 // 11:00 tem 2 agendamentos (ambas as cadeiras) -> indisponível
@@ -210,7 +210,7 @@ class AgendaServiceTest {
     void horariosDisponiveis_excludesOccupied() {
         LocalDate future = proximoDiaAberto();
         String dateStr = AppointmentDates.formatDate(future);
-        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDate(any(UUID.class), any())).thenReturn(List.of(
                 appt("Corte", PaymentStatus.PENDENTE, future, LocalTime.of(9, 0))));
         givenDurations();
         when(pricingService.categorize("Corte")).thenReturn(PricingService.ServiceCategory.SIMPLES);
@@ -225,7 +225,7 @@ class AgendaServiceTest {
     void horariosDisponiveis_excludesBlocked() {
         LocalDate future = proximoDiaAberto();
         String dateStr = AppointmentDates.formatDate(future);
-        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of()); // agenda vazia
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDate(any(UUID.class), any())).thenReturn(List.of()); // agenda vazia
         givenDurations();
         // almoço: 12:00 e 12:30 bloqueados
         when(scheduleBlockService.isBlocked(eq(future), eq(LocalTime.of(12, 0)), anyInt(), any()))
@@ -243,7 +243,7 @@ class AgendaServiceTest {
     void horariosDisponiveis_fullDayBlocked() {
         LocalDate future = AppointmentDates.today().plusDays(6);
         String dateStr = AppointmentDates.formatDate(future);
-        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of());
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDate(any(UUID.class), any())).thenReturn(List.of());
         givenDurations();
         when(scheduleBlockService.isBlocked(eq(future), any(), anyInt(), any())).thenReturn(true);
 
@@ -264,7 +264,7 @@ class AgendaServiceTest {
     void horariosDisponiveis_comboBlocksTwoSlots() {
         LocalDate future = proximoDiaAberto();
         String dateStr = AppointmentDates.formatDate(future);
-        when(appointmentRepository.findByBarbershopId(any(UUID.class))).thenReturn(List.of(
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDate(any(UUID.class), any())).thenReturn(List.of(
                 appt("Combo", PaymentStatus.PENDENTE, future, LocalTime.of(9, 0))));
         givenDurations();
         when(pricingService.categorize("Combo")).thenReturn(PricingService.ServiceCategory.COMBO);
@@ -320,7 +320,7 @@ class AgendaServiceTest {
     }
 
     private void givenUpcoming(Appointment... apps) {
-        when(appointmentRepository.findUpcomingByCustomer(any(UUID.class), eq(PHONE), any(LocalDate.class), any(LocalTime.class)))
+        when(appointmentRepository.findUpcomingByCustomer(any(UUID.class), org.mockito.ArgumentMatchers.argThat(c -> c != null && c.contains(PHONE)), any(LocalDate.class), any(LocalTime.class)))
                 .thenReturn(List.of(apps));
     }
 
@@ -484,7 +484,7 @@ class AgendaServiceTest {
     void limit_explicitBarbershop() {
         UUID outra = UUID.randomUUID();
         when(barbershopSettingsService.getMaxFutureBookingsPerCustomer(outra)).thenReturn(1);
-        when(appointmentRepository.findUpcomingByCustomer(eq(outra), eq(PHONE), any(LocalDate.class), any(LocalTime.class)))
+        when(appointmentRepository.findUpcomingByCustomer(eq(outra), org.mockito.ArgumentMatchers.argThat(c -> c != null && c.contains(PHONE)), any(LocalDate.class), any(LocalTime.class)))
                 .thenReturn(List.of(appt("Corte", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 20), LocalTime.of(10, 0))));
 
         assertThat(bookingService.checkBookingLimit(outra, PHONE)).isPresent();

@@ -13,6 +13,7 @@ import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.repository.ServiceOfferingRepository;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
+import com.razor.api.util.PhoneNumbers;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -34,6 +35,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Agenda interativa do painel: a grade (dia/semana) e as acoes da recepcao sobre ela — criar,
@@ -71,6 +74,7 @@ public class AgendaPanelService {
     private final AgendaBookingService bookingService;
     private final AgendaTaskService taskService;
     private final WhatsAppService whatsAppService;
+    private final BookingLock bookingLock;
 
     // ------------------------------------------------------------------ leitura
 
@@ -147,11 +151,15 @@ public class AgendaPanelService {
         ServiceOffering service = requireService(serviceId);
         int duration = durationOf(service.getName(), pricingService.resolveDurations());
 
-        validateSlot(date, time, duration, professionalId, null);
-
-        // Cliente novo entra na base (ex.: ligou na barbearia em vez de chamar no WhatsApp).
-        customerService.findOrCreateCustomer(phone, name);
-        Appointment saved = bookingService.agendarPeloPainel(name, phone, date, time, service.getName(), professionalId);
+        // Validar e gravar sob a MESMA trava da agenda que o bot e o site usam, mantida ate o
+        // commit: antes o painel validava por fora dela e dois cliques (ou painel + bot) gravavam
+        // o mesmo horario.
+        Appointment saved = bookingLock.run(TenantContext.getCurrent(), () -> {
+            validateSlot(date, time, duration, professionalId, null, service.getName());
+            // Cliente novo entra na base (ex.: ligou na barbearia em vez de chamar no WhatsApp).
+            customerService.findOrCreateCustomer(phone, name);
+            return bookingService.agendarPeloPainel(name, phone, date, time, service.getName(), professionalId);
+        });
 
         if (notify) {
             send(saved, "Olá, " + firstName(saved) + "! 💈 Seu horário na *" + shopName() + "* está confirmado: *"
@@ -176,18 +184,26 @@ public class AgendaPanelService {
         if (sameSlot && sameBarber) return ag; // soltou no mesmo lugar: nada a fazer, nada a avisar
 
         int duration = durationOf(ag.getService(), pricingService.resolveDurations());
-        validateSlot(date, time, duration, professionalId, ag.getId());
 
-        taskService.cancelarTarefasDoAgendamento(ag); // ainda no horario antigo
-        ag.setAppointmentDate(date);
-        ag.setAppointmentTime(time);
-        ag.setProfessionalId(professionalId);
-        ag.setAttendanceStatus(null); // remarcou: o que valia para o horario antigo nao vale mais
-        ag.setConfirmationStatus(null); // a confirmacao era do horario antigo; o novo pergunta de novo
-        ag.setNotified(false);
-        Appointment saved = appointmentRepository.save(ag);
-        Appointment result = saved != null ? saved : ag;
-        taskService.criarTarefasAgendadas(result);
+        // Mesma trava do create (ver BookingLock): validar o encaixe e gravar sem ninguem no meio.
+        Appointment result = bookingLock.run(TenantContext.getCurrent(), () -> {
+            validateSlot(date, time, duration, professionalId, ag.getId(), ag.getService());
+
+            taskService.cancelarTarefasDoAgendamento(ag); // ainda no horario antigo
+            ag.setAppointmentDate(date);
+            ag.setAppointmentTime(time);
+            ag.setProfessionalId(professionalId);
+            ag.setAttendanceStatus(null); // remarcou: o que valia para o horario antigo nao vale mais
+            ag.setConfirmationStatus(null); // a confirmacao era do horario antigo; o novo pergunta de novo
+            ag.setNotified(false);
+            Appointment saved = appointmentRepository.save(ag);
+            // O UPDATE sai agora, dentro da trava: conflito no indice unico vira 409 aqui, e nao
+            // um erro generico no commit.
+            appointmentRepository.flush();
+            Appointment r = saved != null ? saved : ag;
+            taskService.criarTarefasAgendadas(r);
+            return r;
+        });
 
         log.info("[AGENDA] Agendamento {} remarcado pelo painel para {} {} (barbeiro {})", id, date, time, professionalId);
         if (notify) {
@@ -206,6 +222,15 @@ public class AgendaPanelService {
     @Transactional
     public void cancel(Long id, boolean notify) {
         Appointment ag = require(id);
+        // Atendimento que aconteceu e historico (comissao, faturamento, fidelidade): apagar o
+        // agendamento sumiria com ele dos relatorios.
+        if (ag.getAttendanceStatus() == AttendanceStatus.ATTENDED) {
+            throw new IllegalArgumentException("Este atendimento já foi realizado — não dá para cancelar.");
+        }
+        if (ag.getId() != null && comandaRepository.findByBarbershopIdAndAppointmentIdIn(ag.getBarbershopId(), List.of(ag.getId()))
+                .stream().anyMatch(c -> c.getStatus() == Comanda.Status.FECHADA)) {
+            throw new IllegalArgumentException("Este agendamento já tem a comanda fechada (pago) — não dá para cancelar.");
+        }
         LocalDate date = ag.getAppointmentDate();
         LocalTime time = ag.getAppointmentTime();
         bookingService.cancelarAgendamentoExato(ag);
@@ -261,10 +286,15 @@ public class AgendaPanelService {
      * Regras do encaixe de um horario de {@code duration} minutos para o barbeiro. Lanca
      * {@link IllegalArgumentException} com a mensagem que o painel mostra no toast.
      *
-     * <p>Restricao "barbeiro atende este servico": ainda nao existe no cadastro do profissional;
-     * quando existir, entra aqui.
+     * <p>Restricao "barbeiro atende este servico" (V37): barbeiro com servicos configurados que
+     * nao incluem o pedido e recusado — a mesma regra do bot e do site.
      */
     void validateSlot(LocalDate date, LocalTime time, int duration, UUID professionalId, Long ignoreId) {
+        validateSlot(date, time, duration, professionalId, ignoreId, null);
+    }
+
+    void validateSlot(LocalDate date, LocalTime time, int duration, UUID professionalId, Long ignoreId,
+                      String serviceName) {
         if (date == null || time == null) throw new IllegalArgumentException("Informe data e horário.");
         if (professionalId == null) throw new IllegalArgumentException("Escolha o barbeiro.");
         UUID shop = TenantContext.getCurrent();
@@ -275,6 +305,11 @@ public class AgendaPanelService {
                 .orElseThrow(() -> new NotFoundException("Barbeiro não encontrado."));
         if (!pro.isActive()) {
             throw new IllegalArgumentException(pro.getName() + " está inativo — escolha outro barbeiro.");
+        }
+        if (serviceName != null && !pro.servesAllServices()
+                && ServiceCapability.qualified(List.of(pro), serviceName,
+                        serviceOfferingRepository.findByBarbershopIdAndActiveTrue(shop)).isEmpty()) {
+            throw new IllegalArgumentException(pro.getName() + " não faz " + serviceName + " — escolha outro barbeiro.");
         }
 
         if (LocalDateTime.of(date, time).isBefore(LocalDateTime.now(AppointmentDates.ZONE))) {
@@ -327,12 +362,9 @@ public class AgendaPanelService {
      * digitos) — o mesmo que chega do webhook, para o cliente nao virar dois cadastros.
      */
     static String normalizePhone(String raw) {
-        String digits = raw == null ? "" : raw.replaceAll("[^0-9]", "");
-        if (digits.length() == 10 || digits.length() == 11) digits = "55" + digits;
-        if (digits.length() < 12 || digits.length() > 13) {
-            throw new IllegalArgumentException("Telefone inválido — use DDD + número (ex.: 11 99999-0000).");
-        }
-        return digits;
+        // Mesmo formato canonico do site (PhoneNumbers.canonicalBrazilian): um cliente, um cadastro.
+        return PhoneNumbers.canonicalBrazilian(raw).orElseThrow(() ->
+                new IllegalArgumentException("Telefone inválido — use DDD + número (ex.: 11 99999-0000)."));
     }
 
     private Appointment require(Long id) {
@@ -368,7 +400,25 @@ public class AgendaPanelService {
         return v != null && !v.isBlank() ? v : null;
     }
 
+    /**
+     * Avisa o cliente DEPOIS do commit: a mensagem "remarcado para sexta" nao pode sair se a
+     * gravacao ainda for desfeita (conflito no commit, erro adiante na transacao). Sem transacao
+     * ativa (testes, chamada direta), envia na hora.
+     */
     private void send(Appointment ag, String message) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    sendNow(ag, message);
+                }
+            });
+        } else {
+            sendNow(ag, message);
+        }
+    }
+
+    private void sendNow(Appointment ag, String message) {
         String phone = ag.getCustomerPhone();
         if (phone == null || phone.isBlank() || "N/A".equals(phone)) return;
         try {

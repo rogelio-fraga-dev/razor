@@ -82,7 +82,7 @@ class AgendaPanelServiceTest {
 
         service = new AgendaPanelService(appointmentRepository, professionalRepository, serviceOfferingRepository,
                 comandaRepository, scheduleBlockService, barbershopSettingsService, pricing, customerService,
-                bookingService, taskService, whatsAppService);
+                bookingService, taskService, whatsAppService, BookingLock.inline());
 
         // Expediente padrao: 09:00-19:00, segunda a sabado.
         when(barbershopSettingsService.resolve())
@@ -446,5 +446,55 @@ class AgendaPanelServiceTest {
         LocalDate d = AppointmentDates.today().plusDays(2);
         while (d.getDayOfWeek() != dow) d = d.plusDays(1);
         return d;
+    }
+
+    // ------------------------------------------------------------------ revisao 2026-11-18
+
+    @Test
+    @DisplayName("cancelar atendimento já realizado é recusado")
+    void cancel_attended_isRefused() {
+        Appointment ag = appointment(1L, "Corte", rafael.getId(), AppointmentDates.today().minusDays(1), LocalTime.of(10, 0));
+        ag.setAttendanceStatus(com.razor.api.model.AttendanceStatus.ATTENDED);
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(ag));
+
+        assertThatThrownBy(() -> service.cancel(1L, true))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("já foi realizado");
+        verify(bookingService, never()).cancelarAgendamentoExato(any());
+    }
+
+    @Test
+    @DisplayName("cancelar agendamento com comanda fechada é recusado")
+    void cancel_closedComanda_isRefused() {
+        Appointment ag = appointment(1L, "Corte", rafael.getId(), day, LocalTime.of(10, 0));
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(ag));
+        when(comandaRepository.findByBarbershopIdAndAppointmentIdIn(any(), any())).thenReturn(List.of(
+                com.razor.api.model.Comanda.builder().appointmentId(1L).status(com.razor.api.model.Comanda.Status.FECHADA).build()));
+
+        assertThatThrownBy(() -> service.cancel(1L, true))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("comanda fechada");
+        verify(bookingService, never()).cancelarAgendamentoExato(any());
+    }
+
+    @Test
+    @DisplayName("barbeiro que não faz o serviço é recusado na validação do encaixe")
+    void validateSlot_professionalWithoutService_isRefused() {
+        UUID corteId = UUID.randomUUID();
+        UUID barbaId = UUID.randomUUID();
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(
+                ServiceOffering.builder().id(corteId).barbershopId(shop).name("Corte").active(true).build(),
+                ServiceOffering.builder().id(barbaId).barbershopId(shop).name("Barba").active(true).build()));
+        rafael.setServiceIds(new java.util.HashSet<>(java.util.Set.of(corteId)));
+
+        assertThatThrownBy(() -> service.validateSlot(day, LocalTime.of(10, 0), 30, rafael.getId(), null, "Barba"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("não faz Barba");
+        service.validateSlot(day, LocalTime.of(10, 0), 30, rafael.getId(), null, "Corte"); // faz: passa
+    }
+
+    @Test
+    @DisplayName("telefone do painel sai no formato canônico (igual ao site)")
+    void normalizePhone_canonical() {
+        assertThat(AgendaPanelService.normalizePhone("011 98888-7777")).isEqualTo("5511988887777");
+        assertThatThrownBy(() -> AgendaPanelService.normalizePhone("(00) 98888-7777"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

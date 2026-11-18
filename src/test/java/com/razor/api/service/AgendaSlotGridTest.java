@@ -71,7 +71,7 @@ class AgendaSlotGridTest {
         ProfessionalAssignmentService assignment = new ProfessionalAssignmentService(
                 professionalRepository, appointmentRepository, scheduleBlockService, serviceOfferingRepository);
         booking = new AgendaBookingService(appointmentRepository, customerService, assignment,
-                taskService, availability, settingsService);
+                taskService, availability, settingsService, BookingLock.inline());
 
         // Expediente padrao: 09:00-19:00, seg a sab.
         when(settingsService.resolve()).thenReturn(new BarbershopSettingsService.BotSettings("", "", "", null, ""));
@@ -243,5 +243,17 @@ class AgendaSlotGridTest {
                 AppointmentDates.formatDate(dia), "10:00", "Corte");
         assertThat(r).isPresent();
         assertThat(r.get().getProfessionalId()).isNull();
+    }
+
+    @Test
+    @DisplayName("grade só conta barbeiros que fazem o serviço: horário em que só o outro está livre não aparece")
+    void grid_respectsServiceCapability() {
+        barbeiros(ANA, BRUNO);
+        ocupado(ANA, "10:00", "Corte");
+        // So a ANA faz o servico pedido; o BRUNO esta livre as 10:00 mas nao conta.
+        List<LocalTime> soAptos = availability.horariosLivres(dia, 30, null, List.of(ANA));
+        assertThat(soAptos).doesNotContain(t("10:00")).contains(t("10:30"));
+        // Sem restricao, as 10:00 o BRUNO atende.
+        assertThat(availability.horariosLivres(dia, 30, null)).contains(t("10:00"));
     }
 }

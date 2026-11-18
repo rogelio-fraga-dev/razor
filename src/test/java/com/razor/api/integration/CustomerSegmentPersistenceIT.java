@@ -77,7 +77,7 @@ class CustomerSegmentPersistenceIT {
         Appointment semana = appt(hoje.plusDays(7), LocalTime.of(8, 0));
         Appointment amanha = appt(hoje.plusDays(1), LocalTime.of(11, 0));
 
-        List<Appointment> out = appointmentRepository.findUpcomingByCustomer(SHOP, PHONE, hoje, LocalTime.of(12, 0));
+        List<Appointment> out = appointmentRepository.findUpcomingByCustomer(SHOP, java.util.List.of(PHONE), hoje, LocalTime.of(12, 0));
 
         assertThat(out).extracting(Appointment::getId)
                 .containsExactly(hojeTarde.getId(), amanha.getId(), semana.getId());

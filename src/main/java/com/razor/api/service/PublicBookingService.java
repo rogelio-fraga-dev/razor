@@ -14,6 +14,7 @@ import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.repository.ServiceOfferingRepository;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
+import com.razor.api.util.PhoneNumbers;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -82,6 +83,7 @@ public class PublicBookingService {
     private final CustomerService customerService;
     private final TenantAdminService tenantAdminService;
     private final WhatsAppService whatsAppService;
+    private final BookingLock bookingLock;
 
     private record Loja(Barbershop shop, BarbershopSite site) {
     }
@@ -106,7 +108,8 @@ public class PublicBookingService {
         UUID id = loja.shop().getId();
         var cfg = settingsService.resolveFor(id);
 
-        List<PublicBookingDtos.ServiceOption> services = serviceRepository.findByBarbershopIdAndActiveTrue(id).stream()
+        List<ServiceOffering> catalogo = serviceRepository.findByBarbershopIdAndActiveTrue(id);
+        List<PublicBookingDtos.ServiceOption> services = catalogo.stream()
                 .sorted(Comparator.comparing(ServiceOffering::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(s -> new PublicBookingDtos.ServiceOption(
                         s.getId(), s.getName(), duracao(s),
@@ -114,7 +117,13 @@ public class PublicBookingService {
                 .toList();
         List<PublicBookingDtos.ProfessionalOption> pros = professionalRepository.findByBarbershopIdAndActiveTrue(id).stream()
                 .sorted(Comparator.comparing(Professional::getName, String.CASE_INSENSITIVE_ORDER))
-                .map(p -> new PublicBookingDtos.ProfessionalOption(p.getId(), p.getName()))
+                // Quais servicos cada barbeiro faz (V37): a pagina so oferece, para o servico
+                // escolhido, quem de fato o atende.
+                .map(p -> new PublicBookingDtos.ProfessionalOption(p.getId(), p.getName(),
+                        catalogo.stream()
+                                .filter(s -> !ServiceCapability.qualified(List.of(p), s.getName(), catalogo).isEmpty())
+                                .map(ServiceOffering::getId)
+                                .toList()))
                 .toList();
 
         return new PublicBookingDtos.Options(
@@ -135,10 +144,11 @@ public class PublicBookingService {
         Loja loja = resolver(slug);
         UUID id = loja.shop().getId();
         ServiceOffering service = servico(id, serviceId);
-        validarProfissional(id, professionalId);
+        validarProfissional(id, professionalId, service);
         if (!dentroDaJanela(date)) return new PublicBookingDtos.Slots(date, List.of());
 
-        List<String> livres = comTenant(id, () -> availabilityService.horariosLivres(date, duracao(service), professionalId))
+        List<String> livres = comTenant(id, () -> availabilityService.horariosLivres(date, duracao(service),
+                        professionalId, aptos(id, service)))
                 .stream().map(AppointmentDates::formatTime).toList();
         return new PublicBookingDtos.Slots(date, livres);
     }
@@ -157,7 +167,7 @@ public class PublicBookingService {
         String telefone = normalizarTelefone(req.phone())
                 .orElseThrow(() -> new IllegalArgumentException("Informe um WhatsApp válido, com DDD."));
         ServiceOffering service = servico(id, req.serviceId());
-        Professional profissional = validarProfissional(id, req.professionalId());
+        Professional profissional = validarProfissional(id, req.professionalId(), service);
         LocalTime hora;
         try {
             hora = LocalTime.parse(req.time());
@@ -171,21 +181,27 @@ public class PublicBookingService {
         Appointment salvo = comTenant(id, () -> {
             // O horario tem de estar na grade que a pagina mostraria AGORA (expediente, dia aberto,
             // passado). Sem isso um POST montado a mao marcaria 03:00 de um domingo.
-            if (!availabilityService.horariosLivres(req.date(), duracao(service), req.professionalId()).contains(hora)) {
+            if (!availabilityService.horariosLivres(req.date(), duracao(service), req.professionalId(),
+                    aptos(id, service)).contains(hora)) {
                 throw new BookingConflictException("Esse horário não está mais disponível. Escolha outro.");
             }
-            if (futurosDoTelefone(id, telefone) >= MAX_FUTUROS_POR_TELEFONE) {
-                throw new IllegalArgumentException("Este WhatsApp já tem horários marcados. "
-                        + "Para marcar mais, fale com a barbearia.");
-            }
 
-            customerService.findOrCreateCustomer(telefone, nome);
-            Appointment app = bookingService.agendar(new AgendaBookingService.NovoAgendamento(
-                            nome, telefone, req.date(), hora, service.getName(), duracao(service),
-                            req.professionalId(), req.professionalId() != null, AppointmentSource.SITE))
-                    .orElseThrow(() -> new BookingConflictException(
-                            "Esse horário acabou de ser ocupado. Escolha outro."));
+            // Teto anti-abuso, cadastro e gravacao sob a trava da agenda, ate o commit: dois
+            // envios simultaneos do mesmo telefone nao passam juntos pelo teto.
+            Appointment app = bookingLock.run(id, () -> {
+                if (futurosDoTelefone(id, telefone) >= MAX_FUTUROS_POR_TELEFONE) {
+                    throw new IllegalArgumentException("Este WhatsApp já tem horários marcados. "
+                            + "Para marcar mais, fale com a barbearia.");
+                }
+                customerService.findOrCreateCustomer(telefone, nome);
+                return bookingService.agendar(new AgendaBookingService.NovoAgendamento(
+                                nome, telefone, req.date(), hora, service.getName(), duracao(service),
+                                req.professionalId(), req.professionalId() != null, AppointmentSource.SITE))
+                        .orElseThrow(() -> new BookingConflictException(
+                                "Esse horário acabou de ser ocupado. Escolha outro."));
+            });
 
+            // Mensagens so depois do commit (o bookingLock.run acima ja confirmou a gravacao).
             String nomeBarbeiro = nomeDoBarbeiro(id, app.getProfessionalId(), profissional);
             avisarCliente(app, nomeBarbeiro);
             avisarDono(app, nomeBarbeiro);
@@ -209,12 +225,31 @@ public class PublicBookingService {
                 .orElseThrow(() -> new IllegalArgumentException("Serviço indisponível."));
     }
 
-    /** {@code null} = sem preferencia. Barbeiro de outra barbearia ou inativo e recusado. */
-    private Professional validarProfissional(UUID shop, UUID professionalId) {
+    /**
+     * {@code null} = sem preferencia. Barbeiro de outra barbearia, inativo ou que nao faz o servico
+     * pedido (V37) e recusado.
+     */
+    private Professional validarProfissional(UUID shop, UUID professionalId, ServiceOffering service) {
         if (professionalId == null) return null;
-        return professionalRepository.findById(professionalId)
+        Professional pro = professionalRepository.findById(professionalId)
                 .filter(p -> shop.equals(p.getBarbershopId()) && p.isActive())
                 .orElseThrow(() -> new IllegalArgumentException("Profissional indisponível."));
+        if (service != null && !pro.servesAllServices() && ServiceCapability.qualified(List.of(pro), service.getName(),
+                serviceRepository.findByBarbershopIdAndActiveTrue(shop)).isEmpty()) {
+            throw new IllegalArgumentException(pro.getName() + " não faz " + service.getName() + ". Escolha outro profissional.");
+        }
+        return pro;
+    }
+
+    /**
+     * Barbeiros ativos que fazem o servico — so eles contam como cadeira livre na grade.
+     * {@code null} quando ninguem tem restricao configurada (todos fazem tudo).
+     */
+    private List<UUID> aptos(UUID shop, ServiceOffering service) {
+        List<Professional> ativos = professionalRepository.findByBarbershopIdAndActiveTrue(shop);
+        if (ativos == null || ativos.isEmpty() || ativos.stream().allMatch(Professional::servesAllServices)) return null;
+        return ServiceCapability.qualified(ativos, service.getName(), serviceRepository.findByBarbershopIdAndActiveTrue(shop))
+                .stream().map(Professional::getId).toList();
     }
 
     private String nomeDoBarbeiro(UUID shop, UUID atribuido, Professional pedido) {
@@ -236,12 +271,12 @@ public class PublicBookingService {
         return date != null && !date.isBefore(hoje) && date.isBefore(hoje.plusDays(MAX_DAYS_AHEAD));
     }
 
+    /**
+     * Horarios por vir do telefone — mesma regra (e mesma consulta) do limite da barbearia, em
+     * qualquer grafia do numero (com/sem o nono digito).
+     */
     private long futurosDoTelefone(UUID shop, String telefone) {
-        LocalDateTime agora = LocalDateTime.now(AppointmentDates.ZONE);
-        return appointmentRepository.findByBarbershopIdAndCustomerPhone(shop, telefone).stream()
-                .filter(a -> a.getAppointmentDate() != null && a.getAppointmentTime() != null)
-                .filter(a -> LocalDateTime.of(a.getAppointmentDate(), a.getAppointmentTime()).isAfter(agora))
-                .count();
+        return bookingService.upcomingFor(shop, telefone).size();
     }
 
     static String normalizarNome(String raw) {
@@ -257,15 +292,8 @@ public class PublicBookingService {
      * cliente que agenda pelo site e conversa pelo WhatsApp cai no mesmo cadastro.
      */
     static Optional<String> normalizarTelefone(String raw) {
-        if (raw == null) return Optional.empty();
-        String d = raw.replaceAll("\\D", "");
-        if (d.startsWith("0")) d = d.substring(1);
-        if (d.length() == 10 || d.length() == 11) d = "55" + d;
-        if (!d.startsWith("55") || (d.length() != 12 && d.length() != 13)) return Optional.empty();
-        // DDD comeca em 1..9 e celular de 11 digitos comeca com 9.
-        if (d.charAt(2) == '0') return Optional.empty();
-        if (d.length() == 13 && d.charAt(4) != '9') return Optional.empty();
-        return Optional.of(d);
+        // Formato canonico unico (o mesmo do painel): ver PhoneNumbers.canonicalBrazilian.
+        return PhoneNumbers.canonicalBrazilian(raw);
     }
 
     private void avisarCliente(Appointment app, String nomeBarbeiro) {

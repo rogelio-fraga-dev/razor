@@ -49,6 +49,27 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", msg, "limit", d.limit()));
     }
 
+    /**
+     * O indice unico de horario (V43) recusou a gravacao no commit: alguem ocupou o mesmo
+     * barbeiro/horario. Mesmo 409 "horario ocupado" do caminho normal. Outras violacoes de
+     * integridade seguem o tratamento padrao (500) — esconde-las como 409 mascararia bug.
+     */
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Object> handleIntegrity(org.springframework.dao.DataIntegrityViolationException e) {
+        if (com.razor.api.service.BookingLock.isSlotConflict(e)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "Esse horário acabou de ser ocupado. Escolha outro."));
+        }
+        throw e;
+    }
+
+    /** Fila de disparos cheia: o pedido e valido, so nao cabe agora. */
+    @ExceptionHandler(org.springframework.core.task.TaskRejectedException.class)
+    public ResponseEntity<Object> handleRejected(org.springframework.core.task.TaskRejectedException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("error", "Já há disparos demais na fila. Tente de novo em alguns minutos."));
+    }
+
     @ExceptionHandler(UpstreamServiceException.class)
     public ResponseEntity<Object> handleUpstream(UpstreamServiceException e) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("error", e.getMessage()));

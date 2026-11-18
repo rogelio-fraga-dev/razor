@@ -64,6 +64,7 @@ class PublicBookingServiceTest {
     @Mock private TenantAdminService tenantAdminService;
     @Mock private WhatsAppService whatsAppService;
 
+    @org.mockito.Spy private BookingLock bookingLock = BookingLock.inline();
     @InjectMocks private PublicBookingService service;
 
     private BarbershopSite site;
@@ -87,7 +88,7 @@ class PublicBookingServiceTest {
                 .id(ANA).barbershopId(SHOP).name("Ana").active(true).build()));
         when(tenantAdminService.adminPhones()).thenReturn(List.of("5511911112222"));
         dia = AppointmentDates.today().plusDays(2);
-        when(availabilityService.horariosLivres(eq(dia), anyInt(), any())).thenReturn(List.of(LocalTime.of(10, 0)));
+        when(availabilityService.horariosLivres(eq(dia), anyInt(), any(), any())).thenReturn(List.of(LocalTime.of(10, 0)));
         when(bookingService.agendar(any())).thenAnswer(i -> {
             AgendaBookingService.NovoAgendamento n = i.getArgument(0);
             return Optional.of(Appointment.builder().barbershopId(SHOP).customerName(n.name()).customerPhone(n.phone())
@@ -121,7 +122,7 @@ class PublicBookingServiceTest {
     void slotsOnly() {
         PublicBookingDtos.Slots s = service.slots("figaro", CORTE, null, dia);
         assertThat(s.slots()).containsExactly("10:00");
-        verify(availabilityService).horariosLivres(dia, 30, null);
+        verify(availabilityService).horariosLivres(dia, 30, null, null);
         assertThat(TenantContext.isSet()).isFalse(); // restaurado ao sair
     }
 
@@ -197,8 +198,7 @@ class PublicBookingServiceTest {
     @DisplayName("teto de horários futuros por telefone")
     void futureCap() {
         Appointment futuro = Appointment.builder().appointmentDate(dia.plusDays(1)).appointmentTime(LocalTime.NOON).build();
-        when(appointmentRepository.findByBarbershopIdAndCustomerPhone(SHOP, "5511988887777"))
-                .thenReturn(List.of(futuro, futuro, futuro));
+        when(bookingService.upcomingFor(SHOP, "5511988887777")).thenReturn(List.of(futuro, futuro, futuro));
         assertThatThrownBy(() -> service.book("figaro", pedido("11988887777", null)))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(bookingService, never()).agendar(any());
