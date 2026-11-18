@@ -43,6 +43,7 @@ class WebhookRouterTest {
     @Mock private TenantResolver tenantResolver;
     @Mock private TenantAdminService tenantAdminService;
     @Mock private BarbershopSettingsService barbershopSettingsService;
+    @Mock private WhatsAppMessenger messenger;
     // Store REAL: a deduplicacao depende de gravar/ler de verdade.
     @org.mockito.Spy
     private com.razor.api.state.StateStore stateStore =
@@ -168,5 +169,39 @@ class WebhookRouterTest {
         verify(customerConversationService, never()).processCustomerMessage(any(), any());
         verify(adminCommandService, never()).processAdminMessage(any(), any());
         assertThat(TenantContext.isSet()).isFalse();
+    }
+
+    @Test
+    @DisplayName("falha ao processar mensagem de cliente: contingencia enviada e dedup desfeito para a reentrega")
+    void customerFailure_sendsContingencyAndUnmarksDedup() {
+        when(tenantResolver.resolveByInstance(any())).thenReturn(TenantContext.DEFAULT_BARBERSHOP_ID);
+        when(interactionRepository.existsByMessageId("m40")).thenReturn(false);
+        when(tenantAdminService.isAdmin(CLIENTE)).thenReturn(false);
+        when(customerService.isCustomerPaused(CLIENTE)).thenReturn(false);
+        when(barbershopSettingsService.isBotEnabled()).thenReturn(true);
+        Mockito.doThrow(new RuntimeException("banco fora"))
+                .doNothing()
+                .when(customerConversationService).processCustomerMessage(any(), eq(CLIENTE));
+
+        router.processWebhook(webhook("inst", CLIENTE, "m40"));
+
+        verify(messenger).send(eq(CLIENTE), eq(WebhookRouter.CONTINGENCY_MSG), eq("CLIENTE"));
+        assertThat(stateStore.get(com.razor.api.state.StateKeys.dedup("m40"), Boolean.class)).isEmpty();
+
+        // a reentrega da Evolution e processada, nao descartada como duplicada
+        router.processWebhook(webhook("inst", CLIENTE, "m40"));
+        verify(customerConversationService, Mockito.times(2)).processCustomerMessage(any(), eq(CLIENTE));
+    }
+
+    @Test
+    @DisplayName("instancia desconhecida gera aviso limitado (uma vez por janela)")
+    void unknownInstance_warnIsRateLimited() {
+        when(tenantResolver.resolveByInstance("fantasma")).thenReturn(null);
+
+        router.processWebhook(webhook("fantasma", CLIENTE, "m50"));
+        router.processWebhook(webhook("fantasma", CLIENTE, "m51"));
+
+        // grava o marcador de throttle uma unica vez
+        verify(stateStore, Mockito.times(1)).put(eq("warn:unknown-instance:fantasma"), any(), any());
     }
 }

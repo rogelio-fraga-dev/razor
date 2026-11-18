@@ -38,9 +38,19 @@ public class WebhookRouter {
     private final TenantAdminService tenantAdminService;
     private final BarbershopSettingsService barbershopSettingsService;
     private final StateStore stateStore;
+    private final WhatsAppMessenger messenger;
+
+    /** Aviso de instancia desconhecida: no maximo um log por instancia nesta janela. */
+    private static final Duration UNKNOWN_INSTANCE_WARN_TTL = Duration.ofMinutes(10);
+
+    /** Resposta ao cliente quando o processamento da mensagem quebra (antes: silencio total). */
+    static final String CONTINGENCY_MSG = "Opa, tive um probleminha para processar sua mensagem 😕 "
+            + "Pode tentar de novo em alguns instantes? Se preferir, digite *menu*.";
 
     @Async
     public void processWebhook(EvolutionWebhookDTO webhook) {
+        String dedupKey = null;     // marcado como visto nesta execucao (desfeito se falhar)
+        String customerPhone = null; // preenchido so quando o remetente e cliente
         try {
             // Resolve o tenant desta mensagem (por instancia da Evolution) e o mantem
             // no contexto por toda a thread de processamento. Precisa ser setado AQUI
@@ -49,6 +59,9 @@ public class WebhookRouter {
             if (tenant == null) {
                 // Instancia desconhecida: nao existe barbearia dona desta mensagem. Descartar e
                 // a unica acao segura — processar no tenant padrao permitiria injecao de comandos.
+                // O log e limitado por instancia: sem ele uma instancia mal configurada ficava
+                // muda sem pista; sem o limite, um ataque enchia o log.
+                warnUnknownInstance(webhook.getInstance());
                 return;
             }
             TenantContext.set(tenant);
@@ -65,6 +78,8 @@ public class WebhookRouter {
                 log.info("[DUP] Mensagem duplicada ignorada (ID: {}).", webhook.getData().getKey().getId());
                 return;
             }
+            String messageId = webhook.getData().getKey().getId();
+            dedupKey = messageId != null ? StateKeys.dedup(messageId) : null;
 
             String phoneNumber = webhook.getPhoneNumber();
             String pushName = webhook.getData() != null ? webhook.getData().getPushName() : "Desconhecido";
@@ -91,14 +106,36 @@ public class WebhookRouter {
                     return;
                 }
                 log.info("[CLIENTE] Remetente identificado como CLIENTE.");
+                customerPhone = phoneNumber;
                 customerConversationService.processCustomerMessage(webhook, phoneNumber);
             }
             log.info("=======================================================================");
         } catch (Exception e) {
             log.error("[ERRO FATAL ORCHESTRATOR] Falha critica ao processar webhook: {}", e.getMessage(), e);
+            // A mensagem foi marcada como vista ANTES de processar; sem desmarcar, a reentrega
+            // da Evolution seria descartada como duplicada e a mensagem se perderia de vez.
+            if (dedupKey != null) {
+                stateStore.remove(dedupKey);
+            }
+            // Cliente nao fica no vacuo: antes ele simplesmente nao recebia resposta nenhuma.
+            if (customerPhone != null) {
+                try {
+                    messenger.send(customerPhone, CONTINGENCY_MSG, "CLIENTE");
+                } catch (Exception sendError) {
+                    log.error("[ERRO FATAL ORCHESTRATOR] Nem a contingencia saiu para {}", customerPhone, sendError);
+                }
+            }
         } finally {
             TenantContext.clear();
         }
+    }
+
+    private void warnUnknownInstance(String instance) {
+        String key = "warn:unknown-instance:" + instance;
+        if (stateStore.get(key, Boolean.class).isPresent()) return;
+        stateStore.put(key, Boolean.TRUE, UNKNOWN_INSTANCE_WARN_TTL);
+        log.warn("[WEBHOOK] Instancia desconhecida '{}' — mensagem descartada (proximo aviso desta "
+                + "instancia em {} min)", instance, UNKNOWN_INSTANCE_WARN_TTL.toMinutes());
     }
 
     private boolean shouldIgnoreMessage(EvolutionWebhookDTO webhook) {
