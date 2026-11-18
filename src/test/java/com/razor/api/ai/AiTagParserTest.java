@@ -98,4 +98,25 @@ class AiTagParserTest {
                     .isEqualTo(AiTagParser.MALFORMED_BOOKING_MSG);
         }
     }
+
+    @Test
+    @DisplayName("6o campo opcional da tag de agendamento traz o barbeiro pedido")
+    void parse_agendamentoWithProfessional() {
+        AiIntent.NovoAgendamento na = (AiIntent.NovoAgendamento)
+                parser.parse("Ok! [NOVO_AGENDAMENTO|Joao Silva|28/05|10:00|Corte|Bruno]");
+        assertThat(na.professional()).isEqualTo("Bruno");
+        assertThat(((AiIntent.NovoAgendamento) parser.parse("[NOVO_AGENDAMENTO|Joao|28/05|10:00|Corte]")).professional())
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("tag [SERVICO|...] é extraída e nunca chega ao cliente")
+    void serviceTag_extractedAndRemoved() {
+        String raw = "Fechado, Corte + Barba! Qual dia? [SERVICO|Corte + Barba]";
+        assertThat(AiTagParser.extractService(raw)).isEqualTo("Corte + Barba");
+        assertThat(AiTagParser.extractService("sem tag")).isNull();
+        AiIntent intent = parser.parse(raw);
+        assertThat(intent).isInstanceOf(AiIntent.Resposta.class);
+        assertThat(intent.cleanedResponse()).isEqualTo("Fechado, Corte + Barba! Qual dia?");
+    }
 }

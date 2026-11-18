@@ -2049,3 +2049,32 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .confirm-chip.is-pending { background: var(--blue-soft); color: var(--blue); }
 .confirm-chip.is-noresp { background: var(--amber-soft); color: var(--amber); }
 .confirm-chip.is-deposit { background: var(--plasma-soft); color: var(--plasma); }
+
+/* Editor de serviços em linhas (config do bot, V46): nome | preço | duração | ações. */
+.svc-editor-head,
+.svc-editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.svc-editor-head { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+@media (max-width: 560px) {
+  .svc-editor-head { display: none; }
+  .svc-editor-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .svc-editor-row > input:first-child { grid-column: 1 / -1; }
+}
+
+/* Card de avaliações (V46). */
+.review-dist { display: grid; gap: 4px; }
+.review-dist-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 32px; gap: 8px; align-items: center; font-size: 13px; }
+.review-dist-bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.review-dist-bar > span { display: block; height: 100%; background: var(--amber); }
+.review-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.review-list li { display: grid; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.review-list li:last-child { border-bottom: 0; padding-bottom: 0; }
+.review-stars { color: var(--amber); letter-spacing: 1px; }

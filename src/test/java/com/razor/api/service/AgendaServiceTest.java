@@ -253,10 +253,10 @@ class AgendaServiceTest {
 
     /** Duracoes padrao (combo=60, barba=30, corte=30) para os testes de disponibilidade. */
     private void givenDurations() {
-        when(pricingService.resolveDurations()).thenReturn(java.util.Map.of(
+        when(pricingService.quoter()).thenReturn(PricingService.Quoter.legacy(null, java.util.Map.of(
                 PricingService.ServiceCategory.COMBO, 60,
                 PricingService.ServiceCategory.BARBA, 30,
-                PricingService.ServiceCategory.SIMPLES, 30));
+                PricingService.ServiceCategory.SIMPLES, 30)));
     }
 
     @Test
@@ -382,7 +382,7 @@ class AgendaServiceTest {
                 .criarTarefasAgendadas(ag);
 
         ArgumentCaptor<ScheduledTask> captor = ArgumentCaptor.forClass(ScheduledTask.class);
-        verify(taskRepository, times(2)).save(captor.capture());
+        verify(taskRepository, times(1)).save(captor.capture());
         assertThat(captor.getAllValues()).allSatisfy(t -> assertThat(t.getAppointmentId()).isEqualTo(42L));
     }
 

@@ -37,6 +37,8 @@ class OpenAIServiceTest {
     @Mock private ServiceOfferingRepository serviceOfferingRepository;
     @Mock private PlanPricingService planPricingService;
     @Mock private PackageService packageService;
+    @Mock private PricingService pricingService;
+    @Mock private ChatEscalation chatEscalation;
 
     @InjectMocks private OpenAIService service;
 
@@ -250,5 +252,154 @@ class OpenAIServiceTest {
         assertThat(OpenAIService.bookingLimitHint(1, 3)).contains("ainda pode agendar").contains("3");
         assertThat(OpenAIService.bookingLimitHint(3, 3)).contains("LIMITE ATINGIDO").contains("3");
         assertThat(OpenAIService.bookingLimitHint(5, null)).doesNotContain("LIMITE ATINGIDO");
+    }
+
+    // ---------- serviço antes do horário ----------
+
+    private String capturedSystemPrompt() {
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<List<dev.langchain4j.data.message.ChatMessage>> cap =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        org.mockito.Mockito.verify(chatModel).generate(cap.capture());
+        return ((dev.langchain4j.data.message.SystemMessage) cap.getValue().get(0)).text();
+    }
+
+    private void givenChatAnswers() {
+        when(barbershopSettingsService.resolve()).thenReturn(
+                new BarbershopSettingsService.BotSettings("", "", "", null, ""));
+        dev.langchain4j.model.output.Response<dev.langchain4j.data.message.AiMessage> resp =
+                dev.langchain4j.model.output.Response.from(dev.langchain4j.data.message.AiMessage.from("ok"));
+        when(chatModel.generate(org.mockito.ArgumentMatchers.<List<dev.langchain4j.data.message.ChatMessage>>any()))
+                .thenReturn(resp);
+    }
+
+    private ServiceOffering offering(String name) {
+        return ServiceOffering.builder().id(java.util.UUID.randomUUID()).name(name)
+                .price(new BigDecimal("40.00")).durationMinutes(30).active(true).build();
+    }
+
+    @Test
+    @DisplayName("serviço não definido (com catálogo): a IA não recebe horário nenhum e é mandada perguntar o serviço")
+    void unknownService_noSlotsAndAsksServiceFirst() {
+        givenChatAnswers();
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(offering("Corte")));
+
+        service.processCustomerMessage("tem horário amanhã?", List.of(), "ocupados gerais", 0, "Joao Silva", null, null);
+
+        String prompt = capturedSystemPrompt();
+        assertThat(prompt).contains("SERVIÇO AINDA NÃO DEFINIDO").contains(OpenAIService.SERVICO_PENDENTE)
+                .doesNotContain("ocupados gerais");
+        assertThat(prompt.indexOf("PASSO 2 — SERVIÇO")).isLessThan(prompt.indexOf("PASSO 3 — DIA E HORÁRIO"));
+        org.mockito.Mockito.verify(agendaService, org.mockito.Mockito.never()).getHorariosDisponiveisDoDia(any(), any());
+    }
+
+    @Test
+    @DisplayName("serviço definido: horários só dos barbeiros aptos e a IA não pergunta o serviço de novo")
+    void knownService_qualifiedSlots() {
+        givenChatAnswers();
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(offering("Barba")));
+        var barba = new ProfessionalAssignmentService.ServicoPedido("Barba", List.of(java.util.UUID.randomUUID()));
+        when(agendaService.getHorariosDisponiveisDoDia(any(), org.mockito.ArgumentMatchers.eq(barba))).thenReturn("10:00, 15:00");
+
+        service.processCustomerMessage("amanhã", List.of(), "ocupados da barba", 0, "Joao Silva", null, barba);
+
+        String prompt = capturedSystemPrompt();
+        assertThat(prompt).contains("SERVIÇO JÁ DEFINIDO NA CONVERSA: Barba").contains("10:00, 15:00")
+                .contains("ocupados da barba").contains("só os barbeiros que fazem Barba")
+                .doesNotContain("SERVIÇO AINDA NÃO DEFINIDO");
+    }
+
+    @Test
+    @DisplayName("sem catálogo cadastrado: fluxo antigo (grade geral), nada de travar perguntando serviço")
+    void emptyCatalog_legacyGrid() {
+        givenChatAnswers();
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of());
+        when(agendaService.getHorariosDisponiveisDoDia(any(), org.mockito.ArgumentMatchers.isNull())).thenReturn("09:00");
+
+        service.processCustomerMessage("oi", List.of(), "agenda livre", 0, "Joao Silva", null, null);
+
+        assertThat(capturedSystemPrompt()).contains("09:00").contains("agenda livre")
+                .doesNotContain("SERVIÇO AINDA NÃO DEFINIDO");
+    }
+
+    @Test
+    @DisplayName("bloco do serviço: definido sem barbeiro apto não promete filtro")
+    void serviceStageBlock_variants() {
+        var semAptos = new ProfessionalAssignmentService.ServicoPedido("Pigmentação", List.of());
+        assertThat(OpenAIService.serviceStageBlock(semAptos, false)).contains("Pigmentação").doesNotContain("só para os barbeiros");
+        assertThat(OpenAIService.serviceStageBlock(null, false)).contains("AINDA NÃO DEFINIDO");
+        assertThat(OpenAIService.serviceStageBlock(null, true)).contains("catálogo ainda não foi cadastrado");
+    }
+
+    @Test
+    @DisplayName("orçamento no prompt: cada serviço com preço, total, duração somada e o combo com a economia")
+    void quoteBlock_listsTotalAndCombo() {
+        java.util.UUID c = java.util.UUID.randomUUID();
+        java.util.UUID b = java.util.UUID.randomUUID();
+        when(pricingService.quoter()).thenReturn(PricingService.Quoter.of(List.of(
+                ServiceOffering.builder().id(c).name("Corte").price(new BigDecimal("40.00")).durationMinutes(30).build(),
+                ServiceOffering.builder().id(b).name("Barba").price(new BigDecimal("30.00")).durationMinutes(30).build(),
+                ServiceOffering.builder().id(java.util.UUID.randomUUID()).name("Combo Corte + Barba")
+                        .price(new BigDecimal("60.00")).durationMinutes(60).build())));
+        var pedido = new ProfessionalAssignmentService.ServicoPedido("Corte + Barba", List.of(c));
+
+        String bloco = service.quoteBlock(pedido);
+
+        assertThat(bloco).contains("Corte: R$ 40,00").contains("Barba: R$ 30,00")
+                .contains("Total: R$ 70,00").contains("1h").contains("TOTAL")
+                .contains("COMBO DISPONÍVEL").contains("Combo Corte + Barba").contains("economia de R$ 10,00");
+        assertThat(service.quoteBlock(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("duração formatada: 30 min, 1h, 2h10")
+    void formatDuration() {
+        assertThat(OpenAIService.formatDuration(30)).isEqualTo("30 min");
+        assertThat(OpenAIService.formatDuration(60)).isEqualTo("1h");
+        assertThat(OpenAIService.formatDuration(130)).isEqualTo("2h10");
+    }
+
+    // ---------- modelo principal (mini) e escalonamento (4o) ----------
+
+    private dev.langchain4j.model.output.Response<dev.langchain4j.data.message.AiMessage> answer(String t) {
+        return dev.langchain4j.model.output.Response.from(dev.langchain4j.data.message.AiMessage.from(t));
+    }
+
+    @Test
+    @DisplayName("resposta boa do modelo principal: o modelo forte nem é chamado")
+    void escalation_notNeeded() {
+        OpenAiChatModel forte = org.mockito.Mockito.mock(OpenAiChatModel.class);
+        when(chatEscalation.model()).thenReturn(forte);
+        when(chatModel.generate(org.mockito.ArgumentMatchers.<List<dev.langchain4j.data.message.ChatMessage>>any()))
+                .thenReturn(answer("Qual serviço você quer?"));
+
+        assertThat(service.generateWithEscalation(List.of())).isEqualTo("Qual serviço você quer?");
+        org.mockito.Mockito.verifyNoInteractions(forte);
+    }
+
+    @Test
+    @DisplayName("tag de agendamento quebrada ou falha do principal: escala para o modelo forte")
+    void escalation_onMalformedOrFailure() {
+        OpenAiChatModel forte = org.mockito.Mockito.mock(OpenAiChatModel.class);
+        when(chatEscalation.model()).thenReturn(forte);
+        when(forte.generate(org.mockito.ArgumentMatchers.<List<dev.langchain4j.data.message.ChatMessage>>any()))
+                .thenReturn(answer("Confirmado! [NOVO_AGENDAMENTO|Joao|26/05|14:00|Corte]"));
+        when(chatModel.generate(org.mockito.ArgumentMatchers.<List<dev.langchain4j.data.message.ChatMessage>>any()))
+                .thenReturn(answer("Confirmado! [NOVO_AGENDAMENTO|Joao|26/05"));
+
+        assertThat(service.generateWithEscalation(List.of())).contains("|Corte]");
+
+        when(chatModel.generate(org.mockito.ArgumentMatchers.<List<dev.langchain4j.data.message.ChatMessage>>any()))
+                .thenThrow(new RuntimeException("timeout"));
+        assertThat(service.generateWithEscalation(List.of())).contains("|Corte]");
+    }
+
+    @Test
+    @DisplayName("o que exige escalar: vazio ou tag de agendamento ilegível")
+    void needsEscalation_rules() {
+        assertThat(OpenAIService.needsEscalation("")).isTrue();
+        assertThat(OpenAIService.needsEscalation("[NOVO_AGENDAMENTO|Joao|26/05")).isTrue();
+        assertThat(OpenAIService.needsEscalation("Oi! Qual serviço?")).isFalse();
+        assertThat(OpenAIService.needsEscalation("[NOVO_AGENDAMENTO|Joao|26/05|14:00|Corte]")).isFalse();
     }
 }

@@ -13,19 +13,19 @@ V51 console da plataforma · V52 área do cliente · V53 metas · V54 multiunida
 
 ## Parte 1 — Bot correto e ligado ao painel (V46)  ← AGORA
 Achados no teste real de 18/11 (agendamento #380, 5 serviços, áudio):
-- [ ] **Valor total:** com vários serviços o bot não diz o total nem a duração somada.
-- [ ] **Oferecer combo:** se o cliente pede corte + barba e existe o combo, oferecer o combo
+- [x] **Valor total:** com vários serviços o bot não diz o total nem a duração somada.
+- [x] **Oferecer combo:** se o cliente pede corte + barba e existe o combo, oferecer o combo
       dizendo quanto economiza.
-- [ ] **Painel = bot:** o card "O que a IA fez" mostrou R$ 35 para um atendimento muito mais caro,
+- [x] **Painel = bot:** o card "O que a IA fez" mostrou R$ 35 para um atendimento muito mais caro,
       porque precifica por "categoria" antiga. Criar UM cálculo de preço/duração do agendamento
       (soma do catálogo, combo quando houver) usado por bot, card da IA, faturamento previsto e
       comanda.
-- [ ] **Pedir o serviço antes do horário** (o filtro "barbeiro que faz o serviço" vale sempre).
-- [ ] **Avaliação pós-atendimento:** nota 1–5; 4–5 recebe o link do Google; nota baixa só para o dono.
-- [ ] **Áudio mais rápido:** hoje ~7 s entre receber e entender. Trocar para `gpt-4o-mini-transcribe`
+- [x] **Pedir o serviço antes do horário** (o filtro "barbeiro que faz o serviço" vale sempre).
+- [x] **Avaliação pós-atendimento:** nota 1–5; 4–5 recebe o link do Google; nota baixa só para o dono.
+- [x] **Áudio mais rápido:** hoje ~7 s entre receber e entender. Trocar para `gpt-4o-mini-transcribe`
       (com `whisper-1` de reserva), evitar conversões/baixadas duplas, mostrar "gravando/digitando"
       enquanto processa; e usar `gpt-4o-mini` por padrão no chat (4o só quando ambíguo).
-- [ ] **Serviços na config do bot:** editor em linhas (nome | preço | duração | +) em vez de texto livre.
+- [x] **Serviços na config do bot:** editor em linhas (nome | preço | duração | +) em vez de texto livre.
 
 ## Parte 2 — Painel e tema claro (V48)
 - [ ] Recepção sem "Editar" em Serviços; barbeiro só mexe nos próprios agendamentos.

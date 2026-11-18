@@ -90,7 +90,7 @@ class AgendaTaskConfirmationTest {
         service.criarTarefasAgendadas(ag);
 
         assertThat(saved).extracting(ScheduledTask::getTaskType)
-                .containsExactlyInAnyOrder("REMINDER", "REVIEW_REQUEST",
+                .containsExactlyInAnyOrder("REMINDER",
                         AgendaTaskService.CONFIRMATION_REQUEST, AgendaTaskService.CONFIRMATION_DEADLINE);
         assertThat(saved).allSatisfy(t -> assertThat(t.getAppointmentId()).isEqualTo(99L));
         ScheduledTask pergunta = saved.stream()
@@ -100,12 +100,12 @@ class AgendaTaskConfirmationTest {
     }
 
     @Test
-    @DisplayName("confirmacao desligada: so lembrete e avaliacao")
+    @DisplayName("confirmacao desligada: so o lembrete (a avaliacao sai depois da comanda, V46)")
     void disabled_noConfirmationTasks() {
         when(barbershopSettingsService.getNoShowSettings())
                 .thenReturn(new BarbershopSettingsService.NoShowSettings(false, 18, 3, false, null, null));
         service.criarTarefasAgendadas(appt(5L, AppointmentDates.today().plusDays(3), LocalTime.of(15, 0)));
-        assertThat(saved).extracting(ScheduledTask::getTaskType).containsExactlyInAnyOrder("REMINDER", "REVIEW_REQUEST");
+        assertThat(saved).extracting(ScheduledTask::getTaskType).containsExactlyInAnyOrder("REMINDER");
     }
 
     @Test
@@ -120,7 +120,7 @@ class AgendaTaskConfirmationTest {
 
         int n = service.cancelarTarefasDoAgendamento(ag);
 
-        assertThat(n).isEqualTo(4);
+        assertThat(n).isEqualTo(3);
         ArgumentCaptor<ScheduledTask> cap = ArgumentCaptor.forClass(ScheduledTask.class);
         verify(taskRepository, atLeastOnce()).save(cap.capture());
         assertThat(pendentes).allSatisfy(t -> assertThat(t.getStatus()).isEqualTo(ScheduledTask.TaskStatus.CANCELLED));

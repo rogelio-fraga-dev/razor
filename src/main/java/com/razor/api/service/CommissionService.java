@@ -78,7 +78,7 @@ public class CommissionService {
         UUID shop = TenantContext.getCurrent();
         Map<UUID, Professional> profs = professionalRepository.findByBarbershopId(shop).stream()
                 .collect(Collectors.toMap(Professional::getId, p -> p, (a, b) -> a));
-        Map<PricingService.ServiceCategory, BigDecimal> precos = pricingService.resolvePrices();
+        PricingService.Quoter precos = pricingService.quoter();
 
         // Percentual proprio de cada servico (V27), por nome — o agendamento guarda o nome.
         Map<String, BigDecimal> pctPorServico = serviceOfferingRepository.findByBarbershopId(shop).stream()
@@ -97,7 +97,7 @@ public class CommissionService {
         for (Appointment ag : doPeriodo) {
             UUID pid = ag.getProfessionalId();
 
-            BigDecimal valor = precos.get(pricingService.categorize(ag.getService()));
+            BigDecimal valor = precos.price(ag.getService());
             // Pacote pre-pago (V34): o que foi pago pelo pacote entra pelo valor unitario do
             // pacote (preco / usos), nao pelo preco de tabela — foi isso que entrou por ele.
             valor = applyPackageValue(valor, ag.getId() == null ? null : usosDePacote.get(ag.getId()));

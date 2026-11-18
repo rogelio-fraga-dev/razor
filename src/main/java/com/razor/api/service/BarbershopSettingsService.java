@@ -240,6 +240,40 @@ public class BarbershopSettingsService {
         return getNoShowSettings();
     }
 
+    /**
+     * Avaliacao pos-atendimento (V46) ja com os defaults aplicados.
+     *
+     * @param googleReviewUrl link do Google para quem da nota 4-5; null = so agradece
+     * @param delayMinutes    minutos depois do fechamento da comanda (ajustado ao expediente)
+     */
+    public record ReviewSettings(boolean enabled, String googleReviewUrl, int delayMinutes) {
+        public static final ReviewSettings DEFAULTS =
+                new ReviewSettings(true, null, BarbershopSettings.DEFAULT_REVIEW_DELAY_MINUTES);
+    }
+
+    public ReviewSettings getReviewSettings() {
+        return repository.findById(TenantContext.getCurrent())
+                .map(s -> new ReviewSettings(
+                        !Boolean.FALSE.equals(s.getReviewRequestEnabled()),
+                        s.getGoogleReviewUrl(),
+                        s.getReviewDelayMinutes() != null ? s.getReviewDelayMinutes()
+                                : BarbershopSettings.DEFAULT_REVIEW_DELAY_MINUTES))
+                .orElse(ReviewSettings.DEFAULTS);
+    }
+
+    /** Grava as regras da avaliacao. O link e validado (so Google) — invalido = 400. */
+    public ReviewSettings updateReviewSettings(com.razor.api.dto.ReviewSettingsPayload p) {
+        String url = com.razor.api.util.GoogleReviewUrlPolicy.normalize(p.googleReviewUrl());
+        BarbershopSettings s = repository.findById(TenantContext.getCurrent())
+                .orElseGet(() -> BarbershopSettings.builder().barbershopId(TenantContext.getCurrent()).build());
+        s.setReviewRequestEnabled(p.enabled());
+        s.setGoogleReviewUrl(url);
+        s.setReviewDelayMinutes(p.delayMinutes());
+        repository.save(s);
+        log.info("[AVALIACAO] Configuracoes atualizadas para o tenant {}", TenantContext.getCurrent());
+        return getReviewSettings();
+    }
+
     /** O bot atende clientes neste tenant? Sem linha (tenant novo) = ligado. */
     public boolean isBotEnabled() {
         return repository.findById(TenantContext.getCurrent())

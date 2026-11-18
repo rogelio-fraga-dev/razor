@@ -179,6 +179,31 @@ public class ProfessionalAssignmentService {
         return null;
     }
 
+    /**
+     * Nome canonico (como esta no catalogo) do(s) servico(s) citado(s) num texto — "quero corte e
+     * barba" → "Corte + Barba". {@code null} quando o texto nao cita nenhum servico ativo.
+     */
+    public String nomeDoServicoCitado(String texto) {
+        if (texto == null || texto.isBlank()) return null;
+        List<com.razor.api.model.ServiceOffering> catalogo =
+                serviceOfferingRepository.findByBarbershopIdAndActiveTrue(TenantContext.getCurrent());
+        if (catalogo == null || catalogo.isEmpty()) return null;
+        List<com.razor.api.model.ServiceOffering> citados = ServiceCapability.mentioned(texto, catalogo);
+        if (citados.isEmpty()) return null;
+        return String.join(" + ", citados.stream().map(com.razor.api.model.ServiceOffering::getName).toList());
+    }
+
+    /**
+     * Servico ja definido na conversa, com os barbeiros aptos. Diferente de {@link #servicoCitado},
+     * nunca devolve {@code null} para um nome conhecido: sem barbeiro apto, {@code aptos} vem vazio
+     * — o servico continua definido (o bot nao pergunta de novo) e os horarios olham a barbearia toda.
+     */
+    public ServicoPedido servicoDefinido(String nomeDoServico) {
+        if (nomeDoServico == null || nomeDoServico.isBlank()) return null;
+        ServicoPedido pedido = servicoCitado(List.of(nomeDoServico));
+        return pedido != null ? pedido : new ServicoPedido(nomeDoServico, List.of());
+    }
+
     private boolean isFree(UUID shop, UUID professionalId, LocalDate date, LocalTime time) {
         return appointmentRepository
                 .findByBarbershopIdAndProfessionalIdAndAppointmentDate(shop, professionalId, date)

@@ -55,6 +55,8 @@ public class CustomerConversationService {
     private final AppointmentConfirmationService confirmationService;
     private final NoShowDepositService noShowDepositService;
     private final ProfessionalAssignmentService professionalAssignmentService;
+    private final CustomerReviewService customerReviewService;
+    private final PricingService pricingService;
 
     // Publicas + construtor vazio: sao serializadas em JSON pelo StateStore.
 
@@ -87,6 +89,10 @@ public class CustomerConversationService {
         }
     }
 
+    /** Quanto tempo o "digitando..." fica no WhatsApp enquanto o audio e processado / a IA pensa. */
+    static final int AUDIO_PRESENCE_MS = 8000;
+    static final int AI_PRESENCE_MS = 5000;
+
     /** Conversa abandonada morre sozinha (antes: varredura de estados "zumbi"). */
     private static final Duration CONV_TTL = Duration.ofMinutes(30);
 
@@ -116,6 +122,8 @@ public class CustomerConversationService {
     private void clearCustomerState(String phone) {
         stateStore.remove(StateKeys.convState(phone));
         stateStore.remove(StateKeys.pendingBooking(phone));
+        // Fluxo encerrado: o proximo agendamento comeca perguntando o servico de novo.
+        stateStore.remove(StateKeys.chosenService(phone));
     }
 
     // ==========================================
@@ -128,8 +136,16 @@ public class CustomerConversationService {
         String contentToSave = webhook.getMessageText();
 
         if (webhook.hasAudio()) {
-            String base64 = webhook.getBase64() != null ? webhook.getBase64() : fetchBase64FromEvolution(webhook.getData().getKey().getId());
+            // O cliente ve "digitando..." enquanto o audio e baixado, transcrito e respondido.
+            messenger.presence(phoneNumber, "composing", AUDIO_PRESENCE_MS);
+            long t0 = System.nanoTime();
+            // So baixa da Evolution se o webhook nao trouxe o base64 (sem download duplicado).
+            boolean embutido = webhook.getBase64() != null;
+            String base64 = embutido ? webhook.getBase64() : fetchBase64FromEvolution(webhook.getData().getKey().getId());
+            long t1 = System.nanoTime();
             String transcription = (base64 != null) ? openAIService.transcribeAudio(base64, webhook.getMimeType()) : null;
+            log.info("[TEMPO] Audio de {}: download={} ms ({}), transcricao={} ms", phoneNumber,
+                    (t1 - t0) / 1_000_000, embutido ? "base64 no webhook" : "Evolution", (System.nanoTime() - t1) / 1_000_000);
             if (transcription == null) {
                 log.warn("[CLIENTE IN] Audio de {} nao pode ser transcrito", phoneNumber);
                 interactionRepository.save(Interaction.builder().barbershopId(customer.getBarbershopId()).customer(customer).type(Interaction.InteractionType.USER).content("[Áudio não transcrito]").messageId(webhook.getData().getKey().getId()).build());
@@ -185,6 +201,18 @@ public class CustomerConversationService {
         // 1.5. Resposta a confirmacao da vespera ("1 confirma / 2 desmarca", V42). So com a
         //      conversa ociosa: no meio de um fluxo (ex.: escolha de pagamento) o "1" e daquele
         //      fluxo. Resposta que nao e 1/2/sim/nao segue adiante e a pergunta continua valendo.
+        // 1.4. Nota do pedido de avaliacao pos-atendimento (V46). Antes do menu numerico e da IA:
+        //      um "5" aqui e nota, nao a opcao 5 do menu. Com a confirmacao da vespera tambem
+        //      aberta, "1"/"2" puros ficam com ela.
+        if (cState == null) {
+            boolean confirmacaoAberta = stateStore.get(StateKeys.confirmation(phoneNumber), Object.class).isPresent();
+            var nota = customerReviewService.handleReply(phoneNumber, contentToSave, confirmacaoAberta);
+            if (nota != null && nota.isPresent()) {
+                saveAndSend(customer, nota.get(), phoneNumber);
+                return;
+            }
+        }
+
         if (cState == null) {
             var resposta = confirmationService.handleReply(phoneNumber, contentToSave);
             if (resposta.isPresent()) {
@@ -468,12 +496,14 @@ public class CustomerConversationService {
     }
 
     private void chamaIAETrataMensagem(Customer customer, String prompt, String phoneNumber) {
-        log.info("[IA] Chamando o GPT-4o para processar a intencao do cliente.");
+        log.info("[IA] Chamando a IA para processar a intencao do cliente.");
+        messenger.presence(phoneNumber, "composing", AI_PRESENCE_MS);
+        long tIa = System.nanoTime();
         List<Interaction> history = getRecentHistory(customer.getId());
-        // Servico que o cliente ja citou (mensagem atual ou anteriores): os horarios que vao para
-        // a IA passam a contar so os barbeiros que o fazem. Desconhecido = barbearia toda.
-        ProfessionalAssignmentService.ServicoPedido servico =
-                professionalAssignmentService.servicoCitado(falasDoCliente(prompt, history));
+        // Servico da conversa (o servico vem ANTES do horario): os horarios que vao para a IA
+        // contam so os barbeiros que o fazem e a duracao dele. Desconhecido = a IA pergunta o
+        // servico primeiro e nao recebe horario nenhum (ver OpenAIService).
+        ProfessionalAssignmentService.ServicoPedido servico = resolverServico(prompt, history, phoneNumber);
         String agendaContext = agendaService.getHorariosOcupadosParaIA(servico);
         // So os horarios por vir: contar o historico fazia o cliente fiel ouvir "limite atingido".
         int activeAppointments = agendaService.getAgendamentosFuturos(phoneNumber).size();
@@ -485,6 +515,16 @@ public class CustomerConversationService {
             tratarIaIndisponivel(phoneNumber, e);
             return;
         }
+
+        // Escolha indireta ("o segundo", "os dois"): a IA informa o servico pela tag [SERVICO|...].
+        // So vale se casar com o catalogo — nome inventado nao vira servico da conversa.
+        String servicoDaTag = AiTagParser.extractService(aiResponse);
+        if (servicoDaTag != null) {
+            String canonico = professionalAssignmentService.nomeDoServicoCitado(servicoDaTag);
+            if (canonico != null) lembrarServico(phoneNumber, canonico);
+        }
+
+        log.info("[TEMPO] IA para {}: {} ms (contexto + modelo)", phoneNumber, (System.nanoTime() - tIa) / 1_000_000);
 
         AiIntent intent = aiTagParser.parse(aiResponse);
         String responseToSend;
@@ -504,7 +544,46 @@ public class CustomerConversationService {
             responseToSend = intent.cleanedResponse();
         }
 
+        if (responseToSend == null) return; // o fluxo ja respondeu (ex.: agendou direto com o barbeiro pedido)
+        long tEnvio = System.nanoTime();
         saveAndSend(customer, responseToSend, phoneNumber);
+        log.info("[TEMPO] Envio para {}: {} ms (gravar + enfileirar)", phoneNumber, (System.nanoTime() - tEnvio) / 1_000_000);
+    }
+
+    /** Janela em que falas antigas do cliente ainda contam como "esta conversa" (mesmo TTL do estado). */
+    private static final Duration SERVICE_LOOKBACK = CONV_TTL;
+
+    /**
+     * Servico desta conversa, na ordem: o citado na mensagem atual (texto ou audio transcrito);
+     * o ja definido antes (citado ou escolhido de forma indireta, via tag da IA); o citado nas
+     * falas recentes do cliente. {@code null} = ainda nao definido.
+     *
+     * <p>Falas antigas so contam dentro de {@link #SERVICE_LOOKBACK}: o "corte" do mes passado no
+     * historico nao pode pular a pergunta do servico num agendamento novo.
+     */
+    ProfessionalAssignmentService.ServicoPedido resolverServico(String prompt, List<Interaction> history, String phone) {
+        String nome = professionalAssignmentService.nomeDoServicoCitado(prompt);
+        if (nome == null) {
+            nome = stateStore.get(StateKeys.chosenService(phone), String.class).orElse(null);
+        }
+        if (nome == null && history != null) {
+            LocalDateTime limite = LocalDateTime.now(AppointmentDates.ZONE).minus(SERVICE_LOOKBACK);
+            List<Interaction> recentes = history.stream()
+                    .filter(i -> i.getTimestamp() != null && i.getTimestamp().isAfter(limite))
+                    .toList();
+            List<String> falas = falasDoCliente(null, recentes);
+            for (String fala : falas) {
+                nome = professionalAssignmentService.nomeDoServicoCitado(fala);
+                if (nome != null) break;
+            }
+        }
+        if (nome == null) return null;
+        lembrarServico(phone, nome);
+        return professionalAssignmentService.servicoDefinido(nome);
+    }
+
+    private void lembrarServico(String phone, String nome) {
+        stateStore.put(StateKeys.chosenService(phone), nome, CONV_TTL);
     }
 
     private String tratarNovoAgendamento(Customer customer, String phoneNumber, AiIntent.NovoAgendamento na) {
@@ -557,6 +636,14 @@ public class CustomerConversationService {
         List<com.razor.api.model.Professional> ativos = professionalService.listActiveFor(service);
         if (ativos != null && ativos.size() > 1) {
             List<ProfessionalOption> options = ativos.stream().map(ProfessionalOption::of).toList();
+            // Cliente ja disse com quem ("corte amanha 15h com o Bruno"): nao pergunta de novo.
+            ProfessionalOption pedido = matchProfessional(na.professional(), options);
+            if (pedido != null) {
+                log.info("[AGENDA] Cliente {} pediu o barbeiro {} na propria mensagem", phoneNumber, pedido.getName());
+                finalizarAgendamentoMultiprofissional(customer, phoneNumber,
+                        new PendingBooking(name, date, time, service, options), pedido.getId(), pedido.getName());
+                return null;
+            }
             stateStore.put(StateKeys.pendingBooking(phoneNumber), new PendingBooking(name, date, time, service, options), CONV_TTL);
             setCustomerState(phoneNumber, "ESPERANDO_PROFISSIONAL");
             log.info("[AGENDA] Estado ESPERANDO_PROFISSIONAL definido para {} ({} barbeiros)", phoneNumber, ativos.size());
@@ -569,6 +656,7 @@ public class CustomerConversationService {
             log.warn("[AGENDA] Tag da IA nao gerou agendamento para {} ('{}' '{}')", phoneNumber, date, time);
             return BOOKING_FAILED_MSG;
         }
+        stateStore.remove(StateKeys.chosenService(phoneNumber)); // agendado: o proximo comeca do zero
 
         // Cliente com faltas repetidas (V42): no lugar da pergunta de pagamento vai o PIX do sinal.
         var sinal = noShowDepositService.requireDepositIfNeeded(criado.get(),
@@ -579,10 +667,61 @@ public class CustomerConversationService {
 
         // Verifica se a IA já incluiu a pergunta de pagamento (novo prompt instrui isso).
         // Se não incluiu, adiciona como fallback para garantir o fluxo.
-        String response = anexarPerguntaPagamento(na.cleanedResponse());
+        String response = anexarPerguntaPagamento(comResumoDoValor(na.cleanedResponse(), service));
         setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
         log.info("[AGENDA] Estado ESPERANDO_PAGAMENTO definido para {}", phoneNumber);
         return response;
+    }
+
+    /**
+     * O barbeiro que o cliente pediu pelo nome, entre os que fazem o servico. Compara sem acento
+     * nem caixa, pelo nome inteiro ou pelo primeiro nome ("Bruno" casa "Bruno Lima"). Nome que
+     * nao casa ou que casa com mais de um = {@code null} (o bot pergunta com a lista).
+     */
+    static ProfessionalOption matchProfessional(String pedido, List<ProfessionalOption> options) {
+        String alvo = ServiceCapability.normalize(pedido).replaceAll("^(com o|com a|com|o|a)\\s+", "");
+        if (alvo.isEmpty() || options == null) return null;
+        List<ProfessionalOption> exatos = options.stream()
+                .filter(o -> ServiceCapability.normalize(o.getName()).equals(alvo))
+                .toList();
+        if (exatos.size() == 1) return exatos.get(0);
+        String primeiro = alvo.split(" ")[0];
+        List<ProfessionalOption> porPrimeiroNome = options.stream()
+                .filter(o -> ServiceCapability.normalize(o.getName()).split(" ")[0].equals(primeiro))
+                .toList();
+        return porPrimeiroNome.size() == 1 ? porPrimeiroNome.get(0) : null;
+    }
+
+    /**
+     * Com mais de um servico, a confirmacao do agendamento sempre traz cada servico com o preco, o
+     * total e a duracao estimada — pelo calculo unico ({@link PricingService#quote}), o mesmo do
+     * painel. Se a IA ja escreveu um "Total", nao repete.
+     */
+    String comResumoDoValor(String texto, String servico) {
+        if (pricingService == null || servico == null || servico.isBlank()) return texto;
+        if (texto != null && texto.toLowerCase().contains("total")) return texto;
+        PricingService.Quote quote;
+        try {
+            quote = pricingService.quote(servico);
+        } catch (Exception e) {
+            log.warn("[AGENDA] Nao consegui montar o resumo de valor de '{}': {}", servico, e.getMessage());
+            return texto;
+        }
+        String resumo = resumoDoValor(quote);
+        return resumo.isEmpty() ? texto : (texto == null ? "" : texto) + "\n\n" + resumo;
+    }
+
+    /** "🧾 Resumo / • Corte — R$ 40,00 / *Total: R$ 70,00* · ⏱️ cerca de 1h". Vazio com um servico so. */
+    static String resumoDoValor(PricingService.Quote quote) {
+        if (quote == null || !quote.fromCatalog() || !quote.multiple()) return "";
+        java.util.Locale br = java.util.Locale.forLanguageTag("pt-BR");
+        StringBuilder sb = new StringBuilder("🧾 *Resumo*\n");
+        for (PricingService.QuoteLine l : quote.lines()) {
+            sb.append("• ").append(l.name()).append(" — ").append(String.format(br, "R$ %.2f", l.price())).append("\n");
+        }
+        sb.append("*Total: ").append(String.format(br, "R$ %.2f", quote.total())).append("* · ⏱️ cerca de ")
+          .append(OpenAIService.formatDuration(quote.durationMinutes()));
+        return sb.toString();
     }
 
     /** Anexa a pergunta de pagamento ao texto se a IA ainda não a incluiu (fallback do fluxo). */
@@ -665,6 +804,7 @@ public class CustomerConversationService {
             saveAndSend(customer, BOOKING_FAILED_MSG, phoneNumber);
             return;
         }
+        stateStore.remove(StateKeys.chosenService(phoneNumber));
 
         // O barbeiro que FICOU com o horario: se o escolhido ocupou nesse meio-tempo, a agenda
         // atribui outro — e o cliente precisa ouvir o nome certo, nao o que pediu.
@@ -682,7 +822,7 @@ public class CustomerConversationService {
             return;
         }
         String confirm = "Fechado! Seu horário " + comQuem + "para *" + pend.getDate() + "* às *" + pend.getTime() + "* está reservado. 🎉";
-        String response = anexarPerguntaPagamento(confirm);
+        String response = anexarPerguntaPagamento(comResumoDoValor(confirm, pend.getService()));
         setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
         log.info("[AGENDA] Agendamento multiprofissional concluído para {}; estado ESPERANDO_PAGAMENTO", phoneNumber);
         saveAndSend(customer, response, phoneNumber);
@@ -791,7 +931,7 @@ public class CustomerConversationService {
             return bot.welcomeText();
         }
         return "Opa! 👋 Aqui é o atendimento da *" + bot.displayName() + "*.\n\n"
-                + "Posso marcar um horário pra você — é só me dizer *o dia* e *o serviço* que quer. 💈\n\n"
+                + "Posso marcar um horário pra você — é só me dizer *o serviço* que quer e *o dia*. 💈\n\n"
                 + "_Se preferir ver tudo que dá pra fazer por aqui, é só digitar *menu*._";
     }
 
