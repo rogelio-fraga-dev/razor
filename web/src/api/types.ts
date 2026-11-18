@@ -528,7 +528,7 @@ export interface Advance {
 // ---------- Cupons (V29) ----------
 
 export type CouponDiscountType = "PERCENT" | "FIXED";
-export type CouponOrigin = "MANUAL" | "FIDELIDADE";
+export type CouponOrigin = "MANUAL" | "FIDELIDADE" | "ANIVERSARIO";
 
 /** Cupom de desconto. `customerPhone` preenchido = pessoal; nulo = campanha aberta. */
 export interface Coupon {

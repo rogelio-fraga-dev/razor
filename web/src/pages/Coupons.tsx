@@ -160,6 +160,8 @@ export function Coupons() {
                     <td data-label="Origem">
                       {c.origin === "FIDELIDADE" ? (
                         <span className="badge badge-plan">Fidelidade</span>
+                      ) : c.origin === "ANIVERSARIO" ? (
+                        <span className="badge badge-plan">Aniversário</span>
                       ) : (
                         <span className="faint">Campanha</span>
                       )}
