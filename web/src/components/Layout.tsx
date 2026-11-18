@@ -26,6 +26,7 @@ const NAV_GROUPS = [
       { to: "/professionals", label: "Profissionais", icon: <IconUser /> },
       { to: "/plans", label: "Planos", icon: <IconGem /> },
       { to: "/coupons", label: "Cupons", icon: <IconTicket /> },
+      { to: "/packages", label: "Pacotes", icon: <IconBox /> },
     ],
   },
   {

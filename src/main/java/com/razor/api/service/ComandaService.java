@@ -49,6 +49,7 @@ public class ComandaService {
     private final CashRegisterService cashRegisterService;
     private final StockService stockService;
     private final CouponService couponService;
+    private final PackageService packageService;
 
     // ---------- consultas ----------
 
@@ -178,6 +179,9 @@ public class ComandaService {
         if (items.isEmpty()) {
             throw new IllegalArgumentException("Comanda vazia: adicione ao menos um item antes de fechar.");
         }
+        // Pacote pre-pago (V34): servico coberto sai a R$ 0,00 e consome um uso. Antes do total,
+        // e na mesma transacao — se o caixa recusar abaixo, a baixa volta junto.
+        items = packageService.consumeForComanda(comanda, items);
         BigDecimal subtotal = items.stream().map(ComandaItem::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal desconto = BigDecimal.ZERO;
@@ -192,16 +196,19 @@ public class ComandaService {
         // Um unico movimento com o total. Se nao houver caixa aberto, o fechamento inteiro falha.
         String description = "Comanda" + (comanda.getCustomerName() == null
                 ? "" : " — " + comanda.getCustomerName());
-        CashMovement movement =
-                cashRegisterService.recordMovement(CashMovementType.VENDA, method, total, description);
+        // Comanda toda paga por pacote fecha com total zero e sem movimento: nao entrou dinheiro.
+        CashMovement movement = total.signum() > 0
+                ? cashRegisterService.recordMovement(CashMovementType.VENDA, method, total, description)
+                : null;
+        UUID movementId = movement != null ? movement.getId() : null;
 
         LocalDateTime now = LocalDateTime.now();
-        registerProductSales(comanda, items, method, movement.getId(), now);
+        registerProductSales(comanda, items, method, movementId, now);
 
         comanda.setStatus(Comanda.Status.FECHADA);
         comanda.setTotal(total);
         comanda.setPaymentMethod(method);
-        comanda.setCashMovementId(movement.getId());
+        comanda.setCashMovementId(movementId);
         comanda.setClosedAt(now);
         if (cupom != null) {
             comanda.setCouponId(cupom.coupon().getId());

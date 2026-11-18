@@ -43,6 +43,7 @@ class CommissionServiceTest {
     @Mock private ProductSaleRepository productSaleRepository;
     @Mock private ServiceOfferingRepository serviceOfferingRepository;
     @Mock private PricingService pricingService;
+    @Mock private com.razor.api.repository.PackageUsageRepository packageUsageRepository;
 
     @InjectMocks private CommissionService service;
 
@@ -92,6 +93,26 @@ class CommissionServiceTest {
         ProfessionalCommission b = comissoes.stream().filter(c -> c.professionalName().equals("Bruno")).findFirst().orElseThrow();
         assertThat(b.atendimentos()).isEqualTo(1);
         assertThat(b.comissao()).isEqualByComparingTo("12.00"); // 30 * 40%
+    }
+
+    @Test
+    @DisplayName("pacote (V34): corte pago pelo pacote comissiona sobre o valor unitário do pacote")
+    void commissions_packageUsageUsesUnitValue() {
+        LocalDate hoje = AppointmentDates.today();
+        UUID rafael = UUID.randomUUID();
+        when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
+        Appointment ag = appt(rafael, "Corte", hoje);
+        ag.setId(7L);
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(ag));
+        when(packageUsageRepository.findByBarbershopIdAndAppointmentIdIn(any(), any())).thenReturn(List.of(
+                com.razor.api.model.PackageUsage.builder().appointmentId(7L).uses(1)
+                        .unitValue(new BigDecimal("30.00")).originalPrice(new BigDecimal("35.00")).build()));
+        givenPrices();
+
+        ProfessionalCommission r = service.commissionsForDay(hoje).get(0);
+
+        assertThat(r.faturamento()).isEqualByComparingTo("30.00");  // 35 de tabela -> 30 do pacote
+        assertThat(r.comissao()).isEqualByComparingTo("15.00");
     }
 
     @Test

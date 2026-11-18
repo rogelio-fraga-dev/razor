@@ -29,6 +29,7 @@ export const ROUTE_ROLES: Record<string, UserRole[]> = {
   "/professionals": OWNER_ONLY,
   "/plans": OWNER_ONLY,
   "/coupons": OWNER_ONLY,
+  "/packages": OWNER_ONLY, // vender pacote mexe no caixa e o catálogo define preço
   "/commissions": OWNER_ONLY,
   "/commissions/settlement": OWNER_ONLY,
   "/expenses": OWNER_ONLY, // contas a pagar e DRE: o resultado do negócio é do dono

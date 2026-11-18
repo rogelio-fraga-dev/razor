@@ -9,6 +9,7 @@ import { Services } from "./pages/Services";
 import { Products } from "./pages/Products";
 import { Comandas } from "./pages/Comandas";
 import { Coupons } from "./pages/Coupons";
+import { Packages } from "./pages/Packages";
 import { Professionals } from "./pages/Professionals";
 import { Customers } from "./pages/Customers";
 import { Plans } from "./pages/Plans";
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/customers" element={<Customers />} />
         <Route path="/plans" element={<Plans />} />
         <Route path="/coupons" element={<Coupons />} />
+        <Route path="/packages" element={<Packages />} />
         <Route path="/comandas" element={<Comandas />} />
         <Route path="/caixa" element={<Caixa />} />
         <Route path="/commissions" element={<Commissions />} />

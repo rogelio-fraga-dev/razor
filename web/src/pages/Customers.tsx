@@ -7,7 +7,7 @@ import { SkeletonRows } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
-import type { Customer, CustomerSummary, PageMeta, SubscriptionPlan } from "../api/types";
+import type { Customer, CustomerPackage, CustomerSummary, PageMeta, SubscriptionPlan } from "../api/types";
 
 function dateShort(iso: string | null): string {
   if (!iso) return "—";
@@ -70,6 +70,14 @@ export function Customers() {
   );
   const summary = useApi<CustomerSummary>(() => api.get("/api/admin/customers/summary"), [version]);
   const plans = useApi<SubscriptionPlan[]>(() => api.get("/api/admin/plans"), []);
+
+  // Saldo de pacotes pré-pagos (V34): quem tem corte pago aparece marcado na lista.
+  const packages = useApi<CustomerPackage[]>(() => api.get("/api/admin/customers/package-balances"), [version]);
+  const packagesByCustomer = useMemo(() => {
+    const m = new Map<string, CustomerPackage[]>();
+    for (const p of packages.data ?? []) m.set(p.customerId, [...(m.get(p.customerId) ?? []), p]);
+    return m;
+  }, [packages.data]);
 
   const activePlans = useMemo(() => (plans.data ?? []).filter((p) => p.active), [plans.data]);
 
@@ -149,6 +157,15 @@ export function Customers() {
                     <span className="rw-title">
                       {c.name || "Sem nome"}
                       {c.planName && <span className="badge badge-plan">💎 {c.planName}</span>}
+                      {(packagesByCustomer.get(c.id) ?? []).map((p) => (
+                        <span
+                          key={p.id}
+                          className="badge badge-green"
+                          title={`${p.packageName} · ${p.serviceName ?? "qualquer serviço"} · vence ${new Date(p.expiresAt + "T00:00:00").toLocaleDateString("pt-BR")}`}
+                        >
+                          🎫 {p.remainingUses}/{p.totalUses} {p.packageName}
+                        </span>
+                      ))}
                     </span>
                     <span className="rw-meta">
                       <span className="mono">{phoneBr(c.phone)}</span>

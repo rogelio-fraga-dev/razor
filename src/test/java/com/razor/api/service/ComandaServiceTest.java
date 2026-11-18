@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,11 +59,18 @@ class ComandaServiceTest {
     @Mock private ProfessionalRepository professionalRepository;
     @Mock private CashRegisterService cashRegisterService;
     @Mock private StockService stockService;
+    @Mock private PackageService packageService;
 
     @InjectMocks private ComandaService service;
 
     private final UUID comandaId = UUID.randomUUID();
     private final UUID movementId = UUID.randomUUID();
+
+    @BeforeEach
+    void noPackageByDefault() {
+        // Sem pacote (V34), a baixa devolve os itens como vieram.
+        when(packageService.consumeForComanda(any(), any())).thenAnswer(inv -> inv.getArgument(1));
+    }
 
     @AfterEach
     void tearDown() {
@@ -236,6 +244,48 @@ class ComandaServiceTest {
 
         assertThat(c.getStatus()).isEqualTo(Comanda.Status.ABERTA);
         verify(productSaleRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("pacote (V34): serviço coberto sai a zero e o caixa recebe só o resto")
+    void close_packageCoveredServiceIsNotCharged() {
+        openComanda(null);
+        ComandaItem corte = item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1);
+        ComandaItem barba = item(ComandaItem.Kind.SERVICO, "Barba", "30.00", 1);
+        givenItems(corte, barba);
+        givenCashAccepts();
+        // O pacote paga o corte.
+        when(packageService.consumeForComanda(any(), any())).thenAnswer(inv -> {
+            corte.setUnitPrice(BigDecimal.ZERO);
+            corte.setTotal(BigDecimal.ZERO);
+            return List.of(corte, barba);
+        });
+
+        Comanda closed = service.close(comandaId, CashPaymentMethod.PIX);
+
+        assertThat(closed.getTotal()).isEqualByComparingTo("30.00");
+        verify(cashRegisterService).recordMovement(
+                eq(CashMovementType.VENDA), eq(CashPaymentMethod.PIX), eq(new BigDecimal("30.00")), any());
+    }
+
+    @Test
+    @DisplayName("pacote (V34): comanda toda paga pelo pacote fecha zerada e sem movimento de caixa")
+    void close_fullyCoveredByPackage_closesWithoutCashMovement() {
+        openComanda(null);
+        ComandaItem corte = item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1);
+        givenItems(corte);
+        when(packageService.consumeForComanda(any(), any())).thenAnswer(inv -> {
+            corte.setUnitPrice(BigDecimal.ZERO);
+            corte.setTotal(BigDecimal.ZERO);
+            return List.of(corte);
+        });
+
+        Comanda closed = service.close(comandaId, CashPaymentMethod.DINHEIRO);
+
+        assertThat(closed.getStatus()).isEqualTo(Comanda.Status.FECHADA);
+        assertThat(closed.getTotal()).isEqualByComparingTo("0");
+        assertThat(closed.getCashMovementId()).isNull();
+        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any());
     }
 
     @Test

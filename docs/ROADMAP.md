@@ -276,8 +276,30 @@ assinaturas) sem sair do Razor.
 - [x] **Folgas e bloqueios de agenda** — sem isso a IA agenda em cima de folga/almoço/feriado.
       Por profissional (ou barbearia toda), pontual ou recorrente, dia inteiro ou faixa de
       horário. Back V16 + **tela no painel** (modal aberto pela toolbar da Agenda).
-- [ ] **Pacotes** (ex.: 10 cortes pré-pagos) com **baixa automática** no atendimento —
-      diferente do clube (recorrência); é crédito pré-pago.
+- [x] **Pacotes (V34)** (ex.: 10 cortes pré-pagos) com **baixa automática** no atendimento —
+      diferente do clube (recorrência); é crédito pré-pago. **Catálogo** por barbearia (nome
+      único, serviço coberto ou "qualquer serviço", usos, preço, validade em dias, desativação
+      em vez de exclusão) e tela própria (*Pacotes*). **Venda** ao cliente lançada no **caixa
+      aberto** como movimento de venda — sem caixa aberto é recusada, igual ao balcão. Nome,
+      serviço, preço, validade e **valor por uso** (preço ÷ usos) são **congelados** no pacote
+      do cliente. **Baixa** no fechamento da comanda: com o telefone do cliente na comanda, cada
+      serviço coberto por pacote com saldo e dentro da validade sai a **R$ 0,00** (o item é
+      dividido se o saldo for menor que a quantidade) e consome um uso; o que vence primeiro é
+      gasto primeiro, e o pacote específico do serviço antes do "qualquer serviço". Cada baixa
+      grava linha em `package_usages`, **única por item de comanda** — reprocessar não desconta
+      duas vezes —, com trava de linha no saldo e `CHECK remaining_uses >= 0` no banco. Comanda
+      toda coberta fecha com total zero e **sem** movimento de caixa (não entrou dinheiro).
+      **Comissão:** o barbeiro continua comissionado, mas sobre o **valor por uso do pacote**, não
+      sobre o preço de tabela — foi isso que entrou por aquele corte; aplicado aos agendamentos
+      cuja comanda usou pacote. O **bot** recebe no prompt os pacotes usáveis do cliente (saldo e
+      validade), para não cobrar de novo um corte já pago. Clientes com saldo aparecem marcados
+      na tela *Clientes*.
+      > ⚠️ **Limites conhecidos:** (1) a baixa só existe na comanda — agendamento não tem estado
+      > "concluído", então não há gancho natural para dar baixa sem comanda; (2) comanda sem
+      > agendamento já não gera comissão de serviço hoje, e o pacote segue a mesma regra;
+      > (3) o `/reports/financial` não soma a venda do pacote (ela está no caixa) e continua
+      > contando o agendamento coberto pelo preço de tabela — reconhecer receita do pacote no
+      > financeiro/DRE fica para depois; (4) vender pacote é só do dono (a recepção vê o saldo).
 - [ ] **Múltiplas formas de pagamento** por atendimento (dinheiro, débito, crédito, PIX,
       split) — hoje só PIX/presencial/pendente.
 - [ ] **Limite de agendamentos por cliente** — impede o cliente de reservar vários horários

@@ -33,6 +33,7 @@ public class OpenAIService {
     private final BarbershopSettingsService barbershopSettingsService;
     private final com.razor.api.repository.ServiceOfferingRepository serviceOfferingRepository;
     private final PlanPricingService planPricingService;
+    private final PackageService packageService;
     private WebClient openAiWebClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -164,7 +165,29 @@ public class OpenAIService {
             }
             sb.append("\n");
         }
+        sb.append(buildPackageLines(customer));
         return sb.toString().trim();
+    }
+
+    /**
+     * Pacotes pre-pagos (V34) do cliente, para a IA nao cobrar de novo um corte que ele ja
+     * pagou. Sai uma linha por pacote usavel, com o saldo e a validade.
+     */
+    String buildPackageLines(com.razor.api.model.Customer customer) {
+        if (packageService == null || customer == null) return "";
+        var pacotes = packageService.usableFor(customer);
+        if (pacotes == null || pacotes.isEmpty()) return "";
+        var fmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        StringBuilder sb = new StringBuilder();
+        for (var cp : pacotes) {
+            String cobre = cp.getServiceName() != null ? cp.getServiceName() : "qualquer serviço";
+            sb.append("- PACOTE PRÉ-PAGO do cliente \"").append(cp.getPackageName()).append("\" (")
+                    .append(cobre).append("): ").append(cp.getRemainingUses())
+                    .append(cp.getRemainingUses() == 1 ? " uso restante" : " usos restantes")
+                    .append(", válido até ").append(cp.getExpiresAt().format(fmt))
+                    .append(". Já está pago — o atendimento coberto não é cobrado de novo.\n");
+        }
+        return sb.toString();
     }
 
     /** Ex.: "Seg a Sáb, das 09:00 às 19:00" — vindo das configuracoes do tenant. */
