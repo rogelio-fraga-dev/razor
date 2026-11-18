@@ -80,6 +80,30 @@ class AdminReportControllerTest {
     }
 
     @Test
+    @DisplayName("comissões com período (chips Semana/Quinzena/Mês) somam o intervalo inteiro")
+    void commissions_withPeriod() {
+        LocalDate from = LocalDate.of(2026, 11, 1);
+        LocalDate to = LocalDate.of(2026, 11, 15);
+        when(commissionService.commissionsForPeriod(from, to)).thenReturn(List.of(
+                new ProfessionalCommission(UUID.randomUUID(), "Rafael", new BigDecimal("50"),
+                        9, new BigDecimal("400.00"), BigDecimal.ZERO, 0, BigDecimal.ZERO, new BigDecimal("200.00"))));
+
+        CommissionReportResponse resp = controller.commissions(null, from, to);
+
+        assertThat(resp.date()).isEqualTo(from);
+        assertThat(resp.total()).isEqualByComparingTo("200.00");
+        verify(commissionService).commissionsForPeriod(from, to);
+    }
+
+    @Test
+    @DisplayName("período invertido é recusado")
+    void commissions_invertedPeriod() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.commissions(null,
+                LocalDate.of(2026, 11, 15), LocalDate.of(2026, 11, 1)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     @DisplayName("agenda sem data usa hoje")
     void agenda_defaultsToday() {
         LocalDate hoje = AppointmentDates.today();

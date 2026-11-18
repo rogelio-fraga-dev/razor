@@ -401,6 +401,23 @@ class SecurityConfigIT {
     }
 
     @Test
+    @DisplayName("BARBEIRO alcança o próprio 'quanto eu ganhei', mas não o de um colega nem a equipe")
+    void barber_ownEarnings_only() throws Exception {
+        String token = login("barbeiro@loja.com");
+
+        // Sem vinculo (V44) a resposta e 200 com linked=false — a tela explica o que fazer.
+        mockMvc.perform(get("/api/admin/me/earnings?period=today").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linked").value(false));
+        mockMvc.perform(get("/api/admin/me/earnings?professionalId=" + java.util.UUID.randomUUID())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").exists());
+        mockMvc.perform(get("/api/admin/panel-users").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("DONO alcança configuração e dinheiro")
     void owner_reachesConfigAndMoney() throws Exception {
         String token = login();

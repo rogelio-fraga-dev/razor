@@ -55,6 +55,8 @@ public class AdminController {
         body.put("name", user.getName());
         body.put("barbershopId", principal.barbershopId());
         body.put("role", principal.role().name());
+        // Vinculo com o cadastro de profissional (V44): o "Meu dia" filtra a agenda por ele.
+        body.put("professionalId", user.getProfessionalId());
         return body;
     }
 }

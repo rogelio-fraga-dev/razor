@@ -46,6 +46,14 @@ public class TenantUser {
     private boolean active = true;
 
     /**
+     * Cadastro de profissional que este login representa (V44): e por ele que o barbeiro ve
+     * "meus horarios" e "quanto eu ganhei". Nulo = sem vinculo. A FK composta do banco garante
+     * que aponta para um profissional do mesmo tenant.
+     */
+    @Column(name = "professional_id")
+    private UUID professionalId;
+
+    /**
      * Versao das sessoes deste usuario: vai no JWT (claim {@code ver}) e o filtro so aceita token
      * com a versao vigente. Incrementar derruba todas as sessoes abertas (ex.: troca de senha).
      */

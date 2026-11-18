@@ -136,6 +136,10 @@ public class SecurityConfig {
                         // --- Proprio usuario -------------------------------------------------
                         // Ler e editar o proprio perfil nao depende de papel.
                         .requestMatchers("/api/admin/me").authenticated()
+                        // "Quanto eu ganhei" (V44): escopado no profissional do PROPRIO login.
+                        // Barbeiro pedindo outro professionalId leva 403 no MyEarningsService.
+                        .requestMatchers(HttpMethod.GET, "/api/admin/me/earnings")
+                        .hasAnyRole(OWNER, RECEPTION, BARBER)
 
                         // --- Agenda do dia ---------------------------------------------------
                         // O barbeiro precisa ver com quem atende hoje. Vem ANTES da regra geral
