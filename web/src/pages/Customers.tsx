@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ErrorState } from "../components/ErrorState";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Layout } from "../components/Layout";
 import { Drawer } from "../components/Drawer";
 import { EmptyState } from "../components/EmptyState";

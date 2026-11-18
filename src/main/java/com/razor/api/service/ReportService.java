@@ -122,7 +122,7 @@ public class ReportService {
     /** Resumo financeiro do intervalo [from, to] (inclusive) do tenant atual. */
     public FinancialSummaryResponse financialSummary(LocalDate from, LocalDate to) {
         UUID shop = TenantContext.getCurrent();
-        Map<ServiceCategory, BigDecimal> precos = pricingService.resolvePrices();
+        PricingService.Quoter precos = pricingService.quoter();
 
         int combo = 0, barba = 0, simples = 0;
         int pixCount = 0, presCount = 0, pendCount = 0;
@@ -133,9 +133,12 @@ public class ReportService {
         // Filtro no banco: antes esta consulta trazia todos os agendamentos historicos do tenant
         // e descartava em Java o que estivesse fora do periodo.
         for (Appointment ag : appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(shop, from, to)) {
+            // Falta nao e faturamento (nem previsto): a cadeira ficou vazia e ninguem pagou.
+            // Cancelado nem chega aqui — cancelar apaga o agendamento.
+            if (!countsAsRevenue(ag)) continue;
 
             ServiceCategory cat = pricingService.categorize(ag.getService());
-            BigDecimal valor = precos.get(cat);
+            BigDecimal valor = precos.price(ag.getService());
             count++;
             total = total.add(valor);
             switch (cat) {
@@ -266,7 +269,7 @@ public class ReportService {
     public List<RevenuePoint> revenueSeries(SeriesPeriod period, LocalDate today) {
         UUID shop = TenantContext.getCurrent();
         List<RevenuePoint> buckets = emptyBuckets(period, today);
-        Map<ServiceCategory, BigDecimal> precos = pricingService.resolvePrices();
+        PricingService.Quoter precos = pricingService.quoter();
         BigDecimal[] totals = new BigDecimal[buckets.size()];
         Arrays.fill(totals, BigDecimal.ZERO);
 
@@ -276,8 +279,9 @@ public class ReportService {
         // So a janela do grafico vem do banco — o resto do historico do tenant nao interessa aqui.
         for (Appointment ag : appointmentRepository
                 .findByBarbershopIdAndAppointmentDateBetween(shop, windowStart, windowEnd)) {
+            if (!countsAsRevenue(ag)) continue; // mesma regra do resumo: falta nao fatura
             addToBucket(buckets, totals, ag.getAppointmentDate(),
-                    precos.get(pricingService.categorize(ag.getService())));
+                    precos.price(ag.getService()));
         }
         for (ProductSale venda : productSaleRepository.findByBarbershopIdAndSaleDateBetween(shop, windowStart, windowEnd)) {
             addToBucket(buckets, totals, venda.getSaleDate(), venda.getTotal());
@@ -289,6 +293,15 @@ public class ReportService {
             series.add(new RevenuePoint(b.label(), b.from(), b.to(), scale(totals[i])));
         }
         return series;
+    }
+
+    /**
+     * Agendamento que entra no faturamento (realizado ou previsto). Falta ({@code NO_SHOW}) fica
+     * de fora: contar o corte de quem nao veio inflava o "a receber" e o faturamento do mes com
+     * dinheiro que nunca vai entrar. Regra unica para resumo, grafico e comissao.
+     */
+    static boolean countsAsRevenue(Appointment ag) {
+        return ag != null && ag.getAttendanceStatus() != com.razor.api.model.AttendanceStatus.NO_SHOW;
     }
 
     /** "ter." -> "ter": o rotulo do eixo do grafico e curto e nao leva ponto de abreviacao. */
@@ -343,7 +356,7 @@ public class ReportService {
         Map<UUID, String> nomePorProfissional = professionalRepository.findByBarbershopId(shop).stream()
                 .collect(Collectors.toMap(Professional::getId, Professional::getName, (a, b) -> a));
         Set<String> assinantes = customerService.subscriberPhones();
-        Map<ServiceCategory, Integer> duracoes = pricingService.resolveDurations();
+        PricingService.Quoter duracoes = pricingService.quoter();
 
         return appointmentRepository.findByBarbershopIdAndAppointmentDate(shop, date).stream()
                 .sorted(Comparator.comparing(Appointment::getAppointmentTime,
@@ -353,7 +366,7 @@ public class ReportService {
                         a.getCustomerName(),
                         a.getCustomerPhone(),
                         a.getService(),
-                        duracoes.getOrDefault(pricingService.categorize(a.getService()), 30),
+                        duracoes == null ? 30 : duracoes.duration(a.getService()),
                         a.getPaymentStatus(),
                         a.getProfessionalId(),
                         a.getProfessionalId() == null ? null : nomePorProfissional.get(a.getProfessionalId()),

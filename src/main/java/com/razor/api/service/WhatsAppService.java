@@ -62,6 +62,21 @@ public class WhatsAppService {
         }
     }
 
+    /**
+     * Indicador "digitando..." (V46): avisa o cliente que a mensagem chegou enquanto o audio e
+     * transcrito e a IA responde. Assincrono e sem garantia — falha so vai para o log de debug.
+     */
+    public void sendPresence(String phone, String presence, int delayMs) {
+        String instance = tenantResolver.outboundInstance();
+        CompletableFuture.runAsync(() -> {
+            try {
+                evolutionClient.sendPresence(instance, phone, presence, delayMs).block(SYNC_SEND_TIMEOUT);
+            } catch (Exception e) {
+                log.debug("Presenca '{}' para {} nao saiu: {}", presence, phone, e.getMessage());
+            }
+        });
+    }
+
     /** Envio sincrono que falhou. */
     public static class WhatsAppSendException extends RuntimeException {
         public WhatsAppSendException(String message, Throwable cause) {

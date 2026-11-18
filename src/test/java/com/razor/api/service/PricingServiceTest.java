@@ -156,4 +156,68 @@ class PricingServiceTest {
         assertThat(duracoes.get(ServiceCategory.SIMPLES)).isEqualTo(45);
         assertThat(duracoes.get(ServiceCategory.BARBA)).isEqualTo(30); // padrao (sem oferta)
     }
+
+    // ---------- calculo unico do agendamento (V46) ----------
+
+    private List<ServiceOffering> catalogo380() {
+        return List.of(
+                offering("Corte de Cabelo", "40.00", 30),
+                offering("Barba", "30.00", 30),
+                offering("Corte Visagista", "60.00", 45),
+                offering("Sobrancelha", "15.00", 15),
+                offering("Pézinho", "10.00", 10),
+                offering("Combo Corte de Cabelo + Barba", "60.00", 60));
+    }
+
+    @Test
+    @DisplayName("agendamento #380: 5 serviços guardados separados por vírgula somam preço e duração (não 'R$ 35')")
+    void quote_case380_sumsAllServices() {
+        var q = PricingService.Quoter.of(catalogo380())
+                .quote("Corte de Cabelo, Barba, Corte Visagista, Sobrancelha, Pézinho");
+        assertThat(q.fromCatalog()).isTrue();
+        assertThat(q.lines()).extracting(PricingService.QuoteLine::name)
+                .containsExactly("Corte de Cabelo", "Barba", "Corte Visagista", "Sobrancelha", "Pézinho");
+        assertThat(q.total()).isEqualByComparingTo("155.00");
+        assertThat(q.durationMinutes()).isEqualTo(130);
+        assertThat(q.multiple()).isTrue();
+    }
+
+    @Test
+    @DisplayName("nome exato de combo vale o preço do combo, não a soma das partes")
+    void quote_exactCombo() {
+        var q = PricingService.Quoter.of(catalogo380()).quote("combo corte de cabelo + barba");
+        assertThat(q.total()).isEqualByComparingTo("60.00");
+        assertThat(q.durationMinutes()).isEqualTo(60);
+        assertThat(q.lines()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("combo sugerido: corte + barba pedidos separados e existe combo mais barato")
+    void comboSuggestion() {
+        var quoter = PricingService.Quoter.of(catalogo380());
+        var combo = quoter.comboFor("Corte de Cabelo + Barba + Sobrancelha");
+        assertThat(combo).isPresent();
+        assertThat(combo.get().combo().name()).isEqualTo("Combo Corte de Cabelo + Barba");
+        assertThat(combo.get().savings()).isEqualByComparingTo("10.00");
+        assertThat(quoter.comboFor("Barba + Sobrancelha")).isEmpty();
+        assertThat(quoter.comboFor("Corte de Cabelo")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("texto fora do catálogo cai no padrão histórico por categoria")
+    void quote_unknown_legacy() {
+        var q = PricingService.Quoter.of(catalogo380()).quote("Hidratação");
+        assertThat(q.fromCatalog()).isFalse();
+        assertThat(q.total()).isEqualByComparingTo("40.00"); // SIMPLES do catálogo: "Corte de Cabelo"
+        var vazio = PricingService.Quoter.of(List.of()).quote("Combo");
+        assertThat(vazio.total()).isEqualByComparingTo("60.00");
+        assertThat(vazio.durationMinutes()).isEqualTo(60);
+    }
+
+    @Test
+    @DisplayName("priceFor usa o cálculo único (soma), não a categoria")
+    void priceFor_usesQuote() {
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(catalogo380());
+        assertThat(pricingService.priceFor("Barba, Sobrancelha")).isEqualByComparingTo("45.00");
+    }
 }

@@ -9,7 +9,7 @@
 //  3. /assets/* (nome com hash do Vite, imutável): cache primeiro — um hash nunca muda de conteúdo.
 //  4. Ícones/manifest/fontes do próprio domínio: stale-while-revalidate.
 // Trocar VERSION descarta os caches antigos no `activate`.
-const VERSION = "razor-shell-v1";
+const VERSION = "razor-shell-v2";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/favicon.svg", "/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {

@@ -110,6 +110,10 @@ public class RazorProperties {
         private String model;
         private String visionModel;
         private String whisperModel;
+        /** Reserva da transcricao quando o modelo principal falha (V46). */
+        private String whisperFallbackModel = "whisper-1";
+        /** Modelo mais forte, usado so quando o principal falha ou devolve tag quebrada (V46). */
+        private String escalationModel = "gpt-4o";
         private Double temperature;
     }
 

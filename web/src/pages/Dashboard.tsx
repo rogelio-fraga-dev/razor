@@ -2,7 +2,7 @@
 // (meta de faturamento, taxa de ocupação, ranking sem movimento) a tela diz que não há —
 // nunca preenche com exemplo, porque o dono usa esses números para decidir dinheiro.
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Hint } from "../components/Hint";
 import { ErrorState } from "../components/ErrorState";
 import { Layout } from "../components/Layout";

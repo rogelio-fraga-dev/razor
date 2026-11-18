@@ -42,6 +42,8 @@ export function evaluateConfig(
   bot: BotSettings | null,
   status: BotStatus | null,
   admins: AdminContact[] | null,
+  /** Serviços ativos no catálogo (V46): é deles que o bot tira preço e duração. */
+  activeServices: number | null = null,
 ): ConfigStatus {
   const items: ConfigItem[] = [
     {
@@ -80,7 +82,7 @@ export function evaluateConfig(
       id: "services",
       label: "Tabela de serviços e preços",
       hint: "O que o bot responde quando perguntam “quanto custa?”. Vazia, ele não inventa preço — diz que não sabe.",
-      done: filled(bot?.servicesText),
+      done: (activeServices ?? 0) > 0 || filled(bot?.servicesText),
       required: true,
       step: 4,
     },

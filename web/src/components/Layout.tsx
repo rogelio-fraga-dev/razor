@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router";
 import { useAuth } from "../auth/AuthContext";
 import { applyTheme, currentTheme, type Theme } from "../lib/theme";
 import {
@@ -13,6 +13,7 @@ import {
 } from "../lib/nav";
 import { EdgeMark, RazorLogo } from "./Logo";
 import { Clock } from "./Clock";
+import { InstallAppButton } from "./InstallAppButton";
 import { Drawer } from "./Drawer";
 import { IconChevron, IconMore } from "./Icons";
 
@@ -333,6 +334,9 @@ function BottomNav({ quick, groups }: { quick: NavPage[]; groups: NavGroup[] }) 
               </ul>
             </section>
           ))}
+          <div className="area-install">
+            <InstallAppButton className="btn btn-ghost" />
+          </div>
         </Drawer>
       )}
     </>
@@ -411,6 +415,7 @@ export function Layout({
           user={session?.email ?? "anon"}
         />
         <div className="sidebar-foot">
+          <InstallAppButton className="btn btn-ghost btn-sm install-btn" compact={collapsed || narrow} />
           <NavLink to="/profile" className="user-chip" title="Meu perfil" data-tour="profile">
             <span className="avatar">{initial}</span>
             <div className="grow user-meta">

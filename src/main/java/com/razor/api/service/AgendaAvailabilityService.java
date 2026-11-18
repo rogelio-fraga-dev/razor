@@ -212,12 +212,12 @@ public class AgendaAvailabilityService {
      * servico (do catalogo): um combo de 60min ocupa dois slots consecutivos, e nao apenas o inicial.
      */
     private List<String> expandirSlotsOcupados(List<Appointment> apps) {
-        Map<PricingService.ServiceCategory, Integer> duracoes = pricingService.resolveDurations();
+        PricingService.Quoter duracoes = pricingService.quoter();
         List<String> ocupados = new ArrayList<>();
         for (Appointment ag : apps) {
             LocalTime inicio = ag.getAppointmentTime();
             if (inicio == null) continue;
-            Integer mins = duracoes.get(pricingService.categorize(ag.getService()));
+            Integer mins = duracoes == null ? null : duracoes.duration(ag.getService());
             int slots = Math.max(1, (int) Math.ceil((mins != null ? mins : 30) / 30.0));
             for (int i = 0; i < slots; i++) {
                 ocupados.add(AppointmentDates.formatTime(inicio.plusMinutes(30L * i)));
@@ -371,8 +371,9 @@ public class AgendaAvailabilityService {
 
     /** Duracao (minutos) de um servico pelo nome, pela mesma tabela que a grade usa. */
     public int duracaoDoServico(String serviceName) {
-        Integer mins = pricingService.resolveDurations().get(pricingService.categorize(serviceName));
-        return mins != null ? mins : SLOT_MINUTES;
+        PricingService.Quoter q = pricingService.quoter();
+        int mins = q == null ? 0 : q.duration(serviceName);
+        return mins > 0 ? mins : SLOT_MINUTES;
     }
 
     /** Agendamentos do dia como intervalos [inicio, fim) em minutos, e os barbeiros ativos. */
@@ -387,12 +388,12 @@ public class AgendaAvailabilityService {
 
     private Ocupacao ocupacaoDoDia(LocalDate date) {
         UUID shop = TenantContext.getCurrent();
-        Map<PricingService.ServiceCategory, Integer> duracoes = pricingService.resolveDurations();
+        PricingService.Quoter duracoes = pricingService.quoter();
         List<Intervalo> intervalos = new ArrayList<>();
         List<Appointment> doDia = appointmentRepository.findByBarbershopIdAndAppointmentDate(shop, date);
         for (Appointment ag : doDia == null ? List.<Appointment>of() : doDia) {
             if (ag.getAppointmentTime() == null) continue;
-            Integer mins = duracoes == null ? null : duracoes.get(pricingService.categorize(ag.getService()));
+            Integer mins = duracoes == null ? null : duracoes.duration(ag.getService());
             int ini = minutos(ag.getAppointmentTime());
             intervalos.add(new Intervalo(ag.getProfessionalId(), ini,
                     ini + Math.max(SLOT_MINUTES, mins != null ? mins : SLOT_MINUTES)));

@@ -148,6 +148,24 @@ public class BarbershopSettings {
     @Column(name = "no_show_deposit_amount", precision = 10, scale = 2)
     private BigDecimal noShowDepositAmount;
 
+    /**
+     * Link de avaliacao do Google da barbearia (V46). So quem da nota 4-5 recebe. NULL = sem link
+     * (o bot so agradece). Validado: https em dominio do Google ou g.page.
+     */
+    @Column(name = "google_review_url", columnDefinition = "text")
+    private String googleReviewUrl;
+
+    /** Pedir nota de 1 a 5 depois do atendimento (V46). */
+    @Builder.Default
+    @Column(name = "review_request_enabled", nullable = false)
+    private Boolean reviewRequestEnabled = Boolean.TRUE;
+
+    /** Minutos depois do fechamento da comanda para pedir a nota (V46), ajustado ao expediente. */
+    @Builder.Default
+    @Column(name = "review_delay_minutes", nullable = false)
+    private Integer reviewDelayMinutes = DEFAULT_REVIEW_DELAY_MINUTES;
+
+    public static final int DEFAULT_REVIEW_DELAY_MINUTES = 120;
     public static final int DEFAULT_CONFIRMATION_HOUR = 18;
     public static final int DEFAULT_CONFIRMATION_DEADLINE_HOURS = 3;
 

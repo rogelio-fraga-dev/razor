@@ -829,6 +829,15 @@ export interface SiteSectionContent {
   title?: string;
   /** Texto de apoio (até 600). */
   text?: string;
+  /** Só em "Como agendar": até 3 passos; a posição é o número do passo. Campo vazio = padrão. */
+  steps?: SiteStepContent[];
+}
+
+export interface SiteStepContent {
+  /** Até 60. */
+  title?: string;
+  /** Até 200. */
+  text?: string;
 }
 
 export type SiteMotion = "full" | "subtle" | "off";
@@ -959,3 +968,35 @@ export interface NoShowSettings {
 
 export type ConfirmationStatus = "PENDING" | "CONFIRMED" | "DECLINED" | "NO_RESPONSE";
 export type DepositStatus = "PENDING" | "PAID";
+
+/** Avaliação pós-atendimento (V46): regras do pedido de nota. */
+export interface ReviewSettings {
+  enabled: boolean;
+  /** Link de avaliação do Google; só quem dá 4–5 recebe. Vazio = o bot só agradece. */
+  googleReviewUrl: string | null;
+  /** Minutos depois do fechamento da comanda (ajustado ao horário de funcionamento). */
+  delayMinutes: number;
+}
+
+export interface ReviewItem {
+  id: string;
+  customerName: string;
+  rating: number;
+  comment: string | null;
+  ratedAt: string;
+  professionalName: string | null;
+}
+
+/** Card "Avaliações dos clientes" (V46). */
+export interface ReviewSummary {
+  days: number;
+  average: number | null;
+  count: number;
+  /** Quantidade por nota ("5" … "1"). */
+  distribution: Record<string, number>;
+  requestsSent: number;
+  responseRate: number | null;
+  recent: ReviewItem[];
+  enabled: boolean;
+  googleLinkConfigured: boolean;
+}

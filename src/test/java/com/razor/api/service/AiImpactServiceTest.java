@@ -61,16 +61,11 @@ class AiImpactServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(pricingService.resolvePrices()).thenReturn(Map.of(
-                ServiceCategory.SIMPLES, new BigDecimal("40.00"),
-                ServiceCategory.BARBA, new BigDecimal("30.00"),
-                ServiceCategory.COMBO, new BigDecimal("60.00")));
-        when(pricingService.categorize(any())).thenAnswer(inv -> {
-            String s = inv.getArgument(0);
-            return s != null && s.toLowerCase().contains("barba") && s.toLowerCase().contains("corte")
-                    ? ServiceCategory.COMBO
-                    : s != null && s.toLowerCase().contains("barba") ? ServiceCategory.BARBA : ServiceCategory.SIMPLES;
-        });
+        // Catalogo real pelo calculo unico: Corte 40, Barba 30 e o combo "Corte e Barba" 60.
+        when(pricingService.quoter()).thenReturn(PricingService.Quoter.of(List.of(
+                com.razor.api.model.ServiceOffering.builder().id(UUID.randomUUID()).name("Corte").price(new BigDecimal("40.00")).build(),
+                com.razor.api.model.ServiceOffering.builder().id(UUID.randomUUID()).name("Barba").price(new BigDecimal("30.00")).build(),
+                com.razor.api.model.ServiceOffering.builder().id(UUID.randomUUID()).name("Corte e Barba").price(new BigDecimal("60.00")).build())));
         when(appointmentRepository.findByBarbershopIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 any(), eq(FROM.atStartOfDay()), eq(TO.plusDays(1).atStartOfDay()))).thenReturn(created);
         when(appointmentRepository.findByBarbershopId(any())).thenReturn(all);

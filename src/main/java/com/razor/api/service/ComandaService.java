@@ -57,6 +57,8 @@ public class ComandaService {
     private final PackageService packageService;
     private final AppointmentRepository appointmentRepository;
     private final FidelityVisitService fidelityVisitService;
+    private final CustomerReviewService customerReviewService;
+    private final PricingService pricingService;
 
     // ---------- consultas ----------
 
@@ -118,7 +120,26 @@ public class ComandaService {
                 .comandaDate(AppointmentDates.today())
                 .build());
         log.info("[COMANDA] Aberta {} no tenant {}", comanda.getId(), shop);
+        preencherServicosDoAgendamento(comanda, appointmentId, shop);
         return comanda;
+    }
+
+    /**
+     * Comanda aberta a partir do agendamento ja nasce com os servicos dele, pelo calculo unico de
+     * preco ({@link PricingService#quote}) — o mesmo do bot e do painel. "Corte, Barba, Sobrancelha"
+     * vira tres itens com o preco do catalogo. Texto que nao casa com o catalogo nao vira item (a
+     * recepcao adiciona a mao, como antes).
+     */
+    private void preencherServicosDoAgendamento(Comanda comanda, Long appointmentId, UUID shop) {
+        if (appointmentId == null || pricingService == null) return;
+        Appointment ag = appointmentRepository.findByIdAndBarbershopId(appointmentId, shop).orElse(null);
+        if (ag == null || ag.getService() == null || ag.getService().isBlank()) return;
+        PricingService.Quote quote = pricingService.quote(ag.getService());
+        if (quote == null || !quote.fromCatalog()) return;
+        for (PricingService.QuoteLine line : quote.lines()) {
+            if (line.serviceId() == null) continue;
+            saveItem(comanda, ComandaItem.Kind.SERVICO, line.serviceId(), line.name(), line.price(), 1);
+        }
     }
 
     /** Adiciona um servico do catalogo, congelando nome e preco. */
@@ -453,10 +474,13 @@ public class ComandaService {
                         @Override
                         public void afterCommit() {
                             fidelityVisitService.registerCompletedVisit(phone);
+                            // Atendimento aconteceu: programa o pedido de nota (V46).
+                            customerReviewService.scheduleAfterVisit(comanda, phone);
                         }
                     });
         } else {
             fidelityVisitService.registerCompletedVisit(phone);
+            customerReviewService.scheduleAfterVisit(comanda, phone);
         }
     }
 

@@ -90,30 +90,49 @@ diluído em poucas barbearias.** Por isso o foco em conquistar as primeiras deze
 
 ---
 
-## 3. Preços (planos do Razor) — v2, lançamento
+## 3. Preços (planos do Razor) — v3, lançamento
 
 Referência de mercado: Frizzar R$ 57–249 · Booksy R$ 99,90 + R$ 20/prof · CashBarber a partir de R$ 300.
 
-> **v2 (2026-07-23).** Preços reduzidos para estratégia de **penetração no lançamento**
-> (decisão do dono: "os planos estão caros"). A tabela v1 (97/197/347) fica como alvo
-> pós-tração — subir preço com prova social é mais fácil que baixar sem.
+> **v3 (2026-11-18).** Reorganização dos planos: a diferença entre eles passa a ser **tamanho da
+> operação** (barbeiros, conversas de IA, unidades) e **automação de gestão**, não recursos
+> básicos de retenção. O clube de assinatura desce do Pro para o Equipe; avaliações no Google e
+> lista de espera entram já no Solo. A tabela v1 (97/197/347) continua como alvo pós-tração.
+> **Nada disso é cobrado/aplicado no sistema ainda** — limites e cobrança entram junto com a
+> decisão de pagamentos (ver MVP-PILOTO.md).
 
-| Plano | Público | Preço/mês (lançamento) | Anual (2 meses grátis) | Inclui |
+| Plano | Público | Preço/mês | Anual (2 meses grátis) | Limites |
 |---|---|---|---|---|
-| **Solo** | 1 barbeiro | **R$ 69,90** | R$ 58,25/mês | IA WhatsApp, agenda, **site próprio (3 templates)**, fidelidade, PIX, lembretes, painel |
-| **Equipe** | até 5 barbeiros | **R$ 139,90** | R$ 116,58/mês | Tudo do Solo + multiprofissional, comissões, financeiro |
-| **Pro** | rede / ilimitado | **R$ 229,90** | R$ 191,58/mês | Tudo + clube de assinatura, relatórios avançados, multi-unidade |
+| **Solo** | 1 barbeiro | **R$ 69,90** | R$ 58,25/mês (R$ 699/ano) | 1 barbeiro · 300 conversas de IA/mês |
+| **Equipe** ⭐ | barbearia com equipe | **R$ 149,90** | R$ 124,92/mês (R$ 1.499/ano) | até 5 barbeiros (+R$ 19,90/extra) · 1.000 conversas/mês |
+| **Pro** | rede / máximo | **R$ 249,90** | R$ 208,25/mês (R$ 2.499/ano) | até 10 barbeiros (+R$ 19,90/extra) · 3.000 conversas/mês · 1 unidade (+R$ 99/unidade) |
 
-**Margem (escala, custo variável §2):** Solo ~R$ 30 (43%) · Equipe ~R$ 85 (61%) · Pro ~R$ 160 (70%).
-Break-even da plataforma sobe para ~**12–18 barbearias** (vs. 8–14 na v1) — aceitável pelo
-ganho de conversão na entrada.
+**Solo** — IA no WhatsApp (texto e áudio), agenda e agendamento online, site próprio (3 templates)
+com editor, confirmação anti-falta, lembretes, lista de espera automática, avaliações no Google,
+comandas, caixa, fidelidade, pacotes, app (PWA).
+
+**Equipe** — tudo do Solo + agenda multiprofissional, comissões e acerto, despesas/DRE, clube de
+assinatura, campanhas automáticas (sumidos, aniversário, retorno do corte), relatório semanal no
+WhatsApp, metas e ranking, acessos de recepção e barbeiro.
+
+**Pro** — tudo do Equipe + multiunidade com relatórios consolidados, domínio próprio no site,
+suporte prioritário, migração e configuração feitas por nós.
+
+**Para todos:** teste grátis de 14 dias com o Equipe completo · sem taxa de setup · sem fidelidade.
+
+**Por que assim:** o Equipe é o plano-alvo (maior margem e onde está a dor de gestão); quem testa
+o completo tende a não descer. A cota de conversas protege a margem contra tenant pesado e cria um
+gatilho natural de upgrade; o barbeiro extra evita o salto brusco Equipe → Pro.
+
+**Margem (escala, custo variável §2):** Solo ~R$ 30 (43%) · Equipe ~R$ 95 (63%) · Pro ~R$ 180 (72%).
 
 ### Receitas avulsas (fora da mensalidade)
 
 | Serviço | Modelo | Preço sugerido |
 |---|---|---|
 | **Site personalizado** (fora dos 3 templates: design exclusivo feito por nós) | one-time, sob consulta | a partir de **R$ 497** |
-| Migração assistida de outro sistema (feita por nós, além do CSV self-service) | one-time | R$ 97 |
+| Migração assistida de outro sistema (feita por nós, além do CSV self-service) | one-time | R$ 97 (inclusa no Pro) |
+| Pacote extra de conversas de IA | recorrente | +500 conversas por R$ 29,90/mês |
 
 - **Onboarding self-service gratuito** (sem taxa de setup) — argumento de conquista.
 - **Fair-use:** cada plano inclui uma cota de conversas de IA/mês; excedente em faixas,
@@ -127,13 +146,13 @@ ganho de conversão na entrada.
 
 | Plano | Preço | Custo variável (escala) | **Margem bruta** |
 |---|---|---|---|
-| Solo | R$ 97 | ~R$ 40 | ~59% |
-| Equipe | R$ 197 | ~R$ 55 | ~72% |
-| Pro | R$ 347 | ~R$ 70 | ~80% |
+| Solo | R$ 69,90 | ~R$ 40 | ~43% |
+| Equipe | R$ 149,90 | ~R$ 55 | ~63% |
+| Pro | R$ 249,90 | ~R$ 70 | ~72% |
 
 **Break-even da plataforma:** custo fixo inicial ~R$ 500–800/mês (infra + ferramentas + domínio).
-Com margem média ~R$ 55–130/barbearia, o ponto de equilíbrio fica em torno de
-**8–14 barbearias pagantes**. A partir daí, cada nova barbearia é majoritariamente lucro,
+Com margem média ~R$ 30–180/barbearia (mix puxado pelo Equipe), o ponto de equilíbrio fica em
+torno de **10–15 barbearias pagantes**. A partir daí, cada nova barbearia é majoritariamente lucro,
 pois o custo fixo já está coberto e o variável escala barato.
 
 ---

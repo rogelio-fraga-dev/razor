@@ -2,7 +2,7 @@
 // É a assinatura de produto de ferramentas como Linear e Raycast, e aqui resolve
 // um problema real: o dono chega em qualquer tela em 1 atalho.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthContext";
 import { canAccess } from "../lib/access";
 import { reachablePages } from "../lib/nav";
@@ -15,6 +15,8 @@ interface Cmd {
   group: "Ir para" | "Ações";
   /** Rota de destino, quando houver — usada para esconder do papel que não a alcança. */
   to?: string;
+  /** Ação de escrita que só o dono faz (a tela abre para outros papéis, mas só para ler). */
+  ownerOnly?: boolean;
   run: (nav: ReturnType<typeof useNavigate>) => void;
 }
 
@@ -29,8 +31,8 @@ const ACTIONS: Cmd[] = [
     run: () => applyTheme(currentTheme() === "dark" ? "light" : "dark"),
   },
   { id: "act-wpp", label: "Conectar WhatsApp", hint: "QR code", group: "Ações", to: "/settings", run: (n) => n("/settings") },
-  { id: "act-new-service", label: "Novo serviço", hint: "catálogo", group: "Ações", to: "/services", run: (n) => n("/services") },
-  { id: "act-new-product", label: "Novo produto", hint: "balcão", group: "Ações", to: "/products", run: (n) => n("/products") },
+  { id: "act-new-service", label: "Novo serviço", hint: "catálogo", group: "Ações", to: "/services", ownerOnly: true, run: (n) => n("/services") },
+  { id: "act-new-product", label: "Novo produto", hint: "balcão", group: "Ações", to: "/products", ownerOnly: true, run: (n) => n("/products") },
 ];
 
 function norm(s: string) {
@@ -56,7 +58,11 @@ export function CommandPalette() {
       to: p.to,
       run: (n) => n(p.to),
     }));
-    return [...pages, ...ACTIONS.filter((c) => !c.to || canAccess(c.to, session?.role))];
+    // "Novo serviço/produto" é escrita no catálogo: a recepção abre a tela, mas só para ler.
+    const actions = ACTIONS.filter(
+      (c) => (!c.to || canAccess(c.to, session?.role)) && (!c.ownerOnly || session?.role === "OWNER"),
+    );
+    return [...pages, ...actions];
   }, [session?.role]);
 
   const results = useMemo(() => {

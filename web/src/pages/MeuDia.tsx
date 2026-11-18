@@ -2,7 +2,7 @@
 //   1. "Quem eu atendo agora e depois?"  → próximo cliente em destaque + lista do dia.
 //   2. "Quanto eu já ganhei?"             → comissão de hoje e da quinzena.
 // Tudo escopado pelo profissional ligado ao login — a API recusa ver o de outro barbeiro.
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Layout } from "../components/Layout";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";

@@ -91,7 +91,7 @@ public class AgendaPanelService {
         List<Professional> pros = professionalRepository.findByBarbershopId(shop);
         Map<UUID, Professional> prosById = pros.stream()
                 .collect(Collectors.toMap(Professional::getId, Function.identity(), (a, b) -> a));
-        Map<PricingService.ServiceCategory, Integer> durations = pricingService.resolveDurations();
+        PricingService.Quoter durations = pricingService.quoter();
         Set<String> subscribers = customerService.subscriberPhones();
         Map<Long, Comanda> comandas = comandasOf(shop, apps);
 
@@ -149,7 +149,7 @@ public class AgendaPanelService {
         if (name.isEmpty()) throw new IllegalArgumentException("Informe o nome do cliente.");
         String phone = normalizePhone(rawPhone);
         ServiceOffering service = requireService(serviceId);
-        int duration = durationOf(service.getName(), pricingService.resolveDurations());
+        int duration = durationOf(service.getName(), pricingService.quoter());
 
         // Validar e gravar sob a MESMA trava da agenda que o bot e o site usam, mantida ate o
         // commit: antes o painel validava por fora dela e dois cliques (ou painel + bot) gravavam
@@ -183,7 +183,7 @@ public class AgendaPanelService {
         boolean sameBarber = Objects.equals(professionalId, ag.getProfessionalId());
         if (sameSlot && sameBarber) return ag; // soltou no mesmo lugar: nada a fazer, nada a avisar
 
-        int duration = durationOf(ag.getService(), pricingService.resolveDurations());
+        int duration = durationOf(ag.getService(), pricingService.quoter());
 
         // Mesma trava do create (ver BookingLock): validar o encaixe e gravar sem ninguem no meio.
         Appointment result = bookingLock.run(TenantContext.getCurrent(), () -> {
@@ -334,7 +334,7 @@ public class AgendaPanelService {
             throw new IllegalArgumentException("Horário bloqueado para " + pro.getName() + " (folga, almoço ou feriado).");
         }
 
-        Map<PricingService.ServiceCategory, Integer> durations = pricingService.resolveDurations();
+        PricingService.Quoter durations = pricingService.quoter();
         for (Appointment other : appointmentRepository
                 .findByBarbershopIdAndProfessionalIdAndAppointmentDate(shop, professionalId, date)) {
             if (other.getAppointmentTime() == null) continue;
@@ -351,10 +351,10 @@ public class AgendaPanelService {
 
     // ------------------------------------------------------------------ apoio
 
-    /** Duracao pelo catalogo (por categoria, a mesma regra da disponibilidade do bot). */
-    int durationOf(String service, Map<PricingService.ServiceCategory, Integer> durations) {
-        Integer mins = durations.get(pricingService.categorize(service));
-        return mins != null && mins > 0 ? mins : 30;
+    /** Duracao pelo calculo unico do agendamento (soma do catalogo), a mesma do bot. */
+    int durationOf(String service, PricingService.Quoter durations) {
+        int mins = durations == null ? 0 : durations.duration(service);
+        return mins > 0 ? mins : 30;
     }
 
     /**

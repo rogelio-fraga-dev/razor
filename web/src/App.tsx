@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth/AuthContext";
 import { canAccess, homeFor } from "./lib/access";
 import { CommandPalette } from "./components/CommandPalette";

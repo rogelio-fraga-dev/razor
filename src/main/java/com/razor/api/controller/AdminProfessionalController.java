@@ -3,6 +3,8 @@ package com.razor.api.controller;
 import com.razor.api.dto.ProfessionalRequest;
 import com.razor.api.dto.ProfessionalResponse;
 import com.razor.api.model.Professional;
+import com.razor.api.model.UserRole;
+import com.razor.api.security.TenantUserPrincipal;
 import com.razor.api.service.ProfessionalService;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
@@ -11,6 +13,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -23,9 +26,17 @@ public class AdminProfessionalController {
 
     private final ProfessionalService professionalService;
 
+    /**
+     * Lista da equipe. O dono ve tudo; a recepcao (liberada no SecurityConfig so para ler, porque
+     * comanda, venda e folga escolhem o barbeiro) recebe a lista sem os percentuais de comissao.
+     */
     @GetMapping
-    public List<ProfessionalResponse> list() {
-        return professionalService.listAll().stream().map(ProfessionalResponse::from).toList();
+    public List<ProfessionalResponse> list(@AuthenticationPrincipal TenantUserPrincipal principal) {
+        boolean owner = principal != null && principal.role() == UserRole.OWNER;
+        return professionalService.listAll().stream()
+                .map(ProfessionalResponse::from)
+                .map(r -> owner ? r : r.withoutCommission())
+                .toList();
     }
 
     @PostMapping
