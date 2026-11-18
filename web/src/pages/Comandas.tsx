@@ -19,6 +19,7 @@ export function Comandas() {
   const [version, setVersion] = useState(0);
   const [opening, setOpening] = useState(false);
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [professionalId, setProfessionalId] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -37,11 +38,13 @@ export function Comandas() {
     try {
       await api.post("/api/admin/comandas", {
         customerName: name.trim() || null,
-        customerPhone: null,
+        // Com telefone, o fechamento acha o pacote pré-pago do cliente (V34) e dá baixa sozinho.
+        customerPhone: phone.trim() || null,
         professionalId: professionalId || null,
       });
       toast.success("Comanda aberta ✓");
       setName("");
+      setPhone("");
       setProfessionalId("");
       setOpening(false);
       refresh();
@@ -182,6 +185,20 @@ export function Comandas() {
                 onChange={(e) => setName(e.target.value)}
               />
             </label>
+            </div>
+            <div className="field">
+              <label>Telefone (opcional)
+              <input
+                className="input"
+                inputMode="tel"
+                value={phone}
+                placeholder="ex.: (11) 98888-7777"
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </label>
+              <span className="faint" style={{ fontSize: 12 }}>
+                Com o telefone, o pacote pré-pago do cliente é usado sozinho no fechamento.
+              </span>
             </div>
             <div className="field">
               <label>Barbeiro (opcional)

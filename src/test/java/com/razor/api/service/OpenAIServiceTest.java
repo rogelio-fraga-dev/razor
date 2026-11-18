@@ -36,12 +36,30 @@ class OpenAIServiceTest {
     @Mock private BarbershopSettingsService barbershopSettingsService;
     @Mock private ServiceOfferingRepository serviceOfferingRepository;
     @Mock private PlanPricingService planPricingService;
+    @Mock private PackageService packageService;
 
     @InjectMocks private OpenAIService service;
 
     @AfterEach
     void tearDown() {
         TenantContext.clear();
+    }
+
+    @Test
+    @DisplayName("pacote pré-pago (V34): a IA sabe quantos usos o cliente ainda tem")
+    void serviceTable_mentionsPackageBalance() {
+        when(serviceOfferingRepository.findByBarbershopIdAndActiveTrue(any())).thenReturn(List.of(
+                offering("Corte", "40.00", 30)));
+        com.razor.api.model.Customer cliente = com.razor.api.model.Customer.builder()
+                .id(java.util.UUID.randomUUID()).phoneNumber("5511988887777").build();
+        when(packageService.usableFor(cliente)).thenReturn(List.of(com.razor.api.model.CustomerPackage.builder()
+                .packageName("10 cortes").serviceName("Corte").remainingUses(7)
+                .expiresAt(java.time.LocalDate.of(2026, 12, 31)).build()));
+
+        String table = service.buildServiceTable(cliente);
+
+        assertThat(table).contains("PACOTE PRÉ-PAGO").contains("10 cortes").contains("7 usos restantes")
+                .contains("31/12/2026");
     }
 
     private ServiceOffering offering(String name, String price, int minutes) {

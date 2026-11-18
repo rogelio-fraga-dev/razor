@@ -440,6 +440,43 @@ export interface Coupon {
   usable: boolean;
 }
 
+// ---------- Pacotes pré-pagos (V34) ----------
+
+/** Pacote do catálogo. `serviceId` nulo = cobre qualquer serviço. */
+export interface ServicePackage {
+  id: string;
+  name: string;
+  serviceId: string | null;
+  serviceName: string | null;
+  quantity: number;
+  price: number;
+  unitValue: number;
+  validityDays: number;
+  active: boolean;
+}
+
+export type CustomerPackageStatus = "ATIVO" | "ESGOTADO" | "VENCIDO";
+
+/** Pacote vendido a um cliente, com o saldo de usos. */
+export interface CustomerPackage {
+  id: string;
+  customerId: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  packageId: string | null;
+  packageName: string;
+  serviceId: string | null;
+  serviceName: string | null;
+  totalUses: number;
+  remainingUses: number;
+  price: number;
+  unitValue: number;
+  paymentMethod: CashPaymentMethod;
+  purchasedAt: string;
+  expiresAt: string;
+  status: CustomerPackageStatus;
+}
+
 // ---------- Contas a pagar e DRE (V31) ----------
 
 export type ExpenseCategory =

@@ -27,6 +27,7 @@ const COMMANDS: Cmd[] = [
   { id: "go-pros", label: "Profissionais", hint: "equipe e comissão", group: "Ir para", to: "/professionals", run: (n) => n("/professionals") },
   { id: "go-plans", label: "Planos", hint: "clube de assinatura", group: "Ir para", to: "/plans", run: (n) => n("/plans") },
   { id: "go-coupons", label: "Cupons", hint: "descontos e fidelidade", group: "Ir para", to: "/coupons", run: (n) => n("/coupons") },
+  { id: "go-packages", label: "Pacotes", hint: "créditos pré-pagos", group: "Ir para", to: "/packages", run: (n) => n("/packages") },
   { id: "go-caixa", label: "Caixa", hint: "abrir, fechar e movimentos", group: "Ir para", to: "/caixa", run: (n) => n("/caixa") },
   { id: "go-expenses", label: "Despesas e resultado", hint: "contas a pagar e DRE", group: "Ir para", to: "/expenses", run: (n) => n("/expenses") },
   { id: "go-retention", label: "Ocupação e retenção", hint: "cadeiras vazias e quem sumiu", group: "Ir para", to: "/retention", run: (n) => n("/retention") },

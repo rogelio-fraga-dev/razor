@@ -4,7 +4,9 @@ import com.razor.api.model.Appointment;
 import com.razor.api.model.Professional;
 import com.razor.api.model.ProductSale;
 import com.razor.api.model.ServiceOffering;
+import com.razor.api.model.PackageUsage;
 import com.razor.api.repository.AppointmentRepository;
+import com.razor.api.repository.PackageUsageRepository;
 import com.razor.api.repository.ProductSaleRepository;
 import com.razor.api.repository.ProfessionalRepository;
 import com.razor.api.repository.ServiceOfferingRepository;
@@ -42,6 +44,7 @@ public class CommissionService {
     private final ProductSaleRepository productSaleRepository;
     private final ServiceOfferingRepository serviceOfferingRepository;
     private final PricingService pricingService;
+    private final PackageUsageRepository packageUsageRepository;
 
     /**
      * Comissao consolidada de um profissional num periodo.
@@ -85,14 +88,20 @@ public class CommissionService {
                         ServiceOffering::getCommissionPercent,
                         (a, b) -> a));
 
+        List<Appointment> doPeriodo = appointmentRepository.findByBarbershopId(shop).stream()
+                .filter(ag -> ag.getProfessionalId() != null && ag.getAppointmentDate() != null)
+                .filter(ag -> !ag.getAppointmentDate().isBefore(start) && !ag.getAppointmentDate().isAfter(end))
+                .toList();
+        Map<Long, List<PackageUsage>> usosDePacote = packageUsagesByAppointment(shop, doPeriodo);
+
         Map<UUID, Acumulador> porProf = new LinkedHashMap<>();
-        for (Appointment ag : appointmentRepository.findByBarbershopId(shop)) {
+        for (Appointment ag : doPeriodo) {
             UUID pid = ag.getProfessionalId();
-            LocalDate data = ag.getAppointmentDate();
-            if (pid == null || data == null) continue;
-            if (data.isBefore(start) || data.isAfter(end)) continue;
 
             BigDecimal valor = precos.get(pricingService.categorize(ag.getService()));
+            // Pacote pre-pago (V34): o que foi pago pelo pacote entra pelo valor unitario do
+            // pacote (preco / usos), nao pelo preco de tabela — foi isso que entrou por ele.
+            valor = applyPackageValue(valor, ag.getId() == null ? null : usosDePacote.get(ag.getId()));
             Acumulador acc = porProf.computeIfAbsent(pid, k -> new Acumulador());
             acc.atendimentos++;
             acc.faturamento = acc.faturamento.add(valor);
@@ -168,6 +177,29 @@ public class CommissionService {
         sb.append("━━━━━━━━━━━━━━━━━━\n💰 *Total de comissões: R$ ")
                 .append(String.format("%.2f", total)).append("*");
         return sb.toString();
+    }
+
+    /** Usos de pacote dos agendamentos do periodo, agrupados por agendamento. */
+    private Map<Long, List<PackageUsage>> packageUsagesByAppointment(UUID shop, List<Appointment> agendamentos) {
+        List<Long> ids = agendamentos.stream().map(Appointment::getId).filter(java.util.Objects::nonNull).toList();
+        if (ids.isEmpty()) return Map.of();
+        List<PackageUsage> usos = packageUsageRepository.findByBarbershopIdAndAppointmentIdIn(shop, ids);
+        if (usos == null || usos.isEmpty()) return Map.of();
+        return usos.stream().collect(Collectors.groupingBy(PackageUsage::getAppointmentId));
+    }
+
+    /**
+     * Troca, na base do atendimento, o preco de tabela do que o pacote pagou pelo valor unitario
+     * do pacote. O resto do atendimento (ex.: a barba fora do pacote) continua pelo preco cheio.
+     */
+    static BigDecimal applyPackageValue(BigDecimal valor, List<PackageUsage> usos) {
+        if (usos == null || usos.isEmpty()) return valor;
+        BigDecimal base = valor;
+        for (PackageUsage u : usos) {
+            BigDecimal qtd = BigDecimal.valueOf(u.getUses());
+            base = base.subtract(u.getOriginalPrice().multiply(qtd)).add(u.getUnitValue().multiply(qtd));
+        }
+        return base.max(BigDecimal.ZERO);
     }
 
     private String nomeServico(com.razor.api.model.Appointment a) {
