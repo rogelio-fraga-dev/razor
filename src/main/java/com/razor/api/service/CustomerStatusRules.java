@@ -69,18 +69,38 @@ public final class CustomerStatusRules {
                            int defaultIntervalDays) {
     }
 
+    /**
+     * O que a regra precisa das visitas de um telefone: a primeira, a ultima e quantas. A media
+     * de dias entre visitas consecutivas e (ultima - primeira) / (visitas - 1) — a soma das
+     * diferencas consecutivas "telescopa" —, entao estes tres numeros bastam, e o banco consegue
+     * entrega-los agregados (min/max/count por telefone) sem carregar a tabela.
+     */
+    public record VisitStats(LocalDate first, LocalDate last, long count) {
+    }
+
     public static Snapshot classify(Collection<Customer> customers, Collection<Appointment> appointments,
                                     LocalDate today) {
         // Uma varredura só dos agendamentos, agrupada por telefone. A alternativa (uma consulta
         // por cliente) seria N+1 crescendo com a base.
-        Map<String, List<LocalDate>> visitasPorTelefone = new HashMap<>();
+        Map<String, VisitStats> stats = new HashMap<>();
         for (Appointment a : appointments) {
             if (a.getCustomerPhone() == null || a.getAppointmentDate() == null) continue;
             if (a.getAppointmentDate().isAfter(today)) continue; // agendamento futuro não é visita
-            visitasPorTelefone.computeIfAbsent(a.getCustomerPhone(), k -> new ArrayList<>())
-                    .add(a.getAppointmentDate());
+            LocalDate d = a.getAppointmentDate();
+            stats.merge(a.getCustomerPhone(), new VisitStats(d, d, 1), (x, y) -> new VisitStats(
+                    x.first().isBefore(y.first()) ? x.first() : y.first(),
+                    x.last().isAfter(y.last()) ? x.last() : y.last(),
+                    x.count() + y.count()));
         }
+        return classifyStats(customers, stats, today);
+    }
 
+    /**
+     * A mesma classificacao a partir das visitas ja agregadas por telefone (ex.: pelo banco, ver
+     * {@code AppointmentRepository.visitStatsByPhone}). Visitas futuras nao devem estar contadas.
+     */
+    public static Snapshot classifyStats(Collection<Customer> customers, Map<String, VisitStats> visitasPorTelefone,
+                                         LocalDate today) {
         // Ritmo próprio de cada cliente e a mediana da casa.
         Map<String, Integer> intervaloPorTelefone = new HashMap<>();
         List<Integer> intervalos = new ArrayList<>();
@@ -96,14 +116,15 @@ public final class CustomerStatusRules {
 
         Map<UUID, Classification> out = new LinkedHashMap<>();
         for (Customer c : customers) {
-            List<LocalDate> visitas = visitasPorTelefone.getOrDefault(c.getPhoneNumber(), List.of());
+            VisitStats visitas = visitasPorTelefone.get(c.getPhoneNumber());
             int esperado = intervaloPorTelefone.getOrDefault(c.getPhoneNumber(), padrao);
             out.put(c.getId(), classifyOne(c, visitas, esperado, today));
         }
         return new Snapshot(out, mediana, padrao);
     }
 
-    private static Classification classifyOne(Customer c, List<LocalDate> visitas, int esperado, LocalDate today) {
+    private static Classification classifyOne(Customer c, VisitStats visitas, int esperado, LocalDate today) {
+        int quantas = visitas == null ? 0 : (int) visitas.count();
         LocalDate ultima = lastVisit(c, visitas);
 
         // Sem nenhuma visita registrada: só o cadastro. É "novo" enquanto for recente, e
@@ -116,7 +137,7 @@ public final class CustomerStatusRules {
 
         int diasParado = (int) ChronoUnit.DAYS.between(ultima, today);
         CustomerStatus status;
-        if (visitas.size() <= 1 && isRecentlyCreated(c, today)) {
+        if (quantas <= 1 && isRecentlyCreated(c, today)) {
             status = CustomerStatus.NOVO;
         } else if (diasParado > esperado * LOST_FACTOR) {
             status = CustomerStatus.SUMIDO;
@@ -125,7 +146,7 @@ public final class CustomerStatusRules {
         } else {
             status = CustomerStatus.ATIVO;
         }
-        return new Classification(status, ultima, diasParado, esperado, visitas.size());
+        return new Classification(status, ultima, diasParado, esperado, quantas);
     }
 
     /**
@@ -135,8 +156,8 @@ public final class CustomerStatusRules {
      * lançado em comanda sem agendamento (V28) — usar só os agendamentos marcaria como sumido
      * quem foi atendido ontem no balcão.
      */
-    private static LocalDate lastVisit(Customer c, List<LocalDate> visitas) {
-        LocalDate porAgendamento = visitas.stream().max(Comparator.naturalOrder()).orElse(null);
+    private static LocalDate lastVisit(Customer c, VisitStats visitas) {
+        LocalDate porAgendamento = visitas == null ? null : visitas.last();
         LocalDate porCadastro = c.getLastServiceDate() == null ? null : c.getLastServiceDate().toLocalDate();
         if (porAgendamento == null) return porCadastro;
         if (porCadastro == null) return porAgendamento;
@@ -157,14 +178,11 @@ public final class CustomerStatusRules {
      * zero, e qualquer piso pequeno faria o cliente ser dado como sumido poucos dias depois de
      * ter estado na cadeira. Nesses casos vale a mediana da casa.
      */
-    private static Integer averageInterval(List<LocalDate> visitas) {
-        if (visitas.size() < 2) return null;
-        List<LocalDate> ordenadas = visitas.stream().sorted().toList();
-        long soma = 0;
-        for (int i = 1; i < ordenadas.size(); i++) {
-            soma += ChronoUnit.DAYS.between(ordenadas.get(i - 1), ordenadas.get(i));
-        }
-        int media = (int) Math.round((double) soma / (ordenadas.size() - 1));
+    private static Integer averageInterval(VisitStats visitas) {
+        if (visitas == null || visitas.count() < 2) return null;
+        // Soma das diferencas consecutivas = ultima - primeira.
+        long soma = ChronoUnit.DAYS.between(visitas.first(), visitas.last());
+        int media = (int) Math.round((double) soma / (visitas.count() - 1));
         return media < MIN_PLAUSIBLE_INTERVAL_DAYS ? null : media;
     }
 

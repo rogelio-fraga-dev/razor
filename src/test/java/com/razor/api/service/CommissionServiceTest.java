@@ -77,7 +77,7 @@ class CommissionServiceTest {
         UUID bruno = UUID.randomUUID();
         when(professionalRepository.findByBarbershopId(any()))
                 .thenReturn(List.of(prof(rafael, "Rafael", "50"), prof(bruno, "Bruno", "40")));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+        givenAppointments(List.of(
                 appt(rafael, "Corte", hoje),   // 35
                 appt(rafael, "Combo", hoje),   // 60
                 appt(bruno, "Barba", hoje)));  // 30
@@ -103,7 +103,7 @@ class CommissionServiceTest {
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
         Appointment ag = appt(rafael, "Corte", hoje);
         ag.setId(7L);
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(ag));
+        givenAppointments(List.of(ag));
         when(packageUsageRepository.findByBarbershopIdAndAppointmentIdIn(any(), any())).thenReturn(List.of(
                 com.razor.api.model.PackageUsage.builder().appointmentId(7L).uses(1)
                         .unitValue(new BigDecimal("30.00")).originalPrice(new BigDecimal("35.00")).build()));
@@ -120,7 +120,7 @@ class CommissionServiceTest {
     void commissions_ignoresUnassigned() {
         LocalDate hoje = AppointmentDates.today();
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of());
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+        givenAppointments(List.of(
                 appt(null, "Corte", hoje))); // sem professionalId
         givenPrices();
 
@@ -133,7 +133,7 @@ class CommissionServiceTest {
         LocalDate hoje = AppointmentDates.today();
         UUID rafael = UUID.randomUUID();
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+        givenAppointments(List.of(
                 appt(rafael, "Corte", hoje.minusDays(10)))); // fora do dia
         givenPrices();
 
@@ -144,7 +144,7 @@ class CommissionServiceTest {
     @DisplayName("relatório textual: sem atendimentos informa que não há barbeiro atribuído")
     void report_empty() {
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of());
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        givenAppointments(List.of());
         givenPrices();
 
         assertThat(service.getComissoesDoDiaText()).contains("Nenhum atendimento");
@@ -156,7 +156,7 @@ class CommissionServiceTest {
         LocalDate hoje = AppointmentDates.today();
         UUID rafael = UUID.randomUUID();
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        givenAppointments(List.of(appt(rafael, "Corte", hoje)));
         givenPrices();
 
         String out = service.getComissoesDoDiaText();
@@ -175,7 +175,7 @@ class CommissionServiceTest {
         LocalDate hoje = AppointmentDates.today();
         UUID rafael = UUID.randomUUID();
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(
+        givenAppointments(List.of(
                 appt(rafael, "Corte", hoje),    // 35, com percentual próprio de 20%
                 appt(rafael, "Barba", hoje)));  // 30, sem percentual próprio -> 50% do barbeiro
         when(serviceOfferingRepository.findByBarbershopId(any())).thenReturn(List.of(
@@ -197,7 +197,7 @@ class CommissionServiceTest {
         LocalDate hoje = AppointmentDates.today();
         UUID rafael = UUID.randomUUID();
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        givenAppointments(List.of(appt(rafael, "Corte", hoje)));
         when(serviceOfferingRepository.findByBarbershopId(any())).thenReturn(List.of());
         givenPrices();
 
@@ -210,7 +210,7 @@ class CommissionServiceTest {
         LocalDate hoje = AppointmentDates.today();
         UUID rafael = UUID.randomUUID();
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        givenAppointments(List.of(appt(rafael, "Corte", hoje)));
         when(serviceOfferingRepository.findByBarbershopId(any())).thenReturn(List.of(
                 com.razor.api.model.ServiceOffering.builder()
                         .id(UUID.randomUUID()).name("Corte")
@@ -233,7 +233,7 @@ class CommissionServiceTest {
         LocalDate hoje = AppointmentDates.today();
         UUID rafael = UUID.randomUUID();
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "50")));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        givenAppointments(List.of(appt(rafael, "Corte", hoje)));
         when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
                 .thenReturn(List.of(venda(rafael, "60.00", 2, hoje)));
         givenPrices();
@@ -251,7 +251,7 @@ class CommissionServiceTest {
     void productSale_withoutProfessional_noCommission() {
         LocalDate hoje = AppointmentDates.today();
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of());
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        givenAppointments(List.of());
         when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
                 .thenReturn(List.of(venda(null, "60.00", 1, hoje)));
         givenPrices();
@@ -267,7 +267,7 @@ class CommissionServiceTest {
         Professional p = prof(rafael, "Rafael", "40");
         p.setProductCommissionPercent(new BigDecimal("10")); // produto paga menos
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(p));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        givenAppointments(List.of(appt(rafael, "Corte", hoje)));
         when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
                 .thenReturn(List.of(venda(rafael, "100.00", 1, hoje)));
         givenPrices();
@@ -288,7 +288,7 @@ class CommissionServiceTest {
         Professional p = prof(rafael, "Rafael", "40");
         p.setProductCommissionPercent(null); // nunca configurado
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(p));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        givenAppointments(List.of(appt(rafael, "Corte", hoje)));
         when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
                 .thenReturn(List.of(venda(rafael, "100.00", 1, hoje)));
         givenPrices();
@@ -308,7 +308,7 @@ class CommissionServiceTest {
         Professional p = prof(rafael, "Rafael", "40");
         p.setProductCommissionPercent(BigDecimal.ZERO);
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(p));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of(appt(rafael, "Corte", hoje)));
+        givenAppointments(List.of(appt(rafael, "Corte", hoje)));
         when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
                 .thenReturn(List.of(venda(rafael, "100.00", 1, hoje)));
         givenPrices();
@@ -324,7 +324,7 @@ class CommissionServiceTest {
         LocalDate hoje = AppointmentDates.today();
         UUID rafael = UUID.randomUUID();
         when(professionalRepository.findByBarbershopId(any())).thenReturn(List.of(prof(rafael, "Rafael", "10")));
-        when(appointmentRepository.findByBarbershopId(any())).thenReturn(List.of());
+        givenAppointments(List.of());
         when(productSaleRepository.findByBarbershopIdAndSaleDateBetween(any(), any(), any()))
                 .thenReturn(List.of(venda(rafael, "100.00", 1, hoje)));
         givenPrices();
@@ -334,5 +334,18 @@ class CommissionServiceTest {
         assertThat(c.atendimentos()).isZero();
         assertThat(c.faturamento()).isEqualByComparingTo("0.00");
         assertThat(c.comissao()).isEqualByComparingTo("10.00"); // 100 * 10%
+    }
+
+    /** Imita a consulta do periodo no banco: com barbeiro e dentro de [inicio, fim]. */
+    private void givenAppointments(List<Appointment> all) {
+        when(appointmentRepository.findByBarbershopId(any())).thenReturn(all);
+        when(appointmentRepository.findWithProfessionalBetween(any(), any(), any())).thenAnswer(inv -> {
+            java.time.LocalDate ini = inv.getArgument(1);
+            java.time.LocalDate fim = inv.getArgument(2);
+            return all.stream()
+                    .filter(a -> a.getProfessionalId() != null && a.getAppointmentDate() != null)
+                    .filter(a -> !a.getAppointmentDate().isBefore(ini) && !a.getAppointmentDate().isAfter(fim))
+                    .toList();
+        });
     }
 }

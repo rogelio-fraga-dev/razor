@@ -7,6 +7,7 @@ import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -34,10 +35,16 @@ public class CustomerStatusService {
 
     public Map<UUID, CustomerStatus> statuses(LocalDate today) {
         UUID shop = TenantContext.getCurrent();
-        CustomerStatusRules.Snapshot snapshot = CustomerStatusRules.classify(
-                customerRepository.findByBarbershopId(shop),
-                appointmentRepository.findByBarbershopId(shop),
-                today);
+        // Visitas agregadas no banco (telefone, primeira, ultima, quantas): antes carregava todos
+        // os agendamentos do tenant para a memoria a cada filtro da tela de Clientes.
+        Map<String, CustomerStatusRules.VisitStats> visitas = new HashMap<>();
+        List<Object[]> linhas = appointmentRepository.visitStatsByPhone(shop, today);
+        for (Object[] l : linhas == null ? List.<Object[]>of() : linhas) {
+            visitas.put((String) l[0], new CustomerStatusRules.VisitStats(
+                    (LocalDate) l[1], (LocalDate) l[2], ((Number) l[3]).longValue()));
+        }
+        CustomerStatusRules.Snapshot snapshot = CustomerStatusRules.classifyStats(
+                customerRepository.findByBarbershopId(shop), visitas, today);
         Map<UUID, CustomerStatus> out = new HashMap<>();
         snapshot.byCustomer().forEach((id, k) -> out.put(id, k.status()));
         return out;
