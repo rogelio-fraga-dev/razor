@@ -473,12 +473,13 @@ export function Professionals() {
                     onChange={(e) => setDraft({ ...draft, panelUserId: e.target.value })}
                   >
                     <option value="">Nenhum (ele não entra no painel)</option>
-                    {panelUsers.data.map((u) => {
+                    {/* Recepção não atende: não tem "Meu dia" nem comissão (a API recusa o vínculo). */}
+                    {panelUsers.data.filter((u) => u.role !== "RECEPTION").map((u) => {
                       const takenBy = u.professionalId && u.professionalId !== draft.id;
                       return (
                         <option key={u.id} value={u.id} disabled={!!takenBy}>
                           {(u.name || u.email) + ` · ${u.email}`}
-                          {u.role === "OWNER" ? " (dono)" : u.role === "RECEPTION" ? " (recepção)" : ""}
+                          {u.role === "OWNER" ? " (dono)" : ""}
                           {takenBy ? " — já ligado a outro barbeiro" : ""}
                         </option>
                       );

@@ -14,6 +14,7 @@ import { fillBot } from "../lib/botSettings";
 import { matchSpeechMode, SPEECH_MODES } from "../lib/speechModes";
 import { WhatsAppPairing } from "../components/WhatsAppPairing";
 import { AdminsEditor } from "../components/AdminsEditor";
+import { PanelUsersEditor } from "../components/PanelUsersEditor";
 import { SiteEditor } from "../components/SiteEditor";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
@@ -234,6 +235,20 @@ function ProfileCard({ reloadKey }: { reloadKey: number }) {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Logins do painel: quem entra, com que papel, ligado a qual barbeiro. */
+function PanelUsersCard({ reloadKey }: { reloadKey: number }) {
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3>Acessos ao painel</h3>
+      </div>
+      <div className="card-pad">
+        <PanelUsersEditor reloadKey={reloadKey} />
       </div>
     </div>
   );
@@ -585,7 +600,13 @@ export function Settings() {
           <NoShowSettingsCard reloadKey={configVersion} />
         </div>,
       )}
-      {panel("equipe", <AdminsCard reloadKey={configVersion} />)}
+      {panel(
+        "equipe",
+        <>
+          <PanelUsersCard reloadKey={configVersion} />
+          <AdminsCard reloadKey={configVersion} />
+        </>,
+      )}
       {panel(
         "barbearia",
         <div className="cfg-body">
