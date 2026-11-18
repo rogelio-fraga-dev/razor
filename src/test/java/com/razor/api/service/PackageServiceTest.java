@@ -77,7 +77,7 @@ class PackageServiceTest {
         });
         when(customerPackageRepository.save(any(CustomerPackage.class))).thenAnswer(inv -> inv.getArgument(0));
         when(usageRepository.save(any(PackageUsage.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(customerRepository.findAllById(any())).thenReturn(List.of(customer("5511988887777")));
+        when(customerRepository.findByBarbershopIdAndPhoneNumberIn(any(), anyCollection())).thenReturn(List.of(customer("5511988887777")));
     }
 
     @AfterEach
@@ -298,5 +298,67 @@ class PackageServiceTest {
 
         assertThat(sum(out)).isEqualByComparingTo("40.00");
         verify(customerPackageRepository, never()).findUsable(any(), any());
+    }
+
+    // ---------- revisao 2026-11-18 ----------
+
+    @Test
+    @DisplayName("preview simula a baixa sem tocar no saldo nem gravar nada")
+    void preview_doesNotWrite() {
+        CustomerPackage p = pkg(corteId, 3, today.plusDays(10));
+        when(customerPackageRepository.findUsableForCustomers(eq(shop), anyCollection(), any()))
+                .thenReturn(List.of(p));
+        ComandaItem corte = service(corteId, "Corte", "40.00", 2);
+
+        List<PackageService.Coverage> cov = service.previewForComanda(comanda("5511988887777"), List.of(corte));
+
+        assertThat(cov).hasSize(1);
+        assertThat(cov.get(0).uses()).isEqualTo(2);
+        assertThat(cov.get(0).coveredValue()).isEqualByComparingTo("80.00");
+        assertThat(p.getRemainingUses()).isEqualTo(3);
+        assertThat(corte.getTotal()).isEqualByComparingTo("80.00");
+        verify(customerPackageRepository, never()).lockUsableForCustomers(any(), any(), any());
+        verify(customerPackageRepository, never()).save(any());
+        verify(comandaItemRepository, never()).save(any());
+        verify(usageRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("dono do pacote é achado pelas grafias do telefone (com/sem 55, com/sem 9)")
+    void owners_lookedUpByPhoneVariants() {
+        givenPackages(pkg(corteId, 3, today.plusDays(10)));
+        ComandaItem corte = service(corteId, "Corte", "40.00", 1);
+
+        service.consumeForComanda(comanda("(11) 8888-7777"), List.of(corte));
+
+        verify(customerRepository).findByBarbershopIdAndPhoneNumberIn(eq(shop),
+                org.mockito.ArgumentMatchers.argThat(c -> c.contains("5511988887777") && c.contains("551188887777")));
+    }
+
+    @Test
+    @DisplayName("último uso vale o resto do preço: a soma das baixas fecha o preço pago")
+    void lastUse_takesRemainder() {
+        // 100 / 3 = 33,33 por uso; o terceiro vale 33,34.
+        CustomerPackage p = CustomerPackage.builder().id(UUID.randomUUID()).barbershopId(shop).customerId(customerId)
+                .packageName("3 cortes").serviceId(corteId).totalUses(3).remainingUses(2)
+                .price(new BigDecimal("100.00")).unitValue(new BigDecimal("33.33"))
+                .paymentMethod(CashPaymentMethod.PIX).purchasedAt(LocalDateTime.now())
+                .expiresAt(today.plusDays(10)).build();
+        givenPackages(p);
+        ComandaItem corte = service(corteId, "Corte", "40.00", 2);
+        List<PackageUsage> usos = new java.util.ArrayList<>();
+        when(usageRepository.save(any(PackageUsage.class))).thenAnswer(inv -> {
+            usos.add(inv.getArgument(0));
+            return inv.getArgument(0);
+        });
+
+        List<ComandaItem> out = service.consumeForComanda(comanda("5511988887777"), List.of(corte));
+
+        assertThat(sum(out)).isEqualByComparingTo("0");
+        assertThat(p.getRemainingUses()).isZero();
+        assertThat(usos).hasSize(2);
+        assertThat(usos.get(0).getUnitValue()).isEqualByComparingTo("33.33");
+        assertThat(usos.get(1).getUnitValue()).isEqualByComparingTo("33.34");
+        assertThat(usos.get(0).getComandaItemId()).isNotEqualTo(usos.get(1).getComandaItemId());
     }
 }

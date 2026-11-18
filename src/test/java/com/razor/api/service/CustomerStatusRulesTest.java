@@ -80,4 +80,35 @@ class CustomerStatusRulesTest {
         c.setLastServiceDate(HOJE.minusDays(2).atStartOfDay());
         assertThat(status(c, ritmo("1", 20, 5, 50))).isEqualTo(CustomerStatus.ATIVO);
     }
+
+    @Test
+    @DisplayName("classificar pelas visitas agregadas (min/max/count do banco) dá o mesmo que pela lista inteira")
+    void aggregatedStats_matchFullScan() {
+        LocalDate hoje = LocalDate.of(2026, 11, 18);
+        java.util.Random rnd = new java.util.Random(42);
+        List<Customer> clientes = new ArrayList<>();
+        List<Appointment> agendamentos = new ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            String tel = "55119" + String.format("%08d", i);
+            clientes.add(cliente(tel, hoje.minusDays(rnd.nextInt(400))));
+            int n = rnd.nextInt(6);
+            for (int k = 0; k < n; k++) {
+                agendamentos.add(Appointment.builder().customerPhone(tel)
+                        .appointmentDate(hoje.minusDays(rnd.nextInt(300) - 10)).build()); // inclui futuros
+            }
+        }
+        var cheio = CustomerStatusRules.classify(clientes, agendamentos, hoje);
+
+        java.util.Map<String, CustomerStatusRules.VisitStats> stats = new java.util.HashMap<>();
+        agendamentos.stream().filter(a -> !a.getAppointmentDate().isAfter(hoje)).forEach(a -> stats.merge(
+                a.getCustomerPhone(),
+                new CustomerStatusRules.VisitStats(a.getAppointmentDate(), a.getAppointmentDate(), 1),
+                (x, y) -> new CustomerStatusRules.VisitStats(
+                        x.first().isBefore(y.first()) ? x.first() : y.first(),
+                        x.last().isAfter(y.last()) ? x.last() : y.last(), x.count() + y.count())));
+        var agregado = CustomerStatusRules.classifyStats(clientes, stats, hoje);
+
+        assertThat(agregado.byCustomer()).isEqualTo(cheio.byCustomer());
+        assertThat(agregado.medianIntervalDays()).isEqualTo(cheio.medianIntervalDays());
+    }
 }

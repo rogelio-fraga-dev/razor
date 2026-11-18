@@ -92,6 +92,7 @@ class ComandaServiceTest {
                 .openedAt(LocalDateTime.now()).comandaDate(LocalDate.of(2026, 7, 27))
                 .build();
         when(comandaRepository.findByIdAndBarbershopId(eq(comandaId), any())).thenReturn(Optional.of(c));
+        when(comandaRepository.lockByIdAndBarbershopId(eq(comandaId), any())).thenReturn(Optional.of(c));
         when(comandaRepository.save(any(Comanda.class))).thenAnswer(inv -> inv.getArgument(0));
         return c;
     }
@@ -158,6 +159,7 @@ class ComandaServiceTest {
                 .id(comandaId).barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)
                 .status(Comanda.Status.FECHADA).build();
         when(comandaRepository.findByIdAndBarbershopId(eq(comandaId), any())).thenReturn(Optional.of(closed));
+        when(comandaRepository.lockByIdAndBarbershopId(eq(comandaId), any())).thenReturn(Optional.of(closed));
 
         assertThatThrownBy(() -> service.addProduct(comandaId, UUID.randomUUID(), 1))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -406,6 +408,7 @@ class ComandaServiceTest {
                 .id(comandaId).barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)
                 .status(Comanda.Status.FECHADA).build();
         when(comandaRepository.findByIdAndBarbershopId(eq(comandaId), any())).thenReturn(Optional.of(closed));
+        when(comandaRepository.lockByIdAndBarbershopId(eq(comandaId), any())).thenReturn(Optional.of(closed));
 
         assertThatThrownBy(() -> service.close(comandaId, CashPaymentMethod.DINHEIRO))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -548,6 +551,123 @@ class ComandaServiceTest {
         verify(couponService).redeem(eq(cupom), eq(new BigDecimal("10.00")), eq(comandaId), any());
     }
 
+    // ---------- pre-visualizacao do fechamento (pacote + cupom) ----------
+
+    @Test
+    @DisplayName("close-preview: pacote cobre o corte e o cupom incide só sobre o resto — o fechamento cobra o mesmo total")
+    void closePreview_matchesCloseTotal() {
+        Comanda c = openComanda(null);
+        c.setCustomerPhone("5511988887777");
+        ComandaItem corte = item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1);
+        ComandaItem barba = item(ComandaItem.Kind.SERVICO, "Barba", "30.00", 1);
+        givenItems(corte, barba);
+        when(packageService.previewForComanda(any(), any())).thenReturn(List.of(
+                new PackageService.Coverage(corte, null, 1, new BigDecimal("40.00"), new BigDecimal("30.00"))));
+        Coupon cupom = Coupon.builder().id(UUID.randomUUID()).code("DEZ").build();
+        when(couponService.validate(eq("DEZ"), eq(new BigDecimal("30.00")), any(), any()))
+                .thenReturn(new CouponService.Validation(cupom, new BigDecimal("3.00")));
+
+        ComandaService.ClosePreview p = service.previewClose(comandaId, "DEZ");
+
+        assertThat(p.subtotal()).isEqualByComparingTo("70.00");
+        assertThat(p.packageCovered()).isEqualByComparingTo("40.00");
+        assertThat(p.couponDiscount()).isEqualByComparingTo("3.00");
+        assertThat(p.total()).isEqualByComparingTo("27.00");
+        assertThat(p.couponError()).isNull();
+        assertThat(p.coveredItems()).singleElement().satisfies(ci -> {
+            assertThat(ci.itemId()).isEqualTo(corte.getId());
+            assertThat(ci.uses()).isEqualTo(1);
+        });
+        // Nada foi gravado nem consumido.
+        verify(packageService, never()).consumeForComanda(any(), any());
+        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any(), any());
+
+        // O fechamento de verdade (mesma baixa) exige exatamente o total da simulacao.
+        when(packageService.consumeForComanda(any(), any())).thenAnswer(inv -> {
+            corte.setUnitPrice(BigDecimal.ZERO);
+            corte.setTotal(BigDecimal.ZERO);
+            return List.of(corte, barba);
+        });
+        givenCashAccepts();
+        Comanda closed = service.close(comandaId, CashPaymentMethod.PIX, "DEZ");
+        assertThat(closed.getTotal()).isEqualByComparingTo(p.total());
+    }
+
+    @Test
+    @DisplayName("close-preview: cupom inválido vira couponError, sem derrubar a simulação")
+    void closePreview_invalidCoupon_isReportedNotThrown() {
+        openComanda(null);
+        givenItems(item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1));
+        when(couponService.validate(eq("XX"), any(), any(), any()))
+                .thenThrow(new NotFoundException("Cupom nao encontrado."));
+
+        ComandaService.ClosePreview p = service.previewClose(comandaId, "XX");
+
+        assertThat(p.couponError()).isEqualTo("Cupom nao encontrado.");
+        assertThat(p.couponDiscount()).isEqualByComparingTo("0");
+        assertThat(p.total()).isEqualByComparingTo("40.00");
+    }
+
+    @Test
+    @DisplayName("pacote cobre tudo: o cupom não é gasto (preview avisa, fechamento não resgata)")
+    void fullyCoveredByPackage_couponIsNotRedeemed() {
+        Comanda c = openComanda(null);
+        c.setCustomerPhone("5511988887777");
+        ComandaItem corte = item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1);
+        givenItems(corte);
+        when(packageService.previewForComanda(any(), any())).thenReturn(List.of(
+                new PackageService.Coverage(corte, null, 1, new BigDecimal("40.00"), new BigDecimal("30.00"))));
+
+        ComandaService.ClosePreview p = service.previewClose(comandaId, "DEZ");
+        assertThat(p.total()).isEqualByComparingTo("0");
+        assertThat(p.couponError()).isEqualTo(ComandaService.CUPOM_SEM_USO);
+
+        when(packageService.consumeForComanda(any(), any())).thenAnswer(inv -> {
+            corte.setUnitPrice(BigDecimal.ZERO);
+            corte.setTotal(BigDecimal.ZERO);
+            return List.of(corte);
+        });
+        Comanda closed = service.close(comandaId, CashPaymentMethod.PIX, "DEZ");
+
+        assertThat(closed.getTotal()).isEqualByComparingTo("0");
+        assertThat(closed.getCouponId()).isNull();
+        verify(couponService, never()).validate(any(), any(), any(), any());
+        verify(couponService, never()).redeem(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("fechamento trava a comanda (FOR UPDATE) antes de conferir a situação dela")
+    void close_locksComandaFirst() {
+        openComanda(null);
+        givenItems(item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1));
+        givenCashAccepts();
+
+        service.close(comandaId, CashPaymentMethod.PIX);
+
+        verify(comandaRepository).lockByIdAndBarbershopId(eq(comandaId), any());
+    }
+
+    @Test
+    @DisplayName("coupon-preview antigo delega: subtotal já sem o que o pacote paga")
+    void couponPreview_delegatesToClosePreview() {
+        Comanda c = openComanda(null);
+        c.setCustomerPhone("5511988887777");
+        ComandaItem corte = item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1);
+        ComandaItem barba = item(ComandaItem.Kind.SERVICO, "Barba", "30.00", 1);
+        givenItems(corte, barba);
+        when(packageService.previewForComanda(any(), any())).thenReturn(List.of(
+                new PackageService.Coverage(corte, null, 1, new BigDecimal("40.00"), new BigDecimal("30.00"))));
+        Coupon cupom = Coupon.builder().id(UUID.randomUUID()).code("DEZ").build();
+        when(couponService.validate(eq("DEZ"), any(), any(), any()))
+                .thenReturn(new CouponService.Validation(cupom, new BigDecimal("3.00")));
+
+        ComandaService.CouponPreview p = service.previewCoupon(comandaId, "DEZ");
+
+        assertThat(p.subtotal()).isEqualByComparingTo("30.00");
+        assertThat(p.finalTotal()).isEqualByComparingTo("27.00");
+        assertThat(p.code()).isEqualTo("DEZ");
+    }
+
     @Test
     @DisplayName("forma única continua funcionando: uma parte com o total, amarrada à comanda")
     void closeSingleMethod_isOnePartWithTotal() {
@@ -638,6 +758,7 @@ class ComandaServiceTest {
     @DisplayName("comanda de outra barbearia não é encontrada")
     void get_otherTenant_notFound() {
         when(comandaRepository.findByIdAndBarbershopId(eq(comandaId), any())).thenReturn(Optional.empty());
+        when(comandaRepository.lockByIdAndBarbershopId(eq(comandaId), any())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.get(comandaId)).isInstanceOf(NotFoundException.class);
     }

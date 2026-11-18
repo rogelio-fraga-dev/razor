@@ -61,4 +61,7 @@ public final class ComandaRequests {
 
     /** Simulacao de cupom no fechamento: o total vem da propria comanda, nunca do cliente. */
     public record CouponPreview(@NotBlank(message = "Informe o cupom.") String code) {}
+
+    /** Pre-visualizacao do fechamento (pacote + cupom). Cupom opcional; corpo vazio vale. */
+    public record ClosePreview(String couponCode) {}
 }

@@ -47,8 +47,10 @@ public class AgendaAvailabilityService {
     /** Horarios em que TODAS as cadeiras estao ocupadas, agrupados por data (contexto da IA). */
     public String getHorariosOcupadosParaIA() {
         UUID shop = TenantContext.getCurrent();
-        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(shop);
-        if (agendaAtiva.isEmpty()) return AGENDA_LIVRE;
+        // So de hoje em diante: o passado nao ocupa cadeira e a tabela inteira crescia sem fim.
+        List<Appointment> agendaAtiva = appointmentRepository
+                .findByBarbershopIdAndAppointmentDateGreaterThanEqual(shop, AppointmentDates.today());
+        if (agendaAtiva == null || agendaAtiva.isEmpty()) return AGENDA_LIVRE;
 
         // Capacidade = nº de barbeiros ativos (cadeiras). Na agenda multiprofissional um
         // horário só fica INDISPONÍVEL quando TODAS as cadeiras estão ocupadas nele.
@@ -88,9 +90,11 @@ public class AgendaAvailabilityService {
             return NENHUM_HORARIO;
         }
 
-        List<Appointment> agendaAtiva = appointmentRepository.findByBarbershopId(TenantContext.getCurrent());
-        List<Appointment> doDia = agendaAtiva.stream()
-                .filter(a -> target.equals(a.getAppointmentDate()) && a.getAppointmentTime() != null)
+        // Consulta do dia (indice barbershop_id, appointment_date) — antes lia o tenant inteiro.
+        List<Appointment> doDiaBruto = appointmentRepository.findByBarbershopIdAndAppointmentDate(
+                TenantContext.getCurrent(), target);
+        List<Appointment> doDia = (doDiaBruto == null ? List.<Appointment>of() : doDiaBruto).stream()
+                .filter(a -> a.getAppointmentTime() != null)
                 .collect(Collectors.toList());
         return montarHorariosLivres(target, expandirSlotsOcupados(doDia), null);
     }
@@ -216,6 +220,19 @@ public class AgendaAvailabilityService {
      *                       barbeiro livre no intervalo inteiro)
      */
     public List<LocalTime> horariosLivres(LocalDate date, int durationMinutes, UUID professionalId) {
+        return horariosLivres(date, durationMinutes, professionalId, null);
+    }
+
+    /**
+     * {@link #horariosLivres(LocalDate, int, UUID)} so com barbeiros que FAZEM o servico.
+     *
+     * @param aptos barbeiros que atendem o servico pedido (ver
+     *              {@link ProfessionalAssignmentService#qualifiedIds}); {@code null} = todos. Sem
+     *              isto a grade oferecia um horario em que so estava livre quem nao faz o servico,
+     *              e o agendamento era recusado na hora de gravar.
+     */
+    public List<LocalTime> horariosLivres(LocalDate date, int durationMinutes, UUID professionalId,
+                                          java.util.Collection<UUID> aptos) {
         if (date == null) return List.of();
         LocalDate hoje = AppointmentDates.today();
         if (date.isBefore(hoje)) return List.of();
@@ -232,7 +249,7 @@ public class AgendaAvailabilityService {
         List<LocalTime> livres = new ArrayList<>();
         for (int inicio = abre; inicio + duracao <= fecha; inicio += SLOT_MINUTES) {
             if (inicio < agora) continue;
-            if (avaliar(dia, date, inicio, duracao, professionalId, true).livre()) {
+            if (avaliar(dia, date, inicio, duracao, professionalId, true, aptos).livre()) {
                 livres.add(LocalTime.of(inicio / 60, inicio % 60));
             }
         }
@@ -251,10 +268,24 @@ public class AgendaAvailabilityService {
      */
     public Checagem checarHorario(LocalDate date, LocalTime time, int durationMinutes,
                                   UUID preferredProfessionalId, boolean exigirPreferido) {
+        return checarHorario(date, time, durationMinutes, preferredProfessionalId, exigirPreferido, null);
+    }
+
+    /** {@link #checarHorario} considerando so os barbeiros {@code aptos} ao servico ({@code null} = todos). */
+    public Checagem checarHorario(LocalDate date, LocalTime time, int durationMinutes,
+                                  UUID preferredProfessionalId, boolean exigirPreferido,
+                                  java.util.Collection<UUID> aptos) {
         if (date == null || time == null) return new Checagem(false, false, List.of());
         int duracao = Math.max(SLOT_MINUTES, durationMinutes);
         return avaliar(ocupacaoDoDia(date), date, minutos(time), duracao,
-                preferredProfessionalId, exigirPreferido);
+                preferredProfessionalId, exigirPreferido, aptos);
+    }
+
+    /** Ids dos barbeiros ativos do tenant atual. */
+    public List<UUID> profissionaisAtivos() {
+        List<com.razor.api.model.Professional> ativos =
+                professionalRepository.findByBarbershopIdAndActiveTrue(TenantContext.getCurrent());
+        return ativos == null ? List.of() : ativos.stream().map(com.razor.api.model.Professional::getId).toList();
     }
 
     /** Duracao (minutos) de um servico pelo nome, pela mesma tabela que a grade usa. */
@@ -303,7 +334,7 @@ public class AgendaAvailabilityService {
      * </ol>
      */
     private Checagem avaliar(Ocupacao dia, LocalDate date, int inicio, int duracao,
-                             UUID preferido, boolean exigirPreferido) {
+                             UUID preferido, boolean exigirPreferido, java.util.Collection<UUID> aptos) {
         int fim = inicio + duracao;
         int capacidade = Math.max(1, dia.ativos().size());
         for (int t = inicio; t < fim; t += SLOT_MINUTES) {
@@ -322,9 +353,12 @@ public class AgendaAvailabilityService {
             return new Checagem(!bloqueado, false, List.of());
         }
 
-        List<UUID> candidatos = (preferido != null && exigirPreferido)
+        List<UUID> candidatos = ((preferido != null && exigirPreferido)
                 ? dia.ativos().stream().filter(preferido::equals).toList()
-                : dia.ativos();
+                : dia.ativos()).stream()
+                // Servico que o barbeiro nao faz nao conta como cadeira livre para ESTE pedido.
+                .filter(p -> aptos == null || aptos.contains(p))
+                .toList();
         List<UUID> livres = candidatos.stream()
                 .filter(p -> dia.agendamentos().stream()
                         .noneMatch(i -> p.equals(i.professionalId()) && i.sobrepoe(inicio, fim)))

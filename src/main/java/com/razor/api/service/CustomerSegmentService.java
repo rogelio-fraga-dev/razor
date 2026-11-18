@@ -4,6 +4,7 @@ import com.razor.api.model.Customer;
 import com.razor.api.model.CustomerStatus;
 import com.razor.api.repository.CustomerRepository;
 import com.razor.api.tenant.TenantContext;
+import com.razor.api.util.PhoneNumbers;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -64,10 +65,16 @@ public class CustomerSegmentService {
     public List<Customer> recipients(UUID tagId, CustomerStatus status) {
         List<Customer> base = customerRepository.findByBarbershopId(TenantContext.getCurrent());
         Set<UUID> ids = (tagId == null && status == null) ? null : idsMatching(tagId, status);
+        // Telefones de admin lidos UMA vez, ja normalizados: isAdmin() por cliente consultava a
+        // tabela de admins a cada linha da base (N consultas para um disparo).
+        Set<String> admins = tenantAdminService.adminPhones().stream()
+                .map(PhoneNumbers::normalizeBrazilian)
+                .filter(p -> !p.isEmpty())
+                .collect(Collectors.toSet());
         return base.stream()
                 .filter(c -> ids == null || ids.contains(c.getId()))
                 .filter(c -> c.getPhoneNumber() != null && !c.getPhoneNumber().isBlank())
-                .filter(c -> !tenantAdminService.isAdmin(c.getPhoneNumber()))
+                .filter(c -> !admins.contains(PhoneNumbers.normalizeBrazilian(c.getPhoneNumber())))
                 .toList();
     }
 

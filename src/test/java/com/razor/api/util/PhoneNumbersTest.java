@@ -54,4 +54,22 @@ class PhoneNumbersTest {
         String semNove = PhoneNumbers.normalizeBrazilian("1187654321");
         assertThat(comDdiComNove).isEqualTo(semDdiComNove).isEqualTo(semNove);
     }
+
+    @org.junit.jupiter.api.Test
+    void canonicalBrazilian_formatoUnicoDeGravacao() {
+        org.assertj.core.api.Assertions.assertThat(PhoneNumbers.canonicalBrazilian("(11) 98888-7777")).contains("5511988887777");
+        org.assertj.core.api.Assertions.assertThat(PhoneNumbers.canonicalBrazilian("+55 11 8888-7777")).contains("551188887777");
+        org.assertj.core.api.Assertions.assertThat(PhoneNumbers.canonicalBrazilian("011988887777")).contains("5511988887777");
+        org.assertj.core.api.Assertions.assertThat(PhoneNumbers.canonicalBrazilian("1234")).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(PhoneNumbers.canonicalBrazilian("5511888887777")).isEmpty(); // 13 digitos sem o 9
+    }
+
+    @org.junit.jupiter.api.Test
+    void variants_casam12e13Digitos() {
+        org.assertj.core.api.Assertions.assertThat(PhoneNumbers.variants("5511988887777"))
+                .contains("5511988887777", "551188887777");
+        org.assertj.core.api.Assertions.assertThat(PhoneNumbers.variants("551188887777"))
+                .contains("5511988887777", "551188887777");
+        org.assertj.core.api.Assertions.assertThat(PhoneNumbers.variants(null)).isEmpty();
+    }
 }

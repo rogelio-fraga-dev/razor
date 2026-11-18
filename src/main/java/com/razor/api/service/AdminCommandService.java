@@ -47,6 +47,7 @@ public class AdminCommandService {
     private final AgendaService agendaService;
     private final RazorProperties properties;
     private final WaitlistRepository waitlistRepository;
+    private final com.razor.api.repository.CustomerPackageRepository customerPackageRepository;
     private final WhatsAppMessenger messenger;
     private final EvolutionMediaService evolutionMediaService;
     private final StateStore stateStore;
@@ -224,7 +225,13 @@ public class AdminCommandService {
                             String targetPhone = options.get(index);
                             Customer c = customerRepository
                                     .findByBarbershopIdAndPhoneNumber(TenantContext.getCurrent(), targetPhone).orElse(null);
-                            if (c != null) {
+                            if (c != null && customerPackageRepository.existsByCustomerId(c.getId())) {
+                                // A FK de customer_packages e RESTRICT de proposito: o pacote e
+                                // dinheiro pago e historico de baixas. Antes o erro virava
+                                // "Erro ao apagar" sem explicacao.
+                                sendMsg(phoneNumber, "❌ Este cliente tem pacote comprado e não pode ser apagado — "
+                                        + "o pacote é histórico de pagamento. Se quiser, pause o contato.", "ADMIN");
+                            } else if (c != null) {
                                 interactionRepository.deleteByCustomerId(c.getId());
                                 customerRepository.delete(c);
                                 sendMsg(phoneNumber, "✅ Cliente apagado da base!", "ADMIN");
@@ -437,15 +444,19 @@ public class AdminCommandService {
      * Disparo imediato para a base toda. O laco (cabecalho, pausa entre envios, falha por contato)
      * mora no {@link BroadcastService}, compartilhado com o disparo por grupo do painel (V36).
      *
-     * <p>Sem {@code @Async}: era chamado de dentro da propria classe, entao a anotacao nunca teve
-     * efeito (o proxy do Spring nao intercepta chamada interna) — rodava sincrono, como continua.
+     * <p>Em segundo plano, no pool proprio de disparos ({@link BroadcastService#deliverForAdminInBackground}):
+     * antes rodava na thread do webhook, segurando-a 3s por contato. O relatorio chega ao dono no fim.
      */
     public void performBroadcast(String adminPhone, String message, boolean isProspecting) {
-        List<Customer> allCustomers = customerRepository.findByBarbershopId(TenantContext.getCurrent());
-        sendMsg(adminPhone, "🚀 Iniciando disparo para " + allCustomers.size() + " contatos...", "ADMIN");
-        BroadcastService.Resultado r = broadcastService.deliver(allCustomers, message, isProspecting, adminPhone);
-        List<String> linhas = r.enviados().stream().map(n -> "✅ " + n).toList();
-        String falhasTxt = r.falhas() > 0 ? "\n❌ Falharam: " + r.falhas() : "";
-        sendMsg(adminPhone, "📊 *Relatório de Disparo*\nTotal alcançado: " + linhas.size() + falhasTxt + "\n\n" + String.join("\n", linhas), "ADMIN");
+        java.util.UUID shop = TenantContext.getCurrent();
+        List<Customer> allCustomers = customerRepository.findByBarbershopId(shop);
+        try {
+            broadcastService.deliverForAdminInBackground(shop, adminPhone, allCustomers, message, isProspecting);
+        } catch (org.springframework.core.task.TaskRejectedException e) {
+            sendMsg(adminPhone, "⏳ Já tem disparo demais na fila. Tente de novo em alguns minutos.", "ADMIN");
+            return;
+        }
+        sendMsg(adminPhone, "🚀 Iniciando disparo para " + allCustomers.size()
+                + " contatos... Te mando o relatório quando terminar.", "ADMIN");
     }
 }

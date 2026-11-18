@@ -24,6 +24,42 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     List<Appointment> findByBarbershopIdAndAppointmentDate(UUID barbershopId, LocalDate appointmentDate);
 
+    /** De uma data em diante — o contexto de ocupacao da IA nao precisa do passado. */
+    List<Appointment> findByBarbershopIdAndAppointmentDateGreaterThanEqual(UUID barbershopId, LocalDate from);
+
+    /** Todos os agendamentos destes telefones (grafias do mesmo numero, ver PhoneNumbers.variants). */
+    List<Appointment> findByBarbershopIdAndCustomerPhoneIn(UUID barbershopId, java.util.Collection<String> customerPhones);
+
+    /**
+     * Agregado por telefone para o status do cliente: primeira e ultima visita e quantas — tudo
+     * no banco, sem carregar a tabela. So agendamentos ate {@code today} (futuro nao e visita).
+     * Cada linha: {@code [customer_phone, min(date), max(date), count]}.
+     */
+    @Query("""
+            select a.customerPhone, min(a.appointmentDate), max(a.appointmentDate), count(a)
+              from Appointment a
+             where a.barbershopId = :shop
+               and a.customerPhone is not null
+               and a.appointmentDate is not null
+               and a.appointmentDate <= :today
+             group by a.customerPhone
+            """)
+    List<Object[]> visitStatsByPhone(@Param("shop") UUID barbershopId, @Param("today") LocalDate today);
+
+    /**
+     * Agendamentos com barbeiro num periodo (comissao) — filtrado no banco pelo indice
+     * (barbershop_id, professional_id, appointment_date), em vez de ler o tenant inteiro.
+     */
+    @Query("""
+            select a from Appointment a
+             where a.barbershopId = :shop
+               and a.professionalId is not null
+               and a.appointmentDate between :start and :end
+            """)
+    List<Appointment> findWithProfessionalBetween(@Param("shop") UUID barbershopId,
+                                                  @Param("start") LocalDate start,
+                                                  @Param("end") LocalDate end);
+
     /** Intervalo filtrado no banco. Sem isto os relatorios liam a tabela inteira do tenant. */
     List<Appointment> findByBarbershopIdAndAppointmentDateBetween(UUID barbershopId, LocalDate from, LocalDate to);
 
@@ -51,18 +87,21 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
      * podia cair num horario antigo. Hoje conta a partir de {@code now} — o corte que comecou ha
      * dez minutos ja nao e "futuro". Horario nulo (legado) no dia de hoje conta como futuro: nao
      * da para saber, e some no dia seguinte.
+     *
+     * <p>Recebe as GRAFIAS do telefone ({@code PhoneNumbers.variants}): o mesmo cliente pode estar
+     * gravado com 12 ou 13 digitos (com/sem o nono digito) conforme o canal que o cadastrou.
      */
     @Query("""
             select a from Appointment a
              where a.barbershopId = :shop
-               and a.customerPhone = :phone
+               and a.customerPhone in :phones
                and (a.appointmentDate > :today
                     or (a.appointmentDate = :today
                         and (a.appointmentTime is null or a.appointmentTime >= :now)))
              order by a.appointmentDate asc, a.appointmentTime asc
             """)
     List<Appointment> findUpcomingByCustomer(@Param("shop") UUID barbershopId,
-                                             @Param("phone") String customerPhone,
+                                             @Param("phones") java.util.Collection<String> customerPhones,
                                              @Param("today") LocalDate today,
                                              @Param("now") LocalTime now);
 }

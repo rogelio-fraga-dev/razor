@@ -14,8 +14,15 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     List<Product> findByBarbershopIdAndActiveTrue(UUID barbershopId);
 
-    /** Usado na checagem de nome repetido — o indice unico do banco e por nome minusculo. */
-    Optional<Product> findByBarbershopIdAndNameIgnoreCase(UUID barbershopId, String name);
+    /**
+     * Nome sem diferenca de maiusculas, com {@code lower(name)} — a MESMA expressao do indice
+     * unico do banco, para a busca usar o indice (o derivado "IgnoreCase" gera {@code upper()}).
+     */
+    @org.springframework.data.jpa.repository.Query(
+            "select x from Product x where x.barbershopId = :shop and lower(x.name) = lower(:name)")
+    Optional<Product> findByBarbershopIdAndNameIgnoreCase(
+            @org.springframework.data.repository.query.Param("shop") UUID barbershopId,
+            @org.springframework.data.repository.query.Param("name") String name);
 
     /** Leitura escopada no tenant: evita ler produto de outra barbearia por id adivinhado. */
     Optional<Product> findByIdAndBarbershopId(UUID id, UUID barbershopId);

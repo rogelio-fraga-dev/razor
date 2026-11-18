@@ -77,7 +77,7 @@ class CustomerSegmentPersistenceIT {
         Appointment semana = appt(hoje.plusDays(7), LocalTime.of(8, 0));
         Appointment amanha = appt(hoje.plusDays(1), LocalTime.of(11, 0));
 
-        List<Appointment> out = appointmentRepository.findUpcomingByCustomer(SHOP, PHONE, hoje, LocalTime.of(12, 0));
+        List<Appointment> out = appointmentRepository.findUpcomingByCustomer(SHOP, java.util.List.of(PHONE), hoje, LocalTime.of(12, 0));
 
         assertThat(out).extracting(Appointment::getId)
                 .containsExactly(hojeTarde.getId(), amanha.getId(), semana.getId());
@@ -89,7 +89,7 @@ class CustomerSegmentPersistenceIT {
         Customer ana = customerRepository.save(Customer.builder().barbershopId(SHOP).phoneNumber("5511900001111").name("Ana").build());
         Customer bia = customerRepository.save(Customer.builder().barbershopId(SHOP).phoneNumber("5511900002222").name("Bia").build());
         CustomerTag vip = tagRepository.save(CustomerTag.builder().barbershopId(SHOP).name("VIP").color("#DC2626").build());
-        linkRepository.save(new CustomerTagLink(ana.getId(), vip.getId()));
+        linkRepository.save(new CustomerTagLink(ana.getId(), vip.getId(), ana.getBarbershopId()));
 
         assertThat(linkRepository.findCustomerIdsByTagId(vip.getId())).containsExactly(ana.getId());
         assertThat(tagRepository.findByBarbershopIdAndNameIgnoreCase(SHOP, "vip")).isPresent();

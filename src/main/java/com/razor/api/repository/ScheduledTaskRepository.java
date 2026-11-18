@@ -17,6 +17,17 @@ public interface ScheduledTaskRepository extends JpaRepository<ScheduledTask, UU
         LocalDateTime now
     );
     
+    /** As vencidas mais antigas primeiro, com teto por rodada (motor de disparos). */
+    List<ScheduledTask> findByStatusAndExecutionTimeBeforeOrderByExecutionTimeAsc(
+        ScheduledTask.TaskStatus status,
+        LocalDateTime now,
+        org.springframework.data.domain.Pageable page
+    );
+
+    /** Pendentes de um telefone — usa o indice parcial (barbershop_id, customer_phone) WHERE PENDING (V43). */
+    List<ScheduledTask> findByBarbershopIdAndCustomerPhoneAndStatus(
+        UUID barbershopId, String customerPhone, ScheduledTask.TaskStatus status);
+
     // NOVO: Busca tarefas dentro de um intervalo (para o Relatório de Amanhã)
     List<ScheduledTask> findByExecutionTimeBetweenAndTaskType(
         LocalDateTime start, 

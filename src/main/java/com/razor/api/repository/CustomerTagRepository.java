@@ -12,5 +12,13 @@ public interface CustomerTagRepository extends JpaRepository<CustomerTag, UUID> 
 
     Optional<CustomerTag> findByIdAndBarbershopId(UUID id, UUID barbershopId);
 
-    Optional<CustomerTag> findByBarbershopIdAndNameIgnoreCase(UUID barbershopId, String name);
+    /**
+     * Nome sem diferenca de maiusculas, com {@code lower(name)} — a MESMA expressao do indice
+     * unico do banco, para a busca usar o indice (o derivado "IgnoreCase" gera {@code upper()}).
+     */
+    @org.springframework.data.jpa.repository.Query(
+            "select x from CustomerTag x where x.barbershopId = :shop and lower(x.name) = lower(:name)")
+    Optional<CustomerTag> findByBarbershopIdAndNameIgnoreCase(
+            @org.springframework.data.repository.query.Param("shop") UUID barbershopId,
+            @org.springframework.data.repository.query.Param("name") String name);
 }

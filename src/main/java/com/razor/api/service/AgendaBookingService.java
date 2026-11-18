@@ -9,19 +9,19 @@ import com.razor.api.model.PaymentStatus;
 import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
+import com.razor.api.util.PhoneNumbers;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Comparator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Operacoes de escrita e consulta de agendamentos de um cliente, vindas do bot (tags da IA) e
@@ -52,6 +52,7 @@ public class AgendaBookingService {
     private final AgendaTaskService agendaTaskService;
     private final AgendaAvailabilityService agendaAvailabilityService;
     private final BarbershopSettingsService barbershopSettingsService;
+    private final BookingLock bookingLock;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -139,13 +140,6 @@ public class AgendaBookingService {
         return checkBookingLimit(TenantContext.getCurrent(), phone);
     }
 
-    /**
-     * Trava por barbearia em volta de "checar e gravar". Sem ela, duas requisicoes simultaneas
-     * (o site e o bot, ou dois visitantes) leem a mesma cadeira livre e as duas gravam. Em memoria:
-     * resolve o caso real (uma instancia). Com varias instancias, trocar por lock no banco.
-     */
-    private final Map<UUID, Object> travas = new ConcurrentHashMap<>();
-
     public Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
         return adicionarAgendamentoViaIA(name, phone, date, time, service, null);
     }
@@ -191,7 +185,22 @@ public class AgendaBookingService {
         int duracao = req.durationMinutes() != null && req.durationMinutes() > 0
                 ? req.durationMinutes()
                 : agendaAvailabilityService.duracaoDoServico(req.service());
+        // Sem transacao em volta, um conflito no indice unico (rede de seguranca) e so "horario
+        // ocupado" — o bot responde como sempre. Dentro de uma transacao maior (site), ela ja esta
+        // marcada para rollback: o conflito sobe e quem chama responde 409.
+        boolean transacaoExterna = TransactionSynchronizationManager.isActualTransactionActive();
+        try {
+            // Checar limite, checar horario e gravar: tudo sob a trava da agenda do tenant, que so
+            // e solta no COMMIT (ver BookingLock). Antes o limite era conferido fora da trava e a
+            // trava era solta antes do commit — dois pedidos simultaneos passavam juntos.
+            return bookingLock.run(shop, () -> gravarSobTrava(shop, req, duracao));
+        } catch (BookingConflictException e) {
+            if (transacaoExterna) throw e;
+            return Optional.empty();
+        }
+    }
 
+    private Optional<Appointment> gravarSobTrava(UUID shop, NovoAgendamento req, int duracao) {
         // Limite de horarios futuros por cliente (V36): vale para o bot e para o site. O painel
         // (agendarPeloPainel) fica de fora de proposito — ali quem decide e o dono/recepcao.
         checkBookingLimit(shop, req.phone()).ifPresent(excedido -> {
@@ -200,44 +209,45 @@ public class AgendaBookingService {
             throw new BookingLimitExceededException(excedido);
         });
 
-        Appointment app;
-        synchronized (travas.computeIfAbsent(shop, k -> new Object())) {
-            AgendaAvailabilityService.Checagem checagem = agendaAvailabilityService.checarHorario(
-                    req.date(), req.time(), duracao, req.preferredProfessionalId(), req.exigirPreferido());
-            if (!checagem.livre()) {
-                log.info("[AGENDA] Horario {} {} recusado para {}: sem cadeira livre pelos {}min do servico.",
+        // So barbeiros que FAZEM o servico contam como cadeira livre para este pedido.
+        List<UUID> aptos = professionalAssignmentService.qualifiedIds(
+                agendaAvailabilityService.profissionaisAtivos(), req.service());
+        AgendaAvailabilityService.Checagem checagem = agendaAvailabilityService.checarHorario(
+                req.date(), req.time(), duracao, req.preferredProfessionalId(), req.exigirPreferido(),
+                aptos == null || aptos.isEmpty() ? null : aptos);
+        if (!checagem.livre()) {
+            log.info("[AGENDA] Horario {} {} recusado para {}: sem cadeira livre pelos {}min do servico.",
+                    AppointmentDates.formatDate(req.date()), AppointmentDates.formatTime(req.time()),
+                    req.phone(), duracao);
+            return Optional.empty();
+        }
+
+        UUID professionalId = null;
+        if (checagem.temProfissionais()) {
+            List<UUID> livresAptos = professionalAssignmentService.qualifiedIds(checagem.profissionaisLivres(), req.service());
+            if (livresAptos.isEmpty()) {
+                log.info("[AGENDA] Horario {} {} recusado para {}: nenhum barbeiro livre faz '{}'.",
                         AppointmentDates.formatDate(req.date()), AppointmentDates.formatTime(req.time()),
-                        req.phone(), duracao);
+                        req.phone(), req.service());
                 return Optional.empty();
             }
-
-            UUID professionalId = null;
-            if (checagem.temProfissionais()) {
-                List<UUID> aptos = professionalAssignmentService.qualifiedIds(checagem.profissionaisLivres(), req.service());
-                if (aptos.isEmpty()) {
-                    log.info("[AGENDA] Horario {} {} recusado para {}: nenhum barbeiro livre faz '{}'.",
-                            AppointmentDates.formatDate(req.date()), AppointmentDates.formatTime(req.time()),
-                            req.phone(), req.service());
-                    return Optional.empty();
-                }
-                professionalId = professionalAssignmentService.escolherEntre(aptos, req.date(), req.preferredProfessionalId());
-            }
-
-            app = Appointment.builder()
-                .barbershopId(shop)
-                .customerName(req.name())
-                .customerPhone(req.phone())
-                .appointmentDate(req.date())
-                .appointmentTime(req.time())
-                .service(req.service())
-                .professionalId(professionalId)
-                .paymentStatus(PaymentStatus.PENDENTE)
-                .source(req.source() != null ? req.source() : AppointmentSource.BOT)
-                .build();
-            Appointment saved = appointmentRepository.save(app);
-            // save() com mock (testes) devolve null; com JPA devolve a mesma instancia com o id.
-            if (saved != null) app = saved;
+            professionalId = professionalAssignmentService.escolherEntre(livresAptos, req.date(), req.preferredProfessionalId());
         }
+
+        Appointment app = Appointment.builder()
+            .barbershopId(shop)
+            .customerName(req.name())
+            .customerPhone(req.phone())
+            .appointmentDate(req.date())
+            .appointmentTime(req.time())
+            .service(req.service())
+            .professionalId(professionalId)
+            .paymentStatus(PaymentStatus.PENDENTE)
+            .source(req.source() != null ? req.source() : AppointmentSource.BOT)
+            .build();
+        Appointment saved = appointmentRepository.save(app);
+        // save() com mock (testes) devolve null; com JPA devolve a mesma instancia com o id.
+        if (saved != null) app = saved;
         if (app.getProfessionalId() != null) {
             log.info("[AGENDA] Profissional {} atribuido ao agendamento de {}", app.getProfessionalId(), req.phone());
         }
@@ -254,6 +264,8 @@ public class AgendaBookingService {
      */
     public Appointment agendarPeloPainel(String name, String phone, LocalDate date, LocalTime time,
                                          String service, UUID professionalId) {
+        // Quem chama (AgendaPanelService) ja esta dentro do BookingLock: validou o encaixe e grava
+        // na mesma trava, que vai ate o commit.
         Appointment app = Appointment.builder()
             .barbershopId(TenantContext.getCurrent())
             .customerName(name)
@@ -382,33 +394,25 @@ public class AgendaBookingService {
                 .orElse(null);
     }
 
-    private List<Appointment> upcomingFor(UUID barbershopId, String phone) {
+    /**
+     * Horarios futuros do telefone em QUALQUER grafia dele (com/sem DDI, com/sem o nono digito):
+     * o site grava como o cliente digitou, o bot como o WhatsApp entrega — e e a mesma pessoa.
+     */
+    public List<Appointment> upcomingFor(UUID barbershopId, String phone) {
+        if (phone == null || phone.isBlank()) return List.of();
         LocalDateTime agora = LocalDateTime.now(ZONE);
-        return appointmentRepository.findUpcomingByCustomer(
-                barbershopId, phone, agora.toLocalDate(), agora.toLocalTime());
+        List<Appointment> out = appointmentRepository.findUpcomingByCustomer(
+                barbershopId, PhoneNumbers.variants(phone), agora.toLocalDate(), agora.toLocalTime());
+        return out == null ? List.of() : out;
     }
 
+    /**
+     * O cliente tem horario por vir? Mesma regra do limite e do "seus horarios"
+     * ({@link #upcomingFor}), consultada no banco — antes lia o historico inteiro do telefone e
+     * usava uma regra propria (ate 1h depois do inicio).
+     */
     public boolean hasAgendamentoFuturo(String phone) {
-        LocalDateTime agora = LocalDateTime.now(ZONE);
-        LocalDate hoje = agora.toLocalDate();
-        List<Appointment> apps = appointmentRepository.findByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phone);
-
-        for (Appointment ag : apps) {
-            LocalDate agDate = ag.getAppointmentDate();
-            if (agDate == null) continue;
-
-            if (agDate.isAfter(hoje)) {
-                return true;
-            } else if (agDate.isEqual(hoje)) {
-                LocalTime agTime = ag.getAppointmentTime();
-                // Se o horário atual for ANTES do (horário agendado + 1 hora), consideramos como futuro/ativo.
-                // Sem horário válido, consideramos ativo hoje por segurança.
-                if (agTime == null || agora.toLocalTime().isBefore(agTime.plusHours(1))) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return !upcomingFor(TenantContext.getCurrent(), phone).isEmpty();
     }
 
     public boolean cancelarAgendamentoExato(Appointment ag) {

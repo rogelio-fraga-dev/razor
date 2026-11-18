@@ -1409,6 +1409,39 @@ Paginar catálogo seria ruído: dois botões mortos embaixo de uma lista de 7 se
   barbeiro só cai no formulário que o pediu.
 - **Frontend:** ESLint (flat config) com `react-hooks` e `jsx-a11y` recomendados — `npm run lint`
   zerado (rótulos de grupos de botões, overlays como `presentation`, sem `autoFocus`).
+- **Backend — fidelidade:** o ponto dado no `afterCommit` do fechamento rodava "dentro" da
+  transação já confirmada e nunca era gravado; `FidelityService.registerVisit` agora é
+  `REQUIRES_NEW` (teste com o proxy transacional real prova a transação nova).
+- **Backend — comanda:** `POST /comandas/{id}/close-preview` simula pacote + cupom sem gravar nem
+  travar, com o mesmo planejador de baixa do fechamento (total idêntico); `coupon-preview` antigo
+  delega para ele. Pacote cobrindo tudo: cupom não é gasto (o preview avisa). Fechamento trava a
+  comanda (`FOR UPDATE`) antes de conferir a situação — fechar duas vezes não lança dinheiro duas.
+- **Backend — pacotes:** dono do pacote achado pelas grafias do telefone no banco (antes lia os
+  pacotes do tenant inteiro); último uso vale o resto do preço (soma das baixas = preço pago).
+- **Backend — agenda sem horário duplo:** `BookingLock` (`pg_advisory_xact_lock` por barbearia,
+  solto só no commit) em bot, site e painel (criar/remarcar); limite por cliente e teto do site
+  checados dentro da trava. Rede de segurança no banco: índice único `uq_appointments_slot`
+  (barbeiro + dia + hora, falta fora) → 409 "horário ocupado".
+- **Backend — serviço que o barbeiro faz:** grade do site, checagem do bot e validação do painel só
+  contam quem faz o serviço; o site recebe os serviços de cada barbeiro (`serviceIds`).
+- **Backend — telefone:** formato canônico único (`PhoneNumbers.canonicalBrazilian`) no site e no
+  painel; "seus horários", limite e teto casam 12 e 13 dígitos (`PhoneNumbers.variants`).
+- **Backend — painel:** cancelar recusa atendimento realizado ou com comanda fechada; WhatsApp ao
+  cliente só depois do commit.
+- **Backend — disparos:** scheduler sem transação longa (uma por tarefa, teto de 200 por rodada,
+  disparo em massa no fim com a pausa anti-bloqueio, até 20 por rodada); pool `broadcastExecutor`
+  limitado e separado do webhook, inclusive para o disparo pelo WhatsApp do dono (relatório no
+  fim); disparo do painel sem grupo → 400 "Escolha um grupo"; admins lidos uma vez no recorte.
+- **Backend — consultas:** comissão por período, status do cliente (min/máx/contagem agregados no
+  banco) e disponibilidade do bot (só o dia / de hoje em diante) sem ler a tabela inteira; buscas
+  por nome com `lower(name)` (mesma expressão dos índices únicos).
+- **Banco (V43):** índices da agenda no formato das consultas (substituem os de barbeiro e de
+  telefone), índice parcial de tarefas pendentes por telefone, índices das FKs dos pacotes,
+  `CHECK` de comparecimento e de valores unitários, FKs compostas (cliente/pacote/tag + barbearia)
+  e `barbershop_id` em `customer_tag_links`. A migração para com a lista se já houver horário
+  duplicado. Apagar cliente com pacote pelo WhatsApp explica o motivo (FK continua RESTRICT).
+- **Ficou de fora:** o texto de horários livres do bot para o prompt da IA não sabe o serviço
+  (é montado antes do cliente pedir); a capacidade por serviço vale na checagem ao gravar.
 
 ---
 

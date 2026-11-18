@@ -88,10 +88,9 @@ public class CommissionService {
                         ServiceOffering::getCommissionPercent,
                         (a, b) -> a));
 
-        List<Appointment> doPeriodo = appointmentRepository.findByBarbershopId(shop).stream()
-                .filter(ag -> ag.getProfessionalId() != null && ag.getAppointmentDate() != null)
-                .filter(ag -> !ag.getAppointmentDate().isBefore(start) && !ag.getAppointmentDate().isAfter(end))
-                .toList();
+        // Periodo filtrado no banco (indice barbershop_id, professional_id, appointment_date).
+        List<Appointment> doPeriodo = appointmentRepository.findWithProfessionalBetween(shop, start, end);
+        if (doPeriodo == null) doPeriodo = List.of();
         Map<Long, List<PackageUsage>> usosDePacote = packageUsagesByAppointment(shop, doPeriodo);
 
         Map<UUID, Acumulador> porProf = new LinkedHashMap<>();
