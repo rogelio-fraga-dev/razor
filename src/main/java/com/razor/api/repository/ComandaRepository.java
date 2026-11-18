@@ -21,4 +21,7 @@ public interface ComandaRepository extends JpaRepository<Comanda, UUID> {
 
     /** Leitura escopada no tenant: nao le comanda de outra barbearia por id adivinhado. */
     Optional<Comanda> findByIdAndBarbershopId(UUID id, UUID barbershopId);
+
+    /** Comandas ligadas a estes agendamentos — a agenda mostra "comanda aberta" no bloco. */
+    List<Comanda> findByBarbershopIdAndAppointmentIdIn(UUID barbershopId, java.util.Collection<Long> appointmentIds);
 }

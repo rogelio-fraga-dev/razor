@@ -27,6 +27,13 @@ public class ScheduledTask {
     @Column(name = "customer_phone", nullable = false)
     private String customerPhone;
     
+    /**
+     * Agendamento que originou a tarefa (V39). Nulo em tarefas que nao sao de um horario
+     * (disparo em massa, aviso de retorno) e nas criadas antes da V39.
+     */
+    @Column(name = "appointment_id")
+    private Long appointmentId;
+
     @Column(name = "execution_time", nullable = false)
     private LocalDateTime executionTime;
     

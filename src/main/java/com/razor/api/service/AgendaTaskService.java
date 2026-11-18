@@ -9,14 +9,17 @@ import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
  * Tarefas agendadas ({@link ScheduledTask}) que nascem da agenda: lembrete 1h antes e pedido de
- * avaliacao 1h depois de cada horario, cancelamento das pendentes quando o cliente desmarca,
+ * avaliacao 1h depois de cada horario (presas ao agendamento, V39), cancelamento das pendentes
+ * daquele horario quando o cliente desmarca ou o painel remarca,
  * disparo em massa programado pelo dono e o aviso de "bot voltou" apos uma pausa humana.
  *
  * <p>So cria/cancela linhas em {@code scheduled_tasks}; quem envia e o {@code RazorScheduler}.
@@ -58,6 +61,7 @@ public class AgendaTaskService {
 
             ScheduledTask reminderTask = ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
                     .customerPhone(ag.getCustomerPhone())
+                    .appointmentId(ag.getId())
                     .executionTime(reminderTime)
                     .taskType("REMINDER")
                     .messageContent(reminderMsg)
@@ -72,6 +76,7 @@ public class AgendaTaskService {
 
             ScheduledTask reviewTask = ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
                     .customerPhone(ag.getCustomerPhone())
+                    .appointmentId(ag.getId())
                     .executionTime(reviewTime)
                     .taskType("REVIEW_REQUEST")
                     .messageContent(reviewMsg)
@@ -82,6 +87,49 @@ public class AgendaTaskService {
 
         } catch (Exception e) {
             log.error("[AGENDA] Erro ao criar tarefas agendadas para {}: {}", ag.getCustomerPhone(), e.getMessage());
+        }
+    }
+
+    /**
+     * Cancela as tarefas PENDING de <b>um</b> agendamento (lembrete e avaliacao) e devolve quantas.
+     *
+     * <p>Antes o cancelamento era por telefone: desmarcar UM horario apagava os lembretes de todos
+     * os outros horarios do mesmo cliente. Agora a tarefa nasce presa ao agendamento (V39).
+     * Tarefas criadas antes da V39 nao tem o vinculo; essas sao reconhecidas pelo telefone + o
+     * horario exato em que foram programadas (lembrete = 1h antes, avaliacao = 1h depois), que e
+     * unico por agendamento.
+     *
+     * <p>Precisa ser chamado com o agendamento ainda no horario ANTIGO (antes de remarcar), senao
+     * o reconhecimento das tarefas legadas olharia o horario novo.
+     */
+    public int cancelarTarefasDoAgendamento(Appointment ag) {
+        if (ag == null) return 0;
+        try {
+            UUID shop = TenantContext.getCurrent();
+            List<ScheduledTask> alvo = new ArrayList<>();
+            if (ag.getId() != null) {
+                alvo.addAll(taskRepository.findByBarbershopIdAndAppointmentIdAndStatus(
+                        shop, ag.getId(), ScheduledTask.TaskStatus.PENDING));
+            }
+            String phone = ag.getCustomerPhone();
+            if (phone != null && ag.getAppointmentDate() != null && ag.getAppointmentTime() != null) {
+                LocalDateTime horario = LocalDateTime.of(ag.getAppointmentDate(), ag.getAppointmentTime());
+                taskRepository.findByBarbershopIdAndCustomerPhone(shop, phone).stream()
+                        .filter(t -> t.getStatus() == ScheduledTask.TaskStatus.PENDING)
+                        .filter(t -> t.getAppointmentId() == null)
+                        .filter(t -> ("REMINDER".equals(t.getTaskType()) && horario.minusHours(1).equals(t.getExecutionTime()))
+                                || ("REVIEW_REQUEST".equals(t.getTaskType()) && horario.plusHours(1).equals(t.getExecutionTime())))
+                        .forEach(alvo::add);
+            }
+            for (ScheduledTask task : alvo) {
+                task.setStatus(ScheduledTask.TaskStatus.CANCELLED);
+                taskRepository.save(task);
+            }
+            log.info("[AGENDA] {} tarefa(s) pendente(s) cancelada(s) do agendamento {}", alvo.size(), ag.getId());
+            return alvo.size();
+        } catch (Exception e) {
+            log.error("[AGENDA] Erro ao cancelar tarefas do agendamento {}: {}", ag.getId(), e.getMessage());
+            return 0;
         }
     }
 

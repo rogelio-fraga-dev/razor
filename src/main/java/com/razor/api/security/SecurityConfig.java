@@ -145,6 +145,15 @@ public class SecurityConfig {
                         // dele). Vem ANTES da regra do balcao, que libera /customers/** para a
                         // recepcao — sem isso a recepcao concederia plano de graca.
                         .requestMatchers(HttpMethod.PUT, "/api/admin/customers/*/plan").hasRole(OWNER)
+                        // --- Agenda interativa (V39) -----------------------------------------
+                        // Ler a grade: todo mundo (o barbeiro ve com quem atende). Mexer nela
+                        // (criar, arrastar, cancelar, comparecimento): dono e recepcao. O barbeiro
+                        // fica so na leitura porque o usuario do painel ainda nao e ligado a um
+                        // cadastro de profissional — nao ha como restringi-lo "aos proprios".
+                        .requestMatchers(HttpMethod.GET, "/api/admin/agenda", "/api/admin/agenda/**")
+                        .hasAnyRole(OWNER, RECEPTION, BARBER)
+                        .requestMatchers("/api/admin/agenda", "/api/admin/agenda/**")
+                        .hasAnyRole(OWNER, RECEPTION)
 
                         // --- Operacao do balcao ----------------------------------------------
                         // Recepcao abre comanda, vende, mexe no caixa e bloqueia horario. Nao
