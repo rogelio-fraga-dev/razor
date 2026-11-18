@@ -25,8 +25,8 @@ ALTER TABLE appointments
 --    nasce DESLIGADO (quem decide tirar o horario de um cliente e o dono); o sinal nasce desligado.
 ALTER TABLE barbershop_settings
     ADD COLUMN confirmation_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    ADD COLUMN confirmation_hour SMALLINT NOT NULL DEFAULT 18,
-    ADD COLUMN confirmation_deadline_hours SMALLINT NOT NULL DEFAULT 3,
+    ADD COLUMN confirmation_hour INTEGER NOT NULL DEFAULT 18,
+    ADD COLUMN confirmation_deadline_hours INTEGER NOT NULL DEFAULT 3,
     ADD COLUMN confirmation_auto_release BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN no_show_deposit_after INTEGER,
     ADD COLUMN no_show_deposit_amount NUMERIC(10, 2);
