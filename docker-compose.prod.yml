@@ -1,0 +1,38 @@
+# Razor — override de PRODUCAO (opt-in; o dev local continua so com docker-compose.yml).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile bot up -d --build
+#
+# O que muda em relacao ao stack local:
+#   - Cada segredo vira OBRIGATORIO (${VAR:?...}): sem ele no .env o compose nem sobe, em vez
+#     de cair no default de desenvolvimento publicado no repositorio.
+#   - RAZOR_STRICT_SECRETS=true: o backend recusa subir com segredo curto ou de exemplo
+#     (TROCAR_..., dev-..., barberbot). Ver StrictSecretsValidator.
+#
+# Modelo de .env: .env.prod-example. Gere cada segredo com `openssl rand -base64 48`.
+# As portas de banco/API/Evolution ja escutam so em 127.0.0.1 no arquivo base.
+
+services:
+  postgres:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+
+  backend:
+    environment:
+      RAZOR_STRICT_SECRETS: "true"
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?defina OPENAI_API_KEY no .env}
+      ADMIN_PHONES: ${ADMIN_PHONES:?defina ADMIN_PHONES no .env}
+      RAZOR_JWT_SECRET: ${RAZOR_JWT_SECRET:?defina RAZOR_JWT_SECRET no .env}
+      ONBOARDING_API_KEY: ${ONBOARDING_API_KEY:?defina ONBOARDING_API_KEY no .env}
+      WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:?defina WEBHOOK_TOKEN no .env}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:?defina EVOLUTION_API_KEY no .env}
+      RAZOR_CORS_ORIGINS: ${RAZOR_CORS_ORIGINS:?defina RAZOR_CORS_ORIGINS no .env}
+
+  evolution-api:
+    environment:
+      DATABASE_CONNECTION_URI: "postgresql://${POSTGRES_USER:?defina POSTGRES_USER}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-barberbot_db}?schema=evolution"
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?defina EVOLUTION_API_KEY no .env}
+      WEBHOOK_GLOBAL_URL: "http://backend:8081/api/webhook?token=${WEBHOOK_TOKEN:?defina WEBHOOK_TOKEN no .env}"
