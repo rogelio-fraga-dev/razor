@@ -213,6 +213,20 @@ class SecurityConfigIT {
     }
 
     @Test
+    @DisplayName("GET autenticado por cookie NAO apaga o XSRF-TOKEN (sem 'login novo' a cada requisicao)")
+    void authenticatedGet_doesNotClearCsrfCookie() throws Exception {
+        String token = login();
+        MvcResult r = mockMvc.perform(get("/api/admin/me").cookie(new Cookie(SessionCookies.NAME, token)))
+                .andExpect(status().isOk()).andReturn();
+        Cookie xsrf = r.getResponse().getCookie("XSRF-TOKEN");
+        // Antes: o CsrfAuthenticationStrategy respondia XSRF-TOKEN com Max-Age=0 em todo GET.
+        if (xsrf != null) {
+            assertThat(xsrf.getMaxAge()).isNotZero();
+            assertThat(xsrf.getValue()).isNotBlank();
+        }
+    }
+
+    @Test
     @DisplayName("escrita autenticada por cookie SEM token CSRF responde 403 {code: CSRF}")
     void cookieWrite_withoutCsrf_forbidden() throws Exception {
         String token = login();

@@ -20,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.csrf.CsrfFilter;
@@ -118,7 +119,13 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfTokenRepository())
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        .requireCsrfProtectionMatcher(CSRF_REQUIRED))
+                        .requireCsrfProtectionMatcher(CSRF_REQUIRED)
+                        // Sem sessao, o JWT autentica a CADA requisicao — e o CsrfAuthenticationStrategy
+                        // padrao trata isso como "login novo" e APAGA o cookie XSRF-TOKEN (Max-Age=0)
+                        // em todo GET autenticado. O painel entao precisava buscar token novo antes de
+                        // cada escrita, e duas escritas seguidas brigavam pelo token. Rotacao de token
+                        // fica no login (AuthController), nao em toda requisicao.
+                        .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy()))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
