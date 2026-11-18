@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -27,15 +28,45 @@ public class WhatsAppService {
     private final EvolutionClient evolutionClient;
     private final TenantResolver tenantResolver;
 
+    /** Tempo maximo esperando a Evolution confirmar um envio sincrono. */
+    static final Duration SYNC_SEND_TIMEOUT = Duration.ofSeconds(30);
+
+    /**
+     * Envio "dispara e esquece" — para respostas de chat, onde nao ha o que fazer com a falha
+     * alem de logar. Quem precisa SABER se a mensagem saiu (tarefa agendada, cupom, disparo em
+     * massa) deve usar {@link #sendTextMessageSync}.
+     */
     public void sendTextMessage(String phone, String message) {
         String instance = tenantResolver.outboundInstance();
         CompletableFuture.runAsync(() -> {
             try {
-                evolutionClient.sendTextMessage(instance, phone, message).block();
+                evolutionClient.sendTextMessage(instance, phone, message).block(SYNC_SEND_TIMEOUT);
             } catch (Exception e) {
                 log.error("Erro ao enviar mensagem para {}: {}", phone, e.getMessage(), e);
             }
         });
+    }
+
+    /**
+     * Envia e espera a Evolution aceitar. Falha (rede, instancia desconectada, timeout) sobe
+     * como {@link WhatsAppSendException} — o chamador decide marcar FAILED, contar como nao
+     * enviado, etc. Antes so existia o envio assincrono, entao todo chamador achava que tinha
+     * enviado.
+     */
+    public void sendTextMessageSync(String phone, String message) {
+        String instance = tenantResolver.outboundInstance();
+        try {
+            evolutionClient.sendTextMessage(instance, phone, message).block(SYNC_SEND_TIMEOUT);
+        } catch (Exception e) {
+            throw new WhatsAppSendException("Falha ao enviar mensagem para " + phone + ": " + e.getMessage(), e);
+        }
+    }
+
+    /** Envio sincrono que falhou. */
+    public static class WhatsAppSendException extends RuntimeException {
+        public WhatsAppSendException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 
     public void sendMessage(MessageDTO messageDTO) {

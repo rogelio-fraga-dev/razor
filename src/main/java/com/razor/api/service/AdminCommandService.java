@@ -443,13 +443,16 @@ public class AdminCommandService {
         String barbershopName = barbershopSettingsService.resolve().displayName();
 
         List<String> contatosSucesso = new ArrayList<>();
+        int falhas = 0;
         for (Customer customer : allCustomers) {
             try {
                 if (customer.getPhoneNumber().contains(adminPhone)) continue;
                 String header = isProspecting
                         ? "💈 *" + barbershopName + " - Promoção* 💈\n\n"
                         : "📢 *Aviso da " + barbershopName + "*\n\n";
-                sendMsg(customer.getPhoneNumber(), header + message, "DISPARO");
+                // Sincrono: so conta como alcancado quem a Evolution aceitou. Com o envio
+                // assincrono o relatorio contava a base inteira, mesmo com o WhatsApp fora.
+                messenger.sendSync(customer.getPhoneNumber(), header + message, "DISPARO");
                 contatosSucesso.add("✅ " + customer.getName());
                 Thread.sleep(3000);
             } catch (InterruptedException e) {
@@ -457,9 +460,11 @@ public class AdminCommandService {
                 log.warn("[DISPARO] Interrompido durante o envio para {}", customer.getPhoneNumber());
                 break;
             } catch (Exception e) {
-                log.warn("[DISPARO] Falha ao enviar para {}: {}", customer.getPhoneNumber(), e.getMessage());
+                falhas++;
+                log.warn("[DISPARO] Falha ao enviar para {}: {}", customer.getPhoneNumber(), e.getMessage(), e);
             }
         }
-        sendMsg(adminPhone, "📊 *Relatório de Disparo*\nTotal alcançado: " + contatosSucesso.size() + "\n\n" + String.join("\n", contatosSucesso), "ADMIN");
+        String falhasTxt = falhas > 0 ? "\n❌ Falharam: " + falhas : "";
+        sendMsg(adminPhone, "📊 *Relatório de Disparo*\nTotal alcançado: " + contatosSucesso.size() + falhasTxt + "\n\n" + String.join("\n", contatosSucesso), "ADMIN");
     }
 }

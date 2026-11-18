@@ -46,6 +46,7 @@ class AdminCommandServiceTest {
     @Mock private WaitlistRepository waitlistRepository;
     @Mock private WhatsAppMessenger messenger;
     @Mock private EvolutionMediaService evolutionMediaService;
+    @Mock private BarbershopSettingsService barbershopSettingsService;
 
     // Store REAL (nao mock): a maquina de estados da conversa precisa gravar/ler de verdade.
     @org.mockito.Spy
@@ -168,5 +169,24 @@ class AdminCommandServiceTest {
     void naturalPhrase_startsBroadcast() {
         service.processAdminMessage(adminText("manda um aviso"), ADMIN);
         verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("Disparo de Avisos")), eq("ADMIN"));
+    }
+
+    @Test
+    @DisplayName("relatório do disparo conta só quem recebeu de fato (envio síncrono) e informa as falhas")
+    void broadcast_reportCountsOnlyDelivered() {
+        when(barbershopSettingsService.resolve())
+                .thenReturn(new BarbershopSettingsService.BotSettings("", "", "", null, ""));
+        var ok = com.razor.api.model.Customer.builder().phoneNumber("5511111111111").name("Ana").build();
+        var falha = com.razor.api.model.Customer.builder().phoneNumber("5522222222222").name("Bia").build();
+        when(customerRepository.findByBarbershopId(any())).thenReturn(java.util.List.of(ok, falha));
+        Mockito.doThrow(new WhatsAppService.WhatsAppSendException("fora", new RuntimeException()))
+                .when(messenger).sendSync(eq("5522222222222"), any(), eq("DISPARO"));
+
+        service.performBroadcast(ADMIN, "Promo!", false);
+
+        verify(messenger).send(eq(ADMIN),
+                argThat(m -> m.contains("Relatório de Disparo") && m.contains("Total alcançado: 1")
+                        && m.contains("Falharam: 1") && m.contains("Ana") && !m.contains("Bia")),
+                eq("ADMIN"));
     }
 }
