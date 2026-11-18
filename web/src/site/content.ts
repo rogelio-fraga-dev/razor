@@ -38,14 +38,22 @@ const BASE: Record<SiteSectionKey, SectionText> = {
   services: { eyebrow: "O que fazemos", title: "Serviços", text: "" },
   gallery: { eyebrow: "Portfólio", title: "Nosso trabalho", text: "" },
   story: { eyebrow: "A casa", title: "", text: "" },
-  team: { eyebrow: "Quem corta", title: "Nossa equipe", text: "" },
-  plans: { eyebrow: "Clube", title: "Planos de assinatura", text: "Corte sempre em dia, por um valor fixo no mês." },
+  team: {
+    eyebrow: "Quem corta",
+    title: "As mãos por trás da cadeira",
+    text: "Cada barbeiro com o seu estilo — escolha o seu na hora de agendar.",
+  },
+  plans: {
+    eyebrow: "Clube",
+    title: "Planos de assinatura",
+    text: "Corte sempre em dia, por um valor fixo no mês. Sem fila e sem surpresa no caixa.",
+  },
   how: { eyebrow: "Simples assim", title: "Como agendar", text: "" },
   location: { eyebrow: "Visite", title: "Onde estamos", text: "" },
   cta: {
-    eyebrow: "",
+    eyebrow: "Sua cadeira está pronta",
     title: "Bora marcar seu horário?",
-    text: "Escolha o horário em um minuto — sem app, sem cadastro.",
+    text: "Escolha o dia e a hora em um minuto — sem app, sem cadastro.",
   },
 };
 
@@ -54,18 +62,27 @@ const BY_TEMPLATE: Record<SiteTemplate, Partial<Record<SiteSectionKey, Partial<S
   CLASSICO: {
     hero: { eyebrow: "Barbearia · tradição e navalha" },
     services: { eyebrow: "Tabela da casa", title: "Serviços & valores" },
-    gallery: { title: "Nosso trabalho" },
+    gallery: { eyebrow: "Da nossa cadeira", title: "Nosso trabalho" },
+    story: { eyebrow: "A casa", title: "Ofício passado de mão em mão" },
+    location: { eyebrow: "Visite a casa", title: "Onde estamos" },
+    cta: { eyebrow: "A cadeira espera por você", title: "Bora marcar seu horário?" },
   },
   ESTUDIO: {
     hero: { eyebrow: "Estúdio de barbearia" },
-    story: { eyebrow: "Manifesto" },
-    services: { eyebrow: "A carta", title: "Serviços" },
-    gallery: { eyebrow: "Estúdio", title: "Atmosfera" },
+    story: { eyebrow: "Manifesto", title: "" },
+    services: { eyebrow: "A carta", title: "Serviços", text: "Cada atendimento tem o seu tempo. Nenhum tem pressa." },
+    gallery: { eyebrow: "Estúdio", title: "Atmosfera", text: "Luz baixa, madeira, aço e silêncio — o lugar faz parte do corte." },
+    team: { eyebrow: "Mestres", title: "Quem assina o corte", text: "" },
+    location: { eyebrow: "Endereço", title: "Venha conhecer o estúdio" },
+    cta: { eyebrow: "Reserve", title: "Seu horário, sem pressa.", text: "Escolha o momento — o resto é com a gente." },
   },
   VITRINE: {
     hero: { eyebrow: "Barbearia" },
     services: { eyebrow: "Cardápio", title: "O que a gente faz" },
-    gallery: { eyebrow: "Portfólio", title: "Feito aqui" },
+    gallery: { eyebrow: "Portfólio", title: "Feito aqui", text: "Cortes reais, de clientes reais. Sem filtro." },
+    team: { eyebrow: "O time", title: "Quem faz acontecer", text: "" },
+    location: { eyebrow: "Cola aqui", title: "Onde estamos" },
+    cta: { eyebrow: "", title: "Bora dar um tapa no visual?", text: "Agenda aberta agora. Escolhe o horário e pronto." },
   },
 };
 

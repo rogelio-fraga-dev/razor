@@ -2,13 +2,16 @@
 //
 // Fica FORA do bloco autenticado do App — é um site, e site não pede login. O tenant vem do slug
 // da URL e o backend recusa slug inexistente ou site não publicado com o mesmo 404.
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import type { PublicSite, SiteTemplate, SiteTheme } from "../api/types";
 import { TEMPLATES } from "./templates";
 import { bookingHref } from "./parts";
 import { sanitizeSite } from "./safeUrl";
+import { motionOf } from "./content";
+import { accentStyle } from "./contrast";
+import { MotionProvider, useEffectiveMotion } from "./fx";
 import "./site.css";
 
 type Scheme = "light" | "dark";
@@ -108,11 +111,68 @@ function SchemeToggle({ scheme, onChange }: { scheme: Scheme; onChange: (s: Sche
   );
 }
 
+/**
+ * O site renderizado — tudo dentro do invólucro `.rzsite`: tema, cor da marca (já com as
+ * variações legíveis calculadas), nível de movimento, o template e o botão de tema.
+ *
+ * Exportado para a prévia ao vivo do editor: ela passa o rascunho do dono como `site` e pode
+ * forçar template e tema sem tocar no publicado.
+ */
+export function SiteView({
+  site,
+  templateOverride,
+  themeOverride,
+}: {
+  site: PublicSite;
+  templateOverride?: SiteTemplate;
+  themeOverride?: SiteTheme;
+}) {
+  const [scheme, setScheme] = useState<Scheme | null>(readScheme);
+  const motion = useEffectiveMotion(motionOf(site));
+  const templateId: SiteTemplate =
+    templateOverride && templateOverride in TEMPLATES
+      ? templateOverride
+      : site.template in TEMPLATES
+        ? site.template
+        : "CLASSICO";
+  const theme = themeOverride ?? site.theme;
+  const Template = TEMPLATES[templateId];
+  // O template em uso entra no dado: os textos padrão das seções (content.ts) e a variante da
+  // equipe dependem dele — na prévia "?template=" o publicado continua outro.
+  const view = useMemo(() => (site.template === templateId ? site : { ...site, template: templateId }), [site, templateId]);
+  const accent = useMemo(() => accentStyle(site.accentColor), [site.accentColor]);
+  const auto = theme === "AUTO" || !THEME_CLASS[theme];
+  // No "Ambos", a escolha do visitante (se houver) vence a do aparelho.
+  const themeClass = auto ? (scheme ? `theme-${scheme}` : "theme-auto") : THEME_CLASS[theme];
+
+  return (
+    <div
+      className={`rzsite ${themeClass}`}
+      data-motion={motion}
+      // A única cor do dono entra aqui, junto com as versões dela que passam contraste AA
+      // (texto sobre o acento e acento como texto em cada tema — ver contrast.ts).
+      style={accent as CSSProperties}
+    >
+      <MotionProvider value={motion}>
+        <Template site={view} />
+      </MotionProvider>
+      {auto && (
+        <SchemeToggle
+          scheme={scheme ?? systemScheme()}
+          onChange={(s) => {
+            setScheme(s);
+            saveScheme(s);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 export function SitePage() {
   const { slug = "" } = useParams();
   const [site, setSite] = useState<PublicSite | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [scheme, setScheme] = useState<Scheme | null>(readScheme);
   // Prévia por endereço (?template=VITRINE&tema=escuro): o dono compara os três modelos com o
   // próprio conteúdo antes de salvar. Só muda a apresentação — o conteúdo é o publicado.
   const [query] = useSearchParams();
@@ -150,33 +210,11 @@ export function SitePage() {
   // esqueleto que pisca com a cor errada — o acento e o tema só chegam junto com os dados.
   if (!site) return <div className="rzsite theme-auto" style={{ minHeight: "100vh" }} />;
 
-  const templateId = previewTemplate && previewTemplate in TEMPLATES ? previewTemplate : site.template;
-  const theme = previewTheme ?? site.theme;
-  const Template = TEMPLATES[templateId] ?? TEMPLATES.CLASSICO;
-  const auto = theme === "AUTO" || !THEME_CLASS[theme];
-  // No "Ambos", a escolha do visitante (se houver) vence a do aparelho.
-  const themeClass = auto
-    ? scheme
-      ? `theme-${scheme}`
-      : "theme-auto"
-    : THEME_CLASS[theme];
-
   return (
-    <div
-      className={`rzsite ${themeClass}`}
-      // A única cor do dono entra aqui; o resto da paleta o CSS deriva.
-      style={{ ["--accent" as string]: site.accentColor }}
-    >
-      <Template site={site} />
-      {auto && (
-        <SchemeToggle
-          scheme={scheme ?? systemScheme()}
-          onChange={(s) => {
-            setScheme(s);
-            saveScheme(s);
-          }}
-        />
-      )}
-    </div>
+    <SiteView
+      site={site}
+      templateOverride={previewTemplate && previewTemplate in TEMPLATES ? previewTemplate : undefined}
+      themeOverride={previewTheme}
+    />
   );
 }

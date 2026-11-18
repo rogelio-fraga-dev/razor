@@ -2,13 +2,14 @@
 //
 // O conteúdo vem de parts.tsx (blocos idênticos nos três), sections.tsx (blocos com variante
 // por template) e layout.tsx (chamada final). Cada template tem identidade própria — fonte,
-// capa, forma do menu de serviços e da galeria —, mas o DADO é sempre o mesmo: trocar de
-// template nunca pede para redigitar nada. Nome, proposta e "ideal para" ficam em catalog.ts;
-// o visual de cada um, nos blocos `.tpl-*` de site.css.
-import type { ReactNode } from "react";
+// capa, peça-assinatura em 3D, forma do menu de serviços e da galeria —, mas o DADO é sempre o
+// mesmo: trocar de template nunca pede para redigitar nada. Os textos de cada seção vêm de
+// content.ts; nome, proposta e "ideal para" ficam em catalog.ts; o visual, nos blocos `.tpl-*`
+// de site.css.
 import type { PublicSite } from "../api/types";
 import { Footer, HowItWorks, Plans, Stats, StickyBook, Team } from "./parts";
 import { FinalCta } from "./layout";
+import { bookLabel } from "./content";
 import {
   BarberStripe,
   GalleryPro,
@@ -25,17 +26,10 @@ import {
   TemplateShell,
 } from "./sections";
 
-/** Âncora da navegação para blocos que vêm de parts.tsx. */
-const Anchor = ({ id, children }: { id: string; children: ReactNode }) => (
-  <div id={id} className="rz-anchor" data-reveal>
-    {children}
-  </div>
-);
-
 /* ============================================================================
    CLÁSSICO — barbearia tradicional.
-   Serifa, listras de poste de barbeiro, quadro de preços. Responde primeiro
-   "quanto custa e quando abre" — quem compete por conveniência.
+   Serifa, poste de barbeiro girando em 3D, quadro de preços em moldura dupla.
+   Responde primeiro "quanto custa e quando abre" — quem compete por conveniência.
    ========================================================================== */
 export function Classico({ site }: { site: PublicSite }) {
   return (
@@ -45,10 +39,10 @@ export function Classico({ site }: { site: PublicSite }) {
       <BarberStripe />
       <Stats site={site} />
       <ServicesBoard site={site} />
-      <GalleryPro site={site} variant="frames" title="Nosso trabalho" />
+      <GalleryPro site={site} variant="frames" />
       <StorySplit site={site} />
-      <Anchor id="equipe"><Team site={site} /></Anchor>
-      <Anchor id="planos"><Plans site={site} /></Anchor>
+      <Team site={site} />
+      <Plans site={site} />
       <HowItWorks site={site} />
       <Location site={site} />
       <BarberStripe />
@@ -61,20 +55,20 @@ export function Classico({ site }: { site: PublicSite }) {
 
 /* ============================================================================
    ESTÚDIO — editorial premium.
-   Capa em tela cheia, tipografia grande, fotos em preto e branco que ganham
-   cor ao passar o mouse. A marca aparece antes do preço.
+   Capa em tela cheia com a navalha 3D, tipografia grande, fotos em preto e
+   branco e seções numeradas. A marca aparece antes do preço.
    ========================================================================== */
 export function Estudio({ site }: { site: PublicSite }) {
   return (
     <TemplateShell tpl="estudio">
       <NavBar site={site} />
       <HeroEditorial site={site} />
-      <StorySplit site={site} eyebrow="Manifesto" />
-      <GalleryPro site={site} variant="strip" title="Atmosfera" eyebrow="Estúdio" />
-      <Anchor id="equipe"><Team site={site} /></Anchor>
-      <ServicesEditorial site={site} />
-      <Anchor id="planos"><Plans site={site} /></Anchor>
-      <Location site={site} />
+      <StorySplit site={site} index={1} />
+      <GalleryPro site={site} variant="carousel" index={2} />
+      <Team site={site} />
+      <ServicesEditorial site={site} index={3} />
+      <Plans site={site} />
+      <Location site={site} index={4} />
       <FinalCta site={site} />
       <Footer site={site} />
       <StickyBook site={site} />
@@ -84,20 +78,20 @@ export function Estudio({ site }: { site: PublicSite }) {
 
 /* ============================================================================
    VITRINE — o trabalho é o argumento.
-   Título em cartaz, faixa de serviços rolando e mosaico de fotos com zoom.
-   Para quem já vende pelo Instagram.
+   Título em cartaz, anel 3D de fotos, faixa de serviços rolando, mosaico e
+   cartões que inclinam com o ponteiro. Para quem já vende pelo Instagram.
    ========================================================================== */
 export function Vitrine({ site }: { site: PublicSite }) {
   return (
     <TemplateShell tpl="vitrine">
       <NavBar site={site} solid />
-      <HeroPoster site={site} />
+      <HeroPoster site={site} bookLabel={bookLabel(site)} />
       <Marquee site={site} />
-      <GalleryPro site={site} variant="masonry" title="Feito aqui" eyebrow="Portfólio" />
+      <GalleryPro site={site} variant="masonry" />
       <ServicesCards site={site} />
       <Stats site={site} />
-      <Anchor id="equipe"><Team site={site} /></Anchor>
-      <Anchor id="planos"><Plans site={site} /></Anchor>
+      <Team site={site} />
+      <Plans site={site} />
       <StorySplit site={site} reverse />
       <HowItWorks site={site} />
       <Location site={site} />
