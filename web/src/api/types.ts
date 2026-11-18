@@ -66,6 +66,25 @@ export interface Customer {
   createdAt: string | null;
   planId: string | null;
   planName: string | null;
+  /** Tags do cliente (V36). */
+  tags: CustomerTag[];
+  /** Situação calculada (V36); nula quando a resposta não a calcula. */
+  status: CustomerStatus | null;
+}
+
+/** Situação calculada do cliente (V36) — mesma regra do relatório de retenção. */
+export type CustomerStatus = "NOVO" | "ATIVO" | "EM_RISCO" | "SUMIDO";
+
+/** Tag de cliente (V36): grupo livre do dono, com cor "#RRGGBB". */
+export interface CustomerTag {
+  id: string;
+  name: string;
+  color: string;
+}
+
+/** Limite de horários futuros por cliente (V36). `null` = sem limite. */
+export interface BookingLimit {
+  maxFutureBookingsPerCustomer: number | null;
 }
 
 export type WhatsAppState = "open" | "connecting" | "close" | "unknown";

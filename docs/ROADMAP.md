@@ -280,8 +280,9 @@ assinaturas) sem sair do Razor.
       diferente do clube (recorrência); é crédito pré-pago.
 - [ ] **Múltiplas formas de pagamento** por atendimento (dinheiro, débito, crédito, PIX,
       split) — hoje só PIX/presencial/pendente.
-- [ ] **Limite de agendamentos por cliente** — impede o cliente de reservar vários horários
-      "para garantir" e travar a agenda. _(Boa ideia da Frizzar; barato de implementar.)_
+- [x] **Limite de agendamentos por cliente (V36)** — impede o cliente de reservar vários horários
+      "para garantir" e travar a agenda. Configurável no painel (padrão 2, vazio = sem limite);
+      conta só horários **futuros**. Ver *Limite de agendamentos e grupos de clientes*, abaixo.
 
 **🟠 Alto valor (diferenciam na venda)**
 
@@ -303,8 +304,8 @@ assinaturas) sem sair do Razor.
       > é o que impede pagar a mesma quinzena duas vezes. O valor é congelado no pagamento
       > (correção posterior num atendimento não reescreve o recibo) e **sair do caixa é opcional**:
       > pagamento em espécie vira sangria; PIX/transferência não mexe na conferência da gaveta.
-- [ ] **Grupos de clientes por tags** + **status do cliente** (ativo/sumido/novo) — munição
-      para os disparos que já temos.
+- [x] **Grupos de clientes por tags** + **status do cliente** (novo/ativo/em risco/sumido) (V36) —
+      filtro na tela de Clientes e **disparo para o grupo** pelo painel. Ver seção abaixo.
 - [ ] **Cobrança antecipada** e **controle de débitos/créditos** do cliente.
 
 **🟡 Desejáveis (depois da tração)**
@@ -1177,7 +1178,63 @@ Paginar catálogo seria ruído: dois botões mortos embaixo de uma lista de 7 se
 
 ---
 
-_Última atualização: 2026-07-27 (V19→V30: meta mensal, produtos, venda de balcão, comanda, estoque,
+### 🏷️ Limite de agendamentos e grupos de clientes *(V36 — 2026-11-17)*
+
+> Dois itens da paridade com a Frizzar que se apoiam um no outro: o limite segura a agenda, e as
+> tags + status dão endereço aos disparos que já existiam só "para a base toda".
+
+**Limite de agendamentos por cliente**
+
+- [x] **`barbershop_settings.max_future_bookings_per_customer`** — quantos horários **futuros** um
+      telefone pode ter ao mesmo tempo. Padrão **2** (o número que o prompt da IA já anunciava sem
+      ninguém conferir); vazio = sem limite. Card próprio em *Configurações › Bot & IA*, endpoint
+      próprio (`/api/admin/settings/booking-limit`) pelo mesmo motivo das metas.
+- [x] **Checagem reaproveitável** — `AgendaBookingService.checkBookingLimit(barbershopId, phone)`
+      recebe a barbearia explícita para o agendamento online (sem tenant no contexto) usar igual.
+      O bot confere **antes** de perguntar o barbeiro e responde com gentileza: diz o limite, lista
+      os horários que o cliente já tem e oferece remarcar. `adicionarAgendamentoViaIA` ainda trava
+      (`BookingLimitExceededException`, 409 na API) para quem esquecer de conferir.
+      O lote do admin (`processAgenda`) **não** passa pelo limite: o limite é para o cliente.
+- [x] **O prompt da IA usa o limite configurado** — antes era "2 por semana" cravado no texto.
+
+**Bot só enxerga horários futuros** _(bug achado em revisão de código)_
+
+- [x] "Seus agendamentos" era o **histórico inteiro** do telefone. Consequências reais: o cliente
+      fiel ouvia "limite atingido"; *cancelar meu horário* listava — e **apagava** — atendimento
+      já pago; a escolha de PIX/presencial podia gravar num horário de meses atrás; o cancelamento
+      pela IA apagava o primeiro registro que o banco devolvesse. Agora tudo passa por
+      `findUpcomingByCustomer` (data/hora ≥ agora, do mais próximo ao mais distante), e a
+      escolha de pagamento mira o horário **criado por último**.
+- [x] **Cancelamento pela IA é determinístico** — o texto da IA ("cancelado ✅") era enviado
+      mesmo quando não havia nada para cancelar. Agora: nenhum horário → "não encontrei"; um →
+      cancela esse; dois ou mais → pergunta qual.
+
+**Tags e status do cliente**
+
+- [x] **Tags por barbearia** (`customer_tags`, nome único sem diferenciar maiúsculas, cor) e
+      vínculo N:N (`customer_tag_links`). Entidade de vínculo própria em vez de `@ManyToMany` no
+      `Customer`, que é usado no bot, scheduler e relatórios e não deve carregar coleção lazy.
+- [x] **Status calculado, nunca gravado** — novo / ativo / em risco / sumido. A regra saiu do
+      `RetentionService` para `CustomerStatusRules` e passou a ser **a mesma** do relatório de
+      retenção: duas cópias seriam dois números para a mesma pergunta. "VIP" fica como tag.
+- [x] **Tela de Clientes** — filtro por status e por tag, chips de status e tags em cada linha,
+      botão *Tags* para atribuir/remover (e criar tag ali mesmo).
+- [x] **"Enviar mensagem para este grupo"** (só o dono) — `POST /api/admin/broadcasts` dispara para
+      o recorte atual (tag e/ou status) pelo **mesmo laço** do disparo do WhatsApp do dono, agora em
+      `BroadcastService` (mesmo cabeçalho, pausa de 3s entre envios). Roda em segundo plano com o
+      tenant explícito. A prévia mostra quantos vão receber antes de confirmar.
+      > **Achado:** o `@Async` do `performBroadcast` nunca funcionou — era chamado de dentro da
+      > própria classe, e o proxy do Spring não intercepta chamada interna. O disparo do WhatsApp
+      > sempre rodou síncrono; continua assim (comportamento preservado), sem a anotação enganosa.
+
+> **Custo conhecido:** o status é calculado varrendo os agendamentos do tenant a cada página da
+> lista (o mesmo custo do relatório de retenção). Para barbearia é folgado; se uma base passar de
+> dezenas de milhares de agendamentos, vale um cache por dia.
+
+---
+
+_Última atualização: 2026-11-17 (V36: limite de agendamentos por cliente, tags e status de cliente,
+disparo por grupo) · antes: 2026-07-27 (V19→V30: meta mensal, produtos, venda de balcão, comanda, estoque,
 acerto de comissões, vales, motor de benefícios de plano, cupons/fidelidade, comanda ↔ agendamento;
 rodada de revisão por agentes) · 419 testes · Documento vivo._
 

@@ -7,7 +7,16 @@ import { SkeletonRows } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
-import type { Customer, CustomerSummary, PageMeta, SubscriptionPlan } from "../api/types";
+import { useAuth } from "../auth/AuthContext";
+import { BroadcastModal, CustomerTagsModal, STATUS_META, TagChip } from "../components/CustomerTags";
+import type {
+  Customer,
+  CustomerStatus,
+  CustomerSummary,
+  CustomerTag,
+  PageMeta,
+  SubscriptionPlan,
+} from "../api/types";
 
 function dateShort(iso: string | null): string {
   if (!iso) return "—";
@@ -28,6 +37,8 @@ type Filter = "ALL" | "SUBSCRIBERS" | "NEW";
  *  linhas de texto e um seletor), e 20 delas não cabem numa tela sem rolar. */
 const PAGE_SIZE = 12;
 
+const STATUSES: CustomerStatus[] = ["NOVO", "ATIVO", "EM_RISCO", "SUMIDO"];
+
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "ALL", label: "Todos" },
   { id: "SUBSCRIBERS", label: "💎 Assinantes" },
@@ -38,6 +49,15 @@ export function Customers() {
   const toast = useToast();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("ALL");
+  const [status, setStatus] = useState<CustomerStatus | null>(null);
+  const [tagId, setTagId] = useState<string>("");
+  const [tagsFor, setTagsFor] = useState<Customer | null>(null);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [recipients, setRecipients] = useState<number | null>(null);
+  const [tagsVersion, setTagsVersion] = useState(0);
+  const { session } = useAuth();
+  // Disparo para a base é decisão do dono (o backend recusa os outros papéis com 403).
+  const canBroadcast = session?.role === "OWNER";
   const [page, setPage] = useState(0);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -54,13 +74,15 @@ export function Customers() {
   // filtrar mostraria uma lista vazia com resultados existindo.
   useEffect(() => {
     setPage(0);
-  }, [debouncedQ, filter]);
+  }, [debouncedQ, filter, status, tagId]);
 
   const query = useMemo(() => {
     const p = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE), filter });
     if (debouncedQ) p.set("q", debouncedQ);
+    if (status) p.set("status", status);
+    if (tagId) p.set("tagId", tagId);
     return p.toString();
-  }, [page, filter, debouncedQ]);
+  }, [page, filter, debouncedQ, status, tagId]);
 
   // Sem `reload`: recarregar é feito bumpando `version`, que também refaz os totais do topo —
   // vincular um plano muda o contador de assinantes, e recarregar só a lista o deixaria velho.
@@ -70,6 +92,22 @@ export function Customers() {
   );
   const summary = useApi<CustomerSummary>(() => api.get("/api/admin/customers/summary"), [version]);
   const plans = useApi<SubscriptionPlan[]>(() => api.get("/api/admin/plans"), []);
+  const tags = useApi<CustomerTag[]>(() => api.get("/api/admin/customers/tags"), [tagsVersion]);
+  const selectedTag = (tags.data ?? []).find((t) => t.id === tagId) ?? null;
+
+  const openBroadcast = async () => {
+    setRecipients(null);
+    setBroadcastOpen(true);
+    try {
+      const p = new URLSearchParams();
+      if (status) p.set("status", status);
+      if (tagId) p.set("tagId", tagId);
+      const res = await api.get<{ recipients: number }>(`/api/admin/broadcasts/preview?${p.toString()}`);
+      setRecipients(res.recipients);
+    } catch {
+      setRecipients(null);
+    }
+  };
 
   const activePlans = useMemo(() => (plans.data ?? []).filter((p) => p.active), [plans.data]);
 
@@ -87,7 +125,8 @@ export function Customers() {
     }
   };
 
-  const buscando = debouncedQ.length > 0 || filter !== "ALL";
+  const buscando = debouncedQ.length > 0 || filter !== "ALL" || status !== null || tagId !== "";
+  const segmentado = status !== null || tagId !== "";
   const items = data?.items ?? [];
 
   return (
@@ -113,6 +152,38 @@ export function Customers() {
               </button>
             ))}
           </div>
+          <div className="chip-row" role="group" aria-label="Filtrar por status">
+            {STATUSES.map((s) => (
+              <button
+                key={s}
+                className={`chip-btn ${status === s ? "active" : ""}`}
+                title={STATUS_META[s].hint}
+                aria-pressed={status === s}
+                onClick={() => setStatus(status === s ? null : s)}
+              >
+                {STATUS_META[s].label}
+              </button>
+            ))}
+          </div>
+          {(tags.data?.length ?? 0) > 0 && (
+            <select
+              className="input"
+              style={{ maxWidth: 170, padding: "7px 10px", fontSize: 13 }}
+              value={tagId}
+              onChange={(e) => setTagId(e.target.value)}
+              aria-label="Filtrar por tag"
+            >
+              <option value="">Todas as tags</option>
+              {(tags.data ?? []).map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          )}
+          {canBroadcast && segmentado && (
+            <button className="btn btn-ghost" onClick={openBroadcast}>
+              📢 Enviar mensagem para este grupo
+            </button>
+          )}
           {/* Os totais vêm do servidor, contados sobre a base inteira. Deduzir de uma página
               daria "3 assinantes" numa base com 200 — número errado é pior que número nenhum. */}
           <span className="list-count">
@@ -149,6 +220,12 @@ export function Customers() {
                     <span className="rw-title">
                       {c.name || "Sem nome"}
                       {c.planName && <span className="badge badge-plan">💎 {c.planName}</span>}
+                      {c.status && (
+                        <span className={`badge ${STATUS_META[c.status].className}`} title={STATUS_META[c.status].hint}>
+                          {STATUS_META[c.status].label}
+                        </span>
+                      )}
+                      {(c.tags ?? []).map((t) => <TagChip key={t.id} tag={t} />)}
                     </span>
                     <span className="rw-meta">
                       <span className="mono">{phoneBr(c.phone)}</span>
@@ -159,6 +236,14 @@ export function Customers() {
 
                   <div className="rw-side">
                     <div className="rw-actions">
+                      <button
+                        className="btn btn-ghost"
+                        style={{ padding: "7px 10px", fontSize: 13 }}
+                        onClick={() => setTagsFor(c)}
+                        aria-label={`Tags de ${c.name ?? "cliente"}`}
+                      >
+                        🏷️ Tags
+                      </button>
                       <select
                         className="input"
                         style={{ maxWidth: 170, padding: "7px 10px", fontSize: 13 }}
@@ -184,6 +269,24 @@ export function Customers() {
           </>
         )}
       </div>
+
+      {tagsFor && (
+        <CustomerTagsModal
+          customer={tagsFor}
+          tags={tags.data ?? []}
+          onClose={() => setTagsFor(null)}
+          onSaved={() => setVersion((v) => v + 1)}
+          onTagsChanged={() => setTagsVersion((v) => v + 1)}
+        />
+      )}
+      {broadcastOpen && (
+        <BroadcastModal
+          tag={selectedTag}
+          status={status}
+          recipients={recipients}
+          onClose={() => setBroadcastOpen(false)}
+        />
+      )}
     </Layout>
   );
 }
