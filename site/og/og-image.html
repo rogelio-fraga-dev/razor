@@ -1,0 +1,117 @@
+<!doctype html>
+<!--
+  Fonte da imagem de capa (site/og-image.png, 1200x630) usada no og:image/twitter:image da landing.
+  NAO e servida: o .dockerignore deixa a pasta og/ fora da imagem do nginx.
+  Para regerar depois de mudar o texto:  python site/og/render.py
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --obsidian: #0a0a0c; --steel: #9aa1ae; --chrome: #eef0f3; --signal: #25d366;
+    --edge-gradient: linear-gradient(68deg, #4d6bff 0%, #37e2ff 100%);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    background: var(--obsidian); color: var(--chrome);
+    font-family: "Inter", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+    position: relative;
+  }
+  /* Aurora da landing + grade em 68 graus (assinatura da marca) */
+  .aurora { position: absolute; inset: 0; overflow: hidden; }
+  .aurora i { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; }
+  .aurora i:nth-child(1) { width: 620px; height: 620px; left: -160px; top: -260px; background: #2b47d9; }
+  .aurora i:nth-child(2) { width: 520px; height: 520px; right: -120px; bottom: -280px; background: #0e8fa8; opacity: .45; }
+  .aurora i:nth-child(3) { width: 360px; height: 360px; right: 300px; top: -200px; background: #5b3fd1; opacity: .3; }
+  .grid {
+    position: absolute; inset: 0; opacity: .5;
+    background-image: repeating-linear-gradient(68deg, rgba(255,255,255,.035) 0 1px, transparent 1px 44px);
+    -webkit-mask-image: radial-gradient(ellipse at 30% 40%, #000 20%, transparent 75%);
+  }
+  .edge { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: var(--edge-gradient); }
+
+  .wrap { position: relative; height: 100%; display: grid; grid-template-columns: 1fr 380px; gap: 36px; padding: 60px 64px 56px 72px; }
+  .copy { display: flex; flex-direction: column; }
+  .logo { display: flex; align-items: center; gap: 14px; }
+  .logo span { font-family: "Archivo", sans-serif; font-weight: 800; font-size: 30px; letter-spacing: .14em; }
+  .chip {
+    margin-top: 40px; align-self: flex-start; display: inline-flex; align-items: center; gap: 10px;
+    font-family: "JetBrains Mono", monospace; font-size: 15px; font-weight: 600; letter-spacing: .12em;
+    color: #6fe9ff; padding: 9px 16px; border: 1px solid rgba(55,226,255,.35); border-radius: 999px;
+    background: rgba(55,226,255,.06);
+  }
+  .chip b { width: 9px; height: 9px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 0 5px rgba(37,211,102,.18); }
+  h1 { margin-top: 22px; font-family: "Archivo", sans-serif; font-weight: 800; font-size: 68px; line-height: 1.0; letter-spacing: -.04em; }
+  h1 em { font-style: normal; background: var(--edge-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { margin-top: 22px; font-size: 23px; line-height: 1.45; color: var(--steel); max-width: 600px; }
+  .sub strong { color: var(--chrome); font-weight: 600; }
+  .foot { margin-top: auto; display: flex; gap: 24px; font-family: "JetBrains Mono", monospace; font-size: 15px; letter-spacing: .1em; color: var(--steel); }
+  .foot span::before { content: "\2713  "; color: var(--signal); }
+
+  /* Celular com a conversa do bot */
+  .phone {
+    align-self: center; width: 350px; border-radius: 36px; padding: 13px;
+    background: linear-gradient(180deg, #1b1d23, #121317);
+    box-shadow: 0 40px 100px -30px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.08), 0 0 80px -20px rgba(62,99,255,.45);
+    transform: rotate(-3deg);
+  }
+  .screen { border-radius: 26px; overflow: hidden; background: #0b141a; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: #1f2c33; }
+  .av { width: 34px; height: 34px; border-radius: 50%; background: var(--edge-gradient); display: grid; place-items: center; font-family: "Archivo"; font-weight: 800; font-size: 15px; color: #0a0a0c; }
+  .bar b { font-size: 15px; font-weight: 600; display: block; }
+  .bar small { font-size: 12px; color: #8ad6a0; }
+  .msgs { display: flex; flex-direction: column; gap: 9px; padding: 16px 14px 18px; }
+  .m { max-width: 84%; padding: 9px 12px 7px; border-radius: 12px; font-size: 14.5px; line-height: 1.38; }
+  .in { align-self: flex-start; background: #202c33; border-top-left-radius: 4px; }
+  .out { align-self: flex-end; background: #005c4b; border-top-right-radius: 4px; }
+  .audio { display: flex; align-items: center; gap: 9px; }
+  .audio i { width: 26px; height: 26px; border-radius: 50%; background: #8696a0; display: grid; place-items: center; font-style: normal; font-size: 11px; color: #111; }
+  .wave { display: flex; gap: 2px; align-items: center; }
+  .wave s { width: 3px; border-radius: 2px; background: #aebac1; display: block; }
+  .slots { display: flex; gap: 6px; margin-top: 7px; }
+  .slots span { font-family: "JetBrains Mono"; font-size: 12.5px; padding: 4px 8px; border-radius: 7px; background: rgba(255,255,255,.1); }
+  .slots span.on { background: #25d366; color: #063; font-weight: 600; }
+  .ok { align-self: center; margin-top: 4px; font-family: "JetBrains Mono"; font-size: 12px; letter-spacing: .08em; color: #8ad6a0; padding: 5px 10px; border-radius: 8px; background: rgba(37,211,102,.12); }
+</style>
+</head>
+<body>
+  <div class="aurora"><i></i><i></i><i></i></div>
+  <div class="grid"></div>
+  <div class="wrap">
+    <div class="copy">
+      <div class="logo">
+        <svg viewBox="0 0 100 100" width="44" height="44" aria-hidden="true">
+          <defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3E63FF"/><stop offset="1" stop-color="#37E2FF"/></linearGradient></defs>
+          <polygon fill="#e9ebef" points="30,92 52,92 84,8 62,8"/><polygon points="62,8 84,8 81,16 59,16" fill="url(#g)"/>
+        </svg>
+        <span>RAZOR</span>
+      </div>
+      <div class="chip"><b></b>IA NO WHATSAPP · TEXTO E ÁUDIO</div>
+      <h1>Sua barbearia no <em>piloto automático.</em></h1>
+      <p class="sub">A IA que <strong>atende, agenda, confirma e cobra</strong> pelo WhatsApp, enquanto você corta.</p>
+      <div class="foot"><span>14 DIAS GRÁTIS</span><span>SEM CARTÃO</span><span>SITE PRÓPRIO</span></div>
+    </div>
+
+    <div class="phone" aria-hidden="true">
+      <div class="screen">
+        <div class="bar"><div class="av">R</div><div><b>Barbearia do Zé</b><small>online</small></div></div>
+        <div class="msgs">
+          <div class="m in audio"><i>&#9654;</i><span class="wave">
+            <s style="height:8px"></s><s style="height:14px"></s><s style="height:20px"></s><s style="height:11px"></s><s style="height:17px"></s><s style="height:23px"></s><s style="height:9px"></s><s style="height:15px"></s><s style="height:21px"></s><s style="height:12px"></s><s style="height:7px"></s><s style="height:16px"></s><s style="height:19px"></s><s style="height:10px"></s><s style="height:14px"></s><s style="height:6px"></s>
+          </span><small style="color:#8696a0;font-size:12px">0:06</small></div>
+          <div class="m out">Fala, Lucas! Amanhã com o Diego tenho:
+            <div class="slots"><span>09:30</span><span class="on">14:00</span><span>17:30</span></div>
+          </div>
+          <div class="m in">14h fechado, valeu!</div>
+          <div class="m out">Marcado! Corte + barba amanhã às 14:00. Te lembro 1h antes.</div>
+          <div class="ok">&#10003; AGENDA ATUALIZADA · PIX ENVIADO</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="edge"></div>
+</body>
+</html>
