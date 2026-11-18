@@ -85,6 +85,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/admin/reports/agenda")
                         .hasAnyRole(OWNER, RECEPTION, BARBER)
 
+                        // --- Plano do cliente: so o dono ------------------------------------
+                        // Dar ou tirar assinatura muda quanto o cliente paga (e o que a IA cobra
+                        // dele). Vem ANTES da regra do balcao, que libera /customers/** para a
+                        // recepcao — sem isso a recepcao concederia plano de graca.
+                        .requestMatchers(HttpMethod.PUT, "/api/admin/customers/*/plan").hasRole(OWNER)
+
                         // --- Operacao do balcao ----------------------------------------------
                         // Recepcao abre comanda, vende, mexe no caixa e bloqueia horario. Nao
                         // configura preco, comissao nem o bot.

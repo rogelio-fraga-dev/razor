@@ -39,10 +39,10 @@ class AdminBarbershopControllerTest {
     }
 
     @Test
-    @DisplayName("update chama updateProfile com nome e instância")
+    @DisplayName("update chama updateProfile so com o nome (instancia nao e editavel pelo painel)")
     void update_delegates() {
-        when(barbershopService.updateProfile("Nova", "nova-inst")).thenReturn(shop());
-        controller.update(new BarbershopUpdateRequest("Nova", "nova-inst"));
-        verify(barbershopService).updateProfile("Nova", "nova-inst");
+        when(barbershopService.updateProfile("Nova")).thenReturn(shop());
+        controller.update(new BarbershopUpdateRequest("Nova"));
+        verify(barbershopService).updateProfile("Nova");
     }
 }

@@ -10,13 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.MessageDigest;
-import java.util.Base64;
 import java.util.Map;
 
 @Slf4j
@@ -36,6 +31,11 @@ public class WebhookController {
      * <b>fail-closed</b> como o onboarding: sem {@code razor.webhook.token} configurado, nada entra.
      * Sem isso qualquer um poderia forjar uma mensagem com o telefone de um admin e executar
      * comandos de gestao (listar base, apagar cliente, disparo em massa).
+     *
+     * <p>O header tem prioridade. A query string continua aceita porque o webhook GLOBAL da
+     * Evolution (WEBHOOK_GLOBAL_URL) so recebe uma URL, sem headers proprios. Como URL com segredo
+     * vaza em access log, o nginx do painel nao loga /api/webhook e este controller nunca loga a
+     * URL nem o token.
      */
     @PostMapping
     public ResponseEntity<String> receiveWebhook(
@@ -61,14 +61,9 @@ public class WebhookController {
                 log.debug("Webhook - {} | {}", event, instance);
             }
 
-            // Evento de QR Code: salva a imagem em arquivo (contorna bug do Manager que nao exibe)
-            if (event != null && (event.equalsIgnoreCase("qrcode.updated") || event.equalsIgnoreCase("QRCODE_UPDATED"))) {
-                String qrPath = salvarQrCodeDoWebhook(body);
-                if (qrPath != null) {
-                    log.info("QR Code salvo em: {}", qrPath);
-                    return ResponseEntity.ok("QR Code recebido e salvo em: " + qrPath);
-                }
-            }
+            // QRCODE_UPDATED nao e mais tratado aqui: o QR sai so pelo painel autenticado
+            // (POST /api/admin/whatsapp/connect). O antigo "salvar em qrcode-evolution.png" gravava
+            // o QR de QUALQUER tenant num arquivo unico e devolvia o caminho absoluto do servidor.
 
             // Evento de mensagens: delega para o orquestrador
             if ("messages.upsert".equalsIgnoreCase(event) || "MESSAGES_UPSERT".equalsIgnoreCase(event)) {
@@ -98,46 +93,6 @@ public class WebhookController {
                 expected.getBytes(StandardCharsets.UTF_8), provided.getBytes(StandardCharsets.UTF_8));
     }
 
-    /**
-     * Extrai o QR Code do payload do webhook e salva em arquivo PNG.
-     * Retorna o caminho do arquivo ou null se nao houver base64.
-     */
-    private String salvarQrCodeDoWebhook(Map<String, Object> body) {
-        try {
-            Object data = body.get("data");
-            if (data == null || !(data instanceof Map)) return null;
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> dataMap = (Map<String, Object>) data;
-            String base64 = null;
-
-            if (dataMap.get("base64") != null) {
-                base64 = dataMap.get("base64").toString();
-            } else if (dataMap.get("qr") != null) {
-                String qr = dataMap.get("qr").toString();
-                if (qr.startsWith("data:image")) {
-                    int comma = qr.indexOf(',');
-                    if (comma > 0) base64 = qr.substring(comma + 1);
-                } else if (qr.length() > 100) {
-                    base64 = qr;
-                }
-            }
-
-            if (base64 == null || base64.isBlank()) return null;
-
-            byte[] bytes = Base64.getDecoder().decode(base64.trim());
-            if (bytes.length == 0) return null;
-
-            Path dir = Paths.get(System.getProperty("user.dir"));
-            Path file = dir.resolve("qrcode-evolution.png");
-            Files.write(file, bytes);
-            return file.toAbsolutePath().toString();
-        } catch (IOException | IllegalArgumentException e) {
-            log.warn("Nao foi possivel salvar QR Code do webhook: {}", e.getMessage());
-            return null;
-        }
-    }
-    
     /**
      * Endpoint de health check
      */

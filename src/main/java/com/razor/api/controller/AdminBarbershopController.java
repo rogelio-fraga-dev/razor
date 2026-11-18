@@ -22,6 +22,6 @@ public class AdminBarbershopController {
 
     @PutMapping
     public BarbershopResponse update(@Valid @RequestBody BarbershopUpdateRequest req) {
-        return BarbershopResponse.from(barbershopService.updateProfile(req.name(), req.whatsappInstance()));
+        return BarbershopResponse.from(barbershopService.updateProfile(req.name()));
     }
 }
