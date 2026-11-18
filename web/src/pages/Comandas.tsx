@@ -11,6 +11,7 @@ import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { Comanda, Product, Professional, ServiceOffering } from "../api/types";
 import { money } from "../lib/format";
+import { METHOD_LABEL } from "../lib/paymentMethods";
 
 const TIME_FMT = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
@@ -135,7 +136,11 @@ export function Comandas() {
                       {c.status === "CANCELADA" ? (
                         <span className="badge badge-muted">Cancelada</span>
                       ) : (
-                        <span className="muted">{c.paymentMethod}</span>
+                        <span className="muted">
+                          {c.payments.length > 1
+                            ? c.payments.map((p) => `${METHOD_LABEL[p.method]} ${money(p.amount)}`).join(" + ")
+                            : c.paymentMethod ? METHOD_LABEL[c.paymentMethod] : "—"}
+                        </span>
                       )}
                     </td>
                     <td className="num">

@@ -47,6 +47,21 @@ public class CashMovement {
     @Column(name = "description")
     private String description;
 
+    /**
+     * Comanda de origem da venda (V35). Comanda paga em split tem um movimento por parte, todos
+     * com o mesmo {@code comandaId}. Nulo em venda de balcão, sangria e suprimento.
+     */
+    @Column(name = "comanda_id")
+    private UUID comandaId;
+
+    /**
+     * Taxa do meio de pagamento calculada na hora da venda (V35) — snapshot, para mudar a taxa
+     * hoje não reescrever o líquido do mês passado. Líquido = {@code amount - feeAmount}.
+     */
+    @Builder.Default
+    @Column(name = "fee_amount", nullable = false)
+    private BigDecimal feeAmount = BigDecimal.ZERO;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

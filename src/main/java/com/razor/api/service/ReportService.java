@@ -5,9 +5,14 @@ import com.razor.api.dto.DreResponse;
 import com.razor.api.dto.FinancialSummaryResponse;
 import com.razor.api.dto.FinancialSummaryResponse.Bucket;
 import com.razor.api.dto.FinancialSummaryResponse.CategoryBreakdown;
+import com.razor.api.dto.FinancialSummaryResponse.MethodLine;
 import com.razor.api.dto.FinancialSummaryResponse.PaymentBreakdown;
+import com.razor.api.dto.FinancialSummaryResponse.Receipts;
 import com.razor.api.dto.RevenuePoint;
 import com.razor.api.model.Appointment;
+import com.razor.api.model.CashMovement;
+import com.razor.api.model.CashMovementType;
+import com.razor.api.model.CashPaymentMethod;
 import com.razor.api.model.Comanda;
 import com.razor.api.model.ComandaItem;
 import com.razor.api.model.Expense;
@@ -16,6 +21,7 @@ import com.razor.api.model.PaymentStatus;
 import com.razor.api.model.ProductSale;
 import com.razor.api.model.Professional;
 import com.razor.api.repository.AppointmentRepository;
+import com.razor.api.repository.CashMovementRepository;
 import com.razor.api.repository.ComandaItemRepository;
 import com.razor.api.repository.ComandaRepository;
 import com.razor.api.repository.ProductSaleRepository;
@@ -29,6 +35,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -57,6 +64,7 @@ public class ReportService {
     private final PricingService pricingService;
     private final CustomerService customerService;
     private final ExpenseService expenseService;
+    private final CashMovementRepository cashMovementRepository;
 
     /**
      * DRE do intervalo: receita do {@link #financialSummary} menos as despesas por competencia
@@ -94,9 +102,13 @@ public class ReportService {
             }
         }
 
-        BigDecimal result = totalRevenue.subtract(totalExpenses);
+        // Taxa da maquininha e deducao da receita (V35): o dono quer ver o que sobra de verdade.
+        BigDecimal fees = receita.receipts().fees();
+        BigDecimal netRevenue = totalRevenue.subtract(fees);
+        BigDecimal result = netRevenue.subtract(totalExpenses);
         return new DreResponse(from, to,
                 receita.servicesRevenue(), receita.productsRevenue(), scale(totalRevenue),
+                scale(fees), scale(netRevenue),
                 linhas, scale(totalExpenses), scale(paid), scale(unpaid), scale(overdue),
                 scale(result), share(result, totalRevenue));
     }
@@ -173,7 +185,38 @@ public class ReportService {
                         new Bucket(presCount, scale(presVal)),
                         new Bucket(pendCount, scale(pendVal))),
                 scale(total), productsSold, scale(productsRevenue),
-                scale(total.add(productsRevenue)), averageTicket);
+                scale(total.add(productsRevenue)), averageTicket,
+                receipts(shop, from, to));
+    }
+
+    /**
+     * Recebimentos do periodo por forma de pagamento (V35), direto dos movimentos de VENDA do
+     * caixa. Cada parte de um split e um movimento proprio, entao a divisao aparece aqui sem
+     * nenhuma regra extra. Ordem do enum (dinheiro primeiro); forma sem movimento fica de fora.
+     */
+    private Receipts receipts(UUID shop, LocalDate from, LocalDate to) {
+        List<CashMovement> vendas = cashMovementRepository
+                .findByBarbershopIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                        shop, CashMovementType.VENDA, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+        Map<CashPaymentMethod, List<CashMovement>> porForma = vendas.stream()
+                .filter(m -> m.getPaymentMethod() != null)
+                .collect(Collectors.groupingBy(CashMovement::getPaymentMethod,
+                        () -> new EnumMap<>(CashPaymentMethod.class), Collectors.toList()));
+
+        List<MethodLine> linhas = new ArrayList<>();
+        BigDecimal gross = BigDecimal.ZERO;
+        BigDecimal fees = BigDecimal.ZERO;
+        for (var e : porForma.entrySet()) {
+            BigDecimal g = e.getValue().stream().map(CashMovement::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal f = e.getValue().stream()
+                    .map(m -> m.getFeeAmount() == null ? BigDecimal.ZERO : m.getFeeAmount())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            linhas.add(new MethodLine(e.getKey(), e.getValue().size(), scale(g), scale(f), scale(g.subtract(f))));
+            gross = gross.add(g);
+            fees = fees.add(f);
+        }
+        return new Receipts(linhas, scale(gross), scale(fees), scale(gross.subtract(fees)));
     }
 
     /**

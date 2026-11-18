@@ -8,13 +8,8 @@ import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { CashPaymentMethod, Product, Professional } from "../api/types";
 import { money } from "../lib/format";
+import { PAYMENT_METHODS } from "../lib/paymentMethods";
 
-const PAYMENT_METHODS: { value: CashPaymentMethod; label: string }[] = [
-  { value: "DINHEIRO", label: "Dinheiro" },
-  { value: "PIX", label: "PIX" },
-  { value: "DEBITO", label: "Débito" },
-  { value: "CREDITO", label: "Crédito" },
-];
 
 export function SellProductModal({
   product,

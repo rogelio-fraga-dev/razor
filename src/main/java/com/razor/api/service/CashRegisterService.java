@@ -7,6 +7,7 @@ import com.razor.api.model.CashPaymentMethod;
 import com.razor.api.model.CashRegisterSession;
 import com.razor.api.repository.CashMovementRepository;
 import com.razor.api.repository.CashRegisterSessionRepository;
+import com.razor.api.repository.PaymentMethodFeeRepository;
 import com.razor.api.tenant.TenantContext;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -32,6 +33,7 @@ public class CashRegisterService {
 
     private final CashRegisterSessionRepository sessionRepository;
     private final CashMovementRepository movementRepository;
+    private final PaymentMethodFeeRepository feeRepository;
 
     /** Sessão aberta do tenant, se houver. */
     public java.util.Optional<CashRegisterSession> openSession() {
@@ -78,6 +80,18 @@ public class CashRegisterService {
     @Transactional
     public CashMovement recordMovement(CashMovementType type, CashPaymentMethod method,
                                        BigDecimal amount, String description) {
+        return recordMovement(type, method, amount, description, null);
+    }
+
+    /**
+     * Como {@link #recordMovement(CashMovementType, CashPaymentMethod, BigDecimal, String)},
+     * amarrando a venda a uma comanda (V35) — no split, cada parte do pagamento chama isto uma
+     * vez, com a sua forma. A taxa da forma de pagamento (se houver) e calculada aqui e gravada
+     * no movimento.
+     */
+    @Transactional
+    public CashMovement recordMovement(CashMovementType type, CashPaymentMethod method,
+                                       BigDecimal amount, String description, UUID comandaId) {
         CashRegisterSession session = openSession()
                 .orElseThrow(() -> new IllegalArgumentException("Nenhum caixa aberto. Abra o caixa primeiro."));
         if (type == null) {
@@ -103,6 +117,8 @@ public class CashRegisterService {
                 .type(type)
                 .paymentMethod(effectiveMethod)
                 .amount(scale(amount))
+                .feeAmount(feeFor(effectiveMethod, scale(amount)))
+                .comandaId(type == CashMovementType.VENDA ? comandaId : null)
                 .description(description == null || description.isBlank() ? null : description.trim())
                 .build());
         log.info("[CAIXA] {} de {} no tenant {}", type, scale(amount), TenantContext.getCurrent());
@@ -134,7 +150,25 @@ public class CashRegisterService {
         return buildSummary(session, movements);
     }
 
+    /** Partes do pagamento de uma comanda fechada (V35), na ordem em que entraram. */
+    public List<CashMovement> movementsOfComanda(UUID comandaId) {
+        return movementRepository.findByComandaIdOrderByCreatedAtAsc(comandaId).stream()
+                .filter(m -> TenantContext.getCurrent().equals(m.getBarbershopId()))
+                .toList();
+    }
+
     // ---------- cálculo ----------
+
+    /**
+     * Taxa da forma de pagamento sobre esta venda, congelada no movimento. Sangria/suprimento
+     * (sem forma) e dinheiro nunca tem taxa.
+     */
+    private BigDecimal feeFor(CashPaymentMethod method, BigDecimal amount) {
+        if (method == null || !method.acceptsFee()) return BigDecimal.ZERO.setScale(2);
+        return feeRepository.findByBarbershopIdAndPaymentMethod(TenantContext.getCurrent(), method)
+                .map(f -> PaymentFeeService.feeOf(amount, f.getFeePercent()))
+                .orElse(BigDecimal.ZERO.setScale(2));
+    }
 
     private CashSessionSummary buildSummary(CashRegisterSession session) {
         return buildSummary(session, movementRepository.findBySessionIdOrderByCreatedAtAsc(session.getId()));
@@ -145,6 +179,11 @@ public class CashRegisterService {
         BigDecimal pix = sumSales(movements, CashPaymentMethod.PIX);
         BigDecimal debito = sumSales(movements, CashPaymentMethod.DEBITO);
         BigDecimal credito = sumSales(movements, CashPaymentMethod.CREDITO);
+        BigDecimal outro = sumSales(movements, CashPaymentMethod.OUTRO);
+        BigDecimal taxas = scale(movements.stream()
+                .filter(m -> m.getType() == CashMovementType.VENDA && m.getFeeAmount() != null)
+                .map(CashMovement::getFeeAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
         BigDecimal vendasTotal = sumByType(movements, CashMovementType.VENDA);
         BigDecimal sangrias = sumByType(movements, CashMovementType.SANGRIA);
         BigDecimal suprimentos = sumByType(movements, CashMovementType.SUPRIMENTO);
@@ -155,7 +194,8 @@ public class CashRegisterService {
                 ? session.getClosingCounted().subtract(session.getClosingExpected())
                 : null;
 
-        var totals = new CashSessionSummary.Totals(dinheiro, pix, debito, credito, vendasTotal, sangrias, suprimentos);
+        var totals = new CashSessionSummary.Totals(dinheiro, pix, debito, credito, outro, vendasTotal,
+                taxas, sangrias, suprimentos);
         var views = movements.stream().map(CashSessionSummary.MovementView::from).toList();
 
         return new CashSessionSummary(

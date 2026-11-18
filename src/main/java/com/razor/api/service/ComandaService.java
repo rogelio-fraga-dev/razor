@@ -1,5 +1,6 @@
 package com.razor.api.service;
 
+import com.razor.api.model.Appointment;
 import com.razor.api.model.CashMovement;
 import com.razor.api.model.CashMovementType;
 import com.razor.api.model.CashPaymentMethod;
@@ -8,6 +9,7 @@ import com.razor.api.model.ComandaItem;
 import com.razor.api.model.Product;
 import com.razor.api.model.ProductSale;
 import com.razor.api.model.ServiceOffering;
+import com.razor.api.repository.AppointmentRepository;
 import com.razor.api.repository.ComandaItemRepository;
 import com.razor.api.repository.ComandaRepository;
 import com.razor.api.repository.ProductRepository;
@@ -17,8 +19,10 @@ import com.razor.api.repository.ServiceOfferingRepository;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.AppointmentDates;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +33,11 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Comanda por atendimento (V22): servicos + produtos na mesma conta, fechada de uma vez.
  *
- * <p><b>Dinheiro entra uma vez so.</b> O fechamento cria <b>um unico</b> movimento de caixa com o
- * total da comanda. Os itens de produto viram linhas em {@code product_sales} — para historico e
- * comissao continuarem com uma fonte de verdade so — mas apontando para <b>esse mesmo</b>
- * movimento, nunca criando movimento proprio. Por isso o fechamento nao passa pelo
+ * <p><b>Dinheiro entra uma vez so.</b> O fechamento cria um movimento de caixa por parte do
+ * pagamento (V35 — um so quando a forma e unica), e a soma das partes e exatamente o total da
+ * comanda. Os itens de produto viram linhas em {@code product_sales} — para historico e
+ * comissao continuarem com uma fonte de verdade so — mas apontando para o movimento
+ * <b>principal</b> da comanda, nunca criando movimento proprio. Por isso o fechamento nao passa pelo
  * {@link ProductSaleService}, que existe para a venda avulsa de balcao.
  */
 @Slf4j
@@ -49,6 +54,7 @@ public class ComandaService {
     private final CashRegisterService cashRegisterService;
     private final StockService stockService;
     private final CouponService couponService;
+    private final AppointmentRepository appointmentRepository;
 
     // ---------- consultas ----------
 
@@ -97,6 +103,7 @@ public class ComandaService {
                         Long appointmentId) {
         UUID shop = TenantContext.getCurrent();
         requireProfessionalOfThisShop(professionalId, shop);
+        requireLinkableAppointment(appointmentId, shop);
 
         Comanda comanda = comandaRepository.save(Comanda.builder()
                 .barbershopId(shop)
@@ -153,26 +160,56 @@ public class ComandaService {
         itemRepository.delete(item);
     }
 
+    /** Uma parte do pagamento da comanda (V35): forma + valor. */
+    public record Payment(CashPaymentMethod method, BigDecimal amount) {}
+
     /**
-     * Fecha a comanda: congela o total, lanca <b>um</b> movimento de caixa e registra os produtos
-     * como venda (apontando para esse mesmo movimento, para o dinheiro nao entrar duas vezes).
+     * Fecha a comanda com forma de pagamento unica (contrato anterior ao split): o total inteiro
+     * entra nessa forma.
      */
     @Transactional
     public Comanda close(UUID comandaId, CashPaymentMethod method) {
         return close(comandaId, method, null);
     }
 
-    /**
-     * Fecha a comanda aplicando um cupom, se houver (V29). O cupom e validado <b>antes</b> de
-     * lancar no caixa: cupom invalido derruba o fechamento inteiro em vez de cobrar o valor
-     * errado.
-     */
+    /** Forma unica + cupom opcional (V29). Ver {@link #close(UUID, List, String)}. */
     @Transactional
     public Comanda close(UUID comandaId, CashPaymentMethod method, String couponCode) {
-        Comanda comanda = requireOpen(comandaId);
+        requireOpen(comandaId);
         if (method == null) {
             throw new IllegalArgumentException("Escolha a forma de pagamento da comanda.");
         }
+        return doClose(comandaId, null, method, couponCode);
+    }
+
+    /**
+     * Fecha a comanda com uma ou mais partes de pagamento (split, V35) e cupom opcional (V29).
+     *
+     * <p>O cupom e validado <b>antes</b> de lancar no caixa: cupom invalido derruba o fechamento
+     * inteiro em vez de cobrar o valor errado. A soma das partes tem que bater <b>exatamente</b>
+     * com o total ja descontado — sobra ou falta de centavo e recusada, porque cada parte vira
+     * dinheiro de verdade no caixa e na conferencia da gaveta.
+     *
+     * <p>Cada parte vira o <b>seu</b> movimento de caixa, com a sua forma: so a parte em dinheiro
+     * entra na gaveta esperada. Os produtos da comanda continuam apontando para <b>um</b>
+     * movimento (a parte principal, a de maior valor), para o dinheiro nao entrar duas vezes.
+     */
+    @Transactional
+    public Comanda close(UUID comandaId, List<Payment> payments, String couponCode) {
+        requireOpen(comandaId);
+        if (payments == null || payments.isEmpty()) {
+            throw new IllegalArgumentException("Informe como a comanda foi paga.");
+        }
+        return doClose(comandaId, payments, null, couponCode);
+    }
+
+    /**
+     * Fechamento de fato. Recebe ou as partes ({@code payments}) ou a forma unica
+     * ({@code singleMethod}), que vira uma parte so com o total.
+     */
+    private Comanda doClose(UUID comandaId, List<Payment> payments, CashPaymentMethod singleMethod,
+                            String couponCode) {
+        Comanda comanda = requireOpen(comandaId);
 
         List<ComandaItem> items = itemRepository.findByComandaIdOrderByCreatedAtAsc(comandaId);
         if (items.isEmpty()) {
@@ -189,19 +226,34 @@ public class ComandaService {
         }
         BigDecimal total = subtotal.subtract(desconto);
 
-        // Um unico movimento com o total. Se nao houver caixa aberto, o fechamento inteiro falha.
+        List<Payment> parts = payments != null ? validateParts(payments, total)
+                : List.of(new Payment(singleMethod, total));
+
+        // Um movimento por parte. Se nao houver caixa aberto, o fechamento inteiro falha (e a
+        // transacao desfaz as partes que ja tivessem entrado).
         String description = "Comanda" + (comanda.getCustomerName() == null
                 ? "" : " — " + comanda.getCustomerName());
-        CashMovement movement =
-                cashRegisterService.recordMovement(CashMovementType.VENDA, method, total, description);
+        if (parts.size() > 1) description += " (split)";
+        CashMovement principal = null;
+        Payment principalPart = null;
+        for (Payment part : parts) {
+            CashMovement movement = cashRegisterService.recordMovement(
+                    CashMovementType.VENDA, part.method(), part.amount(), description, comanda.getId());
+            // Principal = a maior parte; empate fica com a primeira informada.
+            if (principalPart == null || part.amount().compareTo(principalPart.amount()) > 0) {
+                principal = movement;
+                principalPart = part;
+            }
+        }
+        CashPaymentMethod method = principalPart.method();
 
         LocalDateTime now = LocalDateTime.now();
-        registerProductSales(comanda, items, method, movement.getId(), now);
+        registerProductSales(comanda, items, method, principal.getId(), now);
 
         comanda.setStatus(Comanda.Status.FECHADA);
         comanda.setTotal(total);
         comanda.setPaymentMethod(method);
-        comanda.setCashMovementId(movement.getId());
+        comanda.setCashMovementId(principal.getId());
         comanda.setClosedAt(now);
         if (cupom != null) {
             comanda.setCouponId(cupom.coupon().getId());
@@ -216,8 +268,62 @@ public class ComandaService {
         }
 
         log.info("[COMANDA] Fechada {} por {} ({}) no tenant {}",
-                comanda.getId(), total, method, comanda.getBarbershopId());
+                comanda.getId(), total, parts.size() > 1 ? parts : method, comanda.getBarbershopId());
         return saved;
+    }
+
+    /**
+     * Partes validas e normalizadas ao centavo, com a soma batendo com o total. A mensagem diz
+     * quanto falta ou sobra — e o que a recepcao precisa para corrigir sem fazer conta.
+     */
+    private List<Payment> validateParts(List<Payment> payments, BigDecimal total) {
+        BigDecimal soma = BigDecimal.ZERO;
+        List<Payment> normalized = new ArrayList<>(payments.size());
+        for (Payment p : payments) {
+            if (p == null || p.method() == null) {
+                throw new IllegalArgumentException("Escolha a forma de pagamento de cada parte.");
+            }
+            if (p.amount() == null || p.amount().signum() <= 0) {
+                throw new IllegalArgumentException("Cada parte do pagamento deve ser maior que zero.");
+            }
+            BigDecimal amount = p.amount().setScale(2, RoundingMode.HALF_UP);
+            soma = soma.add(amount);
+            normalized.add(new Payment(p.method(), amount));
+        }
+        BigDecimal esperado = total.setScale(2, RoundingMode.HALF_UP);
+        int cmp = soma.compareTo(esperado);
+        if (cmp != 0) {
+            BigDecimal diff = soma.subtract(esperado).abs();
+            throw new IllegalArgumentException(String.format(
+                    "A soma dos pagamentos (R$ %s) nao bate com o total da comanda (R$ %s): %s R$ %s.",
+                    brl(soma), brl(esperado), cmp < 0 ? "faltam" : "sobram", brl(diff)));
+        }
+        return normalized;
+    }
+
+    /**
+     * Simula o cupom nesta comanda (V35): o painel precisa do total ja descontado para montar o
+     * split antes de fechar. O subtotal vem dos itens, nunca do cliente.
+     */
+    public CouponPreview previewCoupon(UUID comandaId, String couponCode) {
+        Comanda comanda = requireOpen(comandaId);
+        BigDecimal subtotal = currentTotal(comandaId);
+        CouponService.Validation v = couponService.validate(couponCode, subtotal,
+                comanda.getCustomerPhone(), AppointmentDates.today());
+        return new CouponPreview(v.coupon().getCode(), subtotal, v.discount(), subtotal.subtract(v.discount()));
+    }
+
+    /** Resultado da simulacao de cupom no fechamento. */
+    public record CouponPreview(String code, BigDecimal subtotal, BigDecimal discount, BigDecimal finalTotal) {}
+
+    /** Partes do pagamento de uma comanda (V35). Vazio enquanto aberta ou cancelada. */
+    public List<CashMovement> payments(Comanda comanda) {
+        if (comanda.getStatus() != Comanda.Status.FECHADA) return List.of();
+        return cashRegisterService.movementsOfComanda(comanda.getId());
+    }
+
+    private static String brl(BigDecimal v) {
+        return v.setScale(2, RoundingMode.HALF_UP).toPlainString().replace('.', ',');
     }
 
     /** Cancela uma comanda aberta. Nao mexe em dinheiro — comanda cancelada nunca foi cobrada. */
@@ -303,6 +409,26 @@ public class ComandaService {
         professionalRepository.findById(professionalId)
                 .filter(p -> shop.equals(p.getBarbershopId()))
                 .orElseThrow(() -> new NotFoundException("Profissional nao encontrado."));
+    }
+
+    /**
+     * O vinculo com agendamento tira os servicos da comanda do faturamento (o relatorio conta o
+     * agendamento no lugar). Aceitar qualquer id deixaria a recepcao "sumir" com receita
+     * vinculando a comanda a um agendamento de outra barbearia, antigo ou ja usado. Por isso o
+     * agendamento precisa: existir NESTE tenant, ser de hoje (dia da comanda) e nao ter outra
+     * comanda — a unicidade tambem esta no banco (V28), mas aqui sai com mensagem legivel.
+     */
+    private void requireLinkableAppointment(Long appointmentId, UUID shop) {
+        if (appointmentId == null) return;
+        Appointment appointment = appointmentRepository.findByIdAndBarbershopId(appointmentId, shop)
+                .orElseThrow(() -> new NotFoundException("Agendamento nao encontrado."));
+        if (!AppointmentDates.today().equals(appointment.getAppointmentDate())) {
+            throw new IllegalArgumentException(
+                    "So da para abrir comanda de um agendamento de hoje.");
+        }
+        if (comandaRepository.existsByAppointmentId(appointmentId)) {
+            throw new IllegalArgumentException("Este agendamento ja tem uma comanda.");
+        }
     }
 
     private String blankToNull(String value) {

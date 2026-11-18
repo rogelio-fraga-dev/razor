@@ -21,4 +21,7 @@ public interface ComandaRepository extends JpaRepository<Comanda, UUID> {
 
     /** Leitura escopada no tenant: nao le comanda de outra barbearia por id adivinhado. */
     Optional<Comanda> findByIdAndBarbershopId(UUID id, UUID barbershopId);
+
+    /** Ja existe comanda (em qualquer situacao) vinculada a este agendamento? */
+    boolean existsByAppointmentId(Long appointmentId);
 }

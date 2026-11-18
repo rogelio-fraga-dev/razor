@@ -1,5 +1,6 @@
 package com.razor.api.dto;
 
+import com.razor.api.model.CashMovement;
 import com.razor.api.model.CashPaymentMethod;
 import com.razor.api.model.Comanda;
 import com.razor.api.model.ComandaItem;
@@ -25,8 +26,18 @@ public record ComandaResponse(
         LocalDateTime closedAt,
         BigDecimal currentTotal,
         BigDecimal total,
+        /** Forma da parte principal (a maior) — com split, ver {@code payments}. */
         CashPaymentMethod paymentMethod,
-        List<Item> items) {
+        List<Item> items,
+        /** Partes do pagamento (V35): uma por forma usada no fechamento. Vazio enquanto aberta. */
+        List<PaymentPart> payments) {
+
+    public record PaymentPart(CashPaymentMethod method, BigDecimal amount, BigDecimal feeAmount) {
+
+        public static PaymentPart from(CashMovement m) {
+            return new PaymentPart(m.getPaymentMethod(), m.getAmount(), m.getFeeAmount());
+        }
+    }
 
     public record Item(
             UUID id,
@@ -44,6 +55,11 @@ public record ComandaResponse(
     }
 
     public static ComandaResponse from(Comanda c, List<ComandaItem> items, String professionalName) {
+        return from(c, items, professionalName, List.of());
+    }
+
+    public static ComandaResponse from(Comanda c, List<ComandaItem> items, String professionalName,
+                                       List<CashMovement> payments) {
         BigDecimal current = items.stream()
                 .map(ComandaItem::getTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -51,6 +67,7 @@ public record ComandaResponse(
                 c.getId(), c.getCustomerName(), c.getCustomerPhone(),
                 c.getProfessionalId(), professionalName, c.getAppointmentId(), c.getStatus(),
                 c.getOpenedAt(), c.getClosedAt(), current, c.getTotal(), c.getPaymentMethod(),
-                items.stream().map(Item::from).toList());
+                items.stream().map(Item::from).toList(),
+                payments.stream().map(PaymentPart::from).toList());
     }
 }

@@ -10,7 +10,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.razor.api.model.Appointment;
 import com.razor.api.model.CashMovement;
+import com.razor.api.model.Coupon;
+import com.razor.api.repository.AppointmentRepository;
+import com.razor.api.util.AppointmentDates;
 import com.razor.api.model.CashMovementType;
 import com.razor.api.model.CashPaymentMethod;
 import com.razor.api.model.Comanda;
@@ -58,6 +62,8 @@ class ComandaServiceTest {
     @Mock private ProfessionalRepository professionalRepository;
     @Mock private CashRegisterService cashRegisterService;
     @Mock private StockService stockService;
+    @Mock private CouponService couponService;
+    @Mock private AppointmentRepository appointmentRepository;
 
     @InjectMocks private ComandaService service;
 
@@ -96,7 +102,7 @@ class ComandaServiceTest {
     }
 
     private void givenCashAccepts() {
-        when(cashRegisterService.recordMovement(any(), any(), any(), any()))
+        when(cashRegisterService.recordMovement(any(), any(), any(), any(), any()))
                 .thenReturn(CashMovement.builder().id(movementId).build());
     }
 
@@ -170,7 +176,7 @@ class ComandaServiceTest {
 
         verify(cashRegisterService, times(1)).recordMovement(
                 eq(CashMovementType.VENDA), eq(CashPaymentMethod.DINHEIRO),
-                eq(new BigDecimal("129.80")), any());
+                eq(new BigDecimal("129.80")), any(), eq(comandaId));
     }
 
     @Test
@@ -195,7 +201,7 @@ class ComandaServiceTest {
                     assertThat(s.getProfessionalId()).isEqualTo(prof);       // comissão vai pro barbeiro
                 });
         // e o caixa recebeu apenas UM lançamento, com o total da comanda
-        verify(cashRegisterService, times(1)).recordMovement(any(), any(), any(), any());
+        verify(cashRegisterService, times(1)).recordMovement(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -227,7 +233,7 @@ class ComandaServiceTest {
     void close_withoutOpenCashRegister_leavesComandaOpen() {
         Comanda c = openComanda(null);
         givenItems(item(ComandaItem.Kind.SERVICO, "Corte", "40.00", 1));
-        when(cashRegisterService.recordMovement(any(), any(), any(), any()))
+        when(cashRegisterService.recordMovement(any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalArgumentException("Nenhum caixa aberto. Abra o caixa primeiro."));
 
         assertThatThrownBy(() -> service.close(comandaId, CashPaymentMethod.DINHEIRO))
@@ -248,7 +254,7 @@ class ComandaServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("vazia");
 
-        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any());
+        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -260,7 +266,7 @@ class ComandaServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("forma de pagamento");
 
-        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any());
+        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -274,7 +280,213 @@ class ComandaServiceTest {
         assertThatThrownBy(() -> service.close(comandaId, CashPaymentMethod.DINHEIRO))
                 .isInstanceOf(IllegalArgumentException.class);
 
-        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any());
+        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any(), any());
+    }
+
+    // ---------- fechamento em split (V35) ----------
+
+    /** Caixa aceita e devolve um movimento novo (id distinto) por chamada, como o real. */
+    private List<CashMovement> givenCashRecordsEachPart() {
+        List<CashMovement> gravados = new java.util.ArrayList<>();
+        when(cashRegisterService.recordMovement(any(), any(), any(), any(), any())).thenAnswer(inv -> {
+            CashMovement m = CashMovement.builder().id(UUID.randomUUID())
+                    .type(inv.getArgument(0)).paymentMethod(inv.getArgument(1))
+                    .amount(inv.getArgument(2)).comandaId(inv.getArgument(4)).build();
+            gravados.add(m);
+            return m;
+        });
+        return gravados;
+    }
+
+    private static ComandaService.Payment pay(CashPaymentMethod m, String amount) {
+        return new ComandaService.Payment(m, new BigDecimal(amount));
+    }
+
+    @Test
+    @DisplayName("split: cada parte vira o seu movimento de caixa, com a sua forma e amarrado à comanda")
+    void closeSplit_createsOneMovementPerPart() {
+        openComanda(null);
+        givenItems(
+                item(ComandaItem.Kind.SERVICO, "Corte", "50.00", 1),
+                item(ComandaItem.Kind.PRODUTO, "Pomada", "30.00", 1));
+        List<CashMovement> gravados = givenCashRecordsEachPart();
+
+        Comanda closed = service.close(comandaId, List.of(
+                pay(CashPaymentMethod.DINHEIRO, "20"),
+                pay(CashPaymentMethod.CREDITO, "45.00"),
+                pay(CashPaymentMethod.PIX, "15.00")), null);
+
+        assertThat(gravados).hasSize(3);
+        assertThat(gravados).extracting(CashMovement::getPaymentMethod).containsExactly(
+                CashPaymentMethod.DINHEIRO, CashPaymentMethod.CREDITO, CashPaymentMethod.PIX);
+        assertThat(gravados).extracting(CashMovement::getAmount).usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("20"), new BigDecimal("45"), new BigDecimal("15"));
+        assertThat(gravados).allSatisfy(m -> {
+            assertThat(m.getType()).isEqualTo(CashMovementType.VENDA);
+            assertThat(m.getComandaId()).isEqualTo(comandaId);
+        });
+
+        // A parte principal (a maior) é a que fica na comanda e nos produtos vendidos.
+        CashMovement credito = gravados.get(1);
+        assertThat(closed.getTotal()).isEqualByComparingTo("80.00");
+        assertThat(closed.getPaymentMethod()).isEqualTo(CashPaymentMethod.CREDITO);
+        assertThat(closed.getCashMovementId()).isEqualTo(credito.getId());
+        ArgumentCaptor<ProductSale> captor = ArgumentCaptor.forClass(ProductSale.class);
+        verify(productSaleRepository).save(captor.capture());
+        assertThat(captor.getValue().getCashMovementId()).isEqualTo(credito.getId());
+        assertThat(captor.getValue().getPaymentMethod()).isEqualTo(CashPaymentMethod.CREDITO);
+    }
+
+    @Test
+    @DisplayName("split: soma menor que o total é recusada, diz quanto falta e não toca no caixa")
+    void closeSplit_sumBelowTotal_isRejected() {
+        Comanda c = openComanda(null);
+        givenItems(item(ComandaItem.Kind.SERVICO, "Corte", "50.00", 1));
+
+        assertThatThrownBy(() -> service.close(comandaId, List.of(
+                pay(CashPaymentMethod.DINHEIRO, "20.00"),
+                pay(CashPaymentMethod.PIX, "29.99")), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("faltam R$ 0,01");
+
+        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any(), any());
+        assertThat(c.getStatus()).isEqualTo(Comanda.Status.ABERTA);
+    }
+
+    @Test
+    @DisplayName("split: soma maior que o total é recusada")
+    void closeSplit_sumAboveTotal_isRejected() {
+        openComanda(null);
+        givenItems(item(ComandaItem.Kind.SERVICO, "Corte", "50.00", 1));
+
+        assertThatThrownBy(() -> service.close(comandaId, List.of(
+                pay(CashPaymentMethod.DINHEIRO, "50.00"),
+                pay(CashPaymentMethod.PIX, "10.00")), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sobram R$ 10,00");
+
+        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("split: parte zerada ou sem forma é recusada")
+    void closeSplit_invalidPart_isRejected() {
+        openComanda(null);
+        givenItems(item(ComandaItem.Kind.SERVICO, "Corte", "50.00", 1));
+
+        assertThatThrownBy(() -> service.close(comandaId, List.of(
+                pay(CashPaymentMethod.DINHEIRO, "50.00"),
+                pay(CashPaymentMethod.PIX, "0")), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("maior que zero");
+        assertThatThrownBy(() -> service.close(comandaId, List.of(
+                new ComandaService.Payment(null, new BigDecimal("50.00"))), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("forma de pagamento");
+        assertThatThrownBy(() -> service.close(comandaId, List.<ComandaService.Payment>of(), null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("split com cupom: a soma tem que bater com o total JÁ descontado")
+    void closeSplit_withCoupon_matchesDiscountedTotal() {
+        openComanda(null);
+        givenItems(item(ComandaItem.Kind.SERVICO, "Corte", "50.00", 1));
+        Coupon cupom = Coupon.builder().id(UUID.randomUUID()).code("DEZ").build();
+        when(couponService.validate(eq("DEZ"), any(), any(), any()))
+                .thenReturn(new CouponService.Validation(cupom, new BigDecimal("10.00")));
+        List<CashMovement> gravados = givenCashRecordsEachPart();
+
+        // 50 - 10 = 40: pagar os 50 cheios é recusado...
+        assertThatThrownBy(() -> service.close(comandaId, List.of(
+                pay(CashPaymentMethod.DINHEIRO, "25.00"),
+                pay(CashPaymentMethod.DEBITO, "25.00")), "DEZ"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sobram R$ 10,00");
+        assertThat(gravados).isEmpty();
+        verify(couponService, never()).redeem(any(), any(), any(), any());
+
+        // ...e os 40 fecham.
+        Comanda closed = service.close(comandaId, List.of(
+                pay(CashPaymentMethod.DINHEIRO, "25.00"),
+                pay(CashPaymentMethod.DEBITO, "15.00")), "DEZ");
+
+        assertThat(closed.getTotal()).isEqualByComparingTo("40.00");
+        assertThat(gravados).hasSize(2);
+        verify(couponService).redeem(eq(cupom), eq(new BigDecimal("10.00")), eq(comandaId), any());
+    }
+
+    @Test
+    @DisplayName("forma única continua funcionando: uma parte com o total, amarrada à comanda")
+    void closeSingleMethod_isOnePartWithTotal() {
+        openComanda(null);
+        givenItems(item(ComandaItem.Kind.SERVICO, "Corte", "50.00", 1));
+        List<CashMovement> gravados = givenCashRecordsEachPart();
+
+        service.close(comandaId, CashPaymentMethod.OUTRO, null);
+
+        assertThat(gravados).singleElement().satisfies(m -> {
+            assertThat(m.getPaymentMethod()).isEqualTo(CashPaymentMethod.OUTRO);
+            assertThat(m.getAmount()).isEqualByComparingTo("50.00");
+            assertThat(m.getComandaId()).isEqualTo(comandaId);
+        });
+    }
+
+    // ---------- vinculo com agendamento (seguranca) ----------
+
+    private Appointment appointment(long id, LocalDate date) {
+        return Appointment.builder().id(id).barbershopId(TenantContext.DEFAULT_BARBERSHOP_ID)
+                .appointmentDate(date).build();
+    }
+
+    @Test
+    @DisplayName("abrir comanda vinculada a agendamento de outra barbearia é recusado")
+    void open_withAppointmentOfOtherTenant_isRejected() {
+        when(appointmentRepository.findByIdAndBarbershopId(eq(99L), any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.open("João", null, null, 99L))
+                .isInstanceOf(NotFoundException.class);
+        verify(comandaRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("abrir comanda vinculada a agendamento de outro dia é recusado")
+    void open_withAppointmentOfAnotherDay_isRejected() {
+        when(appointmentRepository.findByIdAndBarbershopId(eq(7L), any()))
+                .thenReturn(Optional.of(appointment(7L, AppointmentDates.today().minusDays(3))));
+
+        assertThatThrownBy(() -> service.open("João", null, null, 7L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("hoje");
+        verify(comandaRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("agendamento que já tem comanda não ganha outra")
+    void open_withAppointmentAlreadyLinked_isRejected() {
+        when(appointmentRepository.findByIdAndBarbershopId(eq(7L), any()))
+                .thenReturn(Optional.of(appointment(7L, AppointmentDates.today())));
+        when(comandaRepository.existsByAppointmentId(7L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.open("João", null, null, 7L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ja tem uma comanda");
+        verify(comandaRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("agendamento de hoje, deste tenant e sem comanda é vinculado")
+    void open_withValidAppointment_links() {
+        when(appointmentRepository.findByIdAndBarbershopId(eq(7L), any()))
+                .thenReturn(Optional.of(appointment(7L, AppointmentDates.today())));
+        when(comandaRepository.existsByAppointmentId(7L)).thenReturn(false);
+        when(comandaRepository.save(any(Comanda.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Comanda c = service.open("João", null, null, 7L);
+
+        assertThat(c.getAppointmentId()).isEqualTo(7L);
     }
 
     // ---------- cancelamento e isolamento ----------
@@ -288,7 +500,7 @@ class ComandaServiceTest {
 
         assertThat(canceled.getStatus()).isEqualTo(Comanda.Status.CANCELADA);
         assertThat(canceled.getTotal()).isNull();
-        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any());
+        verify(cashRegisterService, never()).recordMovement(any(), any(), any(), any(), any());
         verify(productSaleRepository, never()).save(any());
     }
 

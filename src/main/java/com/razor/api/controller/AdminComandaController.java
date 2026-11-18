@@ -82,7 +82,23 @@ public class AdminComandaController {
 
     @PostMapping("/{id}/close")
     public ComandaResponse close(@PathVariable UUID id, @Valid @RequestBody ComandaRequests.Close req) {
-        return toResponse(comandaService.close(id, req.paymentMethod(), req.couponCode()), professionalNames());
+        // V35: com `payments`, split; sem, o contrato antigo de forma unica continua valendo.
+        Comanda closed = req.payments() != null && !req.payments().isEmpty()
+                ? comandaService.close(id, req.payments().stream()
+                        .map(p -> new ComandaService.Payment(p.method(), p.amount())).toList(), req.couponCode())
+                : comandaService.close(id, req.paymentMethod(), req.couponCode());
+        return toResponse(closed, professionalNames());
+    }
+
+    /**
+     * Simula um cupom nesta comanda antes de fechar (V35): o painel precisa do total descontado
+     * para dividir o pagamento. Fica sob /comandas para a recepcao — que fecha a conta — poder
+     * usar; o subtotal vem dos itens, nunca do corpo.
+     */
+    @PostMapping("/{id}/coupon-preview")
+    public ComandaService.CouponPreview couponPreview(@PathVariable UUID id,
+                                                     @Valid @RequestBody ComandaRequests.CouponPreview req) {
+        return comandaService.previewCoupon(id, req.code());
     }
 
     @PostMapping("/{id}/cancel")
@@ -98,6 +114,6 @@ public class AdminComandaController {
     private ComandaResponse toResponse(Comanda c, Map<UUID, String> names) {
         List<ComandaItem> items = comandaService.items(c.getId());
         String profName = c.getProfessionalId() == null ? null : names.get(c.getProfessionalId());
-        return ComandaResponse.from(c, items, profName);
+        return ComandaResponse.from(c, items, profName, comandaService.payments(c));
     }
 }
