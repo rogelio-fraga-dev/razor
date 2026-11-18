@@ -404,7 +404,7 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       > apaga campos fora dele (as **mensagens automáticas** já vêm com padrão do sistema e
       > seguem editáveis campo a campo abaixo). _A retomada "salvar e continuar" e a prévia
       > "ver como o bot fala" ficam como refinamento futuro._
-- [ ] 🎯 **Config do bot vira modal único e completo (evolução do wizard)** — mudar o fluxo de
+- [x] 🎯 **Config do bot vira modal único e completo (evolução do wizard)** — mudar o fluxo de
       configuração do WhatsApp: **ao abrir a tela de Configurações, já abrir automaticamente o
       modal** de configuração — e nele dá pra configurar **TUDO, num lugar só**:
       - **Conexão do WhatsApp (QR code)** — parear o número da **barbearia** (o bot) direto no
@@ -420,12 +420,22 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       > separados. Aqui o modal **abre sozinho**, junta **QR + número do admin + todos os campos**
       > num fluxo único e a tela de trás **reflete o resultado** ao fechar. Reaproveita
       > `ConfigWizard`, `WhatsAppCard` (QR), `AdminsCard` (números) e o `reload()` que já existem.
+      **Entregue (2026-11-17):** o modal (`ConfigWizard`) tem 8 passos com barra de progresso —
+      QR com selo conectado/desconectado ao vivo, admins (`AdminsEditor`, com a regra dos dois
+      números explicada), identidade, funcionamento, serviços, modo de fala, PIX e mensagens.
+      Abre sozinho quando falta item obrigatório (`evaluateConfig`), já no 1º pendente, uma vez
+      por sessão (`sessionStorage` em try/catch); senão, "Revisar configuração" abre. **Salva a
+      cada passo** (`PUT ...?welcome=false`) e ao fechar com alteração pendente; o resumo de
+      boas-vindas só sai no "Concluir". Parte de `{...config salva}`, então nunca apaga campo
+      que não mostra. Ao fechar, a tela recarrega tudo. O formulário "O que o bot fala" virou
+      um resumo com "Editar" por assunto (abre o modal no passo certo) e Configurações ganhou
+      abas (Status · WhatsApp · Bot & IA · Equipe & acesso · Barbearia · Site, `?tab=`).
 - [x] **Boas-vindas no WhatsApp ao concluir a 1ª configuração** — ao salvar a config do bot
       pela 1ª vez, o sistema manda **no WhatsApp do dono** um guia curto de *como o sistema
       funciona e o que ele pode fazer*. Fecha o ciclo *configurei no computador → o bot me
       respondeu no celular* — a primeira prova de que está no ar. Enviado **uma vez**
       (`welcome_brief_sent_at`, V17), sai pelo número da barbearia para o número do admin.
-      _(Ainda dispara no save da config, não no wizard — o wizard reaproveita este envio.)_
+      _(Dispara no "Concluir" do modal de configuração; os saves por passo usam `?welcome=false`.)_
       Conteúdo em 4 blocos, curto e escaneável:
       1. **O que o bot faz sozinho** — atende no WhatsApp 24h, agenda entendendo texto e
          áudio, não marca em cima de folga, manda lembrete 1h antes, pede avaliação depois
@@ -1076,8 +1086,11 @@ Paginar catálogo seria ruído: dois botões mortos embaixo de uma lista de 7 se
 - [x] **`.env.prod-example` com placeholders inúteis se copiados (2026-07-28)** — idem.
 - [ ] **JWT no `localStorage`** — vulnerável a XSS. A troca por cookie `httpOnly` + CSRF vai junto
       com a autenticação do cliente final (que exige contexto separado de qualquer forma).
-- [ ] **`AgendaService.java` passou de 800 linhas** e `ConfigWizard` × `Settings > BotCard`
-      compartilham ~150 linhas quase idênticas. Dívida de organização, não de comportamento.
+- [ ] **`AgendaService.java` passou de 800 linhas.** Dívida de organização, não de comportamento.
+- [x] **`ConfigWizard` × `Settings > BotCard` compartilhavam ~150 linhas quase idênticas
+      (2026-11-17)** — os campos viraram grupos reutilizáveis em `BotConfigFields.tsx`
+      (identidade, funcionamento, serviços, modo de fala, pagamento, mensagens) e `EMPTY_BOT`/
+      `fillBot` foram para `lib/botSettings.ts`. O `BotCard` saiu: o modal é o único editor.
 
 ---
 

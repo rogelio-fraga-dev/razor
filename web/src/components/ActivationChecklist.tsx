@@ -40,7 +40,7 @@ function buildItems(data: ChecklistData): Item[] {
       done: data.status.whatsappConnected,
       label: "Conectar o WhatsApp da barbearia",
       hint: "Escaneie o QR em Configurações — 2 minutos.",
-      to: "/settings",
+      to: "/settings?tab=whatsapp",
     },
     {
       id: "team",
@@ -54,7 +54,7 @@ function buildItems(data: ChecklistData): Item[] {
       done: textsCustomized,
       label: "Personalizar os textos do bot",
       hint: "Endereço, tabela de preços e Instagram que a IA envia.",
-      to: "/settings",
+      to: "/settings?tab=bot",
     },
     {
       id: "test",

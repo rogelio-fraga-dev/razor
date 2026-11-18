@@ -1,12 +1,14 @@
-import { WeekdayPicker } from "../components/WeekdayPicker";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { Switch } from "../components/Modal";
 import { Skeleton } from "../components/Skeleton";
-import { SpeechModePicker } from "../components/SpeechModePicker";
-import { ConfigWizard } from "../components/ConfigWizard";
+import { ConfigWizard, WIZARD_STEPS } from "../components/ConfigWizard";
 import { ConfigChecklist } from "../components/ConfigChecklist";
+import { Tabs, panelId, tabId, type TabDef } from "../components/Tabs";
 import { evaluateConfig } from "../lib/configCompleteness";
+import { fillBot } from "../lib/botSettings";
+import { matchSpeechMode, SPEECH_MODES } from "../lib/speechModes";
 import { WhatsAppPairing } from "../components/WhatsAppPairing";
 import { AdminsEditor } from "../components/AdminsEditor";
 import { SiteEditor } from "../components/SiteEditor";
@@ -16,7 +18,7 @@ import { getOnce } from "../lib/dedupe";
 import { useWhatsAppConnection } from "../lib/useWhatsAppConnection";
 import { api, ApiError } from "../api/client";
 import { money } from "../lib/format";
-import type { AdminContact, Barbershop, BotSettings, BotStatus, Goals, BotTextKey, Weekday } from "../api/types";
+import type { AdminContact, Barbershop, BotSettings, BotStatus, Goals } from "../api/types";
 
 function StatusDot({ ok, warn }: { ok: boolean; warn?: boolean }) {
   const color = ok ? "var(--green)" : warn ? "var(--amber)" : "var(--red)";
@@ -246,66 +248,6 @@ function AdminsCard({ reloadKey }: { reloadKey: number }) {
   );
 }
 
-const EMPTY_BOT: BotSettings = {
-  displayName: "",
-  addressText: "",
-  addressMapsUrl: "",
-  servicesText: "",
-  scheduleUrl: "",
-  instagramUrl: "",
-  pixKey: "",
-  pixCopyPaste: "",
-  paymentInfo: "",
-  openingTime: "",
-  closingTime: "",
-  workingWeekdays: [1, 2, 3, 4, 5, 6],
-  welcomeText: "",
-  reminderText: "",
-  reviewText: "",
-  fidelityRewardText: "",
-  cancellationPolicy: "",
-  botPersona: "",
-};
-
-/** Bloco colapsável — progressive disclosure: só "Identidade" e "Pagamento" abrem por padrão. */
-function Section({
-  index,
-  title,
-  hint,
-  open,
-  done,
-  children,
-}: {
-  /** Numeração editorial (01/, 02/…) — dá ritmo a seis seções hoje indistinguíveis. */
-  index?: number;
-  title: string;
-  hint?: string;
-  open?: boolean;
-  /** Preenchida? Sem isto, "Pagamento" cheio e "Pagamento" vazio são visualmente idênticos. */
-  done?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <details className="cfg-section" open={open}>
-      <summary>
-        {index !== undefined && (
-          <span className="cfg-section-n mono" aria-hidden="true">
-            {String(index).padStart(2, "0")}/
-          </span>
-        )}
-        <span>{title}</span>
-        {done !== undefined && (
-          <span
-            className={`cfg-section-dot ${done ? "done" : ""}`}
-            aria-label={done ? "preenchida" : "em branco"}
-          />
-        )}
-        {hint && <span className="faint">{hint}</span>}
-      </summary>
-      <div className="stack" style={{ paddingTop: 14 }}>{children}</div>
-    </details>
-  );
-}
 
 /** Meta de faturamento do mês (V19). É o alvo que o painel usa para calcular o progresso. */
 function GoalsCard({ reloadKey }: { reloadKey: number }) {
@@ -383,92 +325,95 @@ function GoalsCard({ reloadKey }: { reloadKey: number }) {
   );
 }
 
-/** Preenche o formulário a partir do que veio do backend (campo nulo vira string vazia). */
-function fillBot(data: BotSettings | null): BotSettings {
-  const filled = { ...EMPTY_BOT };
-  if (!data) return filled;
-  (Object.keys(EMPTY_BOT) as BotTextKey[]).forEach((k) => {
-    filled[k] = data[k] ?? "";
-  });
-  // A lista de dias nao pode virar string vazia: vazia significaria "fechado todo dia".
-  filled.workingWeekdays = data.workingWeekdays?.length ? data.workingWeekdays : EMPTY_BOT.workingWeekdays;
-  return filled;
+
+const WEEKDAY_SHORT = ["", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+
+/** Primeira linha não vazia, encurtada — o resumo mostra o gosto do texto, não o texto. */
+function preview(text: string | null | undefined, max = 60): string | null {
+  const line = (text ?? "").split("\n").map((l) => l.trim()).find((l) => l !== "");
+  if (!line) return null;
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
 
-function BotCard({
+const filled = (v: string | null | undefined) => (v ?? "").trim() !== "";
+
+/**
+ * Resumo do que o bot fala, por assunto, com "Editar" que abre o modal no passo certo.
+ *
+ * Substitui o antigo formulário "O que o bot fala", que duplicava campo a campo o assistente.
+ * A edição mora num lugar só (o modal); aqui a tela reflete o que está salvo — e, como recarrega
+ * ao fechar o modal, mostra o resultado sem F5.
+ */
+function BotSummaryCard({
   data,
   loading,
   error,
-  onSaved,
-  onOpenWizard,
+  onEdit,
 }: {
   data: BotSettings | null;
   loading: boolean;
   error: string | null;
-  onSaved: () => void;
-  onOpenWizard: () => void;
+  onEdit: (step: number) => void;
 }) {
-  const toast = useToast();
-  const [form, setForm] = useState<BotSettings>(EMPTY_BOT);
-  const [saving, setSaving] = useState(false);
+  const persona = data?.botPersona ?? "";
+  const modeId = matchSpeechMode(persona);
+  const modeLabel = modeId
+    ? SPEECH_MODES.find((m) => m.id === modeId)?.label ?? null
+    : filled(persona)
+      ? "Personalizado"
+      : null;
+  const days = [...(data?.workingWeekdays ?? [])].sort((a, b) => a - b).map((d) => WEEKDAY_SHORT[d]).join(", ");
+  const hours = data?.openingTime && data?.closingTime ? `${data.openingTime}–${data.closingTime}` : null;
+  const messagesCustom = [data?.welcomeText, data?.reminderText, data?.reviewText, data?.fidelityRewardText]
+    .filter(filled).length;
 
-  useEffect(() => {
-    setForm(fillBot(data));
-  }, [data]);
-
-  // workingWeekdays e a unica chave que nao e string: separar evita que os helpers de texto
-  // (field/area) aceitem uma lista de dias por engano.
-  const set = (k: BotTextKey, v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const setWeekdays = (days: Weekday[]) => setForm((f) => ({ ...f, workingWeekdays: days }));
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      await api.put("/api/admin/settings/bot", form);
-      toast.success("Configurações do bot salvas ✓");
-      onSaved();
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "Erro ao salvar.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const field = (k: BotTextKey, label: string, placeholder?: string) => (
-    <div className="field">
-      <label>{label}
-      <input className="input" value={form[k] ?? ""} placeholder={placeholder} onChange={(e) => set(k, e.target.value)} />
-            </label>
-    </div>
-  );
-
-  const area = (k: BotTextKey, label: string, rows = 4, placeholder?: string) => (
-    <div className="field">
-      <label>{label}
-      <textarea
-        className="input"
-        rows={rows}
-        value={form[k] ?? ""}
-        placeholder={placeholder}
-        onChange={(e) => set(k, e.target.value)}
-        style={{ resize: "vertical", fontFamily: "inherit" }}
-      />
-            </label>
-    </div>
-  );
+  const rows: { step: number; title: string; value: string | null; empty: string }[] = [
+    {
+      step: WIZARD_STEPS.identity,
+      title: "Identidade",
+      value: [data?.displayName, data?.addressText].filter(filled).join(" · ") || null,
+      empty: "Sem nome — o bot não sabe como chamar a barbearia",
+    },
+    {
+      step: WIZARD_STEPS.hours,
+      title: "Funcionamento",
+      value: [hours, days].filter(Boolean).join(" · ") || null,
+      empty: "Padrão: 09:00–19:00, Seg a Sáb",
+    },
+    {
+      step: WIZARD_STEPS.services,
+      title: "Serviços e preços",
+      value: preview(data?.servicesText),
+      empty: "Sem tabela — o bot não informa preços",
+    },
+    { step: WIZARD_STEPS.speech, title: "Modo de fala", value: modeLabel, empty: "Padrão (Parceiro)" },
+    {
+      step: WIZARD_STEPS.payment,
+      title: "Pagamento",
+      value: filled(data?.pixKey) ? `PIX: ${data?.pixKey}` : preview(data?.paymentInfo),
+      empty: "Sem PIX — o bot não envia cobrança",
+    },
+    {
+      step: WIZARD_STEPS.messages,
+      title: "Mensagens automáticas",
+      value: messagesCustom ? `${messagesCustom} de 4 personalizadas` : null,
+      empty: "Textos padrão do sistema",
+    },
+  ];
 
   return (
     <div className="card">
       <div className="card-head">
         <h3>O que o bot fala</h3>
-        <button className="btn btn-ghost btn-sm" onClick={onOpenWizard} disabled={loading || !!error}>
-          Abrir assistente
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => onEdit(WIZARD_STEPS.identity)}
+          disabled={loading || !!error}
+        >
+          Editar tudo
         </button>
       </div>
       <div className="card-pad">
-        <p className="muted" style={{ margin: "0 0 14px", fontSize: 14 }}>
-          Campo vazio usa o padrão do sistema.
-        </p>
         {loading ? (
           <div className="stack" style={{ gap: 10 }}>
             {[0, 1, 2].map((i) => <Skeleton key={i} h={38} />)}
@@ -476,74 +421,82 @@ function BotCard({
         ) : error ? (
           <div className="error" role="alert">{error}</div>
         ) : (
-          <div className="stack" style={{ gap: 10 }}>
-            <Section index={1} title="Identidade" hint="como a barbearia se apresenta" open done={!!(form.displayName ?? "").trim()}>
-              {field("displayName", "Nome da barbearia", "Como o bot chama sua barbearia")}
-              {field("addressText", "Endereço")}
-              {field("addressMapsUrl", "Link do mapa")}
-              {field("instagramUrl", "Instagram")}
-            </Section>
-
-            <Section index={2} title="Pagamento" hint="PIX enviado ao cliente" open done={!!(form.pixKey ?? "").trim()}>
-              {field("pixKey", "Chave PIX", "CNPJ, e-mail, telefone ou aleatória")}
-              {area("pixCopyPaste", "PIX copia-e-cola (opcional)", 3, "Cole aqui o código do seu banco")}
-              {area("paymentInfo", "Formas de pagamento", 2, "Ex.: PIX, dinheiro, débito e crédito")}
-            </Section>
-
-            <Section index={3} title="Funcionamento" hint="horários que a IA oferece" done={(form.workingWeekdays ?? []).length > 0}>
-              <div className="form-grid">
-                {field("openingTime", "Abre às", "09:00")}
-                {field("closingTime", "Fecha às", "19:00")}
-              </div>
-              <WeekdayPicker
-                value={form.workingWeekdays ?? []}
-                onChange={setWeekdays}
-              />
-              {area("cancellationPolicy", "Política de cancelamento/atraso", 2, "Ex.: cancele com 2h de antecedência")}
-            </Section>
-
-            <Section index={4} title="Serviços e preços" hint="tabela enviada no menu" done={!!(form.servicesText ?? "").trim()}>
-              {area("servicesText", "Tabela de serviços / preços", 5)}
-              {field("scheduleUrl", "Link de agendamento (opcional)")}
-            </Section>
-
-            <Section index={5} title="Mensagens automáticas" hint="saudação, lembrete, avaliação" done={!!(form.welcomeText ?? "").trim()}>
-              {area("welcomeText", "Saudação inicial", 2, "Primeira mensagem ao cliente novo")}
-              {area("reminderText", "Lembrete (1h antes)", 2)}
-              {area("reviewText", "Pedido de avaliação (após o corte)", 2)}
-              {area("fidelityRewardText", "Recompensa de fidelidade (10 pontos)", 2)}
-            </Section>
-
-            <Section index={6} title="Personalidade da IA" hint="tom de voz" done={!!(form.botPersona ?? "").trim()}>
-              <SpeechModePicker value={form.botPersona ?? ""} onChange={(v) => set("botPersona", v)} />
-            </Section>
-
-            <div className="row" style={{ marginTop: 4 }}>
-              <button className="btn btn-primary" onClick={save} disabled={saving}>
-                {saving ? "Salvando…" : "Salvar"}
-              </button>
-            </div>
-          </div>
+          <ul className="cfg-checklist" style={{ marginTop: 0 }}>
+            {rows.map((r) => (
+              <li key={r.title}>
+                <div className="cfg-check-main">
+                  <span className="cfg-check-label">{r.title}</span>
+                  <span className="cfg-check-hint" style={r.value ? { color: "var(--text-muted)" } : undefined}>
+                    {r.value ?? r.empty}
+                  </span>
+                </div>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => onEdit(r.step)}
+                  aria-label={`Editar: ${r.title}`}
+                >
+                  Editar
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>
   );
 }
 
-/** Marca que o assistente já se abriu sozinho nesta sessão do navegador. */
+/** Marca que o modal de configuração já se abriu sozinho (ou foi dispensado) nesta sessão. */
 const WIZARD_SEEN_KEY = "razor.config_wizard_autoopened";
 
+// sessionStorage pode lançar (aba anônima, site data bloqueado): sem o try a tela inteira caía.
+function wizardSeen(): boolean {
+  try {
+    return sessionStorage.getItem(WIZARD_SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function markWizardSeen() {
+  try {
+    sessionStorage.setItem(WIZARD_SEEN_KEY, "1");
+  } catch {
+    /* sem storage: o limite vale só enquanto a tela estiver montada */
+  }
+}
+
+// Abas de Configurações (UX_BLUEPRINT §4.7): some o corredor de cards.
+const TABS: TabDef[] = [
+  { id: "status", label: "Status" },
+  { id: "whatsapp", label: "WhatsApp" },
+  { id: "bot", label: "Bot & IA" },
+  { id: "equipe", label: "Equipe & acesso" },
+  { id: "barbearia", label: "Barbearia" },
+  { id: "site", label: "Site" },
+];
+const TAB_PREFIX = "settings";
+
 export function Settings() {
-  // Bloco único: um card só, com as caixas por assunto lado a lado.
-  // O assistente é o tutorial da tela: passa por todas as configurações e, ao fechar, faz a
-  // tela inteira recarregar — os cards atrás já aparecem com o que foi preenchido.
+  // O modal de configuração é o lugar único de edição do bot. Ao fechar, a tela inteira
+  // recarrega — status, QR, admins e textos já aparecem com o que foi salvo, sem F5.
   const [configVersion, setConfigVersion] = useState(0);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(0);
   const [autoOpened, setAutoOpened] = useState(false);
+  // A aba vive na URL (?tab=): dá para linkar direto ("Conectar WhatsApp" → ?tab=whatsapp) e o
+  // voltar do navegador não joga a pessoa de volta para a primeira aba.
+  const [params, setParams] = useSearchParams();
+  const requested = params.get("tab");
+  const tab = TABS.some((t) => t.id === requested) ? (requested as string) : "status";
+  const setTab = (id: string) => {
+    const next = new URLSearchParams(params);
+    if (id === "status") next.delete("tab");
+    else next.set("tab", id);
+    setParams(next, { replace: true });
+  };
 
   const bot = useApi<BotSettings>(() => api.get("/api/admin/settings/bot"), [configVersion]);
-  // O slug vem do perfil da barbearia — e o endereco publico do site.
+  // O slug vem do perfil da barbearia — é o endereço público do site.
   const shop = useApi<Barbershop>(() => api.get("/api/admin/barbershop"), [configVersion]);
   const status = useApi<BotStatus>(() => api.get("/api/admin/settings/bot/status"), [configVersion]);
   const admins = useApi<AdminContact[]>(() => api.get("/api/admin/admins"), [configVersion]);
@@ -551,30 +504,23 @@ export function Settings() {
   const refreshAll = () => setConfigVersion((v) => v + 1);
 
   const config = evaluateConfig(bot.data, status.data, admins.data);
-  // Só decide depois que as três consultas responderam: avaliar com dados pela metade abriria o
-  // assistente na cara de quem já configurou tudo.
   const shopSlug = shop.data?.slug ?? null;
+  // Só decide depois que as três consultas responderam: avaliar com dados pela metade abriria o
+  // modal na cara de quem já configurou tudo.
   const carregado = !bot.loading && !status.loading && !admins.loading && !bot.error;
 
-  // Falta algo OBRIGATÓRIO: o assistente abre sozinho — uma vez por sessão do navegador.
-  //
-  // O gatilho antigo era "displayName vazio": uma barbearia com nome preenchido e o WhatsApp
-  // desconectado, sem PIX e sem tabela de preços passava por pronta, e ninguém avisava o dono.
-  //
-  // O limite por sessão importa tanto quanto o gatilho. Sem ele, quem entra em Configurações
-  // para mexer numa coisa só levaria o assistente na cara toda vez — e um tutorial que insiste
-  // vira obstáculo. Depois da primeira vez, a lista de pendências acima já diz o que falta.
+  // Falta algo OBRIGATÓRIO: o modal abre sozinho — uma vez por sessão do navegador. Quem o
+  // dispensa não o leva na cara de novo a cada visita; a lista de pendências segue cobrando.
   useEffect(() => {
     if (autoOpened || !carregado || config.ready) return;
-    if (sessionStorage.getItem(WIZARD_SEEN_KEY) === "1") {
-      setAutoOpened(true);
-      return;
-    }
-    sessionStorage.setItem(WIZARD_SEEN_KEY, "1");
-    setWizardStep(0);
-    setWizardOpen(true);
     setAutoOpened(true);
-  }, [carregado, config.ready, autoOpened]);
+    if (wizardSeen()) return;
+    markWizardSeen();
+    // Abre no primeiro obrigatório pendente: quem já pareou o WhatsApp cai direto no que falta.
+    const firstMissing = config.items.find((i) => i.required && !i.done && i.step >= 0);
+    setWizardStep(firstMissing?.step ?? 0);
+    setWizardOpen(true);
+  }, [carregado, config.ready, config.items, autoOpened]);
 
   const openWizardAt = (step: number) => {
     setWizardStep(Math.max(0, step));
@@ -582,9 +528,23 @@ export function Settings() {
   };
 
   const closeWizard = () => {
+    markWizardSeen();
     setWizardOpen(false);
     refreshAll();
   };
+
+  const panel = (id: string, children: React.ReactNode) =>
+    tab === id ? (
+      <div
+        role="tabpanel"
+        id={panelId(TAB_PREFIX, id)}
+        aria-labelledby={tabId(TAB_PREFIX, id)}
+        className="stack"
+        style={{ gap: 18, marginTop: 18 }}
+      >
+        {children}
+      </div>
+    ) : null;
 
   return (
     <Layout
@@ -599,36 +559,37 @@ export function Settings() {
         </button>
       }
     >
-      {/* O que falta vem ANTES dos campos: quem abre esta tela quer saber o que está pendente,
-          não caçar o campo vazio entre trinta preenchidos. */}
-      {carregado && <ConfigChecklist status={config} onGoToStep={openWizardAt} />}
+      {/* O que falta vem ANTES das abas enquanto houver obrigatório pendente: quem abre esta
+          tela quer saber o que falta. Pronto, o cartão fica só na aba Status. */}
+      {carregado && (!config.ready || tab === "status") && (
+        <ConfigChecklist status={config} onGoToStep={openWizardAt} />
+      )}
 
-      {/* Sem o card externo: os cards abaixo já são caixas, e envolvê-los em mais uma criava
-          quatro níveis de moldura — o input acabava a 112px da borda da tela, atravessando cinco
-          bordas de 1px. O CTA subiu para a barra de ações da tela, onde ele é procurado. */}
-      <div className="cfg-body">
-        <div className="cfg-lane">
-          <BotStatusCard reloadKey={configVersion} />
-          <BotCard
-            data={bot.data}
-            loading={bot.loading}
-            error={bot.error}
-            onSaved={refreshAll}
-            onOpenWizard={() => openWizardAt(0)}
-          />
-        </div>
-        <div className="cfg-lane">
-          <WhatsAppCard reloadKey={configVersion} />
-          <ProfileCard reloadKey={configVersion} />
-          <GoalsCard reloadKey={configVersion} />
-          <SiteEditor slug={shopSlug} />
-          <AdminsCard reloadKey={configVersion} />
-        </div>
+      <div style={{ marginTop: 18 }}>
+        <Tabs tabs={TABS} active={tab} onChange={setTab} idPrefix={TAB_PREFIX} label="Seções de configuração" />
       </div>
 
-      {wizardOpen && (
-        <ConfigWizard initial={fillBot(bot.data)} startAt={wizardStep} onClose={closeWizard} onSaved={refreshAll} />
+      {panel("status", <BotStatusCard reloadKey={configVersion} />)}
+      {panel("whatsapp", <WhatsAppCard reloadKey={configVersion} />)}
+      {panel(
+        "bot",
+        <BotSummaryCard data={bot.data} loading={bot.loading} error={bot.error} onEdit={openWizardAt} />,
       )}
+      {panel("equipe", <AdminsCard reloadKey={configVersion} />)}
+      {panel(
+        "barbearia",
+        <div className="cfg-body">
+          <div className="cfg-lane">
+            <ProfileCard reloadKey={configVersion} />
+          </div>
+          <div className="cfg-lane">
+            <GoalsCard reloadKey={configVersion} />
+          </div>
+        </div>,
+      )}
+      {panel("site", <SiteEditor slug={shopSlug} />)}
+
+      {wizardOpen && <ConfigWizard initial={fillBot(bot.data)} startAt={wizardStep} onClose={closeWizard} />}
     </Layout>
   );
 }
