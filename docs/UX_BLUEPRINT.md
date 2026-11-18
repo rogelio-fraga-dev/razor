@@ -274,4 +274,59 @@ O celular NÃO é um painel menor — é o **controle remoto**:
 
 ---
 
+## 9. Status de implementação (2026-11 — rodada "barbeiro no celular")
+
+Usuário-alvo desta rodada: o dono/barbeiro **no celular, com as mãos ocupadas**.
+
+| Item | Estado | Onde |
+|---|---|---|
+| F1 primeiro acesso | ✅ checklist + tour (o tour acha o alvo visível — menu lateral ou barra inferior) | `ActivationChecklist`, `Tour` |
+| F2 Configurações em abas | ✅ | `Settings` |
+| F3 feedback assíncrono | ✅ toast em todo salvar (perfil, admins e pacotes eram os que faltavam) | `Toast` |
+| F4 tabela no celular | ✅ Clientes vira **cartões** ≤760px; linha/cartão abre **gaveta** (WhatsApp, ligar, tags, plano, pacotes) | `Customers`, `Drawer` |
+| F5 estados vazios | ✅ com próximo passo (cadastrar barbeiro, abrir agenda, limpar filtros…) | `EmptyState` |
+| F6 "Carregando…" | ✅ skeleton em todas as telas e cards | `Skeleton` |
+| F7 2 cliques | ✅ Comissões: `Hoje · Ontem · Esta semana · Quinzena · Este mês` (o backend aceita `from/to`) | `Commissions` |
+| Erro com retry | ✅ `<ErrorState>` com "Tentar de novo" em toda lista | `ErrorState` |
+
+### 9.1. Arquitetura de informação — 5 áreas
+
+Fonte única em `web/src/lib/nav.tsx` (menu lateral, barra inferior e Ctrl+K leem dela):
+
+- **Hoje** — Painel (dono) · Meu dia (barbeiro)
+- **Agenda**
+- **Clientes** — Clientes, Retenção, Planos, Pacotes, Cupons
+- **Dinheiro** — Caixa, Comandas, Produtos e estoque, Comissões, Acerto, Despesas e DRE
+- **Configurar** — Serviços, Profissionais, Configurações, Meu perfil
+
+Desktop: grupos recolhíveis (lembrados no navegador); a área da tela atual nunca fecha.
+Celular (≤760px): barra inferior fixa, 5 botões de 56px com rótulo, `safe-area-inset`.
+Área com uma tela navega direto; com várias abre uma folha com as telas (1 toque cada).
+RBAC: área sem tela visível para o papel some (`lib/access.ts`). Antes: 17 itens soltos em
+4 grupos e, no celular, um rail de ícones sem rótulo em linha.
+
+### 9.2. Meu dia (papel BARBER)
+
+Tela inicial do barbeiro: **próximo cliente** em destaque, horários de hoje e **quanto eu
+ganhei** (hoje e quinzena). Depende do vínculo login → profissional (V44,
+`tenant_users.professional_id`), que o dono faz em Profissionais → "Login do painel".
+`GET /api/admin/me/earnings?period=` é escopado no próprio login: barbeiro/recepção pedindo
+outro `professionalId` recebe 403.
+
+### 9.3. PWA
+
+`manifest.webmanifest` + ícones 192/512/maskable/apple (gerados por `web/scripts/gen-icons.py`),
+`sw.js` só da casca (navegação rede-primeiro com fallback offline, `/assets` cache-primeiro,
+**`/api` nunca**), registrado só no build de produção. O site público `/b/:slug` continua
+servido pela rede.
+
+### 9.4. Linguagem simples
+
+`<Hint term>` (botão "?" acessível: `aria-describedby`, toque abre/fecha, Esc fecha) com o
+texto em `web/src/lib/glossary.ts`: DRE, Comanda, Sangria, Suprimento, Acerto, Vale, Tíquete
+médio, Taxa de ocupação, Comissão, Comissão por produto, Split (este último pronto no
+glossário para quando o split de pagamento existir na tela).
+
+---
+
 _Documento vivo · specs de UI seguem os tokens do [BRANDING](./BRANDING.md)._

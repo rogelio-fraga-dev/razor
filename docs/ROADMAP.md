@@ -468,10 +468,16 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       > Comissões; `photoUrl` no DTO para a Agenda. Site: bloco de equipe com foto (ou inicial),
       > bio, especialidades e Instagram, em variante própria por template; o `PublicSiteResponse`
       > só leva barbeiro ativo e só campos de vitrine.
-- [ ] **Overhaul de UX** conforme [`UX_BLUEPRINT.md`](./UX_BLUEPRINT.md): infra de feedback
+- [x] **Overhaul de UX** conforme [`UX_BLUEPRINT.md`](./UX_BLUEPRINT.md): infra de feedback
       (toasts/skeletons/empty states), **tutorial de primeiro acesso + checklist de ativação**,
       Configurações em abas, Clientes com drawer + cards mobile, chips de período em
       Comissões, regra dos 2 cliques.
+      > 2026-11: **5 áreas** (Hoje · Agenda · Clientes · Dinheiro · Configurar) com grupos
+      > recolhíveis no desktop e **barra inferior** no celular (folha da área = 1 toque por
+      > tela); **PWA** instalável (manifest, ícones, SW só da casca — `/api` nunca em cache);
+      > **Meu dia** do barbeiro (V44: login ligado ao profissional, `GET /api/admin/me/earnings`
+      > escopado no próprio login); **Hint** + glossário ao lado do jargão; erro com "Tentar de
+      > novo" em toda lista. Detalhes em [`UX_BLUEPRINT §9`](./UX_BLUEPRINT.md).
 - [ ] **Módulo "Site" no painel** (editor white-label) — spec em
       [`UX_BLUEPRINT §3.2`](./UX_BLUEPRINT.md):
       - **Escolha do template** entre **3 opções** com preview clicável: **Clássico**,
