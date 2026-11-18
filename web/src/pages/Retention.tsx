@@ -6,6 +6,7 @@
 import { Layout } from "../components/Layout";
 import { Link } from "react-router";
 import { Hint } from "../components/Hint";
+import { ReviewsCard } from "../components/ReviewsCard";
 import { ErrorState } from "../components/ErrorState";
 import { EmptyState } from "../components/EmptyState";
 import { SkeletonRows } from "../components/Skeleton";
@@ -219,6 +220,9 @@ export function RetentionPage() {
           </>
         )}
       </div>
+
+      {/* ---------- Avaliações (V46) ---------- */}
+      <ReviewsCard />
     </Layout>
   );
 }

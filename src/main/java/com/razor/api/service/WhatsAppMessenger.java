@@ -22,6 +22,11 @@ public class WhatsAppMessenger {
         whatsAppService.sendTextMessage(phone, text);
     }
 
+    /** "Digitando..." no WhatsApp do cliente enquanto o bot processa (nao e mensagem). */
+    public void presence(String phone, String presence, int delayMs) {
+        whatsAppService.sendPresence(phone, presence, delayMs);
+    }
+
     /** Como {@link #send}, mas espera a confirmacao e lanca se a mensagem nao sair. */
     public void sendSync(String phone, String text, String role) {
         log.info("[{} OUT] Enviando (sync): '{}'", role, ConsoleText.sanitize(text.replace("\n", " ")));

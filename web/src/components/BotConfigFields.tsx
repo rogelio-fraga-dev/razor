@@ -4,6 +4,7 @@
 // Viviam duplicados no assistente (ConfigWizard) e no antigo card "O que o bot fala" de
 // Configurações: ~150 linhas quase idênticas que já divergiam em rótulo, placeholder e
 // "obrigatório". Agora existe um grupo por assunto e o modal de configuração só os monta.
+import { ServiceCatalogEditor } from "./ServiceCatalogEditor";
 import { SpeechModePicker } from "./SpeechModePicker";
 import { WeekdayPicker } from "./WeekdayPicker";
 import type { BotSettings, BotTextKey } from "../api/types";
@@ -95,13 +96,8 @@ export function HoursFields(p: BotFieldsProps) {
 export function ServicesFields(p: BotFieldsProps) {
   return (
     <div className="stack" style={{ gap: 12 }}>
-      <AreaField
-        {...p}
-        k="servicesText"
-        label="Tabela de serviços / preços"
-        rows={5}
-        placeholder={"Ex.:\nCorte — R$ 40\nBarba — R$ 30\nCorte + Barba — R$ 60"}
-      />
+      {/* Grava direto no catálogo de serviços: o bot, a agenda e a comanda usam a mesma tabela. */}
+      <ServiceCatalogEditor />
       <TextField {...p} k="scheduleUrl" label="Link de agendamento (opcional)" />
     </div>
   );

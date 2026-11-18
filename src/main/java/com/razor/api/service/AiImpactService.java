@@ -76,7 +76,9 @@ public class AiImpactService {
         LocalDateTime end = to.plusDays(1).atStartOfDay();
 
         // --- agendamentos por origem
-        Map<PricingService.ServiceCategory, BigDecimal> precos = pricingService.resolvePrices();
+        // Calculo unico do preco do agendamento (soma do catalogo, combo quando houver) — o mesmo
+        // do bot e do faturamento. Antes: preco por "categoria" (5 servicos saiam como R$ 35).
+        PricingService.Quoter precos = pricingService.quoter();
         Map<AppointmentSource, long[]> counts = new EnumMap<>(AppointmentSource.class);
         Map<AppointmentSource, BigDecimal> revenue = new EnumMap<>(AppointmentSource.class);
         List<Appointment> botBookings = new ArrayList<>();
@@ -85,7 +87,7 @@ public class AiImpactService {
             if (a.getAttendanceStatus() == AttendanceStatus.NO_SHOW) continue;
             AppointmentSource src = a.getSource() != null ? a.getSource() : AppointmentSource.BOT;
             counts.computeIfAbsent(src, k -> new long[1])[0]++;
-            BigDecimal preco = precos.get(pricingService.categorize(a.getService()));
+            BigDecimal preco = precos.price(a.getService());
             revenue.merge(src, preco != null ? preco : BigDecimal.ZERO, BigDecimal::add);
             if (src == AppointmentSource.BOT) botBookings.add(a);
         }

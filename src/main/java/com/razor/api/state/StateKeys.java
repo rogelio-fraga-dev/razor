@@ -60,6 +60,16 @@ public final class StateKeys {
         return "conv:confirm:" + TenantContext.getCurrent() + ":" + phone;
     }
 
+    /** Servico ja definido na conversa de agendamento (nome canonico do catalogo, V46). */
+    public static String chosenService(String phone) {
+        return "conv:service:" + TenantContext.getCurrent() + ":" + phone;
+    }
+
+    /** Pedido de avaliacao pos-atendimento aguardando a nota (ou o comentario da nota baixa), V46. */
+    public static String review(String phone) {
+        return "conv:review:" + TenantContext.getCurrent() + ":" + phone;
+    }
+
     // ---------- alertas operacionais ----------
 
     /** Throttle do aviso "IA indisponivel" enviado aos admins do tenant. */

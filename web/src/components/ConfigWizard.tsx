@@ -160,7 +160,7 @@ export function ConfigWizard({
     },
     {
       title: "Serviços e preços",
-      hint: "A tabela que o bot mostra no menu e usa para responder “quanto custa?”.",
+      hint: "Cada serviço com preço e duração. O bot usa esta tabela para responder “quanto custa?”, somar o total e achar horário; a agenda e a comanda também.",
       render: () => <ServicesFields draft={draft} onChange={change} />,
     },
     {

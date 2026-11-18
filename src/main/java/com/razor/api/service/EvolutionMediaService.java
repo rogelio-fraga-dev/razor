@@ -74,6 +74,9 @@ public class EvolutionMediaService {
     String buildPayload(String messageId) throws com.fasterxml.jackson.core.JsonProcessingException {
         var root = objectMapper.createObjectNode();
         root.putObject("message").putObject("key").put("id", messageId);
+        // Audio do WhatsApp ja vem em ogg/opus, que a transcricao aceita: pedir conversao para
+        // mp4 so atrasava a resposta (a Evolution roda o ffmpeg antes de devolver).
+        root.put("convertToMp4", false);
         return objectMapper.writeValueAsString(root);
     }
 }

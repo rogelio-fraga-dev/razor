@@ -60,10 +60,10 @@ class CommissionServiceTest {
     }
 
     private void givenPrices() {
-        when(pricingService.resolvePrices()).thenReturn(Map.of(
+        when(pricingService.quoter()).thenReturn(PricingService.Quoter.legacy(Map.of(
                 ServiceCategory.SIMPLES, new BigDecimal("35.00"),
                 ServiceCategory.BARBA, new BigDecimal("30.00"),
-                ServiceCategory.COMBO, new BigDecimal("60.00")));
+                ServiceCategory.COMBO, new BigDecimal("60.00")), null));
         when(pricingService.categorize("Corte")).thenReturn(ServiceCategory.SIMPLES);
         when(pricingService.categorize("Combo")).thenReturn(ServiceCategory.COMBO);
         when(pricingService.categorize("Barba")).thenReturn(ServiceCategory.BARBA);

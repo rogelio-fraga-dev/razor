@@ -37,7 +37,7 @@ public class AgendaTaskService {
     private final BarbershopSettingsService barbershopSettingsService;
     private final TenantAdminService tenantAdminService;
 
-    /** Cria o LEMBRETE (1h antes) e a AVALIACAO (1h depois) de um agendamento futuro com telefone. */
+    /** Cria o LEMBRETE (1h antes) e a confirmacao da vespera de um agendamento futuro com telefone. */
     public void criarTarefasAgendadas(Appointment ag) {
         if (ag.getCustomerPhone() == null || ag.getCustomerPhone().trim().isEmpty() || ag.getCustomerPhone().equals("N/A")) return;
         if (ag.getAppointmentDate() == null || ag.getAppointmentTime() == null) return;
@@ -70,20 +70,8 @@ public class AgendaTaskService {
             taskRepository.save(reminderTask);
             log.info("[AGENDA] Tarefa de LEMBRETE criada para {} às {}", ag.getCustomerPhone(), reminderTime);
 
-            // 2. Tarefa de AVALIAÇÃO (1 hora depois do horário)
-            LocalDateTime reviewTime = apptDateTime.plusHours(1);
-            String reviewMsg = "E aí, " + pNome + ", curtiu o talento? 🧔‍♂️\nSua avaliação ajuda a barbearia a crescer! Leva só 1 minuto:\n⭐ " + barbershopSettingsService.resolve().addressMapsUrl() + "\n\nValeu demais! 👊";
-
-            ScheduledTask reviewTask = ScheduledTask.builder().barbershopId(TenantContext.getCurrent())
-                    .customerPhone(ag.getCustomerPhone())
-                    .appointmentId(ag.getId())
-                    .executionTime(reviewTime)
-                    .taskType("REVIEW_REQUEST")
-                    .messageContent(reviewMsg)
-                    .status(ScheduledTask.TaskStatus.PENDING)
-                    .build();
-            taskRepository.save(reviewTask);
-            log.info("[AGENDA] Tarefa de AVALIAÇÃO criada para {} às {}", ag.getCustomerPhone(), reviewTime);
+            // O pedido de avaliacao nao nasce mais aqui (V46): sai depois que a comanda fecha,
+            // pelo CustomerReviewService — antes ia 1h depois do horario mesmo para quem faltou.
 
             criarTarefasDeConfirmacao(ag, apptDateTime, pNome);
 

@@ -61,9 +61,10 @@ public class OccupancyService {
         Map<UUID, Integer> appointmentCount = new HashMap<>();
         int unassigned = 0;
 
-        Map<PricingService.ServiceCategory, Integer> durations = pricingService.resolveDurations();
+        PricingService.Quoter durations = pricingService.quoter();
         for (Appointment a : appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(shop, from, to)) {
-            int minutes = durations.getOrDefault(pricingService.categorize(a.getService()), FALLBACK_MINUTES);
+            int minutes = durations.duration(a.getService());
+            if (minutes <= 0) minutes = FALLBACK_MINUTES;
             if (a.getProfessionalId() == null) {
                 // Ocupa cadeira de verdade, mas nao da para dizer de quem. Distribuir por chute
                 // inventaria ocupacao para quem talvez nao tenha atendido.
