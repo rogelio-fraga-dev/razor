@@ -83,4 +83,19 @@ class AiTagParserTest {
         assertThat(intent).isInstanceOf(AiIntent.Resposta.class);
         assertThat(intent.cleanedResponse()).isEmpty();
     }
+
+    @Test
+    @DisplayName("tag malformada nao vaza para o cliente e pede confirmacao dos dados")
+    void parse_malformedAgendamento_stripsTagAndAsksConfirmation() {
+        AiIntent semFechamento = parser.parse("Agendamento Confirmado! ✅ [NOVO_AGENDAMENTO|Joao|28/05|10:00|Corte");
+        AiIntent camposFaltando = parser.parse("Agendamento Confirmado! ✅\n[NOVO_AGENDAMENTO|Joao|28/05]");
+
+        for (AiIntent intent : java.util.List.of(semFechamento, camposFaltando)) {
+            assertThat(intent).isInstanceOf(AiIntent.Resposta.class);
+            assertThat(intent.cleanedResponse())
+                    .doesNotContain("NOVO_AGENDAMENTO")
+                    .doesNotContain("Confirmado") // nada foi agendado: nao pode confirmar
+                    .isEqualTo(AiTagParser.MALFORMED_BOOKING_MSG);
+        }
+    }
 }
