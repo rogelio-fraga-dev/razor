@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ErrorState } from "../components/ErrorState";
 import { Layout } from "../components/Layout";
 import { Modal, Switch } from "../components/Modal";
 import { EmptyState } from "../components/EmptyState";
@@ -68,7 +69,7 @@ export function Services() {
         {loading ? (
           <SkeletonRows rows={4} />
         ) : error ? (
-          <div className="empty error" role="alert">{error}</div>
+          <ErrorState message={error} onRetry={reload} />
         ) : !data || data.length === 0 ? (
           <EmptyState
             icon="✂"

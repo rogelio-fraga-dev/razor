@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SkeletonRows } from "./Skeleton";
 import { useToast } from "./Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
@@ -90,7 +91,7 @@ export function NoShowSettingsCard({ reloadKey = 0 }: { reloadKey?: number }) {
           da hora da pergunta não são perguntados — o lembrete de 1h antes continua saindo.
         </p>
         {loading ? (
-          <div className="muted">Carregando…</div>
+          <SkeletonRows rows={2} />
         ) : error ? (
           <div className="error" role="alert">{error}</div>
         ) : (

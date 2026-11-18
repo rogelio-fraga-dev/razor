@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { ErrorState } from "../components/ErrorState";
 import { useSearchParams } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { Switch } from "../components/Modal";
-import { Skeleton } from "../components/Skeleton";
+import { Skeleton, SkeletonRows } from "../components/Skeleton";
 import { ConfigWizard, WIZARD_STEPS } from "../components/ConfigWizard";
 import { ConfigChecklist } from "../components/ConfigChecklist";
 import { Tabs, panelId, tabId, type TabDef } from "../components/Tabs";
@@ -88,7 +89,7 @@ function BotStatusCard({ reloadKey }: { reloadKey: number }) {
         {loading ? (
           <div className="muted">Verificando…</div>
         ) : error ? (
-          <div className="error" role="alert">{error}</div>
+          <ErrorState compact message={error} onRetry={reload} />
         ) : data ? (
           <div className="stack" style={{ gap: 10 }}>
             <div style={rowStyle}>
@@ -206,9 +207,9 @@ function ProfileCard({ reloadKey }: { reloadKey: number }) {
       </div>
       <div className="card-pad">
         {loading ? (
-          <div className="muted">Carregando…</div>
+          <SkeletonRows rows={2} />
         ) : error ? (
-          <div className="error" role="alert">{error}</div>
+          <ErrorState compact message={error} onRetry={reload} />
         ) : (
           <div className="stack">
             <div className="field">
@@ -300,9 +301,9 @@ function GoalsCard({ reloadKey }: { reloadKey: number }) {
           progresso. Deixe vazio para não acompanhar meta.
         </p>
         {loading ? (
-          <div className="muted">Carregando…</div>
+          <SkeletonRows rows={2} />
         ) : error ? (
-          <div className="error" role="alert">{error}</div>
+          <ErrorState compact message={error} onRetry={reload} />
         ) : (
           <div className="stack">
             <div className="field">
@@ -352,11 +353,13 @@ function BotSummaryCard({
   loading,
   error,
   onEdit,
+  onRetry,
 }: {
   data: BotSettings | null;
   loading: boolean;
   error: string | null;
   onEdit: (step: number) => void;
+  onRetry: () => void;
 }) {
   const persona = data?.botPersona ?? "";
   const modeId = matchSpeechMode(persona);
@@ -422,7 +425,7 @@ function BotSummaryCard({
             {[0, 1, 2].map((i) => <Skeleton key={i} h={38} />)}
           </div>
         ) : error ? (
-          <div className="error" role="alert">{error}</div>
+          <ErrorState compact message={error} onRetry={onRetry} />
         ) : (
           <ul className="cfg-checklist" style={{ marginTop: 0 }}>
             {rows.map((r) => (
@@ -577,7 +580,7 @@ export function Settings() {
       {panel(
         "bot",
         <div className="stack">
-          <BotSummaryCard data={bot.data} loading={bot.loading} error={bot.error} onEdit={openWizardAt} />
+          <BotSummaryCard data={bot.data} loading={bot.loading} error={bot.error} onEdit={openWizardAt} onRetry={bot.reload} />
           <BookingLimitCard reloadKey={configVersion} />
           <NoShowSettingsCard reloadKey={configVersion} />
         </div>,

@@ -1,6 +1,7 @@
 // Comandas do atendimento (V22): serviços + produtos na mesma conta, fechada de uma vez.
 // Fechar exige caixa aberto — a comanda lança UM movimento com o total.
 import { useState } from "react";
+import { Hint } from "../components/Hint";
 import { Layout } from "../components/Layout";
 import { Modal } from "../components/Modal";
 import { EmptyState } from "../components/EmptyState";
@@ -110,13 +111,13 @@ export function Comandas() {
       {/* Fechadas e canceladas do dia — o histórico logo abaixo, sem trocar de tela */}
       <div className="card">
         <div className="card-head">
-          <h3>Fechadas hoje</h3>
+          <h3>Fechadas hoje<Hint term="comanda" label="comanda" /></h3>
           {closedTotal > 0 && <span className="badge badge-green mono">{money(closedTotal)}</span>}
         </div>
         {/* Falha ao carregar nao pode virar "nenhuma fechada": o operador concluiria que o
             caixa do dia esta zerado. */}
         {today.loading && !today.data ? (
-          <div className="card-pad faint">Carregando…</div>
+          <SkeletonRows rows={2} />
         ) : today.error ? (
           <div className="card-pad error" role="alert">
             Não foi possível carregar as comandas fechadas hoje ({today.error}). Recarregue a página.

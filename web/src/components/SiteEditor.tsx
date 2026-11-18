@@ -4,6 +4,7 @@
 // Publicar é um ato separado de salvar: dá para montar o site com calma sem que um rascunho
 // pela metade vá ao ar com o endereço já impresso no cartão.
 import { useEffect, useState } from "react";
+import { SkeletonRows } from "./Skeleton";
 import { Switch } from "./Modal";
 import { useToast } from "./Toast";
 import { useApi } from "../lib/useApi";
@@ -102,7 +103,7 @@ export function SiteEditor({ slug }: { slug: string | null }) {
       </div>
       <div className="card-pad">
         {loading ? (
-          <div className="muted">Carregando…</div>
+          <SkeletonRows rows={2} />
         ) : error ? (
           <div className="error" role="alert">{error}</div>
         ) : (

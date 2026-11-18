@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { ErrorState } from "./ErrorState";
+import { SkeletonRows } from "./Skeleton";
 import { useToast } from "./Toast";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
@@ -61,9 +63,9 @@ export function BookingLimitCard({ reloadKey = 0 }: { reloadKey?: number }) {
           limitar.
         </p>
         {loading ? (
-          <div className="muted">Carregando…</div>
+          <SkeletonRows rows={2} />
         ) : error ? (
-          <div className="error" role="alert">{error}</div>
+          <ErrorState compact message={error} onRetry={reload} />
         ) : (
           <div className="stack">
             <div className="field">

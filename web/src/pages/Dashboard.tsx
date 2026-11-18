@@ -2,6 +2,9 @@
 // (meta de faturamento, taxa de ocupação, ranking sem movimento) a tela diz que não há —
 // nunca preenche com exemplo, porque o dono usa esses números para decidir dinheiro.
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Hint } from "../components/Hint";
+import { ErrorState } from "../components/ErrorState";
 import { Layout } from "../components/Layout";
 import { Cockpit } from "../components/Cockpit";
 import { ActivationChecklist } from "../components/ActivationChecklist";
@@ -134,7 +137,7 @@ export function Dashboard() {
 
           <div className="card kpi-card">
             <div className="kpi-header">
-              <span className="kpi-title">Tíquete médio</span>
+              <span className="kpi-title">Tíquete médio<Hint term="ticketMedio" label="tíquete médio" /></span>
             </div>
             <div className="kpi-value mono">{money(m?.averageTicket)}</div>
             <div className="kpi-sub">
@@ -202,12 +205,13 @@ export function Dashboard() {
               ))}
             </div>
           ) : agenda.error ? (
-            <div className="empty error" role="alert">{agenda.error}</div>
+            <ErrorState message={agenda.error} onRetry={agenda.reload} />
           ) : !agenda.data || agenda.data.length === 0 ? (
             <EmptyState
               icon="📅"
               title="Nenhum corte marcado para hoje — ainda."
               hint="Quando um cliente pedir horário no WhatsApp, a IA agenda e o horário aparece aqui sozinho."
+              action={<Link className="btn btn-ghost" to="/agenda">Marcar um horário</Link>}
             />
           ) : (
             <div className="timeline">
@@ -250,7 +254,7 @@ export function Dashboard() {
             {[0, 1, 2].map((i) => <Skeleton key={i} h={38} />)}
           </div>
         ) : commissions.error ? (
-          <div className="empty error" role="alert">{commissions.error}</div>
+          <ErrorState message={commissions.error} onRetry={commissions.reload} />
         ) : !commissions.data || commissions.data.items.length === 0 ? (
           <EmptyState
             icon="✂"

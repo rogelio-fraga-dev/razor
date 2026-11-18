@@ -2,6 +2,8 @@
 // É a tela que o dono olha antes de pagar — sem a coluna "já pago", pagar a mesma quinzena
 // duas vezes é fácil demais.
 import { useState } from "react";
+import { Hint } from "../components/Hint";
+import { ErrorState } from "../components/ErrorState";
 import { Layout } from "../components/Layout";
 import { Modal, Switch } from "../components/Modal";
 import { EmptyState } from "../components/EmptyState";
@@ -144,7 +146,7 @@ export function CommissionSettlementPage() {
     >
       <div className="card">
         <div className="card-head">
-          <h3>Apuração do período</h3>
+          <h3>Apuração do período<Hint term="acerto" label="acerto" /></h3>
           {s && (
             <div className="row" style={{ gap: 10 }}>
               <span className="badge badge-muted mono">apurado {money(s.totalComissao)}</span>
@@ -160,7 +162,7 @@ export function CommissionSettlementPage() {
         {settlement.loading ? (
           <SkeletonRows rows={3} />
         ) : settlement.error ? (
-          <div className="empty error" role="alert">{settlement.error}</div>
+          <ErrorState message={settlement.error} onRetry={settlement.reload} />
         ) : !s || s.items.length === 0 ? (
           <EmptyState
             icon="✂"
@@ -239,7 +241,7 @@ export function CommissionSettlementPage() {
         {history.loading && !history.data ? (
           <SkeletonRows rows={2} />
         ) : history.error ? (
-          <div className="empty error" role="alert">{history.error}</div>
+          <ErrorState message={history.error} onRetry={history.reload} />
         ) : !history.data || history.data.items.length === 0 ? (
           <div className="card-pad faint">Nenhum acerto registrado ainda.</div>
         ) : (
@@ -284,12 +286,12 @@ export function CommissionSettlementPage() {
       {/* Vales do período — o que está sendo descontado acima */}
       <div className="card">
         <div className="card-head">
-          <h3>Vales e adiantamentos</h3>
+          <h3>Vales e adiantamentos<Hint term="vale" label="vale" /></h3>
         </div>
         {advances.loading && !advances.data ? (
           <SkeletonRows rows={2} />
         ) : advances.error ? (
-          <div className="empty error" role="alert">{advances.error}</div>
+          <ErrorState message={advances.error} onRetry={advances.reload} />
         ) : !advances.data || advances.data.items.length === 0 ? (
           <div className="card-pad faint">
             Nenhum vale registrado. Use o botão “Vale” na linha do barbeiro — o valor é

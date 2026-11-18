@@ -3,6 +3,7 @@
 // crédito contam cada um na sua linha. As taxas configuradas aqui valem para as próximas
 // vendas — o que já entrou guarda a taxa do dia em que entrou.
 import { useState } from "react";
+import { ErrorState } from "./ErrorState";
 import { Modal } from "./Modal";
 import { SkeletonRows } from "./Skeleton";
 import { useToast } from "./Toast";
@@ -37,7 +38,7 @@ export function PaymentReceiptsCard({ from, to, label }: { from: string; to: str
         {summary.loading ? (
           <SkeletonRows rows={3} />
         ) : summary.error ? (
-          <div className="empty error" role="alert">{summary.error}</div>
+          <ErrorState message={summary.error} onRetry={summary.reload} />
         ) : !r || r.methods.length === 0 ? (
           <p className="muted" style={{ margin: 0, fontSize: 14 }}>
             Nenhuma venda passou pelo caixa neste período.

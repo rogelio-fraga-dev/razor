@@ -1,6 +1,7 @@
 // Estoque de um produto (V24): repor, registrar perda, corrigir contagem e ver o extrato.
 // O controle é opt-in — enquanto desligado, o saldo aqui não bloqueia nenhuma venda.
 import { useState } from "react";
+import { SkeletonRows } from "./Skeleton";
 import { Modal, Switch } from "./Modal";
 import { useToast } from "./Toast";
 import { useApi } from "../lib/useApi";
@@ -180,7 +181,7 @@ export function StockModal({
         <div>
           <div className="faint" style={{ fontSize: 12 }}>EXTRATO</div>
           {movements.loading ? (
-            <div className="muted">Carregando…</div>
+            <SkeletonRows rows={2} />
           ) : movements.error ? (
             <div className="error" role="alert">{movements.error}</div>
           ) : !movements.data || movements.data.length === 0 ? (

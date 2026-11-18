@@ -4,6 +4,8 @@
 // só existe por causa das contas logo abaixo, e separar em duas telas faria ele conferir uma
 // coisa num lugar e explicar noutro.
 import { useState } from "react";
+import { Hint } from "../components/Hint";
+import { ErrorState } from "../components/ErrorState";
 import { Layout } from "../components/Layout";
 import { Modal, Switch } from "../components/Modal";
 import { EmptyState } from "../components/EmptyState";
@@ -189,7 +191,7 @@ export function Expenses() {
       {/* ---------- DRE ---------- */}
       <div className="card">
         <div className="card-head">
-          <h3>Resultado de {periodLabel}</h3>
+          <h3>Resultado de {periodLabel} (DRE)<Hint term="dre" label="DRE" /></h3>
           {dre.data && dre.data.marginPercent !== null && (
             <span className={`badge ${inTheRed ? "badge-amber" : "badge-green"} mono`}>
               margem {percent(dre.data.marginPercent)}
@@ -200,7 +202,7 @@ export function Expenses() {
         {dre.loading ? (
           <SkeletonRows rows={3} />
         ) : dre.error ? (
-          <div className="empty error" role="alert">{dre.error}</div>
+          <ErrorState message={dre.error} onRetry={dre.reload} />
         ) : dre.data ? (
           <>
             <div className="bento-grid" style={{ marginBottom: 18 }}>
@@ -294,7 +296,7 @@ export function Expenses() {
         {list.loading && !list.data ? (
           <SkeletonRows rows={4} />
         ) : list.error ? (
-          <div className="empty error" role="alert">{list.error}</div>
+          <ErrorState message={list.error} onRetry={list.reload} />
         ) : itens.length === 0 ? (
           <EmptyState
             icon="📄"

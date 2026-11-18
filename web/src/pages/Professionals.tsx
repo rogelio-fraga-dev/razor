@@ -1,10 +1,15 @@
 import { useRef, useState } from "react";
+import { ErrorState } from "../components/ErrorState";
 import { Layout } from "../components/Layout";
 import { Modal, Switch } from "../components/Modal";
 import { Avatar } from "../components/Avatar";
 import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
-import type { Professional, ProfessionalInput, ServiceOffering } from "../api/types";
+import type { PanelUser, Professional, ProfessionalInput, ServiceOffering } from "../api/types";
+import { EmptyState } from "../components/EmptyState";
+import { Hint } from "../components/Hint";
+import { Skeleton } from "../components/Skeleton";
+import { useToast } from "../components/Toast";
 import { percent } from "../lib/format";
 import { photoToAvatarDataUri } from "../lib/photo";
 
@@ -24,6 +29,8 @@ interface Draft {
   instagramUrl: string;
   /** Vazio = atende todos os serviços. */
   serviceIds: string[];
+  /** Login do painel ligado a este barbeiro (V44); vazio = nenhum. */
+  panelUserId: string;
 }
 
 const EMPTY: Draft = {
@@ -39,6 +46,7 @@ const EMPTY: Draft = {
   specialties: [],
   instagramUrl: "",
   serviceIds: [],
+  panelUserId: "",
 };
 
 const MAX_BIO = 500;
@@ -53,6 +61,11 @@ function instagramHandle(url: string | null): string | null {
 export function Professionals() {
   const { data, loading, error, reload } = useApi<Professional[]>(() => api.get("/api/admin/professionals"), []);
   const services = useApi<ServiceOffering[]>(() => api.get("/api/admin/services"), []);
+  // Logins do painel (V44): ligar um login a um barbeiro dá a ele o "Meu dia" (horários e
+  // comissão dele). Se falhar, a tela segue — só o seletor de login some.
+  const panelUsers = useApi<PanelUser[]>(() => api.get("/api/admin/panel-users"), []);
+  const toast = useToast();
+  const loginOf = (professionalId: string) => panelUsers.data?.find((u) => u.professionalId === professionalId) ?? null;
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -90,6 +103,7 @@ export function Professionals() {
       specialties: p.specialties ?? [],
       instagramUrl: p.instagramUrl ?? "",
       serviceIds: p.serviceIds ?? [],
+      panelUserId: loginOf(p.id)?.id ?? "",
     });
   };
 
@@ -157,8 +171,18 @@ export function Professionals() {
       serviceIds: draft.serviceIds,
     };
     try {
-      if (draft.id) await api.put(`/api/admin/professionals/${draft.id}`, payload);
-      else await api.post("/api/admin/professionals", payload);
+      let id = draft.id;
+      if (id) await api.put(`/api/admin/professionals/${id}`, payload);
+      else id = (await api.post<Professional>("/api/admin/professionals", payload)).id;
+
+      // Vínculo do login: desfaz o antigo (se trocou) e liga o novo.
+      const previous = draft.id ? loginOf(draft.id)?.id ?? "" : "";
+      if (previous !== draft.panelUserId) {
+        if (previous) await api.put(`/api/admin/panel-users/${previous}/professional`, { professionalId: null });
+        if (draft.panelUserId) await api.put(`/api/admin/panel-users/${draft.panelUserId}/professional`, { professionalId: id });
+        panelUsers.reload();
+      }
+      toast.success(draft.id ? "Barbeiro salvo ✓" : "Barbeiro cadastrado ✓");
       setDraft(null);
       reload();
     } catch (e) {
@@ -177,12 +201,30 @@ export function Professionals() {
           <h3>Equipe</h3>
           {data && <span className="badge badge-muted">{data.length} profissionais</span>}
         </div>
-        {loading ? (
-          <div className="empty">Carregando…</div>
+        {loading && !data ? (
+          <div className="pro-grid" aria-busy="true" aria-label="Carregando equipe">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="pro-card">
+                <div className="pro-card-top">
+                  <Skeleton w={56} h={56} style={{ borderRadius: 16 }} />
+                  <div style={{ flex: 1 }}>
+                    <Skeleton w="60%" h={14} />
+                    <Skeleton w="30%" h={18} style={{ display: "block", marginTop: 8, borderRadius: 999 }} />
+                  </div>
+                </div>
+                <Skeleton w="90%" h={12} style={{ display: "block", marginTop: 14 }} />
+              </div>
+            ))}
+          </div>
         ) : error ? (
-          <div className="empty error" role="alert">{error}</div>
+          <ErrorState message={error} onRetry={reload} />
         ) : !data || data.length === 0 ? (
-          <div className="empty">Nenhum barbeiro cadastrado.</div>
+          <EmptyState
+            icon="✂"
+            title="Cadastre seu primeiro barbeiro."
+            hint="A IA já começa a agendar para ele, e cada barbeiro vira uma coluna da agenda."
+            action={<button className="btn btn-primary" onClick={openNew}>+ Novo barbeiro</button>}
+          />
         ) : (
           <div className="pro-grid">
             {data.map((p) => (
@@ -221,6 +263,12 @@ export function Professionals() {
                       <span className="faint"> · produtos {percent(p.productCommissionPercent ?? p.commissionPercent)}</span>
                     </dd>
                   </div>
+                  {panelUsers.data && (
+                    <div>
+                      <dt>Login</dt>
+                      <dd>{loginOf(p.id) ? <span className="muted">{loginOf(p.id)!.email}</span> : <span className="faint">sem login no painel</span>}</dd>
+                    </div>
+                  )}
                   {(p.phone || p.instagramUrl) && (
                     <div>
                       <dt>Contato</dt>
@@ -411,10 +459,38 @@ export function Professionals() {
               </div>
             </div>
             <span className="faint" style={{ fontSize: 12, marginTop: -6 }}>
+              <Hint term="comissaoProduto" label="comissão por produto" align="start" />{" "}
               Muitas barbearias pagam menos em produto. Deixe <strong>vazio</strong> para usar o
               mesmo percentual dos serviços — <strong>0</strong> é diferente: significa não pagar
               comissão de produto.
             </span>
+            {panelUsers.data && panelUsers.data.length > 0 && (
+              <div className="field">
+                <label>Login do painel
+                  <select
+                    className="input"
+                    value={draft.panelUserId}
+                    onChange={(e) => setDraft({ ...draft, panelUserId: e.target.value })}
+                  >
+                    <option value="">Nenhum (ele não entra no painel)</option>
+                    {panelUsers.data.map((u) => {
+                      const takenBy = u.professionalId && u.professionalId !== draft.id;
+                      return (
+                        <option key={u.id} value={u.id} disabled={!!takenBy}>
+                          {(u.name || u.email) + ` · ${u.email}`}
+                          {u.role === "OWNER" ? " (dono)" : u.role === "RECEPTION" ? " (recepção)" : ""}
+                          {takenBy ? " — já ligado a outro barbeiro" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+                <span className="faint" style={{ fontSize: 12 }}>
+                  Com o login ligado, ele entra no painel e vê o <strong>Meu dia</strong>: os próprios horários e
+                  quanto ganhou hoje e na quinzena — nunca a comissão dos colegas.
+                </span>
+              </div>
+            )}
             {draft.id && <Switch checked={draft.active} onChange={(v) => setDraft({ ...draft, active: v })} label="Barbeiro ativo" />}
             {formError && <div className="error" role="alert">{formError}</div>}
           </div>

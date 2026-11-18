@@ -2,6 +2,7 @@
 // paga de uma vez e vai gastando. A venda entra no caixa aberto; a baixa é automática quando a
 // comanda do cliente (com telefone) é fechada.
 import { useEffect, useState } from "react";
+import { ErrorState } from "../components/ErrorState";
 import { Layout } from "../components/Layout";
 import { Modal } from "../components/Modal";
 import { EmptyState } from "../components/EmptyState";
@@ -94,6 +95,7 @@ export function Packages() {
   const toggleActive = async (p: ServicePackage) => {
     try {
       await api.put(`/api/admin/packages/${p.id}/active`, { active: !p.active });
+      toast.success(p.active ? "Pacote desativado ✓" : "Pacote reativado ✓");
       refresh();
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : "Erro ao alterar o pacote.");
@@ -135,7 +137,7 @@ export function Packages() {
         {catalog.loading ? (
           <SkeletonRows rows={3} />
         ) : catalog.error ? (
-          <div className="empty error" role="alert">{catalog.error}</div>
+          <ErrorState message={catalog.error} onRetry={catalog.reload} />
         ) : !catalog.data || catalog.data.length === 0 ? (
           <EmptyState
             icon="🎫"
@@ -199,7 +201,7 @@ export function Packages() {
         {balances.loading ? (
           <SkeletonRows rows={3} />
         ) : balances.error ? (
-          <div className="empty error" role="alert">{balances.error}</div>
+          <ErrorState message={balances.error} onRetry={balances.reload} />
         ) : !balances.data || balances.data.length === 0 ? (
           <div className="card-pad faint">
             {showAll ? "Nenhum pacote vendido ainda." : "Nenhum cliente com pacote ativo."}

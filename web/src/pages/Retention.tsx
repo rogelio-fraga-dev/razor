@@ -4,6 +4,9 @@
 // faturamento alto significa cadeira sobrando; retenção caindo com ocupação alta significa que a
 // casa está cheia de gente que não volta. Separá-las faria o dono comparar dois relatórios.
 import { Layout } from "../components/Layout";
+import { Link } from "react-router-dom";
+import { Hint } from "../components/Hint";
+import { ErrorState } from "../components/ErrorState";
 import { EmptyState } from "../components/EmptyState";
 import { SkeletonRows } from "../components/Skeleton";
 import { useApi } from "../lib/useApi";
@@ -71,14 +74,14 @@ export function RetentionPage() {
       {/* ---------- Ocupação ---------- */}
       <div className="card">
         <div className="card-head">
-          <h3>Ocupação das cadeiras</h3>
+          <h3>Ocupação das cadeiras<Hint term="ocupacao" label="taxa de ocupação" /></h3>
           {o && <span className="badge badge-muted mono">{o.openDays} dias abertos no período</span>}
         </div>
 
         {occupancy.loading ? (
           <SkeletonRows rows={3} />
         ) : occupancy.error ? (
-          <div className="empty error" role="alert">{occupancy.error}</div>
+          <ErrorState message={occupancy.error} onRetry={occupancy.reload} />
         ) : o ? (
           <>
             <div className="cfg-hero">
@@ -100,7 +103,12 @@ export function RetentionPage() {
             </div>
 
             {o.professionals.length === 0 ? (
-              <EmptyState icon="✂" title="Nenhum barbeiro ativo." hint="Cadastre a equipe em Profissionais para medir a ocupação." />
+              <EmptyState
+                icon="✂"
+                title="Nenhum barbeiro ativo."
+                hint="Cadastre a equipe em Profissionais para medir a ocupação."
+                action={<Link className="btn btn-ghost" to="/professionals">Ir para Profissionais</Link>}
+              />
             ) : (
               <div style={{ overflowX: "auto" }}>
                 <table className="table">
@@ -110,7 +118,7 @@ export function RetentionPage() {
                       <th style={{ textAlign: "right" }}>Disponível</th>
                       <th style={{ textAlign: "right" }}>Vendido</th>
                       <th style={{ textAlign: "right" }}>Atendimentos</th>
-                      <th style={{ textAlign: "right" }}>Ocupação</th>
+                      <th style={{ textAlign: "right" }}>Ocupação<Hint term="ocupacao" label="taxa de ocupação" align="end" /></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -148,12 +156,13 @@ export function RetentionPage() {
         {retention.loading ? (
           <SkeletonRows rows={3} />
         ) : retention.error ? (
-          <div className="empty error" role="alert">{retention.error}</div>
+          <ErrorState message={retention.error} onRetry={retention.reload} />
         ) : !r || r.totalCustomers === 0 ? (
           <EmptyState
             icon="👥"
             title="Base ainda vazia."
             hint="Quem falar com o bot entra aqui sozinho. Com histórico, esta tela mostra quem está prestes a sumir."
+            action={<Link className="btn btn-ghost" to="/settings">Conectar o WhatsApp</Link>}
           />
         ) : (
           <>

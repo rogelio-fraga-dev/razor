@@ -2,6 +2,7 @@
 // Antes desta tela, o cupom da fidelidade era só um texto enviado no WhatsApp — o caixa não
 // tinha como validar e nada impedia usar duas vezes.
 import { useState } from "react";
+import { ErrorState } from "../components/ErrorState";
 import { Layout } from "../components/Layout";
 import { Modal } from "../components/Modal";
 import { EmptyState } from "../components/EmptyState";
@@ -39,7 +40,7 @@ export function Coupons() {
   const toast = useToast();
   const [version, setVersion] = useState(0);
   const [page, setPage] = useState(0);
-  const { data: pageData, loading, error } = useApi<PageMeta<Coupon>>(
+  const { data: pageData, loading, error, reload } = useApi<PageMeta<Coupon>>(
     () => api.get(`/api/admin/coupons?page=${page}`),
     [page, version],
   );
@@ -119,7 +120,7 @@ export function Coupons() {
         {loading ? (
           <SkeletonRows rows={3} />
         ) : error ? (
-          <div className="empty error" role="alert">{error}</div>
+          <ErrorState message={error} onRetry={reload} />
         ) : !data || data.length === 0 ? (
           <EmptyState
             icon="🎟️"
