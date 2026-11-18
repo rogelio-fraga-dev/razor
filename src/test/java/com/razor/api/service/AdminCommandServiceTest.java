@@ -54,6 +54,7 @@ class AdminCommandServiceTest {
     private com.razor.api.state.StateStore stateStore =
             new com.razor.api.state.InMemoryStateStore(new com.fasterxml.jackson.databind.ObjectMapper());
 
+    @Mock private com.razor.api.repository.CustomerPackageRepository customerPackageRepository;
     @InjectMocks private AdminCommandService service;
 
     private EvolutionWebhookDTO adminText(String text) {
@@ -179,14 +180,14 @@ class AdminCommandServiceTest {
         var falha = com.razor.api.model.Customer.builder().phoneNumber("5522222222222").name("Bia").build();
         when(customerRepository.findByBarbershopId(any())).thenReturn(java.util.List.of(ok, falha));
         // O envio (sincrono, um a um) mora no BroadcastService; aqui so o relatorio ao dono.
-        when(broadcastService.deliver(any(), eq("Promo!"), eq(false), eq(ADMIN)))
-                .thenReturn(new BroadcastService.Resultado(java.util.List.of("Ana"), 1));
-
         service.performBroadcast(ADMIN, "Promo!", false);
 
-        verify(messenger).send(eq(ADMIN),
-                argThat(m -> m.contains("Relatório de Disparo") && m.contains("Total alcançado: 1")
-                        && m.contains("Falharam: 1") && m.contains("Ana") && !m.contains("Bia")),
-                eq("ADMIN"));
+        // O envio vai para o pool de disparos (segundo plano); o relatorio sai de la no fim.
+        verify(broadcastService).deliverForAdminInBackground(any(), eq(ADMIN),
+                eq(java.util.List.of(ok, falha)), eq("Promo!"), eq(false));
+        verify(messenger).send(eq(ADMIN), argThat(m -> m.contains("Iniciando disparo para 2")), eq("ADMIN"));
+        org.assertj.core.api.Assertions.assertThat(BroadcastService.report(new BroadcastService.Resultado(java.util.List.of("Ana"), 1)))
+                .contains("Relatório de Disparo").contains("Total alcançado: 1").contains("Falharam: 1")
+                .contains("Ana").doesNotContain("Bia");
     }
 }

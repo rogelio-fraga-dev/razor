@@ -309,7 +309,7 @@ class AgendaServiceTest {
         ScheduledTask pending = task(7L, "REMINDER", LocalDate.of(2026, 12, 20).atTime(9, 0));
         when(taskRepository.findByBarbershopIdAndAppointmentIdAndStatus(any(UUID.class), eq(7L),
                 eq(ScheduledTask.TaskStatus.PENDING))).thenReturn(List.of(pending));
-        when(taskRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE))).thenReturn(List.of(pending));
+        when(taskRepository.findByBarbershopIdAndCustomerPhoneAndStatus(any(UUID.class), eq(PHONE), eq(ScheduledTask.TaskStatus.PENDING))).thenReturn(List.of(pending));
 
         boolean ok = service.cancelarAgendamentoExato(ag);
 
@@ -337,7 +337,7 @@ class AgendaServiceTest {
         ScheduledTask disparo = task(null, "BROADCAST_SCHEDULED", LocalDate.of(2026, 12, 16).atTime(8, 0));
         when(taskRepository.findByBarbershopIdAndAppointmentIdAndStatus(any(UUID.class), eq(1L),
                 eq(ScheduledTask.TaskStatus.PENDING))).thenReturn(List.of(lembreteTerca, avaliacaoTerca));
-        when(taskRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE)))
+        when(taskRepository.findByBarbershopIdAndCustomerPhoneAndStatus(any(UUID.class), eq(PHONE), eq(ScheduledTask.TaskStatus.PENDING)))
                 .thenReturn(List.of(lembreteTerca, avaliacaoTerca, lembreteSexta, disparo));
 
         assertThat(service.cancelarAgendamentoExato(terca)).isTrue();
@@ -360,7 +360,7 @@ class AgendaServiceTest {
         ScheduledTask lembreteOutroDia = task(null, "REMINDER", LocalDate.of(2026, 12, 18).atTime(9, 0));
         when(taskRepository.findByBarbershopIdAndAppointmentIdAndStatus(any(UUID.class), eq(1L),
                 eq(ScheduledTask.TaskStatus.PENDING))).thenReturn(List.of());
-        when(taskRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE)))
+        when(taskRepository.findByBarbershopIdAndCustomerPhoneAndStatus(any(UUID.class), eq(PHONE), eq(ScheduledTask.TaskStatus.PENDING)))
                 .thenReturn(List.of(lembreteLegado, avaliacaoLegada, lembreteOutroDia));
 
         service.cancelarAgendamentoExato(terca);
@@ -412,7 +412,7 @@ class AgendaServiceTest {
         Appointment recente = appt("Barba", PaymentStatus.PENDENTE, LocalDate.of(2026, 12, 18), LocalTime.of(15, 0));
         recente.setCreatedAt(java.time.LocalDateTime.of(2026, 11, 10, 9, 0));
         givenUpcoming(recente, antigo); // ordenado por data, como o banco devolve
-        when(taskRepository.findByBarbershopIdAndCustomerPhone(any(UUID.class), eq(PHONE))).thenReturn(List.of());
+        when(taskRepository.findByBarbershopIdAndCustomerPhoneAndStatus(any(UUID.class), eq(PHONE), eq(ScheduledTask.TaskStatus.PENDING))).thenReturn(List.of());
 
         assertThat(service.cancelarAgendamentoMaisRecente(PHONE)).isTrue();
         verify(appointmentRepository).delete(recente);

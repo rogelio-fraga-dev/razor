@@ -54,7 +54,16 @@ class RazorSchedulerTest {
     @Mock private AgendaService agendaService;
     @Mock private com.razor.api.service.AppointmentConfirmationService confirmationService;
 
+    @Mock private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
     @InjectMocks private RazorScheduler scheduler;
+
+    /** Transacao de mentira: so executa o callback (o teste olha o status gravado por tarefa). */
+    @org.junit.jupiter.api.BeforeEach
+    void runCallbacks() {
+        when(transactionTemplate.execute(any())).thenAnswer(inv ->
+                ((org.springframework.transaction.support.TransactionCallback<?>) inv.getArgument(0)).doInTransaction(null));
+    }
 
     @AfterEach
     void tearDown() {
@@ -78,7 +87,7 @@ class RazorSchedulerTest {
     void dueTask_sentAndCompleted_underTaskTenant() {
         UUID shopId = UUID.randomUUID();
         ScheduledTask t = task(shopId, LocalDateTime.now(BRT).minusMinutes(5));
-        when(taskRepository.findByStatusAndExecutionTimeBefore(any(), any())).thenReturn(List.of(t));
+        when(taskRepository.findByStatusAndExecutionTimeBeforeOrderByExecutionTimeAsc(any(), any(), any())).thenReturn(List.of(t));
 
         AtomicReference<UUID> tenantDuring = new AtomicReference<>();
         doAnswer(inv -> {
@@ -99,7 +108,7 @@ class RazorSchedulerTest {
     @DisplayName("tarefa expirada (>2h no passado) é cancelada sem disparar")
     void expiredTask_cancelledNotSent() {
         ScheduledTask t = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusHours(3));
-        when(taskRepository.findByStatusAndExecutionTimeBefore(any(), any())).thenReturn(List.of(t));
+        when(taskRepository.findByStatusAndExecutionTimeBeforeOrderByExecutionTimeAsc(any(), any(), any())).thenReturn(List.of(t));
 
         scheduler.processScheduledTasks();
 
@@ -111,7 +120,7 @@ class RazorSchedulerTest {
     @DisplayName("cliente pausado adia a tarefa sem disparar nem concluir")
     void pausedCustomer_taskDeferred() {
         ScheduledTask t = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusMinutes(5));
-        when(taskRepository.findByStatusAndExecutionTimeBefore(any(), any())).thenReturn(List.of(t));
+        when(taskRepository.findByStatusAndExecutionTimeBeforeOrderByExecutionTimeAsc(any(), any(), any())).thenReturn(List.of(t));
         when(customerService.isCustomerPaused(PHONE)).thenReturn(true);
 
         scheduler.processScheduledTasks();
@@ -124,7 +133,7 @@ class RazorSchedulerTest {
     @DisplayName("envio que falha marca a tarefa como FAILED (antes virava COMPLETED sempre)")
     void sendFails_taskMarkedFailed() {
         ScheduledTask t = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusMinutes(5));
-        when(taskRepository.findByStatusAndExecutionTimeBefore(any(), any())).thenReturn(List.of(t));
+        when(taskRepository.findByStatusAndExecutionTimeBeforeOrderByExecutionTimeAsc(any(), any(), any())).thenReturn(List.of(t));
         org.mockito.Mockito.doThrow(new WhatsAppService.WhatsAppSendException("instancia desconectada", new RuntimeException()))
                 .when(whatsAppService).sendTextMessageSync(PHONE, "Lembrete!");
 
@@ -184,7 +193,7 @@ class RazorSchedulerTest {
         ScheduledTask t = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusMinutes(1));
         t.setTaskType(com.razor.api.service.AgendaTaskService.CONFIRMATION_REQUEST);
         t.setAppointmentId(7L);
-        when(taskRepository.findByStatusAndExecutionTimeBefore(any(), any())).thenReturn(List.of(t));
+        when(taskRepository.findByStatusAndExecutionTimeBeforeOrderByExecutionTimeAsc(any(), any(), any())).thenReturn(List.of(t));
 
         scheduler.processScheduledTasks();
 
@@ -199,7 +208,7 @@ class RazorSchedulerTest {
         ScheduledTask t = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusMinutes(1));
         t.setTaskType(com.razor.api.service.AgendaTaskService.CONFIRMATION_DEADLINE);
         t.setAppointmentId(7L);
-        when(taskRepository.findByStatusAndExecutionTimeBefore(any(), any())).thenReturn(List.of(t));
+        when(taskRepository.findByStatusAndExecutionTimeBeforeOrderByExecutionTimeAsc(any(), any(), any())).thenReturn(List.of(t));
         when(customerService.isCustomerPaused(PHONE)).thenReturn(true);
 
         scheduler.processScheduledTasks();
@@ -207,5 +216,45 @@ class RazorSchedulerTest {
         verify(confirmationService).handleDeadline(t);
         verify(whatsAppService, never()).sendTextMessageSync(any(), any());
         assertThat(t.getStatus()).isEqualTo(ScheduledTask.TaskStatus.COMPLETED);
+    }
+
+    @Test
+    @DisplayName("cada tarefa em transacao propria: falha de uma nao impede as outras de concluir")
+    void eachTaskInOwnTransaction() {
+        ScheduledTask ruim = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusMinutes(5));
+        ruim.setCustomerPhone("5511000000000");
+        ScheduledTask boa = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusMinutes(4));
+        when(taskRepository.findByStatusAndExecutionTimeBeforeOrderByExecutionTimeAsc(any(), any(), any()))
+                .thenReturn(List.of(ruim, boa));
+        org.mockito.Mockito.doThrow(new RuntimeException("fora")).when(whatsAppService)
+                .sendTextMessageSync(eq("5511000000000"), any());
+
+        scheduler.processScheduledTasks();
+
+        assertThat(ruim.getStatus()).isEqualTo(ScheduledTask.TaskStatus.FAILED);
+        assertThat(boa.getStatus()).isEqualTo(ScheduledTask.TaskStatus.COMPLETED);
+        // processamento das duas + o FAILED da ruim, cada um na sua transacao
+        verify(transactionTemplate, org.mockito.Mockito.times(3)).execute(any());
+    }
+
+    @Test
+    @DisplayName("disparo em massa: teto por rodada, e lembretes saem antes")
+    void broadcastCappedPerRun() {
+        List<ScheduledTask> tasks = new java.util.ArrayList<>();
+        for (int i = 0; i < RazorScheduler.MAX_BROADCASTS_PER_RUN + 5; i++) {
+            ScheduledTask b = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusMinutes(30));
+            b.setTaskType(RazorScheduler.BROADCAST_TYPE);
+            tasks.add(b);
+        }
+        ScheduledTask lembrete = task(UUID.randomUUID(), LocalDateTime.now(BRT).minusMinutes(1));
+        tasks.add(lembrete);
+        when(taskRepository.findByStatusAndExecutionTimeBeforeOrderByExecutionTimeAsc(any(), any(), any())).thenReturn(tasks);
+
+        scheduler.processScheduledTasks();
+
+        assertThat(lembrete.getStatus()).isEqualTo(ScheduledTask.TaskStatus.COMPLETED);
+        long concluidos = tasks.stream().filter(t -> RazorScheduler.BROADCAST_TYPE.equals(t.getTaskType()))
+                .filter(t -> t.getStatus() == ScheduledTask.TaskStatus.COMPLETED).count();
+        assertThat(concluidos).isEqualTo(RazorScheduler.MAX_BROADCASTS_PER_RUN);
     }
 }

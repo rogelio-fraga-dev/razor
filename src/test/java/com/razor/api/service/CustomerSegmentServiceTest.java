@@ -109,9 +109,12 @@ class CustomerSegmentServiceTest {
         when(customerRepository.findByBarbershopId(any())).thenReturn(List.of(a, admin, fora));
         when(customerStatusService.statuses()).thenReturn(Map.of(
                 a.getId(), CustomerStatus.SUMIDO, admin.getId(), CustomerStatus.SUMIDO, fora.getId(), CustomerStatus.ATIVO));
-        when(tenantAdminService.isAdmin("9")).thenReturn(true);
+        when(tenantAdminService.adminPhones()).thenReturn(List.of("9"));
 
         assertThat(segments().recipients(null, CustomerStatus.SUMIDO)).containsExactly(a);
+        // Uma leitura so da lista de admins, nao uma consulta por cliente.
+        verify(tenantAdminService).adminPhones();
+        verify(tenantAdminService, never()).isAdmin(any());
     }
 
     @Test

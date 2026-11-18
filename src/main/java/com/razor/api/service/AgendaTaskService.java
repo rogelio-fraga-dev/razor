@@ -176,8 +176,7 @@ public class AgendaTaskService {
             String phone = ag.getCustomerPhone();
             if (phone != null && ag.getAppointmentDate() != null && ag.getAppointmentTime() != null) {
                 LocalDateTime horario = LocalDateTime.of(ag.getAppointmentDate(), ag.getAppointmentTime());
-                taskRepository.findByBarbershopIdAndCustomerPhone(shop, phone).stream()
-                        .filter(t -> t.getStatus() == ScheduledTask.TaskStatus.PENDING)
+                taskRepository.findByBarbershopIdAndCustomerPhoneAndStatus(shop, phone, ScheduledTask.TaskStatus.PENDING).stream()
                         .filter(t -> t.getAppointmentId() == null)
                         .filter(t -> ("REMINDER".equals(t.getTaskType()) && horario.minusHours(1).equals(t.getExecutionTime()))
                                 || ("REVIEW_REQUEST".equals(t.getTaskType()) && horario.plusHours(1).equals(t.getExecutionTime())))
@@ -215,10 +214,9 @@ public class AgendaTaskService {
     }
 
     private int cancelarPendentes(String phone) {
-        List<ScheduledTask> tasks = taskRepository.findByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phone);
-        List<ScheduledTask> pendingToCancel = tasks.stream()
-                .filter(t -> t.getStatus() == ScheduledTask.TaskStatus.PENDING)
-                .toList();
+        // So as pendentes, filtradas no banco (indice parcial WHERE status = 'PENDING', V43).
+        List<ScheduledTask> pendingToCancel = taskRepository.findByBarbershopIdAndCustomerPhoneAndStatus(
+                TenantContext.getCurrent(), phone, ScheduledTask.TaskStatus.PENDING);
 
         for (ScheduledTask task : pendingToCancel) {
             task.setStatus(ScheduledTask.TaskStatus.CANCELLED);

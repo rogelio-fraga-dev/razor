@@ -34,6 +34,7 @@ public class RazorScheduler {
     private final com.razor.api.service.AgendaService agendaService;
     private final com.razor.api.service.BarbershopSettingsService barbershopSettingsService;
     private final com.razor.api.service.AppointmentConfirmationService confirmationService;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     /**
      * Executa a acao para cada barbearia ativa com o {@link TenantContext} escopado no tenant e
@@ -53,79 +54,136 @@ public class RazorScheduler {
         }
     }
 
+    /** Teto de tarefas lidas por rodada: um disparo de 5 mil contatos nao vira uma rodada de horas. */
+    static final int MAX_TASKS_PER_RUN = 200;
+    /** Teto de mensagens de disparo em massa por rodada — elas esperam a pausa anti-bloqueio. */
+    static final int MAX_BROADCASTS_PER_RUN = 20;
+    static final String BROADCAST_TYPE = "BROADCAST_SCHEDULED";
+
+    /** Pausa entre mensagens de disparo em massa (a mesma do BroadcastService). */
+    @org.springframework.beans.factory.annotation.Value("${razor.broadcast.delay-ms:3000}")
+    private long broadcastDelayMillis;
+
     /**
      * MOTOR DE DISPAROS (Roda a cada 60 segundos)
      * Verifica o banco e envia as mensagens na hora certa.
+     *
+     * <p><b>Uma transacao por tarefa.</b> Antes o metodo inteiro era {@code @Transactional}: uma
+     * conexao presa durante todos os envios sincronos (3s, 10s cada), e um erro de banco no meio
+     * desfazia o COMPLETED das tarefas ja enviadas — que saiam de novo na rodada seguinte. Agora
+     * cada tarefa grava o proprio status ao terminar, e a falha de uma nao toca nas outras.
+     *
+     * <p>Por rodada: no maximo {@link #MAX_TASKS_PER_RUN} tarefas vencidas (as mais antigas
+     * primeiro); lembretes e avisos saem antes, e o disparo em massa vai no fim, ate
+     * {@link #MAX_BROADCASTS_PER_RUN} mensagens com a pausa entre elas. O resto fica para a
+     * proxima rodada (a cada 60s).
      */
     @Scheduled(fixedRate = 60000)
-    @Transactional
     public void processScheduledTasks() {
         // IMPORTANTE: usar timezone de São Paulo pois os agendamentos são armazenados
         // em horário de Brasília. O servidor EC2 roda em UTC e sem ZoneId o scheduler
         // dispararia tarefas 3 horas antes do previsto.
         LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"));
         log.debug("[SCHEDULER] Rodando motor de tarefas. Hora BRT: {}", now);
-        
-        // Busca tarefas que já deram o horário e ainda não foram enviadas
-        List<ScheduledTask> pendingTasks = taskRepository.findByStatusAndExecutionTimeBefore(
-                ScheduledTask.TaskStatus.PENDING, now
-        );
 
-        if (pendingTasks.isEmpty()) return;
+        List<ScheduledTask> pendingTasks = taskRepository.findByStatusAndExecutionTimeBeforeOrderByExecutionTimeAsc(
+                ScheduledTask.TaskStatus.PENDING, now,
+                org.springframework.data.domain.PageRequest.of(0, MAX_TASKS_PER_RUN));
+        if (pendingTasks == null || pendingTasks.isEmpty()) return;
 
         log.info("Processando {} tarefas pendentes...", pendingTasks.size());
 
+        List<ScheduledTask> broadcasts = new java.util.ArrayList<>();
         for (ScheduledTask task : pendingTasks) {
-            try {
-                // A tarefa carrega seu tenant; escopamos o contexto para que checagens
-                // (ex.: pausa do cliente) usem a barbearia certa, e nao a padrao.
-                TenantContext.set(task.getBarbershopId());
-                String phone = task.getCustomerPhone();
-
-                // Se a task expirou (está mais de 2 horas no passado), descarta sem disparar
-                if (task.getExecutionTime().isBefore(now.minusHours(2))) {
-                    log.warn("[SCHEDULER] Task {} expirada (era para {}). Descartando sem disparar.", task.getId(), task.getExecutionTime());
-                    task.setStatus(ScheduledTask.TaskStatus.CANCELLED);
-                    taskRepository.save(task);
-                    continue;
-                }
-
-                // Prazo da confirmacao (V42): nao manda nada ao cliente, entao a pausa nao adia.
-                if (com.razor.api.service.AgendaTaskService.CONFIRMATION_DEADLINE.equals(task.getTaskType())) {
-                    confirmationService.handleDeadline(task);
-                    task.setStatus(ScheduledTask.TaskStatus.COMPLETED);
-                    taskRepository.save(task);
-                    continue;
-                }
-
-                // Se o cliente estiver pausado (falando com o atendimento humano), adia o lembrete por 1 hora
-                if (customerService.isCustomerPaused(phone)) {
-                    log.info("Cliente {} em pausa. Adiando tarefa.", phone);
-                    task.setExecutionTime(LocalDateTime.now().plusHours(1));
-                    taskRepository.save(task);
-                    continue;
-                }
-
-                // Sincrono de proposito: so marca COMPLETED se a Evolution aceitou o envio. Com o
-                // envio assincrono toda tarefa virava COMPLETED, mesmo com o WhatsApp fora do ar.
-                if (com.razor.api.service.AgendaTaskService.CONFIRMATION_REQUEST.equals(task.getTaskType())) {
-                    // Pergunta "1 confirma / 2 desmarca": alem de enviar, marca o agendamento como
-                    // PENDING e arma a chave da conversa. Agendamento que sumiu nao e perguntado.
-                    confirmationService.sendRequest(task);
-                } else {
-                    whatsAppService.sendTextMessageSync(phone, task.getMessageContent());
-                }
-
-                task.setStatus(ScheduledTask.TaskStatus.COMPLETED);
-                taskRepository.save(task);
-            } catch (Exception e) {
-                log.error("[SCHEDULER] Falha na tarefa {} ({}) — marcada como FAILED", task.getId(), task.getTaskType(), e);
-                task.setStatus(ScheduledTask.TaskStatus.FAILED);
-                taskRepository.save(task);
-            } finally {
-                TenantContext.clear();
+            if (BROADCAST_TYPE.equals(task.getTaskType())) {
+                broadcasts.add(task);
+            } else {
+                processInOwnTransaction(task, now);
             }
         }
+        int enviados = 0;
+        for (ScheduledTask task : broadcasts) {
+            if (enviados >= MAX_BROADCASTS_PER_RUN) break;
+            boolean enviou = processInOwnTransaction(task, now);
+            enviados++;
+            if (enviou && broadcastDelayMillis > 0) {
+                try {
+                    Thread.sleep(broadcastDelayMillis);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Processa UMA tarefa na sua propria transacao e grava o status dela. Falha (envio ou banco)
+     * marca FAILED numa transacao separada — a de processamento ja foi desfeita.
+     *
+     * @return {@code true} se uma mensagem foi enviada ao cliente
+     */
+    private boolean processInOwnTransaction(ScheduledTask task, LocalDateTime now) {
+        try {
+            TenantContext.set(task.getBarbershopId());
+            Boolean enviou = transactionTemplate.execute(status -> processOne(task, now));
+            return Boolean.TRUE.equals(enviou);
+        } catch (Exception e) {
+            log.error("[SCHEDULER] Falha na tarefa {} ({}) — marcada como FAILED", task.getId(), task.getTaskType(), e);
+            try {
+                transactionTemplate.execute(status -> {
+                    task.setStatus(ScheduledTask.TaskStatus.FAILED);
+                    return taskRepository.save(task);
+                });
+            } catch (Exception again) {
+                log.error("[SCHEDULER] Nao consegui marcar a tarefa {} como FAILED", task.getId(), again);
+            }
+            return false;
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    private boolean processOne(ScheduledTask task, LocalDateTime now) {
+        String phone = task.getCustomerPhone();
+
+        // Se a task expirou (está mais de 2 horas no passado), descarta sem disparar
+        if (task.getExecutionTime().isBefore(now.minusHours(2))) {
+            log.warn("[SCHEDULER] Task {} expirada (era para {}). Descartando sem disparar.", task.getId(), task.getExecutionTime());
+            task.setStatus(ScheduledTask.TaskStatus.CANCELLED);
+            taskRepository.save(task);
+            return false;
+        }
+
+        // Prazo da confirmacao (V42): nao manda nada ao cliente, entao a pausa nao adia.
+        if (com.razor.api.service.AgendaTaskService.CONFIRMATION_DEADLINE.equals(task.getTaskType())) {
+            confirmationService.handleDeadline(task);
+            task.setStatus(ScheduledTask.TaskStatus.COMPLETED);
+            taskRepository.save(task);
+            return false;
+        }
+
+        // Se o cliente estiver pausado (falando com o atendimento humano), adia o lembrete por 1 hora
+        if (customerService.isCustomerPaused(phone)) {
+            log.info("Cliente {} em pausa. Adiando tarefa.", phone);
+            task.setExecutionTime(LocalDateTime.now().plusHours(1));
+            taskRepository.save(task);
+            return false;
+        }
+
+        // Sincrono de proposito: so marca COMPLETED se a Evolution aceitou o envio. Com o
+        // envio assincrono toda tarefa virava COMPLETED, mesmo com o WhatsApp fora do ar.
+        if (com.razor.api.service.AgendaTaskService.CONFIRMATION_REQUEST.equals(task.getTaskType())) {
+            // Pergunta "1 confirma / 2 desmarca": alem de enviar, marca o agendamento como
+            // PENDING e arma a chave da conversa. Agendamento que sumiu nao e perguntado.
+            confirmationService.sendRequest(task);
+        } else {
+            whatsAppService.sendTextMessageSync(phone, task.getMessageContent());
+        }
+
+        task.setStatus(ScheduledTask.TaskStatus.COMPLETED);
+        taskRepository.save(task);
+        return true;
     }
 
     /**

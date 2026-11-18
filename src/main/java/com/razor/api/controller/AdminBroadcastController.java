@@ -40,6 +40,11 @@ public class AdminBroadcastController {
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
     public CustomerTagRequests.BroadcastResponse send(@Valid @RequestBody CustomerTagRequests.BroadcastRequest req) {
+        // Sem tag nem status o recorte seria a base INTEIRA: um clique sem escolher o grupo nao
+        // pode virar disparo para todo mundo. A base toda continua pelo WhatsApp do dono.
+        if (req.tagId() == null && req.status() == null) {
+            throw new IllegalArgumentException("Escolha um grupo");
+        }
         List<Customer> recipients = customerSegmentService.recipients(req.tagId(), req.status());
         if (recipients.isEmpty()) {
             throw new IllegalArgumentException("Nenhum cliente neste grupo para receber a mensagem.");

@@ -74,8 +74,12 @@ public class BroadcastService {
     /**
      * O mesmo disparo em segundo plano — o painel nao pode segurar a requisicao 3s por contato.
      * A thread do {@code @Async} nao herda o tenant, entao ele vem explicito e e limpo no fim.
+     *
+     * <p>Roda no {@code broadcastExecutor} (ver {@code AsyncConfig}): pool pequeno e fila
+     * limitada, separado do pool do webhook — um disparo de mil contatos nao pode ocupar as threads
+     * que respondem as mensagens dos clientes. Fila cheia = {@code TaskRejectedException} (503).
      */
-    @Async
+    @Async(com.razor.api.config.AsyncConfig.BROADCAST_EXECUTOR)
     public void deliverInBackground(UUID barbershopId, List<Customer> recipients, String message, boolean promo) {
         TenantContext.set(barbershopId);
         try {
@@ -85,5 +89,34 @@ public class BroadcastService {
         } finally {
             TenantContext.clear();
         }
+    }
+
+    /**
+     * Disparo pedido pelo dono no WhatsApp, em segundo plano: antes rodava na thread do webhook,
+     * segurando-a 3s por contato (e o dono sem resposta a nenhum outro comando). O relatorio sai
+     * para o dono no fim.
+     */
+    @Async(com.razor.api.config.AsyncConfig.BROADCAST_EXECUTOR)
+    public void deliverForAdminInBackground(UUID barbershopId, String adminPhone, List<Customer> recipients,
+                                            String message, boolean promo) {
+        TenantContext.set(barbershopId);
+        try {
+            Resultado r = deliver(recipients, message, promo, adminPhone);
+            messenger.send(adminPhone, report(r), "ADMIN");
+            log.info("[DISPARO] Disparo do WhatsApp do dono concluido no tenant {}: {}/{} enviados, {} falhas",
+                    barbershopId, r.enviados().size(), recipients.size(), r.falhas());
+        } catch (Exception e) {
+            log.error("[DISPARO] Disparo do dono falhou no tenant {}", barbershopId, e);
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    /** Relatorio ao dono: quem recebeu (so quem a Evolution aceitou) e quantos falharam. */
+    static String report(Resultado r) {
+        List<String> linhas = r.enviados().stream().map(n -> "✅ " + n).toList();
+        String falhasTxt = r.falhas() > 0 ? "\n❌ Falharam: " + r.falhas() : "";
+        return "📊 *Relatório de Disparo*\nTotal alcançado: " + linhas.size() + falhasTxt + "\n\n"
+                + String.join("\n", linhas);
     }
 }
