@@ -801,6 +801,44 @@ export interface PublicSite {
   plans: { name: string; price: number; description: string | null }[];
   /** Agendamento online ligado (V38): o "Agendar" leva a /b/:slug/agendar em vez do WhatsApp. */
   onlineBooking: boolean;
+  /** Textos e visibilidade por seção editados pelo dono (V45). Ausente = padrões do template. */
+  content?: SiteContent | null;
+}
+
+// ---------- Conteúdo editável do site (V45) — ver web/src/site/content.ts ----------
+
+export type SiteSectionKey =
+  | "hero"
+  | "stats"
+  | "services"
+  | "gallery"
+  | "story"
+  | "team"
+  | "plans"
+  | "how"
+  | "location"
+  | "cta";
+
+/** Override do dono para uma seção. Campo vazio/ausente = texto padrão do template. */
+export interface SiteSectionContent {
+  /** false esconde a seção. Ausente = visível. */
+  visible?: boolean;
+  /** Textinho pequeno acima do título (até 60). */
+  eyebrow?: string;
+  /** Título da seção (até 120). */
+  title?: string;
+  /** Texto de apoio (até 600). */
+  text?: string;
+}
+
+export type SiteMotion = "full" | "subtle" | "off";
+
+export interface SiteContent {
+  sections?: Partial<Record<SiteSectionKey, SiteSectionContent>>;
+  /** Texto do botão de agendar (até 40). Ausente = "Agendar horário"/"Agendar pelo WhatsApp". */
+  bookLabel?: string;
+  /** Intensidade das animações. Ausente = "full". O visitante com movimento reduzido sempre vê "off". */
+  motion?: SiteMotion;
 }
 
 // ---------- Agendamento online (V38) — espelha PublicBookingDtos ----------
