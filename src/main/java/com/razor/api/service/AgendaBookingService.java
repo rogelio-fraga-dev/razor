@@ -3,6 +3,7 @@ package com.razor.api.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razor.api.model.Appointment;
+import com.razor.api.model.AppointmentSource;
 import com.razor.api.model.Customer;
 import com.razor.api.model.PaymentStatus;
 import com.razor.api.repository.AppointmentRepository;
@@ -13,8 +14,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -44,21 +47,44 @@ public class AgendaBookingService {
     private final CustomerService customerService;
     private final ProfessionalAssignmentService professionalAssignmentService;
     private final AgendaTaskService agendaTaskService;
+    private final AgendaAvailabilityService agendaAvailabilityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * Pedido de agendamento, venha de onde vier (bot, painel, site).
+     *
+     * @param durationMinutes         duracao do servico; {@code null} = pela tabela do catalogo
+     * @param preferredProfessionalId barbeiro pedido, ou {@code null}
+     * @param exigirPreferido         {@code true} = recusa se o pedido estiver ocupado, em vez de
+     *                                atribuir outro (site: o cliente escolheu o barbeiro na grade)
+     */
+    public record NovoAgendamento(String name, String phone, LocalDate date, LocalTime time, String service,
+                                  Integer durationMinutes, UUID preferredProfessionalId,
+                                  boolean exigirPreferido, AppointmentSource source) {
+    }
+
+    /**
+     * Trava por barbearia em volta de "checar e gravar". Sem ela, duas requisicoes simultaneas
+     * (o site e o bot, ou dois visitantes) leem a mesma cadeira livre e as duas gravam. Em memoria:
+     * resolve o caso real (uma instancia). Com varias instancias, trocar por lock no banco.
+     */
+    private final Map<UUID, Object> travas = new ConcurrentHashMap<>();
 
     public Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service) {
         return adicionarAgendamentoViaIA(name, phone, date, time, service, null);
     }
 
     /**
-     * Cria um agendamento e atribui um profissional (barbeiro): usa o {@code preferredProfessionalId}
-     * se informado e livre; caso contrario auto-atribui o barbeiro livre menos ocupado no dia.
+     * Cria um agendamento vindo do bot e atribui um profissional (barbeiro): usa o
+     * {@code preferredProfessionalId} se informado e livre; caso contrario auto-atribui o barbeiro
+     * livre menos ocupado no dia.
      *
-     * @return o agendamento salvo; vazio se nada foi agendado (ex.: data/hora que nao da para
-     *         interpretar). Quem chama SO pode confirmar ao cliente quando houver agendamento.
+     * @return o agendamento gravado — vazio quando a data/hora e invalida ou o horario nao cabe
+     *         mais (overbooking). Quem chama so confirma ao cliente se veio preenchido, e usa o
+     *         {@code professionalId} DEVOLVIDO (pode nao ser o preferido).
      */
     public Optional<Appointment> adicionarAgendamentoViaIA(String name, String phone, String date, String time, String service,
-                                          UUID preferredProfessionalId) {
+                                                           UUID preferredProfessionalId) {
         LocalDate parsedDate;
         LocalTime parsedTime;
         try {
@@ -68,32 +94,79 @@ public class AgendaBookingService {
             log.error("[AGENDA] Nao foi possivel criar agendamento para {} — data/hora invalida ('{}' '{}'): {}", phone, date, time, e.getMessage());
             return Optional.empty();
         }
+        return agendar(new NovoAgendamento(name, phone, parsedDate, parsedTime, service, null,
+                preferredProfessionalId, false, AppointmentSource.BOT));
+    }
 
-        UUID professionalId = professionalAssignmentService.assign(parsedDate, parsedTime, preferredProfessionalId, service);
+    /**
+     * Porta UNICA de criacao de agendamento de cliente (bot e site): checa o horario na hora de
+     * gravar, atribui um barbeiro livre QUE FAZ o servico, grava e cria lembrete/avaliacao.
+     * O ponto de fidelidade vem no fechamento da comanda, nao aqui.
+     *
+     * <p>Regras de negocio por cliente (ex.: limite de agendamentos futuros) entram AQUI, para
+     * valerem igual no bot e no site.
+     *
+     * @return vazio quando o horario nao comporta mais um agendamento (todas as cadeiras ocupadas,
+     *         nenhum barbeiro livre faz o servico, barbeiro pedido ocupado com {@code exigirPreferido},
+     *         ou bloqueio)
+     */
+    public Optional<Appointment> agendar(NovoAgendamento req) {
+        UUID shop = TenantContext.getCurrent();
+        int duracao = req.durationMinutes() != null && req.durationMinutes() > 0
+                ? req.durationMinutes()
+                : agendaAvailabilityService.duracaoDoServico(req.service());
 
-        Appointment app = Appointment.builder()
-            .barbershopId(TenantContext.getCurrent())
-            .customerName(name)
-            .customerPhone(phone)
-            .appointmentDate(parsedDate)
-            .appointmentTime(parsedTime)
-            .service(service)
-            .professionalId(professionalId)
-            .paymentStatus(PaymentStatus.PENDENTE)
-            .build();
-        if (professionalId != null) {
-            log.info("[AGENDA] Profissional {} atribuido ao agendamento de {}", professionalId, phone);
+        Appointment app;
+        synchronized (travas.computeIfAbsent(shop, k -> new Object())) {
+            AgendaAvailabilityService.Checagem checagem = agendaAvailabilityService.checarHorario(
+                    req.date(), req.time(), duracao, req.preferredProfessionalId(), req.exigirPreferido());
+            if (!checagem.livre()) {
+                log.info("[AGENDA] Horario {} {} recusado para {}: sem cadeira livre pelos {}min do servico.",
+                        AppointmentDates.formatDate(req.date()), AppointmentDates.formatTime(req.time()),
+                        req.phone(), duracao);
+                return Optional.empty();
+            }
+
+            UUID professionalId = null;
+            if (checagem.temProfissionais()) {
+                List<UUID> aptos = professionalAssignmentService.qualifiedIds(checagem.profissionaisLivres(), req.service());
+                if (aptos.isEmpty()) {
+                    log.info("[AGENDA] Horario {} {} recusado para {}: nenhum barbeiro livre faz '{}'.",
+                            AppointmentDates.formatDate(req.date()), AppointmentDates.formatTime(req.time()),
+                            req.phone(), req.service());
+                    return Optional.empty();
+                }
+                professionalId = professionalAssignmentService.escolherEntre(aptos, req.date(), req.preferredProfessionalId());
+            }
+
+            app = Appointment.builder()
+                .barbershopId(shop)
+                .customerName(req.name())
+                .customerPhone(req.phone())
+                .appointmentDate(req.date())
+                .appointmentTime(req.time())
+                .service(req.service())
+                .professionalId(professionalId)
+                .paymentStatus(PaymentStatus.PENDENTE)
+                .source(req.source() != null ? req.source() : AppointmentSource.BOT)
+                .build();
+            Appointment saved = appointmentRepository.save(app);
+            // save() com mock (testes) devolve null; com JPA devolve a mesma instancia com o id.
+            if (saved != null) app = saved;
         }
-        return Optional.of(registrarNovoAgendamento(app));
+        if (app.getProfessionalId() != null) {
+            log.info("[AGENDA] Profissional {} atribuido ao agendamento de {}", app.getProfessionalId(), req.phone());
+        }
+        aposGravar(app);
+        return Optional.of(app);
     }
 
     /**
      * Agendamento criado pela recepcao/dono no painel (agenda interativa): o barbeiro e o horario
      * vem escolhidos e ja validados pelo {@link AgendaPanelService} — aqui nao ha auto-atribuicao.
      *
-     * <p>Passa pelo MESMO caminho de gravacao do agendamento da IA ({@link #registrarNovoAgendamento}):
-     * lembrete e avaliacao iguais, e qualquer regra nova de criacao (ex.: limite
-     * de agendamentos por cliente) colocada ali vale para os dois canais.
+     * <p>Depois de gravar, dispara o mesmo que o bot e o site ({@link #aposGravar}): lembrete e
+     * pedido de avaliacao. Origem PAINEL, para o relatorio separar o que a IA marcou.
      */
     public Appointment agendarPeloPainel(String name, String phone, LocalDate date, LocalTime time,
                                          String service, UUID professionalId) {
@@ -106,24 +179,24 @@ public class AgendaBookingService {
             .service(service)
             .professionalId(professionalId)
             .paymentStatus(PaymentStatus.PENDENTE)
+            .source(AppointmentSource.PAINEL)
             .build();
-        return registrarNovoAgendamento(app);
-    }
-
-    /** Grava um agendamento novo e dispara o que nasce com ele (lembrete e pedido de avaliacao). */
-    private Appointment registrarNovoAgendamento(Appointment app) {
         Appointment saved = appointmentRepository.save(app);
         // save() com mock (testes) devolve null; com JPA devolve a mesma instancia com o id.
         Appointment ag = saved != null ? saved : app;
+        aposGravar(ag);
+        return ag;
+    }
 
-        log.info("[AGENDA] Novo agendamento salvo: {} para o dia {} às {}", ag.getCustomerName(),
+    /** O que nasce com todo agendamento novo: log, lembrete e pedido de avaliacao. */
+    private void aposGravar(Appointment ag) {
+        log.info("[AGENDA] Novo agendamento ({}) salvo: {} para o dia {} às {}", ag.getSource(), ag.getCustomerName(),
                 AppointmentDates.formatDate(ag.getAppointmentDate()), AppointmentDates.formatTime(ag.getAppointmentTime()));
 
         agendaTaskService.criarTarefasAgendadas(ag);
 
         // Fidelidade NAO e dada aqui: agendar nao e ser atendido (cancelamento nunca estornava o
         // ponto). O ponto vem no fechamento da comanda — ver FidelityVisitService.
-        return ag;
     }
 
     /**

@@ -71,13 +71,18 @@ class AgendaServiceTest {
     void buildService() {
         AgendaTaskService tasks = new AgendaTaskService(
                 taskRepository, customerRepository, barbershopSettingsService, tenantAdminService);
+        AgendaAvailabilityService availability = new AgendaAvailabilityService(appointmentRepository,
+                professionalRepository, pricingService, barbershopSettingsService, scheduleBlockService);
         service = new AgendaService(
-                new AgendaAvailabilityService(appointmentRepository, professionalRepository,
-                        pricingService, barbershopSettingsService, scheduleBlockService),
+                availability,
                 new AgendaBookingService(appointmentRepository, customerService,
-                        professionalAssignmentService, tasks),
+                        professionalAssignmentService, tasks, availability),
                 tasks,
                 new AgendaReportService(appointmentRepository, reportService));
+        // Sem restricao de servico nos testes daqui: o filtro devolve os livres como vieram.
+        org.mockito.Mockito.lenient()
+                .when(professionalAssignmentService.qualifiedIds(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> inv.getArgument(0));
     }
 
     /**

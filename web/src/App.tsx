@@ -21,6 +21,7 @@ import { CommissionSettlementPage } from "./pages/CommissionSettlement";
 import { Settings } from "./pages/Settings";
 import { Profile } from "./pages/Profile";
 import { SitePage } from "./site/SitePage";
+import { BookingPage } from "./site/BookingPage";
 
 function Protected() {
   const { session } = useAuth();
@@ -47,6 +48,7 @@ export default function App() {
       {/* Site white-label — publico. Fora do <Protected> de proposito: um site que so abre
           com login nao e um site. */}
       <Route path="/b/:slug" element={<SitePage />} />
+      <Route path="/b/:slug/agendar" element={<BookingPage />} />
       <Route path="/login" element={session ? <Navigate to={home} replace /> : <Login />} />
       <Route element={<Protected />}>
         <Route path="/" element={<Dashboard />} />

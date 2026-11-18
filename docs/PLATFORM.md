@@ -139,6 +139,17 @@ Não confundir os dois endereços web da plataforma:
 - **Domínio próprio** (`barbeariaficticia.com.br`, sem o `razor`) fica para depois — exige
   automação de TLS por domínio (Let's Encrypt). Começar só com subdomínio.
 
+**Estado atual (sem domínio ainda):** o site e o agendamento online rodam por **caminho** na
+mesma origem do painel — `/b/<slug>` e `/b/<slug>/agendar`. O subdomínio fica para quando o
+domínio existir. O que já foi preparado para ele: o slug do onboarding é validado como rótulo DNS
+(`[a-z0-9]`, hífen só no meio, até 63). Rotas públicas da API: `GET /api/site/{slug}`,
+`GET /api/site/{slug}/booking`, `GET /api/site/{slug}/booking/slots`, `POST /api/site/{slug}/booking`.
+
+**Segurança da mesma origem:** como o site divide a origem com o painel, toda URL que o dono
+cadastra (logo, capa, galeria, Instagram, mapa) só é aceita em `https://` (Instagram só
+`instagram.com`, mapa só Google Maps) — `SiteUrlPolicy` no backend — e a página filtra de novo
+ao renderizar (`safeHttpUrl`/`sanitizeSite`), cobrindo dado gravado antes da regra.
+
 ### Templates do site white-label (modelo de negócio)
 
 O site da barbearia **não é um site builder livre** — é um sistema de templates controlado

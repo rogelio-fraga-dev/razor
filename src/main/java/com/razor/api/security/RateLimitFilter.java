@@ -16,7 +16,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Aplica o freio de requisicoes em {@code /api/admin/**} e no webhook.
+ * Aplica o freio de requisicoes em {@code /api/admin/**}, no webhook e nas rotas publicas do site
+ * ({@code /api/site/**}, com um teto extra e mais curto no POST de agendamento online).
  *
  * <p>Roda <b>antes</b> da cadeia do Spring Security ({@code @Order} negativo): um atacante que
  * dispara mil requisicoes com token invalido nao deve custar mil validacoes de JWT. O login tem
@@ -33,6 +34,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final String ADMIN_PREFIX = "/api/admin/";
     private static final String WEBHOOK_PREFIX = "/api/webhook";
+    /** Site white-label e agendamento online: publicos, entao o IP e o unico freio. */
+    private static final String SITE_PREFIX = "/api/site/";
+    private static final String BOOKING_SCOPE = "site-booking";
 
     /** Limpa janelas expiradas a cada N requisicoes, para nao varrer o mapa a toda chamada. */
     private static final long EVICT_EVERY = 500;
@@ -55,25 +59,52 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         Duration window = Duration.ofSeconds(cfg.getWindowSeconds());
-        int limit = WEBHOOK_PREFIX.equals(scope) ? cfg.getWebhookPerMinute() : cfg.getAdminPerMinute();
+        Duration bookingWindow = Duration.ofSeconds(cfg.getBookingWindowSeconds());
+        int limit = switch (scope) {
+            case WEBHOOK_PREFIX -> cfg.getWebhookPerMinute();
+            case SITE_PREFIX -> cfg.getSitePerMinute();
+            default -> cfg.getAdminPerMinute();
+        };
 
         if (seen.incrementAndGet() % EVICT_EVERY == 0) {
-            limiter.evictExpired(window);
+            // A maior janela manda: despejar com a de 1 minuto zeraria o contador de quem ja
+            // gastou os agendamentos da hora — o freio do POST viraria 1 minuto.
+            limiter.evictExpired(window.compareTo(bookingWindow) >= 0 ? window : bookingWindow);
         }
 
-        if (!limiter.tryAcquire(scope + "|" + ClientIp.of(request), limit, window)) {
-            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.setCharacterEncoding("UTF-8");
-            // Retry-After em segundos: cliente bem-comportado (e a propria Evolution) sabe
-            // esperar em vez de insistir imediatamente.
-            response.setHeader("Retry-After", String.valueOf(cfg.getWindowSeconds()));
-            response.getWriter().write(
-                    "{\"error\":\"Muitas requisições. Tente novamente em instantes.\"}");
+        String ip = ClientIp.of(request);
+        if (!limiter.tryAcquire(scope + "|" + ip, limit, window)) {
+            reject(response, cfg.getWindowSeconds());
+            return;
+        }
+
+        // Criar agendamento sem login e o unico POST publico: alem do volume geral do site, um
+        // teto curto por IP na hora. Quem marca um corte faz isso uma ou duas vezes, nao dez.
+        if (isPublicBooking(request)
+                && !limiter.tryAcquire(BOOKING_SCOPE + "|" + ip, cfg.getBookingPerWindow(), bookingWindow)) {
+            reject(response, cfg.getBookingWindowSeconds());
             return;
         }
 
         chain.doFilter(request, response);
+    }
+
+    private void reject(HttpServletResponse response, int retryAfterSeconds) throws IOException {
+        response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        // Retry-After em segundos: cliente bem-comportado (e a propria Evolution) sabe
+        // esperar em vez de insistir imediatamente.
+        response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
+        response.getWriter().write(
+                "{\"error\":\"Muitas requisições. Tente novamente em instantes.\"}");
+    }
+
+    /** POST /api/site/{slug}/booking — a criacao de agendamento pela pagina publica. */
+    private boolean isPublicBooking(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return "POST".equalsIgnoreCase(request.getMethod())
+                && path != null && path.startsWith(SITE_PREFIX) && path.endsWith("/booking");
     }
 
     /** Escopo do limite, ou {@code null} quando a rota nao entra no freio. */
@@ -81,6 +112,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (path == null) return null;
         if (path.startsWith(ADMIN_PREFIX)) return ADMIN_PREFIX;
         if (path.startsWith(WEBHOOK_PREFIX)) return WEBHOOK_PREFIX;
+        if (path.startsWith(SITE_PREFIX)) return SITE_PREFIX;
         return null;
     }
 }

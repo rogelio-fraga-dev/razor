@@ -23,8 +23,11 @@ public record OnboardingRequest(
         @NotBlank String name,
 
         @NotBlank
-        @Pattern(regexp = "^[a-z0-9-]+$", message = "slug deve conter apenas letras minusculas, numeros e hifen")
-        @Size(max = 120)
+        // Formato de rotulo DNS (ate 63, sem hifen nas pontas): o slug ja vai na URL do site e
+        // deve poder virar subdominio no futuro sem renomear barbearia.
+        @Pattern(regexp = "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+                message = "slug deve conter apenas letras minusculas, numeros e hifen (sem hifen no inicio/fim, ate 63)")
+        @Size(max = 63)
         String slug,
 
         @Size(max = 120) String whatsappInstance,

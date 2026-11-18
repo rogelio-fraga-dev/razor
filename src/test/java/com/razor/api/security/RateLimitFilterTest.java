@@ -149,4 +149,46 @@ class RateLimitFilterTest {
             assertThat(resp.getStatus()).isEqualTo(200);
         }
     }
+
+    @Test
+    @DisplayName("rotas públicas do site entram no freio por IP")
+    void publicSite_isRateLimited() throws Exception {
+        properties.getSecurity().getRateLimit().setSitePerMinute(2);
+        FilterChain chain = mock(FilterChain.class);
+        for (int i = 0; i < 2; i++) {
+            filter.doFilter(request("/api/site/figaro/booking/slots", "10.0.0.7"), new MockHttpServletResponse(), chain);
+        }
+        MockHttpServletResponse blocked = new MockHttpServletResponse();
+        filter.doFilter(request("/api/site/figaro", "10.0.0.7"), blocked, chain);
+
+        assertThat(blocked.getStatus()).isEqualTo(429);
+        verify(chain, times(2)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("POST de agendamento online tem teto próprio, bem menor que o da navegação")
+    void publicBooking_hasOwnShortLimit() throws Exception {
+        properties.getSecurity().getRateLimit().setSitePerMinute(100);
+        properties.getSecurity().getRateLimit().setBookingPerWindow(2);
+        FilterChain chain = mock(FilterChain.class);
+
+        for (int i = 0; i < 2; i++) {
+            MockHttpServletRequest post = request("/api/site/figaro/booking", "10.0.0.8");
+            post.setMethod("POST");
+            MockHttpServletResponse ok = new MockHttpServletResponse();
+            filter.doFilter(post, ok, chain);
+            assertThat(ok.getStatus()).isEqualTo(200);
+        }
+        MockHttpServletRequest third = request("/api/site/figaro/booking", "10.0.0.8");
+        third.setMethod("POST");
+        MockHttpServletResponse blocked = new MockHttpServletResponse();
+        filter.doFilter(third, blocked, chain);
+        assertThat(blocked.getStatus()).isEqualTo(429);
+        assertThat(blocked.getHeader("Retry-After")).isEqualTo("3600");
+
+        // A grade (GET) continua navegável: o teto curto é só da criação.
+        MockHttpServletResponse grade = new MockHttpServletResponse();
+        filter.doFilter(request("/api/site/figaro/booking/slots", "10.0.0.8"), grade, chain);
+        assertThat(grade.getStatus()).isEqualTo(200);
+    }
 }

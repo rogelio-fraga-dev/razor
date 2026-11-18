@@ -1,0 +1,159 @@
+/* ============================================================================
+   Página de agendamento online (/b/:slug/agendar).
+
+   Usa os tokens do site (site.css): --accent do dono, --bg/--surface/--text/
+   --border do tema. Nada de cor nova aqui — a página tem de parecer a mesma
+   barbearia do site, não um sistema de terceiros embutido.
+   ========================================================================== */
+
+.bk { padding-bottom: 64px; }
+.bk-wrap { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+.bk-center { display: grid; place-items: center; padding: 40px 16px; text-align: center; min-height: 100vh; }
+.bk-muted { color: var(--text-muted); font-size: 15px; line-height: 1.55; margin: 0; }
+
+/* ---------- Topo ---------- */
+.bk-top { border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 5; }
+.bk-top-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; padding-bottom: 14px; }
+.bk-brand { color: var(--text); text-decoration: none; font-family: var(--font-display); font-size: 18px; letter-spacing: -0.02em; min-width: 0; }
+.bk-brand img { height: 34px; width: auto; display: block; }
+.bk-back { color: var(--text-muted); text-decoration: none; font-size: 14px; white-space: nowrap; }
+.bk-back:hover { color: var(--accent); }
+
+.bk-title {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 5vw, 36px);
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin: 32px 0 0;
+}
+
+/* ---------- Passos ---------- */
+.bk-step { margin-top: 30px; }
+.bk-step-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+.bk-step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 13px;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  flex: none;
+}
+.bk-step.is-done .bk-step-n { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+/* Base de tudo que é clicável na grade: serviço, barbeiro, dia, horário. */
+.bk-option,
+.bk-day,
+.bk-slot {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.bk-option:hover:not(:disabled),
+.bk-day:hover:not(:disabled),
+.bk-slot:hover:not(:disabled) { border-color: var(--accent); }
+.bk-option:focus-visible,
+.bk-day:focus-visible,
+.bk-slot:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
+.bk-option.is-on,
+.bk-day.is-on,
+.bk-slot.is-on { border-color: var(--accent); background: var(--accent-soft); }
+
+.bk-options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.bk-option { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 14px 16px; text-align: left; }
+.bk-option-name { font-weight: 600; font-size: 15px; }
+.bk-option-meta { font-size: 13px; color: var(--text-muted); }
+
+/* Dias: faixa rolável no celular — 30 dias não cabem em grade sem virar uma parede. */
+.bk-days {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.bk-day {
+  flex: none;
+  width: 72px;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  scroll-snap-align: start;
+}
+.bk-day:disabled { opacity: 0.38; cursor: not-allowed; }
+.bk-day-w { font-size: 12px; color: var(--text-muted); text-transform: capitalize; }
+.bk-day-d { font-size: 14px; font-weight: 600; }
+
+.bk-slots { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+.bk-slot { padding: 11px 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ---------- Dados ---------- */
+.bk-fields { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.bk-field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; }
+.bk-field input {
+  font: inherit;
+  font-weight: 400;
+  font-size: 16px; /* 16px evita o zoom automático do iOS ao focar */
+  color: var(--text);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.bk-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+/* Honeypot: fora da tela, não `display:none` — robô simples ignora campo escondido por display. */
+.bk-hp { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+
+.bk-summary {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.bk-error {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, #e5484d 50%, transparent);
+  background: color-mix(in srgb, #e5484d 12%, transparent);
+  font-size: 14px;
+}
+.bk-submit { margin-top: 18px; width: 100%; justify-content: center; }
+.bk-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.bk-fine { font-size: 13px; margin-top: 10px; text-align: center; }
+.bk-alt { margin-top: 36px; text-align: center; }
+.bk-alt a { color: var(--accent); font-weight: 600; }
+
+/* ---------- Sucesso ---------- */
+.bk-done { text-align: center; padding: 56px 0 24px; display: grid; gap: 16px; justify-items: center; }
+.bk-done .rz-lead { margin: 0 auto; }
+.bk-done .bk-muted { max-width: 46ch; }
+.bk-done-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  background: var(--accent);
+  color: var(--on-accent);
+}

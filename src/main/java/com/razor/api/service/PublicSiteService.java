@@ -129,7 +129,8 @@ public class PublicSiteService {
                 cfg.workingDaysText() + ", das " + cfg.openingTime() + " às " + cfg.closingTime(),
                 services,
                 team,
-                plans);
+                plans,
+                site.isOnlineBookingEnabled());
     }
 
     private static String blankToNull(String s) {

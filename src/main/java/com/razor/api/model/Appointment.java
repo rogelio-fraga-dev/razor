@@ -62,6 +62,12 @@ public class Appointment {
     @Builder.Default
     private boolean thanked = false;
 
+    /** Origem do agendamento (V38). Linhas antigas foram preenchidas com BOT. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 10)
+    @Builder.Default
+    private AppointmentSource source = AppointmentSource.BOT;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

@@ -539,7 +539,25 @@ roteirizado), agendamento por áudio (Whisper), lista de espera reativa automát
       centralizado** (tema versionado no repo; atualização propaga p/ todos). **Template
       personalizado = serviço avulso** (one-time, sob consulta) feito pelo nosso time.
       Modelo: tabela `barbershop_site` (template_id + conteúdo).
-- [ ] Página de **agendamento online** (link próprio) na mesma agenda do bot.
+- [x] Página de **agendamento online** (link próprio) na mesma agenda do bot. *(V38)*
+      `/b/:slug/agendar`, sem login: serviço → barbeiro (ou "sem preferência") → dia → horário
+      livre → nome + WhatsApp. Grade do **mesmo motor do bot** (`AgendaAvailabilityService`:
+      expediente, dias abertos, bloqueios, duração do serviço, capacidade) e gravação pela
+      **mesma porta** (`AgendaBookingService.agendar`): lembrete, avaliação e fidelidade iguais
+      aos do bot, e o dono recebe aviso no WhatsApp. Liga/desliga por barbearia no editor do
+      site (`online_booking_enabled`, nasce desligado). Com ele ligado, o "Agendar" do site
+      (e o `potentialAction` do JSON-LD) aponta para a página; o WhatsApp fica como secundário.
+      **Confirmação:** agenda na hora e manda confirmação + "responda *cancelar*" no WhatsApp
+      (sem estado PENDENTE: não segura cadeira nem ensina a agenda inteira a ignorar pendentes).
+      **Anti-abuso:** limite por IP (`/api/site/**` 120/min; POST de agendamento 10/h),
+      honeypot, validação de telefone BR, teto de 3 horários futuros por telefone.
+      `appointments.source` (BOT | PAINEL | SITE) passa a registrar a origem — base da métrica
+      de ROI da IA.
+- [x] **Checagem de overbooking na gravação** *(V38)* — `AgendaBookingService.agendar` checa
+      ocupação pela duração inteira do serviço, bloqueios e capacidade sob trava por barbearia;
+      horário lotado não é mais gravado sem barbeiro. Devolve `Optional<Appointment>` com o
+      barbeiro realmente atribuído. *(Pendente: os chamadores do bot ainda confirmam sem olhar
+      o retorno — outra frente.)*
 - [ ] **Tema claro no painel e na landing** — o painel já alterna (dark-first); a landing
       institucional precisa da variante clara com o mesmo brand (tokens do
       [`BRANDING §5.4`](./BRANDING.md)) e toggle persistido.

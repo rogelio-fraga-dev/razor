@@ -92,6 +92,11 @@ razor:
       window-seconds: 60
       admin-per-minute: "${RAZOR_RATE_LIMIT_ADMIN:240}"
       webhook-per-minute: "${RAZOR_RATE_LIMIT_WEBHOOK:600}"
+      # Rotas públicas do site (/api/site/**) e o POST de agendamento online, que tem teto
+      # próprio por IP na janela de 1h (anti-abuso: ninguém marca 10 cortes numa hora).
+      site-per-minute: "${RAZOR_RATE_LIMIT_SITE:120}"
+      booking-per-window: "${RAZOR_RATE_LIMIT_BOOKING:10}"
+      booking-window-seconds: 3600
   openai:
     api-key: "${OPENAI_API_KEY}"
     model: "gpt-4o"
