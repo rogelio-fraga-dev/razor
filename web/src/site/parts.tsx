@@ -53,22 +53,65 @@ export function Services({ site, title = "Serviços" }: { site: PublicSite; titl
   );
 }
 
+/**
+ * Cada template mostra a equipe do seu jeito (CSS `.rz-team-*` no fim de site.css): o Clássico
+ * em cartões compactos, o Estúdio em retrato grande (a equipe é o destaque dele) e a Vitrine com a
+ * foto de ponta a ponta (lá a imagem é o argumento). O dado é o mesmo nos três.
+ */
+const TEAM_VARIANT: Record<PublicSite["template"], "cards" | "portrait" | "tiles"> = {
+  CLASSICO: "cards",
+  ESTUDIO: "portrait",
+  VITRINE: "tiles",
+};
+
+/** Defesa extra além do backend: só data URI de imagem vira <img>, só http(s) vira link. */
+const isPhoto = (u: string | null) => !!u && /^data:image\/(jpeg|png|webp);base64,/.test(u);
+const isHttp = (u: string | null) => !!u && /^https?:\/\//i.test(u);
+
+function igHandle(url: string): string {
+  const m = url.match(/instagram\.com\/([A-Za-z0-9._]+)/i);
+  return m ? `@${m[1]}` : "Instagram";
+}
+
 export function Team({ site }: { site: PublicSite }) {
   if (site.team.length === 0) return null;
+  const variant = TEAM_VARIANT[site.template] ?? "cards";
   return (
     <section className="rz-section rz-section-alt" aria-labelledby="rz-equipe">
       <div className="rz-wrap">
         <p className="rz-eyebrow">Quem corta</p>
         <h2 className="rz-h2" id="rz-equipe">Nossa equipe</h2>
-        <div className="rz-grid rz-grid-4" style={{ marginTop: 30 }}>
-          {site.team.map((m) => (
-            <div className="rz-member" key={m.name}>
-              {/* Inicial em disco de acento enquanto não há upload de foto — melhor que um
-                  avatar genérico igual para todo mundo. */}
-              <div className="rz-member-badge" aria-hidden="true">{m.name.charAt(0).toUpperCase()}</div>
-              <div className="rz-member-name">{m.name}</div>
-            </div>
-          ))}
+        <div className={`rz-team rz-team-${variant}`}>
+          {site.team.map((m, i) => {
+            // O apelido é como a casa chama o barbeiro — é o nome que o cliente vai pedir.
+            const shown = m.nickname || m.name;
+            return (
+              <article className="rz-team-member" key={`${m.name}-${i}`}>
+                {isPhoto(m.photoUrl) ? (
+                  <img className="rz-team-photo" src={m.photoUrl!} alt={`Foto de ${shown}`} loading="lazy" />
+                ) : (
+                  // Sem foto: inicial em disco de acento — melhor que um avatar genérico igual
+                  // para todo mundo.
+                  <div className="rz-team-initial" aria-hidden="true">{shown.charAt(0).toUpperCase()}</div>
+                )}
+                <h3 className="rz-team-name">{shown}</h3>
+                {m.nickname && m.nickname !== m.name && <div className="rz-team-fullname">{m.name}</div>}
+                {m.bio && <p className="rz-team-bio">{m.bio}</p>}
+                {m.specialties.length > 0 && (
+                  <ul className="rz-team-tags" aria-label={`Especialidades de ${shown}`}>
+                    {m.specialties.map((t) => (
+                      <li key={t}>{t}</li>
+                    ))}
+                  </ul>
+                )}
+                {isHttp(m.instagramUrl) && (
+                  <a className="rz-team-ig" href={m.instagramUrl!} target="_blank" rel="noopener noreferrer">
+                    {igHandle(m.instagramUrl!)}
+                  </a>
+                )}
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>

@@ -341,3 +341,105 @@
   from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: none; }
 }
+
+/* ============================================================================
+   EQUIPE — perfil do barbeiro (V37).
+   Foto (ou inicial em disco de acento), apelido, bio, especialidades e
+   Instagram. Três variantes, uma por template:
+     cards    — Clássico: cartão compacto, foto redonda.
+     portrait — Estúdio: equipe em destaque, retrato grande e texto centrado.
+     tiles    — Vitrine: a foto é o argumento, quadro inteiro no topo.
+   ========================================================================== */
+.rz-team { display: grid; gap: 18px; margin-top: 30px; }
+.rz-team-cards { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.rz-team-portrait { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 26px; }
+.rz-team-tiles { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+.rz-team-member {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  min-width: 0;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.rz-team-member:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+
+.rz-team-photo {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 2px var(--accent-soft), 0 10px 28px rgba(0, 0, 0, 0.14);
+}
+.rz-team-initial {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 38px;
+  font-weight: 800;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+.rz-team-name { font-weight: 700; font-size: 18px; line-height: 1.25; margin: 4px 0 0; }
+.rz-team-fullname { font-size: 13px; color: var(--text-muted); margin-top: -6px; }
+.rz-team-bio { margin: 0; font-size: 14.5px; color: var(--text-muted); line-height: 1.55; max-width: 36ch; }
+.rz-team-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; list-style: none; padding: 0; margin: 2px 0 0; }
+.rz-team-tags li {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.rz-team-ig {
+  margin-top: auto;
+  padding-top: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+.rz-team-ig:hover { text-decoration: underline; }
+
+/* Estúdio: retrato grande, sem moldura de cartão — a pessoa é o destaque. */
+.rz-team-portrait .rz-team-member { background: transparent; border-color: transparent; padding: 10px; }
+.rz-team-portrait .rz-team-member:hover { box-shadow: none; border-color: transparent; }
+.rz-team-portrait .rz-team-photo,
+.rz-team-portrait .rz-team-initial { width: 168px; height: 168px; font-size: 58px; }
+.rz-team-portrait .rz-team-name { font-family: var(--font-display); font-size: 22px; }
+
+/* Vitrine: foto quadrada de ponta a ponta no topo do cartão. */
+.rz-team-tiles .rz-team-member { padding: 0 0 18px; overflow: hidden; align-items: stretch; text-align: left; }
+.rz-team-tiles .rz-team-photo,
+.rz-team-tiles .rz-team-initial {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+  font-size: 72px;
+}
+.rz-team-tiles .rz-team-member > :not(.rz-team-photo):not(.rz-team-initial) { margin-left: 18px; margin-right: 18px; }
+.rz-team-tiles .rz-team-tags { justify-content: flex-start; }
+
+@media (max-width: 560px) {
+  .rz-team-portrait .rz-team-photo,
+  .rz-team-portrait .rz-team-initial { width: 132px; height: 132px; font-size: 46px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rz-team-member, .rz-team-member:hover { transition: none; transform: none; }
+}

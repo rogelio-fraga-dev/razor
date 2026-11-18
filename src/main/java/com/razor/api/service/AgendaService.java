@@ -200,7 +200,7 @@ public class AgendaService {
             return;
         }
 
-        java.util.UUID professionalId = professionalAssignmentService.assign(parsedDate, parsedTime, preferredProfessionalId);
+        java.util.UUID professionalId = professionalAssignmentService.assign(parsedDate, parsedTime, preferredProfessionalId, service);
 
         Appointment app = Appointment.builder()
             .barbershopId(TenantContext.getCurrent())

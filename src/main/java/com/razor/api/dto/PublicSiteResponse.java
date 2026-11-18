@@ -45,8 +45,14 @@ public record PublicSiteResponse(
     public record Service(String name, BigDecimal price, Integer durationMinutes) {
     }
 
-    /** So o nome. Telefone e comissao do barbeiro nao tem por que existir numa pagina publica. */
-    public record TeamMember(String name) {
+    /**
+     * O barbeiro como vitrine (V37): nome, apelido, foto, bio, especialidades e Instagram — so o
+     * que o proprio dono preencheu para aparecer. Telefone, comissao, id e servicos que atende
+     * nao tem por que existir numa pagina publica. {@code photoUrl} e um data URI de imagem
+     * validado na entrada (nunca outro esquema).
+     */
+    public record TeamMember(String name, String nickname, String photoUrl, String bio,
+                             List<String> specialties, String instagramUrl) {
     }
 
     public record Plan(String name, BigDecimal price, String description) {

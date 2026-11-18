@@ -33,14 +33,34 @@ export interface Professional {
   commissionPercent: number;
   /** `null` = usa o percentual dos serviços (V23) — diferente de 0, que é "não paga". */
   productCommissionPercent: number | null;
+  /** Data URI (`data:image/jpeg;base64,…`) pronto para `<img src>` — V37. `null` = sem foto. */
+  photoUrl: string | null;
+  /** Como o bot chama o barbeiro com o cliente. */
+  nickname: string | null;
+  /** Apelido quando existe, senão o nome. */
+  displayName: string;
+  bio: string | null;
+  specialties: string[];
+  instagramUrl: string | null;
+  /** Serviços que atende. Vazio = todos. */
+  serviceIds: string[];
 }
 
+/**
+ * Nos campos de perfil, `undefined`/`null` = "não mexe" e vazio (`""`/`[]`) = "limpa".
+ */
 export interface ProfessionalInput {
   name: string;
   phone?: string | null;
   active?: boolean;
   commissionPercent?: number | null;
   productCommissionPercent?: number | null;
+  photoUrl?: string | null;
+  nickname?: string | null;
+  bio?: string | null;
+  specialties?: string[] | null;
+  instagramUrl?: string | null;
+  serviceIds?: string[] | null;
 }
 
 export interface Barbershop {
@@ -595,9 +615,20 @@ export type SiteTheme = "LIGHT" | "DARK" | "AUTO";
 /**
  * O site como o VISITANTE o recebe — espelha PublicSiteResponse.
  *
- * `price` nulo quando o dono optou por não publicar preços. `team` traz só o nome: telefone e
- * comissão do barbeiro não existem nesta rota, por decisão do backend.
+ * `price` nulo quando o dono optou por não publicar preços. `team` traz só o perfil público:
+ * telefone e comissão do barbeiro não existem nesta rota, por decisão do backend.
  */
+/** Barbeiro como vitrine (V37) — só campos que o dono preencheu para aparecer. */
+export interface PublicTeamMember {
+  name: string;
+  nickname: string | null;
+  /** Sempre um data URI de imagem validado no backend (nunca outro esquema). */
+  photoUrl: string | null;
+  bio: string | null;
+  specialties: string[];
+  instagramUrl: string | null;
+}
+
 export interface PublicSite {
   slug: string;
   barbershopName: string;
@@ -617,6 +648,6 @@ export interface PublicSite {
   /** Derivado dos dias estruturados (V32) — o site nunca anuncia expediente que a agenda recusa. */
   openingHours: string | null;
   services: { name: string; price: number | null; durationMinutes: number | null }[];
-  team: { name: string }[];
+  team: PublicTeamMember[];
   plans: { name: string; price: number; description: string | null }[];
 }
