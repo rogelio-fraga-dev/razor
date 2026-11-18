@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
+import { useFocusTrap } from "../lib/useFocusTrap";
 
 /**
  * Diálogo base de todo o painel — cadastro de produto, serviço, cupom, plano, abertura de
@@ -28,7 +29,6 @@ export function Modal({
   onRequestClose?: () => boolean;
 }) {
   const titleId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
   const tryClose = () => {
@@ -36,47 +36,29 @@ export function Modal({
     onClose();
   };
 
-  // Foco entra no diálogo ao abrir e volta para onde estava ao fechar — sem isso, quem navega
-  // por teclado continua "na página de trás" depois que o modal aparece.
+  // Foco entra no diálogo ao abrir e volta para onde estava ao fechar; Esc fecha; Tab circula
+  // dentro do diálogo em vez de vazar para a página atrás do overlay.
   //
   // O foco vai para o TÍTULO, não para o primeiro focável. O primeiro focável no DOM é sempre o
   // botão ✕ (ele vem antes do corpo), então o primeiro Enter de quem navega por teclado fechava
   // o diálogo sem querer. Focar o título também faz o leitor de tela anunciar do que se trata.
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    (titleRef.current ?? dialogRef.current)?.focus();
-    return () => previouslyFocused?.focus?.();
-  }, []);
-
-  // Esc fecha; Tab circula dentro do diálogo em vez de vazar para o resto da página.
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      tryClose();
-      return;
-    }
-    if (e.key !== "Tab" || !dialogRef.current) return;
-
-    const focusables = Array.from(
-      dialogRef.current.querySelectorAll<HTMLElement>(
-        'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-      ),
-    );
-    if (focusables.length === 0) return;
-
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
+  const { ref: dialogRef, onKeyDown } = useFocusTrap<HTMLDivElement>({
+    onEscape: tryClose,
+    initialFocus: titleRef,
+  });
 
   return (
-    <div className="modal-overlay" onMouseDown={tryClose}>
+    // Clique fora fecha (atalho de mouse; no teclado o equivalente é Esc ou o ✕). O overlay é
+    // só apresentação — o diálogo de verdade é o filho com role="dialog".
+    <div
+      className="modal-overlay"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) tryClose();
+      }}
+    >
+      {/* onKeyDown no diálogo é o padrão WAI-ARIA de modal (Esc + Tab preso). */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
         ref={dialogRef}
         className={`modal${size === "wide" ? " modal-wide" : ""}`}
@@ -84,7 +66,6 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
         <div className="modal-head">

@@ -18,6 +18,7 @@ import { useApi } from "../lib/useApi";
 import { api, ApiError } from "../api/client";
 import type { AgendaBlock, AgendaBoard, AgendaItem, AgendaPro, PaymentStatus } from "../api/types";
 import { todayIso } from "../lib/format";
+import { isSafePhoto } from "../lib/photo";
 import {
   PX_PER_MIN,
   SLOT_MIN,
@@ -80,14 +81,28 @@ function useNarrow(query = "(max-width: 720px)"): boolean {
   return narrow;
 }
 
+/** Avatar do cabeçalho da coluna. Só vira <img> o que passa no `isSafePhoto` (data URI de imagem). */
 function Avatar({ pro, name }: { pro?: AgendaPro; name: string }) {
   const [broken, setBroken] = useState(false);
   const photo = pro?.photoUrl;
   return (
     <span className="cal-avatar" aria-hidden="true">
-      {photo && !broken ? <img src={photo} alt="" onError={() => setBroken(true)} /> : initials(name)}
+      {isSafePhoto(photo) && !broken ? <img src={photo} alt="" onError={() => setBroken(true)} /> : initials(name)}
     </span>
   );
+}
+
+/** Posição otimista de um bloco remarcado, aplicada por cima do que veio do servidor. */
+interface PendingMove {
+  date: string;
+  time: string;
+  professionalId: string;
+  professionalName: string | null;
+  /**
+   * Preenchido quando o servidor aceitou: o `board.data` daquele momento. Assim que chega um
+   * `board.data` diferente (a recarga), o servidor volta a ser a verdade e a posição é ignorada.
+   */
+  settledOn?: AgendaBoard | null;
 }
 
 export function Agenda() {
@@ -109,9 +124,21 @@ export function Agenda() {
   const to = view === "day" ? date : addDays(from, 6);
   const board = useApi<AgendaBoard>(() => api.get(`/api/admin/agenda?from=${from}&to=${to}`), [from, to]);
 
-  // Cópia local para a troca otimista; toda recarga do servidor é a verdade de novo.
-  const [items, setItems] = useState<AgendaItem[]>([]);
-  useEffect(() => setItems(board.data?.appointments ?? []), [board.data]);
+  // Trocas otimistas em andamento, por id do agendamento, aplicadas por cima do dado do servidor
+  // (sem cópia da lista). Cada troca mexe só na sua entrada — duas trocas simultâneas não se
+  // atropelam, e uma recarga no meio não faz o bloco "voltar" antes da resposta.
+  const [pending, setPending] = useState<ReadonlyMap<number, PendingMove>>(() => new Map());
+  const boardData = useRef<AgendaBoard | null>(null);
+  boardData.current = board.data;
+  const items = useMemo(() => {
+    const base = board.data?.appointments ?? [];
+    if (pending.size === 0) return base;
+    return base.map((a) => {
+      const p = pending.get(a.id);
+      if (!p || (p.settledOn !== undefined && p.settledOn !== board.data)) return a;
+      return { ...a, date: p.date, time: p.time, professionalId: p.professionalId, professionalName: p.professionalName };
+    });
+  }, [board.data, pending]);
 
   const pros = useMemo(() => board.data?.professionals ?? [], [board.data]);
   const activePros = useMemo(() => pros.filter((p) => p.active), [pros]);
@@ -193,15 +220,28 @@ export function Agenda() {
   // ---------------------------------------------------------------- remarcar (otimista)
   const move = useCallback(
     async (item: AgendaItem, newDate: string, time: string, professionalId: string, notify: boolean): Promise<boolean> => {
-      const original = item;
       const pro = proById.get(professionalId);
-      setItems((list) =>
-        list.map((a) =>
-          a.id === item.id
-            ? { ...a, date: newDate, time: `${time}:00`, professionalId, professionalName: pro?.name ?? a.professionalName }
-            : a,
-        ),
-      );
+      const entry: PendingMove = {
+        date: newDate,
+        time: `${time}:00`,
+        professionalId,
+        professionalName: pro?.name ?? item.professionalName,
+      };
+      // Mexe só na entrada DESTA troca (se uma troca mais nova do mesmo bloco já a substituiu,
+      // deixa quieta). Confirmada: fica valendo até a recarga chegar; recusada: sai na hora.
+      const settle = (accepted: boolean) =>
+        setPending((prev) => {
+          if (prev.get(item.id) !== entry) return prev;
+          const next = new Map(prev);
+          // Aproveita para limpar as confirmadas que o servidor já substituiu.
+          for (const [id, p] of next) {
+            if (p.settledOn !== undefined && p.settledOn !== boardData.current) next.delete(id);
+          }
+          if (accepted) next.set(item.id, { ...entry, settledOn: boardData.current });
+          else next.delete(item.id);
+          return next;
+        });
+      setPending((prev) => new Map(prev).set(item.id, entry));
       try {
         await api.patch(`/api/admin/agenda/appointments/${item.id}`, {
           date: newDate,
@@ -212,11 +252,12 @@ export function Agenda() {
         toast.success(
           `${item.customerName || "Cliente"} → ${time}${pro ? ` com ${pro.name}` : ""}${notify ? " · cliente avisado" : ""} ✓`,
         );
+        settle(true);
         board.reload();
         return true;
       } catch (e) {
         // Desfaz só ESTE bloco: outra troca em andamento não pode ser atropelada.
-        setItems((list) => list.map((a) => (a.id === original.id ? original : a)));
+        settle(false);
         toast.error(e instanceof ApiError ? e.message : "Não foi possível remarcar.");
         return false;
       }
@@ -312,7 +353,12 @@ export function Agenda() {
   // ---------------------------------------------------------------- navegação
   const isToday = date === todayIso();
   const step = view === "day" ? 1 : 7;
-  const now = new Date();
+  // Linha do "agora": anda sozinha a cada minuto, mesmo sem nenhuma outra re-renderização.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(t);
+  }, []);
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const showNowIn = (d: string) => d === todayIso() && nowMin >= range.start && nowMin <= range.end;
 
@@ -480,8 +526,11 @@ export function Agenda() {
                     }}
                   >
                     {slots.slice(0, -1).map((min) => (
+                      // Atalho de mouse: clicar no horário vazio abre o agendamento já preenchido.
+                      // No teclado o caminho é o botão "+ Agendar" — por isso é só apresentação.
                       <div
                         key={min}
+                        role="presentation"
                         className={`cal-slot ${min % 60 === 0 ? "hour" : ""}${editableCol ? " is-free" : ""}`}
                         style={{ top: (min - range.start) * PX_PER_MIN, height: SLOT_MIN * PX_PER_MIN }}
                         onClick={() => openSlot(c, min)}
@@ -523,7 +572,7 @@ export function Agenda() {
                       const dragging = drag?.moved && drag.item.id === a.id;
                       const att = a.attendanceStatus;
                       return (
-                        <article
+                        <div
                           key={a.id}
                           className={[
                             "cal-event",
@@ -540,6 +589,7 @@ export function Agenda() {
                             right: "auto",
                             width: `calc(${100 / lane.lanes}% - 12px)`,
                           }}
+                          data-id={a.id}
                           tabIndex={0}
                           role="button"
                           aria-label={[
@@ -585,7 +635,7 @@ export function Agenda() {
                           </span>
                           {height > 46 && <span className="ev-service">{a.service}</span>}
                           {height > 68 && st && <span className="ev-pay">{PAYMENT_LABEL[st]}</span>}
-                        </article>
+                        </div>
                       );
                     })}
 

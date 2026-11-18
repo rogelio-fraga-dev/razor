@@ -128,8 +128,8 @@ export function ScheduleBlocksModal({ onClose, onChanged }: { onClose: () => voi
             </label>
           </div>
 
-          <div className="field">
-            <label>Quando</label>
+          <div className="field" role="group" aria-label="Quando">
+            <span className="field-label" aria-hidden="true">Quando</span>
             <div className="chip-row">
               <button
                 type="button"

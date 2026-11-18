@@ -203,8 +203,8 @@ export function PlanBenefitsModal({
           </div>
         </div>
 
-        <div className="field">
-          <label>Dias em que vale</label>
+        <div className="field" role="group" aria-label="Dias em que vale">
+          <span className="field-label" aria-hidden="true">Dias em que vale</span>
           <div className="row wrap" style={{ gap: 6 }}>
             {DIAS.map((d) => (
               <button

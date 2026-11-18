@@ -59,17 +59,24 @@ export function Professionals() {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  // Cada abertura do formulário ganha um número. A foto é processada de forma assíncrona: se a
+  // pessoa fechar e abrir OUTRO barbeiro nesse meio-tempo, o recorte antigo não pode cair nele.
+  const draftSeq = useRef(0);
 
   const serviceName = (id: string) => services.data?.find((s) => s.id === id)?.name;
 
   const openNew = () => {
     setFormError(null);
     setTagInput("");
+    draftSeq.current++;
+    setPhotoBusy(false);
     setDraft({ ...EMPTY });
   };
   const openEdit = (p: Professional) => {
     setFormError(null);
     setTagInput("");
+    draftSeq.current++;
+    setPhotoBusy(false);
     setDraft({
       id: p.id,
       name: p.name,
@@ -88,15 +95,18 @@ export function Professionals() {
 
   const onPickPhoto = async (file: File | undefined) => {
     if (!file || !draft) return;
+    const seq = draftSeq.current;
+    const draftId = draft.id;
+    const sameDraft = () => seq === draftSeq.current;
     setPhotoBusy(true);
     setFormError(null);
     try {
       const uri = await photoToAvatarDataUri(file);
-      setDraft((d) => (d ? { ...d, photoUrl: uri } : d));
+      setDraft((d) => (d && sameDraft() && d.id === draftId ? { ...d, photoUrl: uri } : d));
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : "Não consegui processar a foto.");
+      if (sameDraft()) setFormError(e instanceof Error ? e.message : "Não consegui processar a foto.");
     } finally {
-      setPhotoBusy(false);
+      if (sameDraft()) setPhotoBusy(false);
       if (fileRef.current) fileRef.current.value = "";
     }
   };

@@ -171,14 +171,21 @@ export function CustomerTagsModal({
  * status) pelo mesmo mecanismo do disparo do WhatsApp do dono — um por vez, com pausa entre envios.
  */
 export function BroadcastModal({
-  tag,
+  tagId,
+  tagName,
   status,
   recipients,
+  previewFailed,
   onClose,
 }: {
-  tag: CustomerTag | null;
+  /** Filtro cru da tela — vai assim para o backend, mesmo que a lista de tags não tenha carregado. */
+  tagId: string | null;
+  /** Só para exibir; pode faltar enquanto as tags carregam. */
+  tagName: string | null;
   status: CustomerStatus | null;
+  /** Quantos vão receber (prévia do servidor); null = ainda contando ou falhou. */
   recipients: number | null;
+  previewFailed: boolean;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -186,7 +193,7 @@ export function BroadcastModal({
   const [promo, setPromo] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const grupo = [tag ? `tag “${tag.name}”` : null, status ? STATUS_META[status].label.toLowerCase() : null]
+  const grupo = [tagId ? `tag “${tagName ?? "…"}”` : null, status ? STATUS_META[status].label.toLowerCase() : null]
     .filter(Boolean)
     .join(" + ") || "toda a base";
 
@@ -195,7 +202,7 @@ export function BroadcastModal({
     try {
       const res = await api.post<{ recipients: number }>("/api/admin/broadcasts", {
         message: message.trim(),
-        tagId: tag?.id ?? null,
+        tagId,
         status,
         promo,
       });
@@ -218,9 +225,11 @@ export function BroadcastModal({
           <button
             className="btn btn-primary"
             onClick={send}
-            disabled={sending || !message.trim() || recipients === 0}
+            // Sem a contagem confirmada pelo servidor não se dispara nada: ninguém manda
+            // mensagem em massa sem saber para quantos vai.
+            disabled={sending || !message.trim() || recipients == null || recipients === 0}
           >
-            {sending ? "Enviando…" : recipients != null ? `Enviar para ${recipients}` : "Enviar"}
+            {sending ? "Enviando…" : recipients != null ? `Enviar para ${recipients}` : "Contando…"}
           </button>
         </>
       }
@@ -229,7 +238,14 @@ export function BroadcastModal({
         <span className="muted" style={{ fontSize: 14 }}>
           Grupo: <strong>{grupo}</strong>
           {recipients != null && <> · {recipients} cliente(s) com WhatsApp (administradores ficam de fora)</>}
+          {recipients == null && !previewFailed && <> · contando destinatários…</>}
         </span>
+        {previewFailed && (
+          <div className="error" role="alert">
+            Não foi possível contar os destinatários. Feche e tente de novo — o envio fica bloqueado até lá.
+          </div>
+        )}
+        {recipients === 0 && <span className="faint" style={{ fontSize: 13 }}>Nenhum cliente neste grupo.</span>}
         <div className="field">
           <label>Mensagem
             <textarea

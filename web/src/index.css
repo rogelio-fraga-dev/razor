@@ -205,6 +205,9 @@ h1, h2, h3 {
   flex-direction: column;
   gap: 6px;
 }
+/* Rótulo de um GRUPO de botões (dias, tipo de movimento…): não há um controle único para o
+   <label> apontar, então é um span com o mesmo visual e o contêiner vira role="group". */
+.field .field-label { font-size: 13px; font-weight: 550; color: var(--text-muted); }
 /* Dentro do label o texto do campo volta ao tamanho normal. */
 .field label .input { font-size: 14px; font-weight: 400; color: var(--text); }
 .input {

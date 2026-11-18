@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Layout } from "../components/Layout";
 import { EmptyState } from "../components/EmptyState";
 import { SkeletonRows } from "../components/Skeleton";
@@ -17,6 +17,11 @@ function isoDaysAgo(days: number): string {
 export function Commissions() {
   const [date, setDate] = useState(todayIso());
   const [showPicker, setShowPicker] = useState(false);
+  // Foco no seletor só quando a pessoa pediu "Outra data…" (o botão some e o foco iria embora).
+  const pickerRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (showPicker) pickerRef.current?.focus();
+  }, [showPicker]);
   const { data, loading, error } = useApi<CommissionReport>(
     () => api.get(`/api/admin/reports/commissions?date=${date}`),
     [date],
@@ -56,7 +61,8 @@ export function Commissions() {
               value={date}
               onChange={(e) => setDate(e.target.value)}
               style={{ width: 160, padding: "6px 10px" }}
-              autoFocus
+              ref={pickerRef}
+              aria-label="Data"
             />
           ) : (
             <button className="chip-btn" onClick={() => setShowPicker(true)}>

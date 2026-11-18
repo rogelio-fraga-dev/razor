@@ -122,7 +122,7 @@ export function NewAppointmentModal({
             />
           </label>
           {results.length > 0 && (
-            <ul className="ag-results" role="listbox" aria-label="Clientes encontrados">
+            <ul className="ag-results" aria-label="Clientes encontrados">
               {results.map((c) => (
                 <li key={c.id}>
                   <button type="button" className="ag-result" onClick={() => pick(c)}>

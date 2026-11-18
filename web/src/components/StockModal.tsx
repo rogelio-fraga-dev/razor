@@ -132,8 +132,8 @@ export function StockModal({
         </div>
 
         {/* Movimentar */}
-        <div className="field">
-          <label>Movimentar estoque</label>
+        <div className="field" role="group" aria-label="Movimentar estoque">
+          <span className="field-label" aria-hidden="true">Movimentar estoque</span>
           <div className="row wrap" style={{ gap: 8 }}>
             {(["entrada", "saida", "ajuste"] as const).map((a) => (
               <button
@@ -178,7 +178,7 @@ export function StockModal({
 
         {/* Extrato */}
         <div>
-          <label className="faint" style={{ fontSize: 12 }}>EXTRATO</label>
+          <div className="faint" style={{ fontSize: 12 }}>EXTRATO</div>
           {movements.loading ? (
             <div className="muted">Carregando…</div>
           ) : movements.error ? (

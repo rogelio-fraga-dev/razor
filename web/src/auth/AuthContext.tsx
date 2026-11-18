@@ -63,7 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       alive = false;
     };
-    // Roda uma vez, no boot.
+    // Roda uma vez, no boot (`restoring` só serve de guarda para o StrictMode).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
