@@ -752,3 +752,8 @@ html:has(.tpl) { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   .rz-team-member, .rz-team-member:hover { transition: none; transform: none; }
 }
+
+/* O painel (index.css / design system) pinta h1..h6 com a cor de texto DELE (--text-main, clara
+   no tema escuro do painel). Dentro do site, título herda a cor do template — senão o tema claro
+   mostra título branco em fundo branco. */
+.rzsite h1, .rzsite h2, .rzsite h3, .rzsite h4, .rzsite h5, .rzsite h6 { color: inherit; }
