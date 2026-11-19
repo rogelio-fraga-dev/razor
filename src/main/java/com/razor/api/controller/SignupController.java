@@ -74,6 +74,12 @@ public class SignupController {
         }
     }
 
+    /** JSON quebrado (ou texto fora de UTF-8): mesma resposta {@code {error}}, sem stack do Spring. */
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<Object> unreadable() {
+        return ResponseEntity.badRequest().body(Map.of("error", "Não consegui ler o cadastro. Confira os campos."));
+    }
+
     /**
      * Campo faltando ou invalido: a primeira mensagem, em portugues, no formato {@code {error}} do
      * resto da API — o padrao do Spring devolveria um JSON tecnico que a tela nao sabe mostrar.

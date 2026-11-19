@@ -81,10 +81,27 @@ Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com
 - [ ] Relatório semanal no WhatsApp do dono.
 
 ## Parte 5 — Cadastro, landing e lançamento (V49)
-- [ ] Cadastro sozinho + teste grátis de 14 dias (só status, sem cobrança).
-- [ ] Assistente de 10 minutos (casa → horário → serviços → equipe → QR → teste → site).
-- [ ] Termos, Privacidade (LGPD) e Cancelamento — RASCUNHO para advogado.
-- [ ] Imagem de capa (og:image).
+- [x] Cadastro sozinho + teste grátis de 14 dias (só status, sem cobrança).
+      `POST /api/signup` (público) cria barbearia em TRIAL + dono pelo mesmo caminho do
+      provisionamento da plataforma e já abre a sessão; tela `/cadastro?plano=` no painel, ligada
+      aos `[data-cta]` da landing. Freios: 10 cadastros/IP/hora (`RAZOR_RATE_LIMIT_SIGNUP`),
+      honeypot, e-mail único, senha ≥ 8. Desligável com `RAZOR_SIGNUP_ENABLED=false`; dias do
+      teste em `RAZOR_TRIAL_DAYS`. O fim do teste NÃO bloqueia nada (só a faixa "teste grátis até
+      dd/mm") — falta decidir a cobrança.
+- [x] Assistente de 10 minutos (casa → horário → serviços → equipe → QR → teste → site).
+      `/comecar`, tela cheia, progresso por passo no servidor (`/api/admin/onboarding`), retoma
+      pela faixa do topo e pelo checklist "Comece por aqui". Teste do bot ao vivo pela última
+      mensagem recebida/respondida.
+- [x] Termos, Privacidade (LGPD) e Cancelamento — RASCUNHO para advogado.
+      `site/termos.html`, `privacidade.html`, `cancelamento.html` (noindex). Antes de divulgar:
+      preencher os campos `[ENTRE COLCHETES]` (razão social, CNPJ, e-mails, DPO, prazos de
+      retenção, regra de reembolso), revisar com advogado e tirar o aviso de rascunho.
+- [x] Imagem de capa (og:image) — `site/og-image.png` (1200×630), fonte em `site/og/og-image.html`
+      (`python site/og/render.py` regera). **Precisa do domínio:** WhatsApp, Instagram e Facebook
+      só leem `og:image` com URL ABSOLUTA e pública (https) — caminho relativo é ignorado e a
+      prévia sai sem imagem. Hoje a meta aponta para `https://razor.com.br/og-image.png`
+      (provisório); ao ter o domínio, trocar `og:url`, `og:image`, `twitter:image` e o `canonical`
+      no `site/index.html` e testar no depurador de compartilhamento da Meta.
 - [x] Seção de teste grátis em destaque na landing.
 
 ## Parte 6 — Vídeo para Reels
