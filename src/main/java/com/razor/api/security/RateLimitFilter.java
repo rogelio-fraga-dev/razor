@@ -16,8 +16,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Aplica o freio de requisicoes em {@code /api/admin/**}, no webhook e nas rotas publicas do site
- * ({@code /api/site/**}, com um teto extra e mais curto no POST de agendamento online).
+ * Aplica o freio de requisicoes em {@code /api/admin/**}, no webhook, nas rotas publicas do site
+ * ({@code /api/site/**}, com um teto extra e mais curto no POST de agendamento online) e no
+ * cadastro de barbearia pela landing ({@code /api/signup}, V49 — teto por hora, nao por minuto).
  *
  * <p>Roda <b>antes</b> da cadeia do Spring Security ({@code @Order} negativo): um atacante que
  * dispara mil requisicoes com token invalido nao deve custar mil validacoes de JWT. O login tem
@@ -37,6 +38,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /** Site white-label e agendamento online: publicos, entao o IP e o unico freio. */
     private static final String SITE_PREFIX = "/api/site/";
     private static final String BOOKING_SCOPE = "site-booking";
+    /** Cadastro publico de barbearia (V49): ninguem abre cinco barbearias numa hora. */
+    private static final String SIGNUP_PATH = "/api/signup";
 
     /** Limpa janelas expiradas a cada N requisicoes, para nao varrer o mapa a toda chamada. */
     private static final long EVICT_EVERY = 500;
@@ -60,21 +63,27 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         Duration window = Duration.ofSeconds(cfg.getWindowSeconds());
         Duration bookingWindow = Duration.ofSeconds(cfg.getBookingWindowSeconds());
+        Duration signupWindow = Duration.ofSeconds(cfg.getSignupWindowSeconds());
+        boolean signup = SIGNUP_PATH.equals(scope);
         int limit = switch (scope) {
             case WEBHOOK_PREFIX -> cfg.getWebhookPerMinute();
             case SITE_PREFIX -> cfg.getSitePerMinute();
+            case SIGNUP_PATH -> cfg.getSignupPerWindow();
             default -> cfg.getAdminPerMinute();
         };
 
         if (seen.incrementAndGet() % EVICT_EVERY == 0) {
             // A maior janela manda: despejar com a de 1 minuto zeraria o contador de quem ja
             // gastou os agendamentos da hora — o freio do POST viraria 1 minuto.
-            limiter.evictExpired(window.compareTo(bookingWindow) >= 0 ? window : bookingWindow);
+            Duration longest = window;
+            if (bookingWindow.compareTo(longest) > 0) longest = bookingWindow;
+            if (signupWindow.compareTo(longest) > 0) longest = signupWindow;
+            limiter.evictExpired(longest);
         }
 
         String ip = ClientIp.of(request);
-        if (!limiter.tryAcquire(scope + "|" + ip, limit, window)) {
-            reject(response, cfg.getWindowSeconds());
+        if (!limiter.tryAcquire(scope + "|" + ip, limit, signup ? signupWindow : window)) {
+            reject(response, signup ? cfg.getSignupWindowSeconds() : cfg.getWindowSeconds());
             return;
         }
 
@@ -113,6 +122,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (path.startsWith(ADMIN_PREFIX)) return ADMIN_PREFIX;
         if (path.startsWith(WEBHOOK_PREFIX)) return WEBHOOK_PREFIX;
         if (path.startsWith(SITE_PREFIX)) return SITE_PREFIX;
+        if (path.equals(SIGNUP_PATH) || path.startsWith(SIGNUP_PATH + "/")) return SIGNUP_PATH;
         return null;
     }
 }

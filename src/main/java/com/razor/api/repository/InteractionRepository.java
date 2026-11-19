@@ -34,6 +34,11 @@ public interface InteractionRepository extends JpaRepository<Interaction, UUID> 
                                                  @Param("from") java.time.LocalDateTime from,
                                                  @Param("to") java.time.LocalDateTime to);
 
+    /** Horario da ultima mensagem de um tipo na barbearia (teste do bot no assistente, V49). */
+    @Query("SELECT MAX(i.timestamp) FROM Interaction i WHERE i.barbershopId = :shop AND i.type = :type")
+    java.time.LocalDateTime findLastTimestamp(@Param("shop") UUID barbershopId,
+                                              @Param("type") Interaction.InteractionType type);
+
     default List<Interaction> findRecentInteractionsByCustomerId(UUID customerId) {
         return findRecentInteractionsByCustomerId(customerId, Pageable.ofSize(10));
     }

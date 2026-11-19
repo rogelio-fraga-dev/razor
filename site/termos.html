@@ -1,0 +1,166 @@
+<!doctype html>
+<!--
+  RASCUNHO — revisar com advogado antes de publicar.
+  Este texto é um ponto de partida escrito pela equipe de produto, NÃO é parecer jurídico.
+  Preencher os campos entre colchetes ([RAZÃO SOCIAL], [CNPJ], [E-MAIL]...) e validar com um
+  advogado (LGPD, CDC e Marco Civil) antes de divulgar o link. Tirar o aviso visível
+  (.draft-note) e este comentário só depois da revisão.
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0A0A0C" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Termos de uso — RAZOR</title>
+  <meta name="description" content="Termos de uso da RAZOR, plataforma de atendimento por IA no WhatsApp, agenda e gestão para barbearias." />
+  <!-- Rascunho jurídico: fora dos buscadores até a revisão. -->
+  <meta name="robots" content="noindex, follow" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="legal.css" />
+</head>
+<body>
+<a class="skip" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="legal-nav">
+  <div class="wrap nav-in">
+    <a class="logo" href="index.html" aria-label="RAZOR — voltar para a página inicial">
+      <svg viewBox="0 0 100 100" width="26" height="26" aria-hidden="true">
+        <defs><linearGradient id="gl-nav" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3E63FF"/><stop offset="1" stop-color="#37E2FF"/></linearGradient></defs>
+        <polygon class="logo-blade" points="30,92 52,92 84,8 62,8"/><polygon points="62,8 84,8 81,16 59,16" fill="url(#gl-nav)"/>
+      </svg>
+      <span class="logo-word">RAZOR</span>
+    </a>
+    <div class="nav-cta">
+      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Alternar tema claro/escuro">
+        <svg class="i-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>
+      <a class="btn btn-ghost btn-sm hide-xs" href="/app" data-panel>Entrar</a>
+      <a class="btn btn-primary btn-sm" href="index.html#planos">Ver planos</a>
+    </div>
+  </div>
+</header>
+
+<main id="conteudo" class="legal">
+  <div class="wrap narrow">
+    <header class="legal-head">
+      <span class="eyebrow">LEGAL · TERMOS</span>
+      <h1>Termos de uso</h1>
+      <p class="legal-meta">Versão 0.1 (rascunho) · última atualização: <span class="ph">[DATA DA PUBLICAÇÃO]</span></p>
+    </header>
+
+    <aside class="draft-note" role="note">
+      <b>RASCUNHO</b>
+      <span>Texto provisório, ainda não revisado por advogado. Os campos entre colchetes serão
+      preenchidos antes da publicação oficial. Dúvidas: <span class="ph">[E-MAIL DE CONTATO]</span>.</span>
+    </aside>
+
+    <nav class="legal-toc" aria-label="Índice">
+      <h2>Nesta página</h2>
+      <ol>
+        <li><a href="#quem-somos">Quem somos e a quem estes termos se aplicam</a></li>
+        <li><a href="#servico">O que a RAZOR faz</a></li>
+        <li><a href="#conta">Cadastro e conta</a></li>
+        <li><a href="#teste">Período de teste grátis</a></li>
+        <li><a href="#whatsapp">Uso do WhatsApp e da inteligência artificial</a></li>
+        <li><a href="#obrigacoes">Suas obrigações</a></li>
+        <li><a href="#pagamento">Planos, preços e pagamento</a></li>
+        <li><a href="#disponibilidade">Disponibilidade e suporte</a></li>
+        <li><a href="#responsabilidade">Limitação de responsabilidade</a></li>
+        <li><a href="#propriedade">Propriedade intelectual</a></li>
+        <li><a href="#encerramento">Cancelamento e encerramento</a></li>
+        <li><a href="#geral">Disposições gerais</a></li>
+      </ol>
+    </nav>
+
+    <div class="legal-body">
+      <section id="quem-somos">
+        <h2>Quem somos e a quem estes termos se aplicam</h2>
+        <p>A RAZOR é uma plataforma de software oferecida por <span class="ph">[RAZÃO SOCIAL]</span>, inscrita no CNPJ sob o nº <span class="ph">[CNPJ]</span>, com sede em <span class="ph">[ENDEREÇO COMPLETO]</span> (“RAZOR”, “nós”).</p>
+        <p>Estes termos regulam o uso da plataforma pela barbearia contratante e pelas pessoas que ela cadastra no painel (“Cliente”, “você”). Ao criar a conta ou usar o serviço, você declara que leu e aceita estes termos e a <a href="privacidade.html">Política de Privacidade</a>.</p>
+      </section>
+      <section id="servico">
+        <h2>O que a RAZOR faz</h2>
+        <p>A RAZOR oferece, na modalidade de software como serviço (SaaS):</p>
+        <ul>
+          <li>atendimento automatizado por inteligência artificial no WhatsApp da barbearia (texto e áudio), com agendamento, confirmação, lembretes e envio de cobrança por PIX;</li>
+          <li>painel de gestão: agenda, comandas, caixa, comissões, clientes, planos e relatórios;</li>
+          <li>site próprio da barbearia, com página pública de agendamento online.</li>
+        </ul>
+        <p>O serviço é prestado no estado em que se encontra e evolui com o tempo: funções podem ser incluídas, alteradas ou descontinuadas, com aviso prévio razoável quando a mudança afetar o uso contratado.</p>
+      </section>
+      <section id="conta">
+        <h2>Cadastro e conta</h2>
+        <p>Para usar a RAZOR você cria uma conta com dados verdadeiros e atualizados da barbearia e do responsável. Você é responsável pelo sigilo da senha e por tudo que for feito com os logins que criar no painel (recepção, barbeiros).</p>
+        <p>O cadastro é destinado a pessoas maiores de 18 anos que atuem em nome de um estabelecimento. Podemos recusar ou suspender cadastros com indícios de fraude, abuso ou dados falsos.</p>
+      </section>
+      <section id="teste">
+        <h2>Período de teste grátis</h2>
+        <p>Novas contas têm <span class="ph">[14]</span> dias de teste grátis, sem cartão de crédito e sem cobrança automática ao final. Antes do fim do teste avisaremos sobre a contratação de um plano; sem contratação, o acesso poderá ser limitado, conforme a <a href="cancelamento.html">Política de Cancelamento</a>.</p>
+      </section>
+      <section id="whatsapp">
+        <h2>Uso do WhatsApp e da inteligência artificial</h2>
+        <p>A conexão com o WhatsApp é feita com o número da própria barbearia. Você declara ter o direito de usar esse número e se compromete a respeitar os termos e políticas do WhatsApp/Meta, em especial a proibição de spam e de mensagens a quem não pediu para recebê-las.</p>
+        <p>As respostas do assistente são geradas por inteligência artificial a partir das informações que você cadastra (serviços, preços, horários, políticas). A IA pode errar: cabe à barbearia manter esses dados corretos e acompanhar os atendimentos pelo painel. A RAZOR não se responsabiliza por informação incorreta cadastrada pela barbearia.</p>
+        <p>Bloqueio ou restrição do número pelo WhatsApp por uso indevido é de responsabilidade de quem o causou.</p>
+      </section>
+      <section id="obrigacoes">
+        <h2>Suas obrigações</h2>
+        <ul>
+          <li>usar a plataforma apenas para a atividade lícita da barbearia;</li>
+          <li>ter base legal para tratar os dados dos seus clientes e informá-los sobre o atendimento automatizado (você é o controlador desses dados — veja a Política de Privacidade);</li>
+          <li>não tentar acessar dados de outras barbearias, burlar limites ou testar a segurança sem autorização;</li>
+          <li>não enviar conteúdo ilegal, ofensivo ou que viole direitos de terceiros pelo site ou pelo bot.</li>
+        </ul>
+      </section>
+      <section id="pagamento">
+        <h2>Planos, preços e pagamento</h2>
+        <p>Os planos e preços vigentes estão em <a href="index.html#planos">razor.com.br/#planos</a>. A forma de cobrança, o vencimento e as regras de reajuste serão informados no momento da contratação <span class="ph">[DEFINIR APÓS A ESCOLHA DO MEIO DE PAGAMENTO]</span>.</p>
+        <p>Valores cobrados de clientes da barbearia (sinal por PIX, pacotes, planos) são recebidos diretamente pela barbearia; a RAZOR não intermedeia esses pagamentos.</p>
+      </section>
+      <section id="disponibilidade">
+        <h2>Disponibilidade e suporte</h2>
+        <p>Trabalhamos para manter a plataforma disponível 24 horas por dia, mas podem ocorrer interrupções por manutenção, falhas de terceiros (WhatsApp, provedores de nuvem e de IA) ou casos fortuitos. Suporte pelo e-mail <span class="ph">[E-MAIL DE SUPORTE]</span>, em dias úteis, das <span class="ph">[HORÁRIO]</span>.</p>
+      </section>
+      <section id="responsabilidade">
+        <h2>Limitação de responsabilidade</h2>
+        <p>Na máxima extensão permitida em lei, a responsabilidade da RAZOR por danos decorrentes do serviço fica limitada ao valor pago pelo Cliente nos <span class="ph">[12]</span> meses anteriores ao evento. A RAZOR não responde por lucros cessantes, perda de clientes ou de agendamentos decorrentes de indisponibilidade de terceiros.</p>
+      </section>
+      <section id="propriedade">
+        <h2>Propriedade intelectual</h2>
+        <p>O software, a marca RAZOR, os modelos de site e a documentação pertencem a <span class="ph">[RAZÃO SOCIAL]</span>. O conteúdo que você cadastra (textos, fotos, logotipo, tabela de preços) continua sendo seu; você nos autoriza a usá-lo apenas para prestar o serviço, inclusive exibi-lo no site da barbearia.</p>
+      </section>
+      <section id="encerramento">
+        <h2>Cancelamento e encerramento</h2>
+        <p>Você pode cancelar quando quiser, sem multa — os detalhes estão na <a href="cancelamento.html">Política de Cancelamento</a>. Podemos encerrar contas que violem estes termos, com aviso prévio sempre que possível.</p>
+      </section>
+      <section id="geral">
+        <h2>Disposições gerais</h2>
+        <p>Podemos atualizar estes termos; mudanças relevantes serão avisadas pelo painel ou por e-mail com antecedência mínima de <span class="ph">[30]</span> dias. Estes termos seguem as leis brasileiras. Fica eleito o foro da comarca de <span class="ph">[CIDADE/UF]</span>, ressalvado o direito do consumidor de demandar no seu domicílio.</p>
+        <p>Contato: <span class="ph">[E-MAIL DE CONTATO]</span> · <span class="ph">[ENDEREÇO COMPLETO]</span>.</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="legal-foot">
+  <div class="wrap">
+    <span class="mono tiny">© 2026 RAZOR · <span class="ph">[RAZÃO SOCIAL]</span> · CNPJ <span class="ph">[CNPJ]</span></span>
+    <nav aria-label="Documentos legais">
+      <a href="index.html">Início</a>
+      <a href="termos.html" aria-current="page">Termos de uso</a>
+      <a href="privacidade.html">Privacidade (LGPD)</a>
+      <a href="cancelamento.html">Cancelamento</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="config.js" defer></script>
+<script src="legal.js" defer></script>
+</body>
+</html>

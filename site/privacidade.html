@@ -1,0 +1,198 @@
+<!doctype html>
+<!--
+  RASCUNHO — revisar com advogado antes de publicar.
+  Este texto é um ponto de partida escrito pela equipe de produto, NÃO é parecer jurídico.
+  Preencher os campos entre colchetes ([RAZÃO SOCIAL], [CNPJ], [E-MAIL]...) e validar com um
+  advogado (LGPD, CDC e Marco Civil) antes de divulgar o link. Tirar o aviso visível
+  (.draft-note) e este comentário só depois da revisão.
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0A0A0C" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Política de privacidade (LGPD) — RAZOR</title>
+  <meta name="description" content="Como a RAZOR trata dados pessoais de barbearias e de seus clientes, conforme a LGPD." />
+  <!-- Rascunho jurídico: fora dos buscadores até a revisão. -->
+  <meta name="robots" content="noindex, follow" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="legal.css" />
+</head>
+<body>
+<a class="skip" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="legal-nav">
+  <div class="wrap nav-in">
+    <a class="logo" href="index.html" aria-label="RAZOR — voltar para a página inicial">
+      <svg viewBox="0 0 100 100" width="26" height="26" aria-hidden="true">
+        <defs><linearGradient id="gl-nav" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3E63FF"/><stop offset="1" stop-color="#37E2FF"/></linearGradient></defs>
+        <polygon class="logo-blade" points="30,92 52,92 84,8 62,8"/><polygon points="62,8 84,8 81,16 59,16" fill="url(#gl-nav)"/>
+      </svg>
+      <span class="logo-word">RAZOR</span>
+    </a>
+    <div class="nav-cta">
+      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Alternar tema claro/escuro">
+        <svg class="i-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>
+      <a class="btn btn-ghost btn-sm hide-xs" href="/app" data-panel>Entrar</a>
+      <a class="btn btn-primary btn-sm" href="index.html#planos">Ver planos</a>
+    </div>
+  </div>
+</header>
+
+<main id="conteudo" class="legal">
+  <div class="wrap narrow">
+    <header class="legal-head">
+      <span class="eyebrow">LEGAL · PRIVACIDADE</span>
+      <h1>Política de privacidade</h1>
+      <p class="legal-meta">Versão 0.1 (rascunho) · última atualização: <span class="ph">[DATA DA PUBLICAÇÃO]</span></p>
+    </header>
+
+    <aside class="draft-note" role="note">
+      <b>RASCUNHO</b>
+      <span>Texto provisório, ainda não revisado por advogado. Os campos entre colchetes serão
+      preenchidos antes da publicação oficial. Dúvidas: <span class="ph">[E-MAIL DE CONTATO]</span>.</span>
+    </aside>
+
+    <nav class="legal-toc" aria-label="Índice">
+      <h2>Nesta página</h2>
+      <ol>
+        <li><a href="#papeis">Quem é o controlador e quem é o operador</a></li>
+        <li><a href="#dados">Quais dados tratamos</a></li>
+        <li><a href="#finalidades">Para que usamos e com qual base legal</a></li>
+        <li><a href="#ia">Inteligência artificial e compartilhamento</a></li>
+        <li><a href="#internacional">Transferência internacional</a></li>
+        <li><a href="#retencao">Por quanto tempo guardamos</a></li>
+        <li><a href="#direitos">Seus direitos como titular</a></li>
+        <li><a href="#seguranca">Segurança</a></li>
+        <li><a href="#cookies">Cookies e armazenamento local</a></li>
+        <li><a href="#encarregado">Encarregado (DPO) e contato</a></li>
+      </ol>
+    </nav>
+
+    <div class="legal-body">
+      <section id="papeis">
+        <h2>Quem é o controlador e quem é o operador</h2>
+        <p>A Lei Geral de Proteção de Dados (Lei nº 13.709/2018, “LGPD”) separa quem <strong>decide</strong> sobre os dados (controlador) de quem os <strong>trata em nome de outro</strong> (operador). Na RAZOR existem duas situações diferentes:</p>
+        <ul>
+          <li><strong>Dados dos clientes da barbearia</strong> (quem conversa com o bot, agenda ou compra): a <strong>barbearia é a controladora</strong>. Ela decide atender pelo WhatsApp, quais dados guardar e por quanto tempo. A <strong>RAZOR é operadora</strong>: trata esses dados só para prestar o serviço, seguindo as instruções da barbearia e esta política.</li>
+          <li><strong>Dados da própria barbearia e dos usuários do painel</strong> (dono, recepção, barbeiros) e dos visitantes deste site: a <strong>RAZOR é a controladora</strong>.</li>
+        </ul>
+        <p>Controladora nos casos acima: <span class="ph">[RAZÃO SOCIAL]</span>, CNPJ <span class="ph">[CNPJ]</span>, <span class="ph">[ENDEREÇO COMPLETO]</span>.</p>
+      </section>
+      <section id="dados">
+        <h2>Quais dados tratamos</h2>
+        <h3>Clientes da barbearia (RAZOR como operadora)</h3>
+        <ul>
+          <li>nome e número de WhatsApp;</li>
+          <li>conteúdo das conversas com o assistente: <strong>mensagens de texto e áudios</strong> (os áudios são transcritos para texto), e as respostas enviadas;</li>
+          <li>agendamentos, serviços, barbeiro escolhido, comparecimento e faltas;</li>
+          <li>pagamentos registrados (forma, valor, comprovante de PIX quando enviado), pacotes, planos e pontos de fidelidade;</li>
+          <li>avaliações dadas após o atendimento e etiquetas/observações cadastradas pela barbearia.</li>
+        </ul>
+        <h3>Barbearia e usuários do painel (RAZOR como controladora)</h3>
+        <ul>
+          <li>nome da barbearia, cidade, endereço, Instagram, horário de funcionamento, tabela de serviços;</li>
+          <li>nome, e-mail, WhatsApp e senha (guardada só como hash bcrypt, nunca em texto) do dono e dos usuários;</li>
+          <li>registros de acesso (IP, data e hora), exigidos pelo Marco Civil da Internet;</li>
+          <li>dados financeiros da operação lançados no painel (caixa, despesas, comissões).</li>
+        </ul>
+        <h3>Visitantes deste site</h3>
+        <ul>
+          <li>não usamos cookies de publicidade nem ferramentas de rastreamento de terceiros neste site;</li>
+          <li>registros técnicos do servidor (IP, navegador, página acessada) para segurança.</li>
+        </ul>
+      </section>
+      <section id="finalidades">
+        <h2>Para que usamos e com qual base legal</h2>
+        <div class="table-scroll"><table class="legal-table">
+          <thead><tr><th>Finalidade</th><th>Base legal (LGPD, art. 7º)</th></tr></thead>
+          <tbody>
+            <tr><th>Atender e agendar pelo WhatsApp em nome da barbearia</th><td>Execução de contrato (entre barbearia e cliente) — base definida pela barbearia, controladora</td></tr>
+            <tr><th>Lembretes, confirmação e avaliação pós-atendimento</th><td>Execução de contrato / legítimo interesse da barbearia</td></tr>
+            <tr><th>Mensagens promocionais e campanhas</th><td>Consentimento ou legítimo interesse da barbearia, com opção de sair (“parar”) em toda mensagem</td></tr>
+            <tr><th>Criar e manter a conta da barbearia no painel</th><td>Execução de contrato</td></tr>
+            <tr><th>Segurança, prevenção a fraude e registros de acesso</th><td>Obrigação legal (Marco Civil) e legítimo interesse</td></tr>
+            <tr><th>Melhoria do produto com métricas agregadas</th><td>Legítimo interesse, sem identificar pessoas</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+      <section id="ia">
+        <h2>Inteligência artificial e compartilhamento</h2>
+        <p>Para entender e responder as mensagens, o conteúdo da conversa (texto e a transcrição dos áudios) é enviado à <strong>OpenAI</strong>, provedora do modelo de IA, que atua como suboperadora. Pelos termos da API contratada, a OpenAI não usa esses dados para treinar seus modelos e os retém por até <span class="ph">[30]</span> dias apenas para monitorar abuso <span class="ph">[CONFIRMAR NA CONTRATAÇÃO VIGENTE]</span>.</p>
+        <p>Outros parceiros que podem tratar dados para viabilizar o serviço:</p>
+        <ul>
+          <li>WhatsApp/Meta — transporte das mensagens;</li>
+          <li>provedor de nuvem e banco de dados — <span class="ph">[NOME DO PROVEDOR]</span>, hospedagem em <span class="ph">[PAÍS/REGIÃO]</span>;</li>
+          <li>provedor de e-mail transacional — <span class="ph">[NOME DO PROVEDOR]</span>, quando houver.</li>
+        </ul>
+        <p>Não vendemos dados pessoais. Os dados de uma barbearia nunca são mostrados a outra.</p>
+      </section>
+      <section id="internacional">
+        <h2>Transferência internacional</h2>
+        <p>Alguns parceiros (como a OpenAI) processam dados fora do Brasil, principalmente nos Estados Unidos. Essas transferências se apoiam nas hipóteses do art. 33 da LGPD, como cláusulas contratuais com garantias de proteção <span class="ph">[VALIDAR COM ADVOGADO A HIPÓTESE APLICÁVEL]</span>.</p>
+      </section>
+      <section id="retencao">
+        <h2>Por quanto tempo guardamos</h2>
+        <ul>
+          <li><strong>Conversas com o assistente:</strong> até <span class="ph">[12 MESES]</span> após a última mensagem, para o histórico do atendimento; depois são apagadas ou anonimizadas. A barbearia pode pedir prazo menor.</li>
+          <li><strong>Agendamentos e dados financeiros:</strong> enquanto a conta estiver ativa e, depois, pelo prazo exigido pela legislação fiscal e contábil <span class="ph">[5 ANOS]</span>.</li>
+          <li><strong>Registros de acesso:</strong> 6 meses (Marco Civil da Internet, art. 15).</li>
+          <li><strong>Conta encerrada:</strong> os dados ficam disponíveis para exportação por <span class="ph">[30]</span> dias e são excluídos em até <span class="ph">[90]</span> dias, salvo obrigação legal de guarda.</li>
+        </ul>
+      </section>
+      <section id="direitos">
+        <h2>Seus direitos como titular</h2>
+        <p>Pela LGPD (art. 18) você pode pedir: confirmação de que tratamos seus dados; acesso; correção; anonimização, bloqueio ou eliminação de dados desnecessários; portabilidade; informação sobre compartilhamentos; revogação do consentimento; e revisão de decisões automatizadas.</p>
+        <p><strong>Se você é cliente de uma barbearia</strong>, o pedido deve ser feito primeiro à barbearia, que é a controladora; a RAZOR a ajuda a atender. Se não conseguir falar com ela, escreva para o nosso encarregado e encaminharemos. Para parar de receber mensagens automáticas, basta responder <strong>parar</strong> no WhatsApp.</p>
+        <p>Respondemos em até 15 dias. Você também pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD).</p>
+      </section>
+      <section id="seguranca">
+        <h2>Segurança</h2>
+        <p>Senhas com hash bcrypt; sessão do painel em cookie HttpOnly com proteção CSRF; conexões cifradas (HTTPS); separação dos dados por barbearia em todas as consultas; limites de tentativas contra força bruta; acesso interno restrito e registrado. Nenhum sistema é infalível: em caso de incidente relevante, avisaremos as barbearias afetadas e a ANPD nos prazos legais.</p>
+      </section>
+      <section id="cookies">
+        <h2>Cookies e armazenamento local</h2>
+        <p>Usamos apenas o estritamente necessário, sem publicidade nem rastreamento de terceiros:</p>
+        <div class="table-scroll"><table class="legal-table">
+          <thead><tr><th>Nome</th><th>Onde</th><th>Para quê</th></tr></thead>
+          <tbody>
+            <tr><th>RAZOR_SESSION</th><td>Painel (cookie HttpOnly)</td><td>Manter você logado. Expira em até 12 horas.</td></tr>
+            <tr><th>XSRF-TOKEN</th><td>Painel (cookie)</td><td>Proteção contra ataques CSRF.</td></tr>
+            <tr><th>razor.site.theme</th><td>Este site (localStorage)</td><td>Lembrar o tema claro/escuro escolhido.</td></tr>
+            <tr><th>razor.* (preferências)</th><td>Painel (localStorage)</td><td>Preferências de tela, como tema e cartões recolhidos. Não guardam senha nem token.</td></tr>
+          </tbody>
+        </table></div>
+        <p>As fontes deste site vêm do Google Fonts, que recebe o IP do visitante ao baixá-las <span class="ph">[AVALIAR HOSPEDAR AS FONTES LOCALMENTE]</span>.</p>
+      </section>
+      <section id="encarregado">
+        <h2>Encarregado (DPO) e contato</h2>
+        <p>Encarregado pelo tratamento de dados pessoais: <span class="ph">[NOME DO ENCARREGADO]</span> — <span class="ph">[E-MAIL DO DPO]</span>.</p>
+        <p>Esta política pode ser atualizada; a versão vigente fica sempre nesta página, com a data no topo.</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="legal-foot">
+  <div class="wrap">
+    <span class="mono tiny">© 2026 RAZOR · <span class="ph">[RAZÃO SOCIAL]</span> · CNPJ <span class="ph">[CNPJ]</span></span>
+    <nav aria-label="Documentos legais">
+      <a href="index.html">Início</a>
+      <a href="termos.html">Termos de uso</a>
+      <a href="privacidade.html" aria-current="page">Privacidade (LGPD)</a>
+      <a href="cancelamento.html">Cancelamento</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="config.js" defer></script>
+<script src="legal.js" defer></script>
+</body>
+</html>
