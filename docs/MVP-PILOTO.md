@@ -5,6 +5,8 @@ Pagamentos ficam de fora até a decisão de modelo (ver "Decisões pendentes").
 
 **Ordem combinada (18/11):** Parte 5 → Parte 4 → Parte 3 → demais → vídeo por último.
 
+**Situação em 19/11:** Partes 1, 2 e 5 ✅ no master e no Docker local · **Parte 4 ← AGORA** (rascunho no worktree `agent-a893800d6accfaad7`, não testado) · Parte 3 em rascunho no worktree `agent-a7c84d8b86e8eb264` (V50, não testado). Contexto completo em `docs/CONTEXTO.md`.
+
 **Como executamos:** em PARTES, no máximo 2 frentes por vez (para não estourar o limite de uso).
 Cada parte termina com testes + build + Docker no ar + push, antes de abrir a próxima.
 
@@ -13,7 +15,7 @@ V51 console da plataforma · V52 área do cliente · V53 metas · V54 multiunida
 
 ---
 
-## Parte 1 — Bot correto e ligado ao painel (V46)  ← AGORA
+## Parte 1 — Bot correto e ligado ao painel (V46) ✅
 Achados no teste real de 18/11 (agendamento #380, 5 serviços, áudio):
 - [x] **Valor total:** com vários serviços o bot não diz o total nem a duração somada.
 - [x] **Oferecer combo:** se o cliente pede corte + barba e existe o combo, oferecer o combo
@@ -29,7 +31,7 @@ Achados no teste real de 18/11 (agendamento #380, 5 serviços, áudio):
       enquanto processa; e usar `gpt-4o-mini` por padrão no chat (4o só quando ambíguo).
 - [x] **Serviços na config do bot:** editor em linhas (nome | preço | duração | +) em vez de texto livre.
 
-## Parte 2 — Painel e tema claro (V48)
+## Parte 2 — Painel e tema claro (V48) ✅
 - [x] Recepção sem "Editar" em Serviços; barbeiro só mexe nos próprios agendamentos.
   - Recepção: Serviços/Produtos só leitura (sem Novo/Editar/Estoque, também no Ctrl+K); a lista
     da equipe passou a abrir para ela (comanda, venda e folgas precisavam) sem os percentuais de
@@ -66,7 +68,11 @@ como TWA (Trusted Web Activity):
 5. Play Console: conta de desenvolvedor, ficha (screenshots de `web/public/screenshots`), política
    de privacidade (Parte 5) e envio para teste interno antes da produção.
 
-## Parte 3 — Console do desenvolvedor / plataforma (V50 + V51)
+## Parte 3 — Console do desenvolvedor / plataforma (V50 + V51) — 🟡 rascunho
+Rascunho no worktree `agent-a7c84d8b86e8eb264` (commit `9608fcc`, NÃO testado/mesclado): health indicator,
+`SystemIncident` + `IncidentService`, `SystemHealthMonitor`, `OperatorNotifier`, `AdminSystemHealthController`,
+storage de imagens plugável (banco ou S3) e `V50__monitoring_and_image_storage.sql`. Falta revisar, testar e
+fazer as telas do console; V51 não começou.
 Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com 2FA):
 - [ ] Visão geral: barbearias, status (teste/ativa), uso de IA por barbearia, custo estimado de IA.
 - [ ] Saúde: instâncias do WhatsApp (conectar/reconectar/QR), falhas da IA, fila de envio, incidentes.
@@ -77,12 +83,16 @@ Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com
 - [ ] "Caixa do Razor": MRR/receita por plano registrada manualmente até haver cobrança.
 - [ ] Alertas ao dono da barbearia e ao operador; testes E2E com Playwright; fotos em S3 opcional.
 
-## Parte 4 — Automações (V47)
+## Parte 4 — Automações (V47) ← AGORA (🟡 rascunho)
+Rascunho no worktree `agent-a893800d6accfaad7` (commits `9366c9b` + `ba3cabf`, NÃO testado/mesclado):
+entidades + V47, `WaitlistOfferService`, `AutomationCampaignService`, `WeeklyReportService`,
+`CustomerPreferencesService`. Próximo passo: `git merge master` no worktree, compilar, testes, validar a
+V47 no boot (Postgres descartável), telas no painel, merge.
 - [ ] Lista de espera automática ao cancelar.
 - [ ] Campanhas: sumido há N dias, aniversário com cupom, retorno do corte.
 - [ ] Relatório semanal no WhatsApp do dono.
 
-## Parte 5 — Cadastro, landing e lançamento (V49)
+## Parte 5 — Cadastro, landing e lançamento (V49) ✅ (merge `a4d1457`, 19/11)
 - [x] Cadastro sozinho + teste grátis de 14 dias (só status, sem cobrança).
       `POST /api/signup` (público) cria barbearia em TRIAL + dono pelo mesmo caminho do
       provisionamento da plataforma e já abre a sessão; tela `/cadastro?plano=` no painel, ligada
@@ -105,6 +115,10 @@ Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com
       (provisório); ao ter o domínio, trocar `og:url`, `og:image`, `twitter:image` e o `canonical`
       no `site/index.html` e testar no depurador de compartilhamento da Meta.
 - [x] Seção de teste grátis em destaque na landing.
+- Pendente da Parte 5 (depende de terceiros/decisão):
+  - [ ] Preencher os `[ENTRE COLCHETES]` dos termos/privacidade/cancelamento e revisar com advogado.
+  - [ ] Trocar as URLs do `og:image`/`canonical` quando houver domínio e testar no depurador da Meta.
+  - [ ] Decidir o que acontece ao fim do teste grátis (hoje não bloqueia nada) — depende da cobrança.
 
 ## Parte 6 — Vídeo para Reels (POR ÚLTIMO, depois de todas as atualizações, para mostrar o produto final)
 - [ ] Roteiro 30–45 s para narração + vídeo vertical dinâmico (limpo e legendado), fonte editável.
