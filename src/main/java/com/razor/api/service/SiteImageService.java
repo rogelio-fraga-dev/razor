@@ -4,6 +4,8 @@ import com.razor.api.model.BarbershopSite;
 import com.razor.api.model.SiteImage;
 import com.razor.api.repository.BarbershopSiteRepository;
 import com.razor.api.repository.SiteImageRepository;
+import com.razor.api.service.storage.ImageStorage;
+import com.razor.api.service.storage.ImageStorageRegistry;
 import com.razor.api.tenant.TenantContext;
 import com.razor.api.util.SiteImagePolicy;
 import com.razor.api.util.SiteUrlPolicy;
@@ -25,6 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Toda operacao do painel e escopada no tenant do login ({@link TenantContext}) e filtra por
  * {@code barbershopId} na propria consulta — o id da foto e publico, entao nunca basta sozinho.
+ *
+ * <p>Os bytes moram onde o {@link ImageStorageRegistry} mandar (V50): no banco (padrao) ou no S3.
+ * Cada foto lembra o proprio backend, entao trocar a configuracao nao quebra as antigas.
  */
 @Slf4j
 @Service
@@ -39,10 +44,15 @@ public class SiteImageService {
 
     private final SiteImageRepository repository;
     private final BarbershopSiteRepository siteRepository;
+    private final ImageStorageRegistry storages;
 
     /** A foto como o painel ve: {@code inUse} = esta no site SALVO (logo, capa ou galeria). */
     public record SiteImageView(UUID id, String url, String contentType, int sizeBytes,
                                 LocalDateTime createdAt, boolean inUse) {
+    }
+
+    /** A foto para a rota publica: tipo (da lista fechada) e bytes, venham de onde vierem. */
+    public record PublicImage(String contentType, byte[] bytes) {
     }
 
     @Transactional
@@ -54,13 +64,17 @@ public class SiteImageService {
             throw new IllegalArgumentException("Você já tem " + SiteImagePolicy.MAX_IMAGES_PER_SHOP
                     + " fotos guardadas. Apague as que não usa mais em “Fotos enviadas”.");
         }
-        SiteImage saved = repository.save(SiteImage.builder()
+        ImageStorage storage = storages.active();
+        SiteImage image = SiteImage.builder()
                 .id(UUID.randomUUID())
                 .barbershopId(shop)
                 .contentType(img.contentType())
-                .bytes(img.bytes())
                 .sizeBytes(img.bytes().length)
-                .build());
+                .storageBackend(storage.backend())
+                .build();
+        // Arquivo antes do registro: se o S3 recusar, nao sobra registro apontando para o nada.
+        storage.put(image, img.bytes());
+        SiteImage saved = repository.save(image);
         log.info("[SITE] Foto {} enviada ({} bytes, {}) pelo tenant {}", saved.getId(), saved.getSizeBytes(),
                 saved.getContentType(), shop);
         return new SiteImageView(saved.getId(), urlOf(saved.getId()), saved.getContentType(), saved.getSizeBytes(),
@@ -94,13 +108,18 @@ public class SiteImageService {
         if (referencedIds(siteRepository.findById(shop).orElse(null)).contains(id)) {
             throw new ConflictException("Esta foto está no seu site. Tire-a do site e salve antes de apagar.");
         }
+        String backend = repository.findBackend(id, shop).orElse(null);
         repository.deleteByIdAndShop(id, shop);
+        storages.forBackend(backend).delete(shop, id);
     }
 
     /** Leitura publica pelo id — sem tenant: a URL e publica por definicao. */
     @Transactional(readOnly = true)
-    public Optional<SiteImage> publicImage(UUID id) {
-        return repository.findById(id).filter(i -> SiteImagePolicy.isServable(i.getContentType()));
+    public Optional<PublicImage> publicImage(UUID id) {
+        return repository.findById(id)
+                .filter(i -> SiteImagePolicy.isServable(i.getContentType()))
+                .flatMap(i -> storages.forBackend(i.getStorageBackend()).get(i)
+                        .map(bytes -> new PublicImage(i.getContentType(), bytes)));
     }
 
     /**
@@ -128,7 +147,9 @@ public class SiteImageService {
         int removed = 0;
         for (SiteImageRepository.Info i : repository.listInfo(shop)) {
             if (!keep.contains(i.getId()) && i.getCreatedAt() != null && i.getCreatedAt().isBefore(cutoff)) {
-                removed += repository.deleteByIdAndShop(i.getId(), shop);
+                int n = repository.deleteByIdAndShop(i.getId(), shop);
+                if (n > 0) storages.forBackend(i.getStorageBackend()).delete(shop, i.getId());
+                removed += n;
             }
         }
         if (removed > 0) log.info("[SITE] {} foto(s) sem uso removida(s) do tenant {}", removed, shop);

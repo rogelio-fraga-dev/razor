@@ -35,6 +35,13 @@ public interface ScheduledTaskRepository extends JpaRepository<ScheduledTask, UU
         String taskType
     );
     
+    /**
+     * Pendentes atrasadas da barbearia, fora o disparo em massa (que tem fila propria e lenta de
+     * proposito) — o monitor de saude (V50) usa para detectar fila parada.
+     */
+    long countByBarbershopIdAndStatusAndTaskTypeNotAndExecutionTimeBefore(
+        UUID barbershopId, ScheduledTask.TaskStatus status, String taskType, LocalDateTime before);
+
     List<ScheduledTask> findByCustomerPhone(String customerPhone);
 
     // Acesso escopado por tenant (Fase 1).

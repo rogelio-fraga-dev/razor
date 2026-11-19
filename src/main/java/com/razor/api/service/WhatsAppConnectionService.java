@@ -124,6 +124,15 @@ public class WhatsAppConnectionService {
                 .orElse(true);
     }
 
+    /**
+     * Estado de uma instancia sem depender do tenant atual — usado pelo monitor de saude (V50),
+     * que percorre todas as barbearias. {@code "open"} = conectada; {@code "close"} /
+     * {@code "connecting"} = precisa de QR; {@code "unknown"} = a Evolution nao respondeu.
+     */
+    public String stateOf(String instance) {
+        return fetchState(instance);
+    }
+
     // --- Evolution API (chamadas sincronas; endpoints de admin, baixa frequencia) ---
 
     private String fetchState(String instance) {

@@ -159,6 +159,10 @@ public class SecurityConfig {
                         // bot marcou — a recepcao ve no Dashboard; o barbeiro nao.
                         .requestMatchers(HttpMethod.GET, "/api/admin/reports/ai-impact")
                         .hasAnyRole(OWNER, RECEPTION)
+                        // Banner de saude (V50): "WhatsApp desconectado" tambem para a recepcao,
+                        // que e quem percebe primeiro. O historico completo fica com o dono.
+                        .requestMatchers(HttpMethod.GET, "/api/admin/system-health/alerts")
+                        .hasAnyRole(OWNER, RECEPTION)
 
                         // --- Plano do cliente: so o dono ------------------------------------
                         // Dar ou tirar assinatura muda quanto o cliente paga (e o que a IA cobra
