@@ -75,6 +75,8 @@ public class AgendaPanelService {
     private final AgendaTaskService taskService;
     private final WhatsAppService whatsAppService;
     private final BookingLock bookingLock;
+    /** Cancelar pelo painel tambem oferece a vaga a lista de espera (V47). */
+    private final WaitlistOfferService waitlistOfferService;
 
     // ------------------------------------------------------------------ leitura
 
@@ -234,6 +236,7 @@ public class AgendaPanelService {
         LocalDate date = ag.getAppointmentDate();
         LocalTime time = ag.getAppointmentTime();
         bookingService.cancelarAgendamentoExato(ag);
+        waitlistOfferService.offerFreedSlot(ag);
         log.info("[AGENDA] Agendamento {} cancelado pelo painel", id);
 
         // Horario que ja passou nao precisa de aviso ("seu corte de ontem foi cancelado" so confunde).

@@ -374,6 +374,12 @@ public class WaitlistOfferService {
         return Optional.of(new Reply(ag, null, offer));
     }
 
+    /** O cliente tem uma vaga oferecida esperando resposta? */
+    public boolean hasOpenOffer(String phone) {
+        return offerRepository.existsByBarbershopIdAndCustomerPhoneAndStatus(
+                TenantContext.getCurrent(), phone, WaitlistOffer.Status.OFFERED);
+    }
+
     private void safeNext(Slot slot, LocalDateTime now) {
         try {
             offerNext(slot, now);

@@ -115,7 +115,9 @@ public class OpenAIService {
             - Se o cliente fizer perguntas soltas (endereço, preços), responda diretamente sem usar tags.
             
             📋 *LISTA DE ESPERA (Sextas e Sábados):* Se não houver horário livre e o cliente topar, ofereça a lista de espera e inclua:
-            [LISTA_DE_ESPERA|Nome do Cliente|Dia da Semana]
+            [LISTA_DE_ESPERA|Nome do Cliente|Dia da Semana ou data DD/MM|Período (manhã, tarde, noite ou qualquer)|Serviço|Barbeiro (ou qualquer)]
+            Pergunte o período e o barbeiro só se o cliente ainda não disse; sem preferência, use "qualquer".
+            Quando abrir uma vaga que combine, o sistema avisa o cliente sozinho e ele responde SIM para marcar.
             """;
 
     

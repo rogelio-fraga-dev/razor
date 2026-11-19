@@ -99,12 +99,20 @@ public class AiTagParser {
             return null;
         }
         String[] parts = fields(tag);
-        // Esperado: LISTA_DE_ESPERA | name | preferredDay  -> 3 campos
+        // Esperado: LISTA_DE_ESPERA | name | preferredDay [| periodo | servico | barbeiro] -> 3 a 6
+        // campos (os tres ultimos opcionais, V47).
         if (parts.length < 3) {
             return null;
         }
         String cleaned = aiResponse.replace(tag, "").trim();
-        return new AiIntent.ListaDeEspera(parts[1].trim(), parts[2].trim(), cleaned);
+        return new AiIntent.ListaDeEspera(parts[1].trim(), parts[2].trim(), cleaned,
+                optional(parts, 3), optional(parts, 4), optional(parts, 5));
+    }
+
+    private static String optional(String[] parts, int i) {
+        if (parts.length <= i) return null;
+        String v = parts[i].trim();
+        return v.isEmpty() ? null : v;
     }
 
     /** Extrai a tag completa (inclusive colchetes) a partir do marcador ate o {@code ]}. */
