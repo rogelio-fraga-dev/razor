@@ -1,0 +1,20 @@
+/* Faixa do teste grátis / configuração guiada (V49). */
+.trial-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(68deg, var(--accent-soft), transparent 70%),
+    var(--surface);
+  font-size: 13.5px;
+}
+.trial-strip b { font-weight: 600; }
+@media (max-width: 560px) {
+  .trial-strip .btn { width: 100%; justify-content: center; }
+}

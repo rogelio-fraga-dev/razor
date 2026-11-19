@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError } from "../api/client";
 import { RazorLogo } from "../components/Logo";
@@ -18,8 +19,8 @@ const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "").trim();
 
 export function Login() {
   const { login } = useAuth();
-  // A landing manda ?plano=… nos CTAs. Enquanto o cadastro self-service não existe,
-  // reconhecemos a intenção em vez de descartá-la silenciosamente.
+  // Links antigos da landing ainda mandam ?plano=… para cá: oferecemos o cadastro (V49) sem
+  // descartar a escolha.
   const planoEscolhido = PLANOS[new URLSearchParams(window.location.search).get("plano") ?? ""];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -63,8 +64,9 @@ export function Login() {
           >
             <strong>Plano {planoEscolhido}</strong>
             <p className="muted" style={{ margin: "4px 0 0", fontSize: 13.5 }}>
-              O cadastro pela web ainda está em construção. Já tem conta? Entre abaixo. Se
-              ainda não tem, fale com a gente pelo WhatsApp que abrimos sua barbearia.
+              Ainda não tem conta?{" "}
+              <Link to={`/cadastro${window.location.search}`}>Comece o teste grátis de 14 dias</Link>. Já
+              tem? Entre abaixo.
             </p>
           </div>
         )}
@@ -99,6 +101,11 @@ export function Login() {
           </button>
         </form>
 
+        {!planoEscolhido && (
+          <p className="muted" style={{ margin: "18px 0 0", fontSize: 13.5, textAlign: "center" }}>
+            Ainda não tem conta? <Link to="/cadastro">Teste grátis por 14 dias</Link>
+          </p>
+        )}
         {SITE_URL && (
           <p className="muted" style={{ margin: "18px 0 0", fontSize: 13.5, textAlign: "center" }}>
             <a href={SITE_URL}>← Voltar para o site</a>

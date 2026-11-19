@@ -163,6 +163,15 @@ export function ActivationChecklist() {
               {!i.done && <span className="cl-go" aria-hidden="true">→</span>}
             </Link>
           ))}
+          {/* O mesmo caminho, passo a passo em tela cheia (V49): retoma de onde o dono parou. */}
+          <Link to="/comecar" className="cl-item cl-guided">
+            <span className="cl-check" aria-hidden="true">↻</span>
+            <span className="grow">
+              <span className="cl-label">Prefere passo a passo? Abrir a configuração guiada</span>
+              <span className="cl-hint">Casa, horário, serviços, equipe, WhatsApp, teste e site — uns 10 minutos.</span>
+            </span>
+            <span className="cl-go" aria-hidden="true">→</span>
+          </Link>
         </div>
       )}
     </div>
