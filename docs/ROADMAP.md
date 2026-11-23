@@ -1501,8 +1501,11 @@ Detalhe item a item em `docs/MVP-PILOTO.md`; contexto de retomada em `docs/CONTE
       a Evolution desligada.
 - [x] **Parte 3a — Monitoramento (V50)** ✅ (merge `651d71e`, 23/11): incidentes de saúde, alertas no painel,
       aviso ao dono/operador, fotos em banco ou S3. 1001 testes.
-- [ ] **Parte 3b — Console da plataforma (V51)** ← próxima: acesso PLATFORM_ADMIN com 2FA, visão geral,
-      custo de IA por barbearia, chave da OpenAI cifrada, conversas com log de acesso, gráficos, caixa.
+- [x] **Parte 3b — Console da plataforma (V51)** ✅ (23/11): `/plataforma` com sessão própria e 2FA,
+      visão geral com custo de IA, saúde de todas as casas, chave/modelos da IA cifrados e trocáveis,
+      conversas com filtros e trilha LGPD, métricas e caixa. 1015 testes.
+- [ ] **Parte 8 — Onda 2** ← próxima: área do cliente (V52), metas/ranking (V53), multiunidade (V54).
+- [ ] Débito: testes E2E com Playwright.
 - [ ] Partes 7–9 (WhatsApp oficial, onda 2, salões/estética) e **Parte 6 — vídeos por último** (Reels + tutoriais de configuração do site e da IA para landing, Ajuda e primeiro acesso).
 - [ ] Legal: preencher campos e revisar com advogado. Domínio: trocar URLs do og:image/canonical.
 - [ ] Decisões: cobrança (o fim do teste hoje não bloqueia nada), pagamentos, NFS-e, domínio/deploy.
