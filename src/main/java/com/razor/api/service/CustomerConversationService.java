@@ -57,6 +57,7 @@ public class CustomerConversationService {
     private final ProfessionalAssignmentService professionalAssignmentService;
     private final CustomerReviewService customerReviewService;
     private final PricingService pricingService;
+    private final CustomerPreferencesService customerPreferencesService;
 
     // Publicas + construtor vazio: sao serializadas em JSON pelo StateStore.
 
@@ -162,48 +163,23 @@ public class CustomerConversationService {
 
         String msgLower = contentToSave.toLowerCase().trim();
         String cState = getCustomerState(phoneNumber);
-        var pendingOffer = stateStore.get(StateKeys.waitlistOffer(phoneNumber), WaitlistOfferService.WaitlistOffer.class);
-
-        // 1. Confirmação de Oferta da Lista de Espera
-        if (pendingOffer.isPresent() && (msgLower.equals("sim") || msgLower.equals("s") || msgLower.contains("quero"))) {
-            WaitlistOfferService.WaitlistOffer offer = pendingOffer.get();
-            stateStore.remove(StateKeys.waitlistOffer(phoneNumber));
-            var limite = agendaService.checkBookingLimit(phoneNumber);
-            if (limite.isPresent()) {
-                saveAndSend(customer, limite.get().customerMessage(primeiroNome(offer.getName())), phoneNumber);
+        // ---- Respostas curtas tratadas ANTES da IA, so com a conversa ociosa (no meio de um fluxo
+        //      — pagamento, escolha de barbeiro — a resposta e daquele fluxo). Ordem:
+        //      1. "sim"/"não" a uma vaga da lista de espera (V47): pergunta com prazo de minutos, a
+        //         mais recente; nao usa "1"/"2", que ficam com a confirmacao da vespera;
+        //      2. nota do pedido de avaliacao (V46) — o "parar" dado ali tambem e o opt-out geral;
+        //      3. opt-out/opt-in ("parar", "sair", "quero receber") e aniversario (V47);
+        //      4. confirmacao da vespera ("1 confirma / 2 desmarca", V42).
+        boolean ofertaAberta = false;
+        if (cState == null) {
+            var vaga = waitlistOfferService.handleReply(phoneNumber, contentToSave);
+            if (vaga != null && vaga.isPresent()) {
+                tratarRespostaListaEspera(customer, phoneNumber, vaga.get());
                 return;
             }
-            var criado = agendaService.adicionarAgendamentoViaIA(offer.getName(), phoneNumber, offer.getDate(), offer.getTime(), offer.getService());
-            if (criado.isEmpty()) {
-                saveAndSend(customer, BOOKING_FAILED_MSG, phoneNumber);
-                return;
-            }
-            // A vaga liberada (desistencia/confirmacao) foi reaproveitada: conta no card da IA.
-            confirmationService.record(com.razor.api.model.AiImpactEvent.Type.WAITLIST_REFILL, criado.get());
-            var sinal = noShowDepositService.requireDepositIfNeeded(criado.get(), primeiroNome(offer.getName()));
-            if (sinal.isPresent()) {
-                saveAndSend(customer, sinal.get(), phoneNumber);
-                return;
-            }
-
-            String successMsg = "Perfeito, " + offer.getName().split(" ")[0] + "! 🥳\n\n" +
-                                 "Seu horário foi agendado para *" + offer.getDate() + "* às *" + offer.getTime() + "* para *" + offer.getService() + "*! 🎉\n\n" +
-                                 "*Como deseja pagar?*\n\n" +
-                                 "1️⃣ PIX 💳\n" +
-                                 "2️⃣ Presencialmente 💵\n\n" +
-                                 "_Responda 1 ou 2. Ou digite *cancelar* para desistir._";
-
-            setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
-            saveAndSend(customer, successMsg, phoneNumber);
-            return;
+            ofertaAberta = waitlistOfferService.hasOpenOffer(phoneNumber);
         }
 
-        // 1.5. Resposta a confirmacao da vespera ("1 confirma / 2 desmarca", V42). So com a
-        //      conversa ociosa: no meio de um fluxo (ex.: escolha de pagamento) o "1" e daquele
-        //      fluxo. Resposta que nao e 1/2/sim/nao segue adiante e a pergunta continua valendo.
-        // 1.4. Nota do pedido de avaliacao pos-atendimento (V46). Antes do menu numerico e da IA:
-        //      um "5" aqui e nota, nao a opcao 5 do menu. Com a confirmacao da vespera tambem
-        //      aberta, "1"/"2" puros ficam com ela.
         if (cState == null) {
             boolean confirmacaoAberta = stateStore.get(StateKeys.confirmation(phoneNumber), Object.class).isPresent();
             var nota = customerReviewService.handleReply(phoneNumber, contentToSave, confirmacaoAberta);
@@ -211,16 +187,18 @@ public class CustomerConversationService {
                 saveAndSend(customer, nota.get(), phoneNumber);
                 return;
             }
-        }
-
-        if (cState == null) {
+            var pref = customerPreferencesService.handleOptOut(customer, contentToSave);
+            if (pref == null || pref.isEmpty()) pref = customerPreferencesService.handleBirthday(customer, contentToSave);
+            if (pref != null && pref.isPresent()) {
+                saveAndSend(customer, pref.get(), phoneNumber);
+                return;
+            }
             var resposta = confirmationService.handleReply(phoneNumber, contentToSave);
             if (resposta.isPresent()) {
                 saveAndSend(customer, resposta.get(), phoneNumber);
                 return;
             }
         }
-
         // 2. Estado: Esperando motivo de falar com atendente
         if ("ESPERANDO_MOTIVO".equals(cState)) {
             clearCustomerState(phoneNumber);
@@ -264,9 +242,7 @@ public class CustomerConversationService {
 
                     if (agendaService.cancelarAgendamentoExato(ag)) {
                         saveAndSend(customer, "✅ Seu agendamento de *" + apptDate + " às " + apptTime + "* foi cancelado com sucesso!", phoneNumber);
-                        if (diaSemana != null) {
-                            verificarListaEsperaECanalizar(diaSemana, apptDate, apptTime, apptService);
-                        }
+                        waitlistOfferService.offerFreedSlot(ag);
                     } else {
                         saveAndSend(customer, "❌ Não foi possível cancelar esse agendamento.", phoneNumber);
                     }
@@ -296,7 +272,10 @@ public class CustomerConversationService {
             // Escape: cancelar a pré-reserva
             if (msgLower.contains("cancelar") || msgLower.contains("desistir") || msgLower.contains("não quero") || msgLower.contains("nao quero")) {
                 clearCustomerState(phoneNumber);
-                agendaService.cancelarAgendamentoMaisRecente(phoneNumber);
+                if (agendaService.cancelarAgendamentoMaisRecente(phoneNumber) && ag != null) {
+                    // Desistiu logo depois de marcar: a vaga volta para a lista de espera.
+                    waitlistOfferService.offerFreedSlot(ag);
+                }
                 // Histórico mantido para a IA ter contexto de cancelamento
                 saveAndSend(customer, "❌ Agendamento cancelado! Se mudar de ideia, é só digitar *menu* para recomeçar. 😊", phoneNumber);
                 return;
@@ -337,7 +316,7 @@ public class CustomerConversationService {
                              "Seu horário está garantido! 💈👊\n\n" +
                              "_Para voltar ao início, digite *Menu*._";
                 }
-                saveAndSend(customer, pixMsg, phoneNumber);
+                saveAndSend(customer, pixMsg + perguntaAniversario(customer), phoneNumber);
                 return;
             }
 
@@ -348,7 +327,7 @@ public class CustomerConversationService {
                     ag.setPaymentStatus(PaymentStatus.PRESENCIAL);
                     appointmentRepository.save(ag);
                 }
-                saveAndSend(customer, "Perfeito! Seu agendamento está confirmado para *pagamento presencial* direto no caixa da barbearia. Te esperamos lá! 💈👊\n\n_Para voltar ao início ou ver outras opções, digite *Menu*._", phoneNumber);
+                saveAndSend(customer, "Perfeito! Seu agendamento está confirmado para *pagamento presencial* direto no caixa da barbearia. Te esperamos lá! 💈👊\n\n_Para voltar ao início ou ver outras opções, digite *Menu*._" + perguntaAniversario(customer), phoneNumber);
                 return;
             }
 
@@ -381,7 +360,7 @@ public class CustomerConversationService {
         // 5. Abertura conversacional: um cliente ocioso que só cumprimenta é recebido como por
         //    um ATENDENTE — não com o menu numerado. "Oi, quero marcar" tem mais que saudação,
         //    então NÃO cai aqui: vai direto para a IA fazer o agendamento.
-        if (cState == null && pendingOffer.isEmpty() && !hasRecentIAConversation(customer.getId())
+        if (cState == null && !ofertaAberta && !hasRecentIAConversation(customer.getId())
                 && isPureGreeting(msgLower)) {
             log.info("[SISTEMA] Saudação de cliente ocioso — abertura conversacional para: {}", phoneNumber);
             saveAndSend(customer, buildWelcome(), phoneNumber);
@@ -477,9 +456,7 @@ public class CustomerConversationService {
             if (agendaService.cancelarAgendamentoExato(ag)) {
                 saveAndSend(customer, "✅ Seu agendamento foi cancelado com sucesso!", phoneNumber);
 
-                if (diaSemana != null) {
-                    verificarListaEsperaECanalizar(diaSemana, apptDate, apptTime, apptService);
-                }
+                waitlistOfferService.offerFreedSlot(ag);
             } else {
                 saveAndSend(customer, "❌ Não foi possível cancelar esse agendamento.", phoneNumber);
             }
@@ -828,25 +805,51 @@ public class CustomerConversationService {
         saveAndSend(customer, response, phoneNumber);
     }
 
+    /** Pergunta do aniversario (V47) no fim do agendamento — uma vez, se a campanha estiver ligada. */
+    private String perguntaAniversario(Customer customer) {
+        String q = customerPreferencesService.birthdayQuestion(customer);
+        return q == null ? "" : q;
+    }
+
     private static String primeiroNome(String nome) {
         if (nome == null || nome.isBlank()) return null;
         return nome.trim().split("\\s+")[0];
     }
 
     private String tratarListaDeEspera(String phoneNumber, AiIntent.ListaDeEspera le) {
-        if (!waitlistRepository.existsByBarbershopIdAndCustomerPhone(TenantContext.getCurrent(), phoneNumber)) {
-            com.razor.api.model.WaitlistEntry entry = com.razor.api.model.WaitlistEntry.builder()
-                    .barbershopId(TenantContext.getCurrent())
-                    .customerPhone(phoneNumber)
-                    .customerName(le.name())
-                    .preferredDay(le.preferredDay())
-                    .build();
-            waitlistRepository.save(entry);
-            log.info("[LISTA ESPERA] {} adicionado para o dia {}", phoneNumber, le.preferredDay());
-        } else {
-            log.info("[LISTA ESPERA] {} ja estava cadastrado na lista", phoneNumber);
-        }
+        // V47: o desejo (dia/periodo/servico/barbeiro) fica estruturado; quem ja espera so atualiza.
+        waitlistOfferService.join(phoneNumber, le.name(), le.preferredDay(), le.period(), le.service(), le.professional());
         return le.cleanedResponse();
+    }
+
+    /**
+     * Resposta a uma vaga da lista de espera (V47). "Sim" que deu certo: conta como vaga
+     * reaproveitada, aplica a regra do sinal e pergunta o pagamento, como num agendamento normal.
+     */
+    private void tratarRespostaListaEspera(Customer customer, String phoneNumber, WaitlistOfferService.Reply r) {
+        if (!r.isBooked()) {
+            saveAndSend(customer, r.message(), phoneNumber);
+            return;
+        }
+        Appointment ag = r.booked();
+        String nome = primeiroNome(ag.getCustomerName() != null ? ag.getCustomerName() : customer.getName());
+        // A vaga liberada (desistencia/confirmacao) foi reaproveitada: conta no card da IA.
+        confirmationService.record(com.razor.api.model.AiImpactEvent.Type.WAITLIST_REFILL, ag);
+        var sinal = noShowDepositService.requireDepositIfNeeded(ag, nome);
+        if (sinal.isPresent()) {
+            saveAndSend(customer, sinal.get(), phoneNumber);
+            return;
+        }
+        String successMsg = "Perfeito" + (nome != null ? ", " + nome : "") + "! 🥳\n\n" +
+                "Seu horário foi agendado para *" + AppointmentDates.formatDate(ag.getAppointmentDate()) + "* às *"
+                + AppointmentDates.formatTime(ag.getAppointmentTime()) + "*"
+                + (ag.getService() != null ? " para *" + ag.getService() + "*" : "") + "! 🎉\n\n" +
+                "*Como deseja pagar?*\n\n" +
+                "1️⃣ PIX 💳\n" +
+                "2️⃣ Presencialmente 💵\n\n" +
+                "_Responda 1 ou 2. Ou digite *cancelar* para desistir._";
+        setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
+        saveAndSend(customer, successMsg, phoneNumber);
     }
 
     /**
@@ -1001,8 +1004,4 @@ public class CustomerConversationService {
         return Math.abs(diffMinutes) <= 5;
     }
 
-    /** Oferece a vaga liberada a lista de espera (logica no {@link WaitlistOfferService}). */
-    private void verificarListaEsperaECanalizar(String diaSemana, String date, String time, String service) {
-        waitlistOfferService.offer(diaSemana, date, time, service);
-    }
 }

@@ -148,6 +148,37 @@ public class CustomerService {
         log.info("Retomando cliente {}", phoneNumber);
     }
 
+    /**
+     * Opt-out unico (V47): o cliente respondeu "parar"/"sair" a qualquer mensagem automatica —
+     * campanha, disparo ou pedido de avaliacao. Fica gravado no cadastro e vale para todas elas.
+     *
+     * @return true se mudou agora (false = ja estava fora, ou cliente desconhecido)
+     */
+    public boolean optOutOfMarketing(String phoneNumber) {
+        var c = customerRepository.findByBarbershopIdAndPhoneNumber(TenantContext.getCurrent(), phoneNumber);
+        if (c.isEmpty() || c.get().getMarketingOptOutAt() != null) return false;
+        c.get().setMarketingOptOutAt(java.time.LocalDateTime.now());
+        customerRepository.save(c.get());
+        log.info("[OPT-OUT] {} pediu para nao receber mensagens automaticas", phoneNumber);
+        return true;
+    }
+
+    /** O proprio cliente pediu para voltar a receber ("quero receber"). */
+    public boolean optInMarketing(String phoneNumber) {
+        var c = customerRepository.findByBarbershopIdAndPhoneNumber(TenantContext.getCurrent(), phoneNumber);
+        if (c.isEmpty() || c.get().getMarketingOptOutAt() == null) return false;
+        c.get().setMarketingOptOutAt(null);
+        customerRepository.save(c.get());
+        log.info("[OPT-OUT] {} voltou a aceitar mensagens automaticas", phoneNumber);
+        return true;
+    }
+
+    public boolean isMarketingOptedOut(String phoneNumber) {
+        if (phoneNumber == null) return false;
+        return customerRepository.findByBarbershopIdAndPhoneNumber(TenantContext.getCurrent(), phoneNumber)
+                .map(Customer::isMarketingOptedOut).orElse(false);
+    }
+
     public boolean isCustomerPaused(String phoneNumber) {
         return stateStore.get(StateKeys.pause(phoneNumber), Boolean.class).isPresent();
     }

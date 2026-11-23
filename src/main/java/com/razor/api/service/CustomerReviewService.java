@@ -108,7 +108,8 @@ public class CustomerReviewService {
         if (!cfg.enabled()) return Optional.empty();
         if (tenantAdminService.isAdmin(phone)) return Optional.empty();
         if (comanda.getId() != null && repository.existsByComandaId(comanda.getId())) return Optional.empty();
-        if (repository.existsByBarbershopIdAndCustomerPhoneAndStatus(shop, phone, CustomerReview.Status.OPTED_OUT)) {
+        if (repository.existsByBarbershopIdAndCustomerPhoneAndStatus(shop, phone, CustomerReview.Status.OPTED_OUT)
+                || customerService.isMarketingOptedOut(phone)) {
             log.info("[AVALIACAO] {} pediu para nao receber avaliacao; nada programado", phone);
             return Optional.empty();
         }
@@ -172,6 +173,8 @@ public class CustomerReviewService {
         if (!cfg.enabled()
                 || repository.existsByBarbershopIdAndCustomerPhoneAndStatus(review.getBarbershopId(), phone,
                         CustomerReview.Status.OPTED_OUT)
+                // Opt-out unico (V47): um "parar" dado a uma campanha tambem vale para avaliacao.
+                || customerService.isMarketingOptedOut(phone)
                 || review.getScheduledFor().isBefore(now.minus(STALE))) {
             review.setStatus(CustomerReview.Status.CANCELLED);
             repository.save(review);
@@ -248,8 +251,10 @@ public class CustomerReviewService {
                 r.setStatus(CustomerReview.Status.OPTED_OUT);
                 repository.save(r);
             });
+            // Opt-out unico (V47): o mesmo "parar" tira o cliente das campanhas automaticas.
+            customerService.optOutOfMarketing(phone);
             log.info("[AVALIACAO] {} pediu para nao receber mais pedidos de avaliacao", phone);
-            return Optional.of("Combinado! Não vou mais te pedir avaliação. 👍\n\n"
+            return Optional.of("Combinado! Não vou mais te pedir avaliação nem mandar mensagens automáticas. 👍\n\n"
                     + "Se precisar marcar um horário, é só chamar aqui. 💈");
         }
 

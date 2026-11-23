@@ -34,7 +34,9 @@ public class Coupon {
 
     public enum Origin {
         MANUAL,
-        FIDELIDADE
+        FIDELIDADE,
+        /** Presente da campanha automatica de aniversario (V47). */
+        ANIVERSARIO
     }
 
     @Id

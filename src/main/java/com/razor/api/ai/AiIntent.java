@@ -27,7 +27,12 @@ public sealed interface AiIntent
     }
 
     /** Inclusao na lista de espera para um dia preferido. */
-    record ListaDeEspera(String name, String preferredDay, String cleanedResponse) implements AiIntent {
+    record ListaDeEspera(String name, String preferredDay, String cleanedResponse,
+                         String period, String service, String professional) implements AiIntent {
+        /** Tag antiga (so nome e dia): periodo, servico e barbeiro ficam em aberto. */
+        public ListaDeEspera(String name, String preferredDay, String cleanedResponse) {
+            this(name, preferredDay, cleanedResponse, null, null, null);
+        }
     }
 
     /** Cancelamento do agendamento ativo do cliente. */

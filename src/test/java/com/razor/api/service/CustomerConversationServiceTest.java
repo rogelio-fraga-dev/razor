@@ -65,6 +65,7 @@ class CustomerConversationServiceTest {
     @Mock private ProfessionalAssignmentService professionalAssignmentService;
     @Mock private CustomerReviewService customerReviewService;
     @Mock private PricingService pricingService;
+    @Mock private CustomerPreferencesService customerPreferencesService;
 
     // Store REAL (nao mock): a maquina de estados da conversa precisa gravar/ler de verdade.
     @org.mockito.Spy
@@ -864,8 +865,12 @@ class CustomerConversationServiceTest {
     @DisplayName("vaga da lista de espera aceita conta como vaga reaproveitada")
     void waitlistAccept_recordsRefill() {
         givenExistingCustomer();
-        stateStore.put(com.razor.api.state.StateKeys.waitlistOffer(PHONE),
-                new WaitlistOfferService.WaitlistOffer(PHONE, "João", "20/12", "10:00", "Corte"), java.time.Duration.ofHours(1));
+        // V47: a oferta fica no banco; o servico (mock) devolve o agendamento criado pelo "sim".
+        var ag = com.razor.api.model.Appointment.builder().id(380L).customerName("João")
+                .customerPhone(PHONE).appointmentDate(java.time.LocalDate.now().plusDays(1))
+                .appointmentTime(java.time.LocalTime.of(10, 0)).service("Corte").build();
+        when(waitlistOfferService.handleReply(PHONE, "sim"))
+                .thenReturn(java.util.Optional.of(new WaitlistOfferService.Reply(ag, null, null)));
 
         service.processCustomerMessage(textWebhook("sim"), PHONE);
 

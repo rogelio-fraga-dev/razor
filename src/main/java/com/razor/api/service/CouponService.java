@@ -113,6 +113,32 @@ public class CouponService {
         return saved;
     }
 
+    /**
+     * Presente da campanha de aniversario (V47): cupom pessoal, uso unico, percentual e prazo
+     * configurados na aba Automacoes. Mesmo modelo da recompensa de fidelidade — o caixa valida
+     * pelo codigo e o desconto entra no historico.
+     */
+    @Transactional
+    public Coupon issueBirthdayCoupon(String customerPhone, BigDecimal percent, int validDays) {
+        String code = "NIVER-" + UUID.randomUUID().toString().substring(0, 5).toUpperCase(Locale.ROOT);
+        LocalDate hoje = AppointmentDates.today();
+        Coupon saved = couponRepository.save(Coupon.builder()
+                .barbershopId(TenantContext.getCurrent())
+                .code(code)
+                .description("Presente de aniversário (" + percent.stripTrailingZeros().toPlainString() + "%)")
+                .discountType(Coupon.DiscountType.PERCENT)
+                .discountValue(percent)
+                .origin(Coupon.Origin.ANIVERSARIO)
+                .customerPhone(customerPhone)
+                .validFrom(hoje)
+                .validUntil(hoje.plusDays(Math.max(1, validDays)))
+                .maxUses(1)
+                .active(true)
+                .build());
+        log.info("[CUPOM] Cupom de aniversario '{}' emitido para {}", code, customerPhone);
+        return saved;
+    }
+
     @Transactional
     public Coupon setActive(UUID couponId, boolean active) {
         Coupon coupon = requireOwned(couponId);

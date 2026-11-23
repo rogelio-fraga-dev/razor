@@ -288,7 +288,7 @@ public class AdminCommandService {
                 sendMsg(phoneNumber, PAINEL_REDIRECT, "ADMIN");
             } else if (intent == AdminIntentResolver.AdminIntent.AGENDA_HOJE) {
                 long total = customerRepository.countByBarbershopId(TenantContext.getCurrent());
-                long waitlistCount = waitlistRepository.countByBarbershopId(TenantContext.getCurrent());
+                long waitlistCount = waitlistRepository.countByBarbershopIdAndStatus(TenantContext.getCurrent(), com.razor.api.model.WaitlistEntry.Status.WAITING);
                 long pausedCount = customerService.getPausedPhones().size();
                 String painelAgendamentos = agendaService.getPainelAgendamentosDetalhado(total, waitlistCount, pausedCount);
                 sendMsg(phoneNumber, painelAgendamentos, "ADMIN");

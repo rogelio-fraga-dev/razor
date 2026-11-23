@@ -66,6 +66,7 @@ class AgendaPanelServiceTest {
     @Mock private AgendaBookingService bookingService;
     @Mock private AgendaTaskService taskService;
     @Mock private WhatsAppService whatsAppService;
+    @Mock private WaitlistOfferService waitlistOfferService;
 
     private AgendaPanelService service;
     private UUID shop;
@@ -82,7 +83,7 @@ class AgendaPanelServiceTest {
 
         service = new AgendaPanelService(appointmentRepository, professionalRepository, serviceOfferingRepository,
                 comandaRepository, scheduleBlockService, barbershopSettingsService, pricing, customerService,
-                bookingService, taskService, whatsAppService, BookingLock.inline());
+                bookingService, taskService, whatsAppService, BookingLock.inline(), waitlistOfferService);
 
         // Expediente padrao: 09:00-19:00, segunda a sabado.
         when(barbershopSettingsService.resolve())
