@@ -31,7 +31,7 @@ interface Draft {
 const EMPTY: Draft = { name: "", email: "", role: "BARBER", password: "", professionalId: "" };
 
 export function PanelUsersEditor({ reloadKey = 0 }: { reloadKey?: number }) {
-  const { session } = useAuth();
+  const { session, refresh } = useAuth();
   const toast = useToast();
   const users = useApi<PanelUser[]>(() => api.get("/api/admin/panel-users"), [reloadKey]);
   const pros = useApi<Professional[]>(() => api.get("/api/admin/professionals"), [reloadKey]);
@@ -40,12 +40,14 @@ export function PanelUsersEditor({ reloadKey = 0 }: { reloadKey?: number }) {
   const [resetFor, setResetFor] = useState<PanelUser | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [deactivating, setDeactivating] = useState<PanelUser | null>(null);
+  const [editing, setEditing] = useState<{ user: PanelUser; name: string; email: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
 
   const list = users.data ?? [];
-  const isMe = (u: PanelUser) => !!session && u.email.toLowerCase() === session.email.toLowerCase();
+  const isMe = (u: PanelUser) =>
+    !!session && (session.userId ? u.id === session.userId : u.email.toLowerCase() === session.email.toLowerCase());
   const activeOwners = list.filter((u) => u.role === "OWNER" && u.active).length;
   // Último dono ativo: nem desativar nem rebaixar (a API recusa do mesmo jeito).
   const isLastOwner = (u: PanelUser) => u.role === "OWNER" && u.active && activeOwners <= 1;
@@ -120,6 +122,33 @@ export function PanelUsersEditor({ reloadKey = 0 }: { reloadKey?: number }) {
       setBusy(false);
     }
   };
+
+  const saveIdentity = async () => {
+    if (!editing) return;
+    const { user, name, email } = editing;
+    setBusy(true);
+    setFormError(null);
+    const emailChanged = email.trim().toLowerCase() !== user.email.toLowerCase();
+    try {
+      await api.put(`/api/admin/panel-users/${user.id}`, { name: name.trim(), email: email.trim() });
+      toast.success(
+        emailChanged && !isMe(user)
+          ? `${name.trim()} atualizado ✓ — entra agora com ${email.trim().toLowerCase()}`
+          : `${name.trim()} atualizado ✓`,
+      );
+      setEditing(null);
+      // O próprio dono: a sessão continua (cookie novo), mas o nome/e-mail da tela precisa vir de novo.
+      if (isMe(user)) await refresh();
+    } catch (e) {
+      setFormError(fail(e, "Erro ao salvar."));
+    } finally {
+      setBusy(false);
+      users.reload();
+    }
+  };
+
+  const editValid =
+    !!editing && editing.name.trim().length > 0 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(editing.email.trim());
 
   const draftValid =
     !!draft &&
@@ -219,6 +248,16 @@ export function PanelUsersEditor({ reloadKey = 0 }: { reloadKey?: number }) {
                       )}
                     </td>
                     <td className="right tc-actions">
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          setFormError(null);
+                          setEditing({ user: u, name: u.name ?? "", email: u.email });
+                        }}
+                        aria-label={`Editar nome e e-mail de ${u.name || u.email}`}
+                      >
+                        Editar
+                      </button>
                       {me ? (
                         <span className="faint" style={{ fontSize: 12.5 }}>Sua senha: em “Meu perfil”</span>
                       ) : (
@@ -345,6 +384,51 @@ export function PanelUsersEditor({ reloadKey = 0 }: { reloadKey?: number }) {
               </label>
               <span className="faint" style={{ fontSize: 12 }}>
                 Mínimo de {MIN_PASSWORD} caracteres. Passe a senha à pessoa e peça para trocar em “Meu perfil”.
+              </span>
+            </div>
+            {formError && <div className="error" role="alert">{formError}</div>}
+          </div>
+        </Modal>
+      )}
+
+      {editing && (
+        <Modal
+          title={`Editar ${editing.user.name || editing.user.email}`}
+          onClose={() => setEditing(null)}
+          footer={
+            <>
+              <button className="btn btn-ghost" onClick={() => setEditing(null)} disabled={busy}>Cancelar</button>
+              <button className="btn btn-primary" onClick={saveIdentity} disabled={busy || !editValid}>
+                {busy ? "Salvando…" : "Salvar"}
+              </button>
+            </>
+          }
+        >
+          <div className="stack">
+            <div className="field">
+              <label>Nome
+                <input
+                  className="input"
+                  value={editing.name}
+                  maxLength={120}
+                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                />
+              </label>
+            </div>
+            <div className="field">
+              <label>E-mail (login)
+                <input
+                  className="input"
+                  type="email"
+                  autoComplete="off"
+                  value={editing.email}
+                  onChange={(e) => setEditing({ ...editing, email: e.target.value })}
+                />
+              </label>
+              <span className="faint" style={{ fontSize: 12 }}>
+                {isMe(editing.user)
+                  ? "Trocar o seu e-mail muda o seu login. Você continua conectado aqui; as outras sessões caem."
+                  : "Trocar o e-mail muda o login da pessoa e encerra as sessões abertas dela. A senha continua a mesma."}
               </span>
             </div>
             {formError && <div className="error" role="alert">{formError}</div>}

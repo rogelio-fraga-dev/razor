@@ -528,7 +528,7 @@ export interface Advance {
 // ---------- Cupons (V29) ----------
 
 export type CouponDiscountType = "PERCENT" | "FIXED";
-export type CouponOrigin = "MANUAL" | "FIDELIDADE";
+export type CouponOrigin = "MANUAL" | "FIDELIDADE" | "ANIVERSARIO";
 
 /** Cupom de desconto. `customerPhone` preenchido = pessoal; nulo = campanha aberta. */
 export interface Coupon {
@@ -829,6 +829,15 @@ export interface SiteSectionContent {
   title?: string;
   /** Texto de apoio (até 600). */
   text?: string;
+  /** Só em "Como agendar": até 3 passos; a posição é o número do passo. Campo vazio = padrão. */
+  steps?: SiteStepContent[];
+}
+
+export interface SiteStepContent {
+  /** Até 60. */
+  title?: string;
+  /** Até 200. */
+  text?: string;
 }
 
 export type SiteMotion = "full" | "subtle" | "off";
@@ -959,3 +968,65 @@ export interface NoShowSettings {
 
 export type ConfirmationStatus = "PENDING" | "CONFIRMED" | "DECLINED" | "NO_RESPONSE";
 export type DepositStatus = "PENDING" | "PAID";
+
+/** Avaliação pós-atendimento (V46): regras do pedido de nota. */
+export interface ReviewSettings {
+  enabled: boolean;
+  /** Link de avaliação do Google; só quem dá 4–5 recebe. Vazio = o bot só agradece. */
+  googleReviewUrl: string | null;
+  /** Minutos depois do fechamento da comanda (ajustado ao horário de funcionamento). */
+  delayMinutes: number;
+}
+
+export interface ReviewItem {
+  id: string;
+  customerName: string;
+  rating: number;
+  comment: string | null;
+  ratedAt: string;
+  professionalName: string | null;
+}
+
+/** Card "Avaliações dos clientes" (V46). */
+export interface ReviewSummary {
+  days: number;
+  average: number | null;
+  count: number;
+  /** Quantidade por nota ("5" … "1"). */
+  distribution: Record<string, number>;
+  requestsSent: number;
+  responseRate: number | null;
+  recent: ReviewItem[];
+  enabled: boolean;
+  googleLinkConfigured: boolean;
+}
+
+/** Aba Automações (V47): lista de espera automática, campanhas e relatório semanal. */
+export type AutomationKind = "LAPSED" | "BIRTHDAY" | "RETURN";
+
+export interface AutomationServiceReturn {
+  id: string;
+  name: string;
+  returnReminderDays: number | null;
+}
+
+export interface AutomationSettings {
+  waitlistEnabled: boolean;
+  waitlistWindowMinutes: number;
+  lapsedEnabled: boolean;
+  lapsedDays: number;
+  lapsedTemplate: string;
+  birthdayEnabled: boolean;
+  birthdayTemplate: string;
+  birthdayDiscountPercent: number;
+  birthdayCouponValidDays: number;
+  returnEnabled: boolean;
+  returnTemplate: string;
+  frequencyCapDays: number;
+  weeklyReportEnabled: boolean;
+  weeklyReportDay: number;
+  weeklyReportHour: number;
+  services: AutomationServiceReturn[];
+  defaultTemplates?: Record<AutomationKind, string>;
+  stats?: { lapsedSent30d: number; birthdaySent30d: number; returnSent30d: number; waitlistWaiting: number };
+}

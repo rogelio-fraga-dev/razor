@@ -68,10 +68,10 @@ class ReportServiceTest {
     }
 
     private void givenPrices() {
-        when(pricingService.resolvePrices()).thenReturn(Map.of(
+        when(pricingService.quoter()).thenReturn(PricingService.Quoter.legacy(Map.of(
                 ServiceCategory.SIMPLES, new BigDecimal("35.00"),
                 ServiceCategory.BARBA, new BigDecimal("30.00"),
-                ServiceCategory.COMBO, new BigDecimal("60.00")));
+                ServiceCategory.COMBO, new BigDecimal("60.00")), null));
         when(pricingService.categorize("Corte")).thenReturn(ServiceCategory.SIMPLES);
         when(pricingService.categorize("Combo")).thenReturn(ServiceCategory.COMBO);
         when(pricingService.categorize("Barba")).thenReturn(ServiceCategory.BARBA);
@@ -102,6 +102,45 @@ class ReportServiceTest {
         assertThat(s.servicesRevenue()).isEqualByComparingTo("125.00");
         assertThat(s.totalRevenue()).isEqualByComparingTo("125.00"); // sem produtos, total = serviços
         assertThat(s.averageTicket()).isEqualByComparingTo("41.67"); // 125 / 3
+    }
+
+    @Test
+    @DisplayName("falta (NO_SHOW) não entra no faturamento, no 'a receber' nem no ticket médio")
+    void financialSummary_excludesNoShows() {
+        LocalDate hoje = AppointmentDates.today();
+        Appointment faltou = appt("Combo", PaymentStatus.PENDENTE, hoje, LocalTime.of(9, 0), null);
+        faltou.setAttendanceStatus(com.razor.api.model.AttendanceStatus.NO_SHOW);
+        Appointment veio = appt("Corte", PaymentStatus.PENDENTE, hoje, LocalTime.of(10, 0), null);
+        veio.setAttendanceStatus(com.razor.api.model.AttendanceStatus.ATTENDED);
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of(
+                faltou, veio,
+                appt("Barba", PaymentStatus.PENDENTE, hoje, LocalTime.of(11, 0), null))); // ainda agendado
+        givenPrices();
+
+        FinancialSummaryResponse s = service.financialSummary(hoje, hoje);
+
+        assertThat(s.totalAppointments()).isEqualTo(2);
+        assertThat(s.categories().combo()).isZero();
+        assertThat(s.payments().pendente().count()).isEqualTo(2);
+        assertThat(s.payments().pendente().value()).isEqualByComparingTo("65.00"); // 35 + 30, sem o combo
+        assertThat(s.totalRevenue()).isEqualByComparingTo("65.00");
+        assertThat(s.averageTicket()).isEqualByComparingTo("32.50");
+    }
+
+    @Test
+    @DisplayName("a série do gráfico também ignora as faltas")
+    void revenueSeries_excludesNoShows() {
+        LocalDate hoje = LocalDate.of(2026, 7, 27);
+        givenPrices();
+        Appointment faltou = appt("Combo", PaymentStatus.PIX, hoje, LocalTime.of(10, 0), null);
+        faltou.setAttendanceStatus(com.razor.api.model.AttendanceStatus.NO_SHOW);
+        when(appointmentRepository.findByBarbershopIdAndAppointmentDateBetween(any(), any(), any())).thenReturn(List.of(
+                faltou, appt("Corte", PaymentStatus.PIX, hoje, LocalTime.of(11, 0), null)));
+
+        List<com.razor.api.dto.RevenuePoint> serie =
+                service.revenueSeries(ReportService.SeriesPeriod.LAST_7_DAYS, hoje);
+
+        assertThat(serie.get(6).revenue()).isEqualByComparingTo("35.00");
     }
 
     @Test

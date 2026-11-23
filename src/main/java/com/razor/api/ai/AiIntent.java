@@ -16,13 +16,23 @@ public sealed interface AiIntent
     /** Texto para enviar ao cliente, com a tag tecnica removida. */
     String cleanedResponse();
 
-    /** Agendamento novo solicitado pela IA. */
-    record NovoAgendamento(String name, String date, String time, String service, String cleanedResponse)
-            implements AiIntent {
+    /**
+     * Agendamento novo solicitado pela IA.
+     *
+     * @param professional barbeiro que o cliente pediu pelo nome ("com o Bruno"), 6o campo opcional
+     *                     da tag; {@code null} = nao pediu ninguem (o bot pergunta, se houver mais de um)
+     */
+    record NovoAgendamento(String name, String date, String time, String service, String professional,
+                           String cleanedResponse) implements AiIntent {
     }
 
     /** Inclusao na lista de espera para um dia preferido. */
-    record ListaDeEspera(String name, String preferredDay, String cleanedResponse) implements AiIntent {
+    record ListaDeEspera(String name, String preferredDay, String cleanedResponse,
+                         String period, String service, String professional) implements AiIntent {
+        /** Tag antiga (so nome e dia): periodo, servico e barbeiro ficam em aberto. */
+        public ListaDeEspera(String name, String preferredDay, String cleanedResponse) {
+            this(name, preferredDay, cleanedResponse, null, null, null);
+        }
     }
 
     /** Cancelamento do agendamento ativo do cliente. */

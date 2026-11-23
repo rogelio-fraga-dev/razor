@@ -36,6 +36,9 @@ public class OpenAIService {
     private final PackageService packageService;
     /** Sucesso/falha da IA por barbearia para o monitor de saude (V50). Nulo so em teste. */
     private final HealthSignals healthSignals;
+    private final PricingService pricingService;
+    /** Modelo mais forte (gpt-4o); nulo nos testes = sem escalonamento. */
+    private final ChatEscalation chatEscalation;
     private WebClient openAiWebClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -61,7 +64,15 @@ public class OpenAIService {
             - Se o nome salvo for "Desconhecido", ou apenas um primeiro nome genérico (ex: "Matheus"), peça de forma muito educada o *NOME E SOBRENOME* para o agendamento não ficar duplicado no sistema.
             - Se o nome salvo já for um nome e sobrenome completo ou válido para o negócio, *PULE este passo e o chame pelo nome*. NUNCA pergunte o nome novamente se já tiver.
             
-            *PASSO 2 — HORÁRIO:* Já sabendo o nome completo, pergunte o dia e horário que o cliente prefere.
+            *PASSO 2 — SERVIÇO (sempre ANTES do horário):*
+            {{etapaServico}}
+            {{orcamentoServico}}
+            - Os horários livres dependem do serviço: só contam os barbeiros que fazem o serviço e a duração dele. Por isso o serviço vem primeiro.
+            - Se o serviço ainda não foi definido, pergunte qual é, citando *brevemente* os nomes do catálogo acima numa linha só (preço só se o cliente perguntar). Use APENAS os serviços e preços da tabela — nunca invente valores. Combos valem: "corte e barba" são os dois serviços juntos.
+            - Se o cliente escolher de forma indireta ("o primeiro", "os dois", "esse mesmo"), repita o nome exato do catálogo na resposta e inclua a tag [SERVICO|Nome exato do catálogo] (combo: [SERVICO|Corte + Barba]). Nessa mesma resposta NÃO cite horários livres: apenas pergunte o dia e o horário que ele prefere (os horários certos chegam na próxima mensagem).
+            - Se o cliente já disse o dia/horário antes do serviço, guarde essa preferência: pergunte só o serviço e, quando ele responder, confira a disponibilidade daquele horário sem perguntar de novo.
+            
+            *PASSO 3 — DIA E HORÁRIO:* Com o serviço definido, pergunte (ou confira) o dia e horário que o cliente prefere.
             - *REGRA DE OURO:* NUNCA liste todos os horários disponíveis de uma vez, isso polui a tela.
             - *REGRA OBRIGATÓRIA:* A agenda só abre *de semana em semana*. O cliente só pode agendar para dias da semana atual (Segunda a Sábado, sem domingo).
             - Ao perguntar o horário, informe em *negrito* que a *agenda abre semanalmente* e apenas os dias dessa semana estão disponíveis.
@@ -69,14 +80,14 @@ public class OpenAIService {
             - Se o cliente sugerir um horário que está LIVRE, passe para o próximo passo.
             - Se o horário sugerido estiver OCUPADO, sugira *apenas 2 opções próximas* que estejam livres (ex: 30 min antes ou depois).
             - Se ele pedir uma data para a próxima semana, informe que a agenda só abre na própria semana.
+            - Informe brevemente que, se quiser desistir do atendimento, basta dizer "cancelar".
             
-            *PASSO 3 — SERVIÇO:* Assim que o horário for confirmado, pergunte qual serviço deseja (use APENAS os serviços e preços da tabela acima — nunca invente valores). Informe brevemente que se ele quiser desistir do atendimento, basta dizer "cancelar".
-            
-            *PASSO 4 — PEDIR CONFIRMAÇÃO:* Com nome, data, horário e serviço em mãos, retorne um resumo completo e PERGUNTE de forma clara se o cliente confirma o agendamento.
+            *PASSO 4 — PEDIR CONFIRMAÇÃO:* Com nome, serviço, data e horário em mãos, retorne um resumo completo e PERGUNTE de forma clara se o cliente confirma o agendamento.
             NÃO emita a tag de agendamento neste passo.
-            Exemplo: "Perfeito! Você quer agendar para Dia 26/05 às 14:00 para Corte? Responda SIM para eu confirmar."
+            Exemplo: "Perfeito! Você quer agendar Corte no dia 26/05 às 14:00? Responda SIM para eu confirmar."
             
             *PASSO 5 — AGENDAR E FINALIZAR:* APENAS quando o cliente responder "Sim", "Pode", "Confirmo", ou concordar explicitamente com o Passo 4, você emite a tag de agendamento e pergunta a forma de pagamento.
+            Se o cliente pediu um barbeiro pelo nome ("com o Bruno"), coloque esse nome como 6º campo da tag; se não pediu ninguém, use só 5 campos.
             Exemplo:
             "Agendamento Confirmado! ✅
             
@@ -84,6 +95,9 @@ public class OpenAIService {
             1️⃣ PIX 💳
             2️⃣ Presencialmente 💵"
             [NOVO_AGENDAMENTO|João|26/05|14:00|Corte]
+            (com barbeiro pedido: [NOVO_AGENDAMENTO|João|26/05|14:00|Corte|Bruno])
+            
+            ⚡ *CLIENTE QUE JÁ DISSE TUDO:* Se o cliente já deu vários dados numa mensagem só (ex.: "corte amanhã 15h com o Bruno"), NÃO pergunte de novo nada do que ele já informou — pule direto para o passo que falta (normalmente o Passo 4, a confirmação).
             
             🚫 *CANCELAMENTO DE HORÁRIO VS ABORTO DE CONVERSA:*
             - SE O CLIENTE JÁ TEM UM AGENDAMENTO NA BASE e pedir para "cancelar o meu horário", "desmarcar o meu horário", inclua a tag [CANCELAR_AGENDAMENTO] na sua resposta.
@@ -98,12 +112,14 @@ public class OpenAIService {
             
             - A data na tag DEVE ser no formato numérico DD/MM. NUNCA escreva "amanhã" ou "hoje" na tag.
             - Se o horário estiver ocupado no [STATUS DA AGENDA], diga que está ocupado e liste no MÁXIMO 3 horários livres.
-            - NÃO peça todos os dados de uma vez. Siga os passos 1, 2, 3, 4 e 5 um de cada vez.
+            - Pergunte um dado por vez (não peça tudo de uma vez), mas aproveite tudo que o cliente já informou. A ordem é: nome, serviço, dia/horário, confirmação.
             - Se o cliente JÁ informou o nome antes, NÃO peça de novo.
             - Se o cliente fizer perguntas soltas (endereço, preços), responda diretamente sem usar tags.
             
             📋 *LISTA DE ESPERA (Sextas e Sábados):* Se não houver horário livre e o cliente topar, ofereça a lista de espera e inclua:
-            [LISTA_DE_ESPERA|Nome do Cliente|Dia da Semana]
+            [LISTA_DE_ESPERA|Nome do Cliente|Dia da Semana ou data DD/MM|Período (manhã, tarde, noite ou qualquer)|Serviço|Barbeiro (ou qualquer)]
+            Pergunte o período e o barbeiro só se o cliente ainda não disse; sem preferência, use "qualquer".
+            Quando abrir uma vaga que combine, o sistema avisa o cliente sozinho e ele responde SIM para marcar.
             """;
 
     
@@ -192,6 +208,77 @@ public class OpenAIService {
         return sb.toString();
     }
 
+    /** Vai no lugar dos horarios enquanto o servico nao foi definido (a IA pergunta o servico antes). */
+    static final String SERVICO_PENDENTE = "(serviço ainda não definido — descubra o serviço antes de falar em "
+            + "horários; os horários livres aparecem aqui assim que ele estiver definido)";
+
+    private boolean isCatalogEmpty() {
+        var catalog = serviceOfferingRepository.findByBarbershopIdAndActiveTrue(
+                com.razor.api.tenant.TenantContext.getCurrent());
+        return catalog == null || catalog.isEmpty();
+    }
+
+    /**
+     * O que a IA sabe do servico nesta conversa (Passo 2 do prompt).
+     *
+     * @param servicoPedido servico ja definido (aptos vazio = ninguem configurado para ele, grade
+     *                      geral); {@code null} = ainda nao definido
+     * @param catalogoVazio barbearia sem catalogo: nao ha o que perguntar, segue o fluxo antigo
+     */
+    static String serviceStageBlock(ProfessionalAssignmentService.ServicoPedido servicoPedido, boolean catalogoVazio) {
+        if (servicoPedido != null) {
+            boolean filtrado = servicoPedido.aptos() != null && !servicoPedido.aptos().isEmpty();
+            return "- ✅ *SERVIÇO JÁ DEFINIDO NA CONVERSA: " + servicoPedido.nome() + ".* NÃO pergunte o serviço de novo."
+                    + (filtrado ? " Os horários livres abaixo já valem só para os barbeiros que fazem esse serviço e para a duração dele." : "");
+        }
+        if (catalogoVazio) {
+            return "- O catálogo ainda não foi cadastrado: pergunte o serviço que o cliente quer e siga para o horário.";
+        }
+        return "- ❓ *SERVIÇO AINDA NÃO DEFINIDO.* Antes de oferecer ou confirmar qualquer horário, descubra o serviço. "
+                + "Você ainda NÃO tem os horários livres — não invente nem confirme disponibilidade.";
+    }
+
+    /**
+     * Orcamento do servico definido para o Passo 4 (V46): cada servico com o preco, o total e a
+     * duracao somada — pelo calculo unico ({@link PricingService#quoter}), o mesmo do painel. Com
+     * um combo do catalogo que cobre o pedido e sai mais barato, manda a IA oferecer o combo dizendo
+     * quanto economiza. Vazio quando o servico nao esta definido ou nao casa com o catalogo.
+     */
+    String quoteBlock(ProfessionalAssignmentService.ServicoPedido servicoPedido) {
+        if (servicoPedido == null || pricingService == null) return "";
+        PricingService.Quoter quoter = pricingService.quoter();
+        if (quoter == null) return "";
+        PricingService.Quote quote = quoter.quote(servicoPedido.nome());
+        if (quote == null || !quote.fromCatalog()) return "";
+        StringBuilder sb = new StringBuilder("- 🧾 *ORÇAMENTO DO SERVIÇO DEFINIDO* (valores de tabela; se a tabela acima mostra preço do plano do cliente, vale o do plano):\n");
+        for (PricingService.QuoteLine l : quote.lines()) {
+            sb.append("  • ").append(l.name()).append(": R$ ").append(brl(l.price()))
+              .append(" (").append(formatDuration(l.durationMinutes())).append(")\n");
+        }
+        sb.append("  *Total: R$ ").append(brl(quote.total())).append("* · duração estimada: ")
+          .append(formatDuration(quote.durationMinutes())).append("\n");
+        if (quote.multiple()) {
+            sb.append("- Na confirmação (Passo 4), liste cada serviço com o preço, depois o *TOTAL* e a *duração estimada*.\n");
+        }
+        quoter.comboFor(servicoPedido.nome()).ifPresent(c -> sb
+                .append("- 💡 *COMBO DISPONÍVEL:* ")
+                .append(String.join(" + ", c.covered().stream().map(PricingService.QuoteLine::name).toList()))
+                .append(" saem por R$ ").append(brl(c.combo().price())).append(" no *").append(c.combo().name())
+                .append("* — economia de R$ ").append(brl(c.savings())).append(". Antes de pedir a confirmação, ofereça o combo ")
+                .append("dizendo quanto ele economiza (uma vez só). Se o cliente aceitar, o serviço passa a ser o *")
+                .append(c.combo().name()).append("* (mais os outros serviços pedidos, se houver): use esse nome na tag [SERVICO|...] e na tag de agendamento. ")
+                .append("Se recusar, siga com os serviços separados.\n"));
+        return sb.toString().trim();
+    }
+
+    /** 30 → "30 min"; 90 → "1h30"; 120 → "2h". */
+    static String formatDuration(int minutes) {
+        if (minutes < 60) return minutes + " min";
+        int h = minutes / 60;
+        int m = minutes % 60;
+        return m == 0 ? h + "h" : h + "h" + String.format("%02d", m);
+    }
+
     /** Ex.: "Seg a Sáb, das 09:00 às 19:00" — vindo das configuracoes do tenant. */
     String buildOpeningHours(BarbershopSettingsService.BotSettings cfg) {
         // Frase derivada dos dias estruturados (V32): antes vinha de um texto livre a parte, que
@@ -255,18 +342,31 @@ public class OpenAIService {
             String dataHojeFormatada = hoje.format(DateTimeFormatter.ofPattern("dd/MM"));
             // Servico ja conhecido: so horarios em que um barbeiro QUE FAZ o servico esta livre
             // (a mesma regra da gravacao) — o bot nao oferece horario que depois e recusado.
-            String horariosLivresHoje = agendaService.getHorariosDisponiveisDoDia(dataHojeFormatada, servicoPedido);
-            if (servicoPedido != null) {
-                horariosLivresHoje += " (já considerando só os barbeiros que fazem " + servicoPedido.nome()
-                        + "; se o cliente trocar de serviço, confirme o horário de novo)";
+            // Servico desconhecido com catalogo cadastrado: a IA NAO recebe horario nenhum — o
+            // serviço vem antes, senao ela ofereceria um horario em que so esta livre quem nao faz o
+            // servico (e a gravacao recusaria depois). Sem catalogo nao ha como perguntar: grade geral.
+            boolean catalogoVazio = isCatalogEmpty();
+            boolean perguntarServico = servicoPedido == null && !catalogoVazio;
+            String horariosLivresHoje;
+            if (perguntarServico) {
+                horariosLivresHoje = SERVICO_PENDENTE;
+                agendaContext = SERVICO_PENDENTE;
+            } else {
+                horariosLivresHoje = agendaService.getHorariosDisponiveisDoDia(dataHojeFormatada, servicoPedido);
+                if (servicoPedido != null && servicoPedido.aptos() != null && !servicoPedido.aptos().isEmpty()) {
+                    horariosLivresHoje += " (já considerando só os barbeiros que fazem " + servicoPedido.nome()
+                            + "; se o cliente trocar de serviço, confirme o horário de novo)";
+                }
             }
-            
+
             // Identidade, catalogo e funcionamento vem do TENANT ATUAL — sem isso toda barbearia
             // teria um bot dizendo o nome e os precos de outra (bug multi-tenant).
             var cfg = barbershopSettingsService.resolve();
 
             String finalPrompt = SYSTEM_PROMPT_RECEPTIONIST
-                    .replace("{{agendaContext}}", agendaContext)
+                    .replace("{{etapaServico}}", serviceStageBlock(servicoPedido, catalogoVazio))
+                    .replace("{{orcamentoServico}}", quoteBlock(servicoPedido))
+                    .replace("{{agendaContext}}", agendaContext == null ? "" : agendaContext)
                     .replace("{{hoje}}", dataHoje)
                     .replace("{{horariosLivresHoje}}", horariosLivresHoje)
                     .replace("{{calendarioSemana}}", cal.toString())
@@ -283,7 +383,7 @@ public class OpenAIService {
             
             messages.addAll(buildHistoryMessages(recentHistory, userMessage));
 
-            String text = chatModel.generate(messages).content().text();
+            String text = generateWithEscalation(messages);
             if (healthSignals != null) healthSignals.aiSuccess();
             return text;
         } catch (Exception e) {
@@ -293,6 +393,46 @@ public class OpenAIService {
             log.error("[IA] Falha ao gerar resposta do chat", e);
             throw new AiUnavailableException("IA indisponivel: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Chat no modelo principal (gpt-4o-mini). So escala para o modelo forte (gpt-4o) quando o
+     * principal falha, devolve vazio ou uma tag de agendamento quebrada — os casos em que o cliente
+     * receberia "nao entendi" por limitacao do modelo, e nao da conversa.
+     */
+    String generateWithEscalation(List<ChatMessage> messages) {
+        long t0 = System.nanoTime();
+        String text = null;
+        Exception falha = null;
+        try {
+            text = chatModel.generate(messages).content().text();
+        } catch (Exception e) {
+            falha = e;
+        }
+        long ms = (System.nanoTime() - t0) / 1_000_000;
+        String motivo = falha != null ? "falha (" + falha.getMessage() + ")"
+                : needsEscalation(text) ? "resposta vazia ou tag quebrada" : null;
+        if (motivo == null) {
+            log.info("[TEMPO] IA (modelo principal) respondeu em {} ms", ms);
+            return text;
+        }
+        if (chatEscalation == null || chatEscalation.model() == null) {
+            if (falha != null) throw new IllegalStateException(falha.getMessage(), falha);
+            return text;
+        }
+        log.warn("[IA] Modelo principal: {} em {} ms — escalando para o modelo forte", motivo, ms);
+        long t1 = System.nanoTime();
+        String forte = chatEscalation.model().generate(messages).content().text();
+        log.info("[TEMPO] IA (modelo forte) respondeu em {} ms", (System.nanoTime() - t1) / 1_000_000);
+        return forte;
+    }
+
+    /** Resposta que nao serve: vazia, ou com tag de agendamento que o parser nao consegue ler. */
+    static boolean needsEscalation(String text) {
+        if (text == null || text.isBlank()) return true;
+        if (!text.contains("[NOVO_AGENDAMENTO|")) return false;
+        var intent = new com.razor.api.ai.AiTagParser().parse(text);
+        return !(intent instanceof com.razor.api.ai.AiIntent.NovoAgendamento);
     }
 
     /**
@@ -345,7 +485,10 @@ public class OpenAIService {
                 ImageContent.from(pureBase64, cleanMime) 
             );
             SystemMessage systemMessage = SystemMessage.from(SYSTEM_PROMPT_AGENDA_READER);
-            String response = chatModel.generate(systemMessage, userMessage).content().text();
+            // Ler foto de agenda e o caso dificil: vai direto no modelo forte, quando existe.
+            OpenAiChatModel visao = chatEscalation != null && chatEscalation.model() != null
+                    ? chatEscalation.model() : chatModel;
+            String response = visao.generate(systemMessage, userMessage).content().text();
             return response.replace("```json", "").replace("```", "").trim();
         } catch (Exception e) {
             log.error("Erro Visão Computacional: {}", e.getMessage());
@@ -354,28 +497,47 @@ public class OpenAIService {
     }
     
     /**
-     * Transcreve um audio com o Whisper.
-     * Retorna null quando a transcricao falha (chave invalida, rede, resposta vazia),
-     * para o chamador nao tratar uma mensagem de erro como se fosse fala do usuario.
+     * Transcreve um audio. Modelo principal configuravel (padrao {@code gpt-4o-mini-transcribe},
+     * mais rapido que o whisper); se ele falhar, tenta uma vez o de reserva ({@code whisper-1}).
+     * Idioma fixo em portugues (pula a deteccao). Retorna null quando nada deu certo, para o
+     * chamador nao tratar uma mensagem de erro como se fosse fala do usuario.
      */
     public String transcribeAudio(String base64Audio, String mimeType) {
+        byte[] audioBytes;
         try {
             String pureBase64 = base64Audio.contains(",") ? base64Audio.split(",")[1] : base64Audio;
-            byte[] audioBytes = Base64.getDecoder().decode(pureBase64);
-            
-            String extension = "ogg"; 
-            if (mimeType != null) {
-                if (mimeType.contains("mp4")) extension = "mp4";
-                else if (mimeType.contains("mpeg") || mimeType.contains("mp3")) extension = "mp3";
-            }
-            final String filename = "audio." + extension;
-            
+            audioBytes = Base64.getDecoder().decode(pureBase64);
+        } catch (Exception e) {
+            log.error("Erro Áudio: base64 inválido ({})", e.getMessage());
+            return null;
+        }
+        String extension = "ogg";
+        if (mimeType != null) {
+            if (mimeType.contains("mp4")) extension = "mp4";
+            else if (mimeType.contains("mpeg") || mimeType.contains("mp3")) extension = "mp3";
+        }
+        String principal = blankTo(properties.getOpenai().getWhisperModel(), "gpt-4o-mini-transcribe");
+        String reserva = blankTo(properties.getOpenai().getWhisperFallbackModel(), "whisper-1");
+
+        long t0 = System.nanoTime();
+        String text = transcribeWith(principal, audioBytes, "audio." + extension);
+        if (text == null && !reserva.equals(principal)) {
+            log.warn("[AUDIO] Transcricao com {} falhou — tentando {}", principal, reserva);
+            text = transcribeWith(reserva, audioBytes, "audio." + extension);
+        }
+        log.info("[TEMPO] Transcricao: {} ms ({} KB)", (System.nanoTime() - t0) / 1_000_000, audioBytes.length / 1024);
+        return text;
+    }
+
+    /** Uma chamada a {@code /audio/transcriptions}; null em qualquer falha. */
+    String transcribeWith(String model, byte[] audioBytes, String filename) {
+        try {
             MultipartBodyBuilder builder = new MultipartBodyBuilder();
             builder.part("file", new ByteArrayResource(audioBytes) {
                 @Override public String getFilename() { return filename; }
             });
-            String whisperModel = properties.getOpenai().getWhisperModel();
-            builder.part("model", (whisperModel == null || whisperModel.isBlank()) ? "whisper-1" : whisperModel);
+            builder.part("model", model);
+            builder.part("language", "pt");
 
             String jsonResponse = getOpenAiWebClient()
                     .post()
@@ -384,8 +546,8 @@ public class OpenAIService {
                     .bodyValue(builder.build())
                     .retrieve()
                     .bodyToMono(String.class)
-                    .block();
-            
+                    .block(java.time.Duration.ofSeconds(30));
+
             if (jsonResponse != null) {
                 JsonNode root = objectMapper.readTree(jsonResponse);
                 if (root.has("text")) {
@@ -393,10 +555,10 @@ public class OpenAIService {
                     return text.isEmpty() ? null : text;
                 }
             }
-            log.error("Erro Áudio Whisper: resposta sem campo 'text'");
+            log.error("Erro Áudio ({}): resposta sem campo 'text'", model);
             return null;
         } catch (Exception e) {
-            log.error("Erro Áudio Whisper: {}", e.getMessage());
+            log.error("Erro Áudio ({}): {}", model, e.getMessage());
             return null;
         }
     }

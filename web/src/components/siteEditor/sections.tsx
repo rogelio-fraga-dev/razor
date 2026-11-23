@@ -2,8 +2,8 @@
 //
 // O placeholder de cada campo é o texto PADRÃO do modelo escolhido (sectionDefaults): o dono vê
 // exatamente o que vai aparecer se deixar em branco, e só escreve o que quiser trocar.
-import type { SiteContent, SiteSectionContent, SiteSectionKey, SiteTemplate } from "../../api/types";
-import { CONTENT_LIMITS, SECTION_META, sectionDefaults, type SectionText } from "../../site/content";
+import type { SiteContent, SiteSectionContent, SiteSectionKey, SiteStepContent, SiteTemplate } from "../../api/types";
+import { CONTENT_LIMITS, HOW_STEP_DEFAULTS, SECTION_META, STEP_LIMITS, sectionDefaults, type SectionText } from "../../site/content";
 import { Switch } from "../Modal";
 import { TextField } from "./fields";
 
@@ -53,6 +53,21 @@ export function SectionsEditor({
     patch(key, cur);
   };
 
+  // Passo a passo: a posição é o número do passo; os vazios do fim saem (o backend faz igual).
+  const setStep = (key: SiteSectionKey, index: number, field: keyof SiteStepContent, value: string) => {
+    const cur = { ...(sections[key] ?? {}) };
+    const steps: SiteStepContent[] = [...(cur.steps ?? [])];
+    while (steps.length <= index) steps.push({});
+    const step = { ...steps[index] };
+    if (value) step[field] = value;
+    else delete step[field];
+    steps[index] = step;
+    while (steps.length && !steps[steps.length - 1].title && !steps[steps.length - 1].text) steps.pop();
+    if (steps.length) cur.steps = steps;
+    else delete cur.steps;
+    patch(key, cur);
+  };
+
   const isVisible = (key: SiteSectionKey) =>
     key === "team" ? toggles.showTeam : key === "plans" ? toggles.showPlans : sections[key]?.visible !== false;
 
@@ -77,7 +92,7 @@ export function SectionsEditor({
         const defaults = sectionDefaults(template, meta.key);
         const cur = sections[meta.key] ?? {};
         const visible = isVisible(meta.key);
-        const customized = meta.fields.some((f) => !!cur[f]);
+        const customized = meta.fields.some((f) => !!cur[f]) || !!cur.steps?.length;
         // A capa sempre aparece: sem ela o site não tem título nem botão de agendar no topo.
         const canHide = meta.key !== "hero";
         return (
@@ -110,6 +125,31 @@ export function SectionsEditor({
                   rows={3}
                 />
               ))}
+            {visible && !!meta.steps && (
+              <ol className="se-steps">
+                {HOW_STEP_DEFAULTS.slice(0, meta.steps).map((d, i) => (
+                  <li key={i} className="se-step">
+                    <span className="se-step-n" aria-hidden="true">{i + 1}</span>
+                    <div className="se-step-fields">
+                      <TextField
+                        label={`Passo ${i + 1} — título`}
+                        value={cur.steps?.[i]?.title ?? ""}
+                        onChange={(v) => setStep(meta.key, i, "title", v)}
+                        max={STEP_LIMITS.title}
+                        placeholder={d.title}
+                      />
+                      <TextField
+                        label={`Passo ${i + 1} — texto`}
+                        value={cur.steps?.[i]?.text ?? ""}
+                        onChange={(v) => setStep(meta.key, i, "text", v)}
+                        max={STEP_LIMITS.text}
+                        placeholder={d.text}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
             {visible && meta.key === "services" && (
               <Switch checked={toggles.showPrices} onChange={(v) => onToggle("showPrices", v)} label="Mostrar os preços" />
             )}

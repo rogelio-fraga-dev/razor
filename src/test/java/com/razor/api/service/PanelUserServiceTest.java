@@ -248,4 +248,70 @@ class PanelUserServiceTest {
         assertThatThrownBy(() -> service.resetPassword(ownerId, alien, "segredo123")).isInstanceOf(NotFoundException.class);
         verify(passwordEncoder, never()).encode(eq("segredo123"));
     }
+
+    // ---- Nome e e-mail ------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("troca de nome: grava aparado e NÃO derruba as sessões")
+    void updateIdentity_nameOnly_keepsSessions() {
+        TenantUser saved = service.updateIdentity(userId, "  Rafael Lima  ", null);
+
+        assertThat(saved.getName()).isEqualTo("Rafael Lima");
+        assertThat(saved.getTokenVersion()).isZero();
+        verify(sessionValidator, never()).invalidate(any());
+    }
+
+    @Test
+    @DisplayName("troca de e-mail: normaliza (minúsculas), grava e derruba as sessões")
+    void updateIdentity_email_lowercasedAndRevokes() {
+        when(tenantUserRepository.existsByEmail("novo@loja.com")).thenReturn(false);
+
+        TenantUser saved = service.updateIdentity(userId, null, "  Novo@Loja.COM ");
+
+        assertThat(saved.getEmail()).isEqualTo("novo@loja.com");
+        assertThat(saved.getTokenVersion()).isEqualTo(1);
+        verify(sessionValidator).invalidate(userId);
+    }
+
+    @Test
+    @DisplayName("mesmo e-mail com outra caixa não é troca: nada de derrubar sessão")
+    void updateIdentity_sameEmailDifferentCase_noop() {
+        user.setEmail("b@x.com");
+
+        TenantUser saved = service.updateIdentity(userId, null, "B@X.com");
+
+        assertThat(saved.getTokenVersion()).isZero();
+        verify(tenantUserRepository, never()).existsByEmail(anyString());
+    }
+
+    @Test
+    @DisplayName("e-mail já usado por outro login: 409 e nada gravado")
+    void updateIdentity_duplicateEmail_conflict() {
+        when(tenantUserRepository.existsByEmail("ana@loja.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.updateIdentity(userId, "Outro", "ana@loja.com"))
+                .isInstanceOf(ConflictException.class);
+        verify(tenantUserRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("e-mail inválido ou nome vazio: 400")
+    void updateIdentity_invalid() {
+        assertThatThrownBy(() -> service.updateIdentity(userId, null, "sem-arroba"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.updateIdentity(userId, "   ", null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.updateIdentity(userId, "x".repeat(PanelUserService.MAX_NAME + 1), null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("usuário de outra barbearia: 404 ao editar nome/e-mail")
+    void updateIdentity_otherTenant_notFound() {
+        UUID other = UUID.randomUUID();
+        when(tenantUserRepository.findById(other)).thenReturn(Optional.of(
+                TenantUser.builder().id(other).barbershopId(UUID.randomUUID()).email("z@x").build()));
+
+        assertThatThrownBy(() -> service.updateIdentity(other, "X", null)).isInstanceOf(NotFoundException.class);
+    }
 }

@@ -1470,9 +1470,46 @@ Paginar catálogo seria ruído: dois botões mortos embaixo de uma lista de 7 se
   prompt pergunta o horário antes do serviço, então o filtro só vale quando o cliente já disse o
   serviço; se disser depois, a gravação continua sendo a rede de segurança.
 
+### 🚀 Plano do piloto — Partes 1, 2 e 5 *(V46, V48, V49 — 2026-11-18/19)*
+
+Detalhe item a item em `docs/MVP-PILOTO.md`; contexto de retomada em `docs/CONTEXTO.md`.
+
+- **Parte 1 — Bot (V46) ✅:** total e duração somados com vários serviços; oferta de combo com a
+  economia; **um só cálculo de preço/duração** do agendamento (bot, card da IA, faturamento
+  previsto, comanda); serviço pedido antes do horário; avaliação pós-atendimento (4–5 → Google,
+  nota baixa só pro dono); áudio com `gpt-4o-mini-transcribe` (reserva `whisper-1`); editor de
+  serviços em linhas na config do bot.
+- **Parte 2 — Painel (V48) ✅:** permissões por papel (recepção só leitura em serviços; barbeiro só
+  mexe nos próprios horários), editar nome/e-mail de usuário, aviso de alteração não salva no
+  editor do site, faturamento previsto sem faltas, react-router 7, PWA instalável, tema claro
+  refeito (contraste AA).
+- **Parte 5 — Cadastro e lançamento (V49) ✅:** `POST /api/signup` público (barbearia em TRIAL +
+  dono, sessão aberta; 10/IP/hora, honeypot, e-mail único, senha ≥ 8; `RAZOR_SIGNUP_ENABLED`,
+  `RAZOR_TRIAL_DAYS`); tela `/cadastro?plano=` ligada aos CTAs da landing; assistente `/comecar`
+  (casa → horário → serviços → equipe → QR → teste → site) com progresso no servidor; faixa do
+  teste grátis; Termos/Privacidade/Cancelamento em **rascunho**; `og-image.png` 1200×630.
+  Validação: 957 testes unitários, V49 aplicada em Postgres descartável e no banco local (backup
+  `backups/pre-v49-20261119-1550.dump`), stack Docker no ar.
+
+**Pendente (próximas partes, nessa ordem):**
+- [x] **Parte 4 — Automações (V47)** ✅ (merge `68fc4ec`, 23/11): lista de espera automática
+      (oferta com prazo, SIM/NÃO, passa ao próximo), campanhas sumido/aniversário com cupom/retorno
+      do corte (horário comercial, 1 msg por cliente a cada N dias, opt-out "parar", idempotentes),
+      relatório semanal do dono, aba **Configurações → Automações**. Validação: 979 testes, V47
+      aplicada fora de ordem (`flyway.out-of-order`) numa cópia do banco local e no banco local
+      (backup `backups/pre-v47-20261123-1243.dump`), rodada de campanha e relatório exercitados com
+      a Evolution desligada.
+- [ ] **Parte 3 — Console da plataforma (V50 + V51)** ← próxima: rascunho de monitoramento/incidentes e
+      storage S3 no worktree `agent-a7c84d8b86e8eb264`; telas do console e V51 não começaram.
+- [ ] Partes 7–9 (WhatsApp oficial, onda 2, salões/estética) e **Parte 6 — vídeos por último** (Reels + tutoriais de configuração do site e da IA para landing, Ajuda e primeiro acesso).
+- [ ] Legal: preencher campos e revisar com advogado. Domínio: trocar URLs do og:image/canonical.
+- [ ] Decisões: cobrança (o fim do teste hoje não bloqueia nada), pagamentos, NFS-e, domínio/deploy.
+- [ ] Débito: `npm audit` (esbuild/vite, só dev → vite 6+); ITs com Testcontainers não rodam
+      nesta máquina (Docker 29); chunk do painel > 500 kB (code-split).
+
 ---
 
-_Última atualização: 2026-11-17 (V36: limite de agendamentos por cliente, tags e status de cliente,
+_Última atualização: 2026-11-19 (Partes 1, 2 e 5 do piloto: V46, V48, V49 · 957 testes) · antes: 2026-11-17 (V36: limite de agendamentos por cliente, tags e status de cliente,
 disparo por grupo) · antes: 2026-07-27 (V19→V30: meta mensal, produtos, venda de balcão, comanda, estoque,
 acerto de comissões, vales, motor de benefícios de plano, cupons/fidelidade, comanda ↔ agendamento;
 rodada de revisão por agentes) · 419 testes · Documento vivo._

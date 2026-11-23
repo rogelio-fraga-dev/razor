@@ -9,14 +9,19 @@
   align-items: start;
 }
 @media (min-width: 1180px) {
-  /* Lado a lado: o editor numa coluna confortável de ler, a prévia com o resto. */
-  .se-layout { grid-template-columns: minmax(380px, 520px) minmax(0, 1fr); }
+  /* Lado a lado: o editor numa coluna confortável de ler, a prévia com o resto. Num notebook
+     (1280–1440 com o menu lateral) a coluna do editor fica estreita para sobrar palco à prévia;
+     a prévia abre no celular quando o palco é pequeno e a "Tela cheia" mostra o computador. */
+  .se-layout { grid-template-columns: minmax(360px, 440px) minmax(0, 1fr); }
   .se-preview {
     position: sticky;
     top: 16px;
     height: calc(100vh - 32px);
     min-height: 520px;
   }
+}
+@media (min-width: 1600px) {
+  .se-layout { grid-template-columns: minmax(420px, 520px) minmax(0, 1fr); }
 }
 
 .se-editor {
@@ -314,4 +319,38 @@
     padding: 8px;
     background: var(--bg);
   }
+}
+
+/* ---------- Passos de "Como agendar" ---------- */
+.se-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.se-step { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; }
+.se-step-n {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--text);
+  margin-top: 22px;
+}
+.se-step-fields { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+/* ---------- Prévia em tela cheia ---------- */
+.se-full {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  padding: 12px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(4px);
+  display: flex;
+}
+.se-full:focus { outline: none; }
+.se-full .se-pv { flex: 1; min-height: 0; box-shadow: var(--shadow-lg, 0 20px 60px rgba(0, 0, 0, 0.3)); }
+@media (max-width: 600px) {
+  .se-full { padding: 0; }
+  .se-full .se-pv { border-radius: 0; border: 0; }
 }

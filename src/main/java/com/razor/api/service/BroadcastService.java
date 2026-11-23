@@ -56,6 +56,8 @@ public class BroadcastService {
         for (Customer customer : recipients) {
             try {
                 if (skipPhone != null && customer.getPhoneNumber().contains(skipPhone)) continue;
+                // Pediu "parar" (V47): disparo e marketing, nao vai para ele.
+                if (customer.isMarketingOptedOut()) continue;
                 messenger.sendSync(customer.getPhoneNumber(), header + message, "DISPARO");
                 enviados.add(customer.getName() != null ? customer.getName() : customer.getPhoneNumber());
                 if (delayMillis > 0) Thread.sleep(delayMillis);

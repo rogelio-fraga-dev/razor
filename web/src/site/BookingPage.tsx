@@ -8,7 +8,7 @@
 // A grade vem do MESMO motor do bot (backend: AgendaAvailabilityService). Esta página não sabe
 // nada de expediente ou ocupação: pede os horários livres e mostra.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type { BookingConfirmation, BookingOptions, BookingSlots } from "../api/types";
 import { money, whatsappHref } from "./parts";

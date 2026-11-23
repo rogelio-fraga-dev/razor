@@ -191,4 +191,33 @@ class RateLimitFilterTest {
         filter.doFilter(request("/api/site/figaro/booking/slots", "10.0.0.8"), grade, chain);
         assertThat(grade.getStatus()).isEqualTo(200);
     }
+
+    @Test
+    @DisplayName("cadastro pela landing: teto por IP na janela de 1h, com Retry-After da hora")
+    void signup_hasHourlyLimit() throws Exception {
+        properties.getSecurity().getRateLimit().setSignupPerWindow(2);
+        FilterChain chain = mock(FilterChain.class);
+        for (int i = 0; i < 2; i++) {
+            MockHttpServletRequest req = request("/api/signup", "10.0.0.9");
+            req.setMethod("POST");
+            filter.doFilter(req, new MockHttpServletResponse(), chain);
+        }
+        verify(chain, times(2)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+
+        MockHttpServletRequest third = request("/api/signup", "10.0.0.9");
+        third.setMethod("POST");
+        MockHttpServletResponse blocked = new MockHttpServletResponse();
+        FilterChain afterLimit = mock(FilterChain.class);
+        filter.doFilter(third, blocked, afterLimit);
+
+        assertThat(blocked.getStatus()).isEqualTo(429);
+        assertThat(blocked.getHeader("Retry-After")).isEqualTo("3600");
+        verify(afterLimit, never()).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+
+        // Outro IP segue livre, e o freio do cadastro nao gasta o do painel.
+        FilterChain other = mock(FilterChain.class);
+        filter.doFilter(request("/api/signup", "10.0.0.10"), new MockHttpServletResponse(), other);
+        filter.doFilter(request("/api/admin/products", "10.0.0.9"), new MockHttpServletResponse(), other);
+        verify(other, times(2)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
 }

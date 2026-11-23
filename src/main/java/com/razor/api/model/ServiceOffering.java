@@ -52,6 +52,14 @@ public class ServiceOffering {
     @Column(name = "commission_percent", precision = 5, scale = 2)
     private BigDecimal commissionPercent;
 
+    /**
+     * Lembrete de retorno (V47): dias depois do atendimento deste servico para lembrar o cliente
+     * de voltar (ex.: corte = 21). {@code null} = sem lembrete para este servico (padrao).
+     * Configurado na aba Automacoes.
+     */
+    @Column(name = "return_reminder_days")
+    private Integer returnReminderDays;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

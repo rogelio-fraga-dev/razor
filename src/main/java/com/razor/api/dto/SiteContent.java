@@ -1,6 +1,7 @@
 package com.razor.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -16,8 +17,21 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record SiteContent(Map<String, Section> sections, String bookLabel, String motion) {
 
-    /** {@code visible} so e gravado quando falso: ausente ja significa "aparece". */
+    /**
+     * {@code visible} so e gravado quando falso: ausente ja significa "aparece". {@code steps} so
+     * existe em "Como agendar" (os 3 passos); a posicao na lista e o numero do passo.
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record Section(Boolean visible, String eyebrow, String title, String text) {
+    public record Section(Boolean visible, String eyebrow, String title, String text, List<Step> steps) {
+
+        /** Secao sem passos — todas, menos "Como agendar". */
+        public Section(Boolean visible, String eyebrow, String title, String text) {
+            this(visible, eyebrow, title, text, null);
+        }
+    }
+
+    /** Um passo de "Como agendar". Campo nulo = texto padrao daquele passo. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Step(String title, String text) {
     }
 }

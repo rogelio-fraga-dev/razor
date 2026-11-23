@@ -45,6 +45,22 @@ public class Customer {
     @Column(name = "subscription_plan_id")
     private UUID subscriptionPlanId;
 
+    /** Aniversario (V47), opcional. Ano desconhecido e gravado como 2000 — so o dia/mes importam. */
+    @Column(name = "birth_date")
+    private java.time.LocalDate birthDate;
+
+    /** Quando o bot perguntou o aniversario pela ultima vez (V47): pergunta no maximo uma vez. */
+    @Column(name = "birthday_asked_at")
+    private LocalDateTime birthdayAskedAt;
+
+    /**
+     * Quando o cliente pediu para nao receber mais mensagens automaticas ("parar"/"sair", V47).
+     * Nulo = recebe. Vale para campanhas automaticas e disparos; nao para respostas e lembretes do
+     * proprio agendamento.
+     */
+    @Column(name = "marketing_opt_out_at")
+    private LocalDateTime marketingOptOutAt;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
     
@@ -65,5 +81,10 @@ public class Customer {
     // Método auxiliar para saber se está pausado agora
     public boolean isPaused() {
         return pausedUntil != null && pausedUntil.isAfter(LocalDateTime.now());
+    }
+
+    /** Pediu para nao receber mensagens automaticas (V47)? */
+    public boolean isMarketingOptedOut() {
+        return marketingOptOutAt != null;
     }
 }

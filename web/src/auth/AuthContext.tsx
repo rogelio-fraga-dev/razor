@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, setUnauthorizedHandler } from "../api/client";
 import type { LoginResponse, Me } from "../api/types";
+import type { SignupInput, SignupResponse } from "../api/onboarding";
 
 // Sessao do painel. O JWT vive num cookie HttpOnly que este codigo nunca ve; aqui ficam so os
 // dados NAO secretos do usuario (nome, papel), em memoria. Ao recarregar a pagina a sessao e
@@ -11,12 +12,20 @@ interface Session {
   name: string | null;
   email: string;
   barbershopId: string;
+  /** Só vem do /me (o login não devolve). */
+  userId?: string;
+  /** Profissional ligado a este login (V44): o barbeiro só mexe nos horários dele na agenda. */
+  professionalId?: string | null;
 }
 
 interface AuthState {
   session: Session | null;
   login: (email: string, password: string) => Promise<void>;
+  /** Cadastro pela landing (V49): a resposta já traz a sessão aberta no cookie. */
+  signup: (input: SignupInput) => Promise<SignupResponse>;
   logout: () => void;
+  /** Relê o /me (ex.: depois de o dono trocar o próprio e-mail em "Equipe & acesso"). */
+  refresh: () => Promise<void>;
 }
 
 // Chaves da versao antiga (JWT no localStorage). Apagadas no boot para nao deixar um token
@@ -26,7 +35,9 @@ const LEGACY_KEYS = ["razor.token", "razor.session"];
 const AuthContext = createContext<AuthState | null>(null);
 
 function toSession(u: LoginResponse | Me): Session {
-  return { role: u.role, name: u.name, email: u.email, barbershopId: u.barbershopId };
+  const base: Session = { role: u.role, name: u.name, email: u.email, barbershopId: u.barbershopId };
+  if ("userId" in u) return { ...base, userId: u.userId, professionalId: u.professionalId ?? null };
+  return base;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -69,10 +80,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.post<LoginResponse>("/api/auth/login", { email, password }, { ignore401: true });
-    setSession(toSession(res));
+    // O /me completa a sessão com o vínculo de profissional (a agenda do barbeiro depende dele).
+    // Se falhar, fica com o que o login devolveu — a API continua decidindo o que cada um pode.
+    try {
+      setSession(toSession(await api.get<Me>("/api/admin/me")));
+    } catch {
+      setSession(toSession(res));
+    }
   }, []);
 
-  const value = useMemo<AuthState>(() => ({ session, login, logout }), [session, login, logout]);
+  const refresh = useCallback(async () => {
+    try {
+      setSession(toSession(await api.get<Me>("/api/admin/me")));
+    } catch {
+      /* 401 já cai no expire; outro erro mantém a sessão como está */
+    }
+  }, []);
+
+  const signup = useCallback(async (input: SignupInput) => {
+    const res = await api.post<SignupResponse>("/api/signup", input, { ignore401: true });
+    setSession(toSession(res));
+    return res;
+  }, []);
+
+  const value = useMemo<AuthState>(
+    () => ({ session, login, signup, logout, refresh }),
+    [session, login, signup, logout, refresh],
+  );
 
   // Enquanto o /me nao responde nao da para saber se ha sessao; renderizar agora mandaria quem
   // esta logado para /login e perderia a rota que ele abriu.

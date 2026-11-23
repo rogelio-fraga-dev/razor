@@ -28,6 +28,9 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # Cada parte do piloto tem numero de migracao reservado (docs/MVP-PILOTO.md) e elas entram
+    # na ordem em que ficam prontas: a V47 (automacoes) chega depois da V49 ja aplicada.
+    out-of-order: true
 
   # Conexao Redis — usada apenas quando razor.state.store=redis. Com store=memory (padrao),
   # os beans do Redis ficam ociosos e nao abrem conexao.
@@ -110,6 +113,11 @@ razor:
     # Vazio por padrão = onboarding desabilitado (fail-closed). Defina ONBOARDING_API_KEY
     # no ambiente para habilitar o provisionamento de novas barbearias.
     api-key: "${ONBOARDING_API_KEY:}"
+  signup:
+    # Cadastro sozinho pela landing (V49): cria barbearia + dono em TRIAL. O teste e so
+    # informativo (banner no painel) enquanto a cobranca nao existe.
+    enabled: "${RAZOR_SIGNUP_ENABLED:true}"
+    trial-days: "${RAZOR_TRIAL_DAYS:14}"
   webhook:
     # Segredo que a Evolution deve enviar no webhook (header X-Webhook-Token ou ?token=...).
     # Vazio = webhook DESABILITADO (fail-closed): sem ele, qualquer um poderia forjar uma
@@ -140,11 +148,19 @@ razor:
       site-per-minute: "${RAZOR_RATE_LIMIT_SITE:120}"
       booking-per-window: "${RAZOR_RATE_LIMIT_BOOKING:10}"
       booking-window-seconds: 3600
+      # Cadastro de barbearia pela landing (POST /api/signup): teto por IP na janela de 1h.
+      signup-per-window: "${RAZOR_RATE_LIMIT_SIGNUP:10}"
+      signup-window-seconds: 3600
   openai:
     api-key: "${OPENAI_API_KEY}"
-    model: "gpt-4o"
+    # Chat: gpt-4o-mini por padrao (rapido e barato); o gpt-4o so entra quando o mini falha ou
+    # devolve uma tag de agendamento quebrada (escalation-model).
+    model: "${OPENAI_MODEL:gpt-4o-mini}"
+    escalation-model: "${OPENAI_ESCALATION_MODEL:gpt-4o}"
     vision-model: "gpt-4o"
-    whisper-model: "whisper-1"
+    # Transcricao: gpt-4o-mini-transcribe (mais rapido); whisper-1 de reserva se ele falhar.
+    whisper-model: "${OPENAI_TRANSCRIBE_MODEL:gpt-4o-mini-transcribe}"
+    whisper-fallback-model: "whisper-1"
     temperature: 0.7
   schedule:
     delay-minutes: 60

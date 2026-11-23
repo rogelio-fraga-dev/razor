@@ -294,9 +294,8 @@ $$("[data-panel]").forEach((el) => {
   el.setAttribute("href", PANEL_URL);
 });
 
-// CTAs dos planos: levam ao painel já dizendo qual plano o visitante escolheu.
-// Enquanto o cadastro self-service não existe (Fase 4), o painel recebe o parâmetro e
-// orienta o visitante.
+// CTAs dos planos: levam ao cadastro do painel (V49) já dizendo qual plano o visitante
+// escolheu. O plano só fica registrado como interesse — não há cobrança no teste grátis.
 $$("[data-cta]").forEach((el) => {
-  el.setAttribute("href", `${PANEL_URL}/?plano=${encodeURIComponent(el.dataset.cta)}`);
+  el.setAttribute("href", `${PANEL_URL}/cadastro?plano=${encodeURIComponent(el.dataset.cta)}`);
 });

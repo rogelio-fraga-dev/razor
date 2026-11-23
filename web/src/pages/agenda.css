@@ -115,3 +115,23 @@
 @media (max-width: 720px) {
   .ag-notify { display: none; }
 }
+
+/* Celular: a barra do topo numa linha só — navegação de data + "⋯" (folha com o resto). */
+.ag-compact { flex-wrap: nowrap; gap: 4px; }
+.ag-compact .chip-btn { min-height: 40px; min-width: 38px; padding: 0 10px; }
+.ag-more { font-size: 18px; line-height: 1; }
+.ag-sheet .ag-seg { margin-right: 0; }
+@media (max-width: 760px) {
+  /* O título "Agenda" já está aceso na barra de baixo e a data aparece logo abaixo: no celular ele
+     sai da vista (continua para leitores de tela) e a barra cabe numa linha só. */
+  .topbar:has(.ag-compact) h1 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .topbar:has(.ag-compact) > .row { flex: 1; justify-content: space-between; }
+  .topbar:has(.ag-compact) .ag-compact { margin-right: auto; }
+}

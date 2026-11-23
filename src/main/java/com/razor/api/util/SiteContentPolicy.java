@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razor.api.dto.SiteContent;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +36,15 @@ public final class SiteContentPolicy {
     public static final int MAX_TEXT = 600;
     public static final int MAX_BOOK_LABEL = 40;
 
+    /** Os 3 passos de "Como agendar" (so nessa secao). */
+    public static final int MAX_STEPS = 3;
+    public static final int MAX_STEP_TITLE = 60;
+    public static final int MAX_STEP_TEXT = 200;
+
     private static final Set<String> TOP_KEYS = Set.of("sections", "bookLabel", "motion");
-    private static final Set<String> SECTION_FIELDS = Set.of("visible", "eyebrow", "title", "text");
+    private static final Set<String> SECTION_FIELDS = Set.of("visible", "eyebrow", "title", "text", "steps");
+    private static final Set<String> STEP_FIELDS = Set.of("title", "text");
+    private static final String STEPS_SECTION = "how";
     private static final Set<String> MOTIONS = Set.of("full", "subtle", "off");
 
     private static final Map<String, String> SECTION_LABELS = Map.of(
@@ -119,8 +127,54 @@ public final class SiteContentPolicy {
         String eyebrow = text(fields.get("eyebrow"), MAX_EYEBROW, label + " — texto acima do título", false);
         String title = text(fields.get("title"), MAX_TITLE, label + " — título", false);
         String text = text(fields.get("text"), MAX_TEXT, label + " — texto", true);
-        if (visible == null && eyebrow == null && title == null && text == null) return null;
-        return new SiteContent.Section(visible, eyebrow, title, text);
+        Object rawSteps = fields.get("steps");
+        if (rawSteps != null && !STEPS_SECTION.equals(key)) {
+            throw new IllegalArgumentException(
+                    "Conteúdo do site inválido na seção " + label + ": campo desconhecido \"steps\".");
+        }
+        List<SiteContent.Step> steps = steps(rawSteps, label);
+        if (visible == null && eyebrow == null && title == null && text == null && steps == null) return null;
+        return new SiteContent.Section(visible, eyebrow, title, text, steps);
+    }
+
+    /**
+     * Os passos de "Como agendar": lista de ate {@link #MAX_STEPS}, cada um so com {@code title} e
+     * {@code text}. A posicao e o numero do passo, entao passo vazio no meio fica (como {@code {}}:
+     * "padrao daquele passo"); os vazios do fim saem. Tudo vazio = nulo (todos no padrao).
+     */
+    private static List<SiteContent.Step> steps(Object raw, String label) {
+        if (raw == null) return null;
+        if (!(raw instanceof List<?> list)) {
+            throw new IllegalArgumentException("Conteúdo do site inválido na seção " + label + ": passos.");
+        }
+        if (list.size() > MAX_STEPS) {
+            throw new IllegalArgumentException(label + ": no máximo " + MAX_STEPS + " passos.");
+        }
+        List<SiteContent.Step> out = new ArrayList<>();
+        for (int i = 0; i < list.size(); i++) {
+            Object item = list.get(i);
+            int n = i + 1;
+            if (item == null) {
+                out.add(new SiteContent.Step(null, null));
+                continue;
+            }
+            if (!(item instanceof Map<?, ?> step)) {
+                throw new IllegalArgumentException("Conteúdo do site inválido na seção " + label + ": passo " + n + ".");
+            }
+            for (Object f : step.keySet()) {
+                if (!(f instanceof String name) || !STEP_FIELDS.contains(name)) {
+                    throw new IllegalArgumentException("Conteúdo do site inválido na seção " + label
+                            + ": campo desconhecido \"" + f + "\" no passo " + n + ".");
+                }
+            }
+            out.add(new SiteContent.Step(
+                    text(step.get("title"), MAX_STEP_TITLE, label + " — título do passo " + n, false),
+                    text(step.get("text"), MAX_STEP_TEXT, label + " — texto do passo " + n, false)));
+        }
+        while (!out.isEmpty() && out.get(out.size() - 1).title() == null && out.get(out.size() - 1).text() == null) {
+            out.remove(out.size() - 1);
+        }
+        return out.isEmpty() ? null : List.copyOf(out);
     }
 
     /**

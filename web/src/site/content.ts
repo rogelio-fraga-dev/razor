@@ -18,8 +18,23 @@ export interface ResolvedSection extends SectionText {
   visible: boolean;
 }
 
+/** Um passo de "Como agendar" (título curto + uma frase). */
+export interface StepText {
+  title: string;
+  text: string;
+}
+
+/** Metadados de uma seção para o editor. `steps` = quantos passos editáveis ela tem (só "how"). */
+export interface SectionMeta {
+  key: SiteSectionKey;
+  label: string;
+  hint: string;
+  fields: (keyof SectionText)[];
+  steps?: number;
+}
+
 /** Metadados para o editor: nome da seção e o que cada campo significa nela. */
-export const SECTION_META: { key: SiteSectionKey; label: string; hint: string; fields: (keyof SectionText)[] }[] = [
+export const SECTION_META: SectionMeta[] = [
   { key: "hero", label: "Capa", hint: "Título e frase da capa ficam em “Textos principais”.", fields: ["eyebrow"] },
   { key: "stats", label: "Números da casa", hint: "Calculados do seu cadastro — nunca inventados.", fields: [] },
   { key: "services", label: "Serviços", hint: "A lista vem dos serviços cadastrados.", fields: ["eyebrow", "title", "text"] },
@@ -27,7 +42,7 @@ export const SECTION_META: { key: SiteSectionKey; label: string; hint: string; f
   { key: "story", label: "Sobre a casa", hint: "O texto vem de “Sobre a barbearia”.", fields: ["eyebrow", "title"] },
   { key: "team", label: "Equipe", hint: "Fotos e bios vêm de Profissionais.", fields: ["eyebrow", "title", "text"] },
   { key: "plans", label: "Planos", hint: "Os planos vêm do Clube de assinatura.", fields: ["eyebrow", "title", "text"] },
-  { key: "how", label: "Como agendar", hint: "Só aparece quando o agendamento é pelo WhatsApp.", fields: ["eyebrow", "title"] },
+  { key: "how", label: "Como agendar", hint: "Só aparece quando o agendamento é pelo WhatsApp.", fields: ["eyebrow", "title"], steps: 3 },
   { key: "location", label: "Onde estamos", hint: "Endereço e horário vêm das configurações do bot.", fields: ["eyebrow", "title"] },
   { key: "cta", label: "Chamada final", hint: "O último convite antes do rodapé.", fields: ["eyebrow", "title", "text"] },
 ];
@@ -56,6 +71,16 @@ const BASE: Record<SiteSectionKey, SectionText> = {
     text: "Escolha o dia e a hora em um minuto — sem app, sem cadastro.",
   },
 };
+
+/**
+ * Os três passos padrão do agendamento por WhatsApp — descrevem o produto, não a barbearia, e
+ * valem para todos os modelos. O dono pode trocar o título e o texto de cada um.
+ */
+export const HOW_STEP_DEFAULTS: readonly StepText[] = [
+  { title: "Chama no WhatsApp", text: "Sem baixar app e sem criar conta. É a mesma conversa que você já usa todo dia." },
+  { title: "Escolhe o horário", text: "Respondemos na hora com os horários livres — pode mandar áudio se preferir." },
+  { title: "Pronto", text: "Você recebe a confirmação e um lembrete uma hora antes. Só chegar." },
+];
 
 /** Padrões por template: só o que difere da BASE. */
 const BY_TEMPLATE: Record<SiteTemplate, Partial<Record<SiteSectionKey, Partial<SectionText>>>> = {
@@ -105,6 +130,18 @@ export function section(site: Pick<PublicSite, "template" | "content">, key: Sit
   };
 }
 
+/** Os passos de "Como agendar" como o site deve mostrar: o texto do dono por cima do padrão, passo a passo. */
+export function howSteps(site: Pick<PublicSite, "content">): StepText[] {
+  const custom = site.content?.sections?.how?.steps ?? [];
+  return HOW_STEP_DEFAULTS.map((d, i) => {
+    const o = custom[i];
+    return {
+      title: filled(o?.title) ? o!.title!.trim() : d.title,
+      text: filled(o?.text) ? o!.text!.trim() : d.text,
+    };
+  });
+}
+
 /** Texto do botão de agendar: o do dono, ou o padrão conforme o canal. */
 export function bookLabel(site: Pick<PublicSite, "content" | "onlineBooking">): string {
   const custom = site.content?.bookLabel;
@@ -120,5 +157,8 @@ export function motionOf(site: Pick<PublicSite, "content">): SiteMotion {
 
 /** Limites de tamanho — os mesmos que o backend valida (SiteContentPolicy). */
 export const CONTENT_LIMITS = { eyebrow: 60, title: 120, text: 600, bookLabel: 40 } as const;
+
+/** Limites de cada passo de "Como agendar" (SiteContentPolicy.MAX_STEP_*). */
+export const STEP_LIMITS = { title: 60, text: 200 } as const;
 
 export type { SiteContent };

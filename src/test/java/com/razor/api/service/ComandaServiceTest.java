@@ -65,6 +65,8 @@ class ComandaServiceTest {
     @Mock private StockService stockService;
     @Mock private PackageService packageService;
     @Mock private FidelityVisitService fidelityVisitService;
+    @Mock private CustomerReviewService customerReviewService;
+    @Mock private PricingService pricingService;
     @Mock private CouponService couponService;
     @Mock private AppointmentRepository appointmentRepository;
 
@@ -737,6 +739,30 @@ class ComandaServiceTest {
         Comanda c = service.open("João", null, null, 7L);
 
         assertThat(c.getAppointmentId()).isEqualTo(7L);
+    }
+
+    @Test
+    @DisplayName("comanda aberta do agendamento já vem com os serviços dele, pelo cálculo único de preço")
+    void open_fromAppointment_prefillsServices() {
+        com.razor.api.model.Appointment ag = appointment(7L, AppointmentDates.today());
+        ag.setService("Corte de Cabelo, Barba");
+        when(appointmentRepository.findByIdAndBarbershopId(eq(7L), any())).thenReturn(Optional.of(ag));
+        when(comandaRepository.existsByAppointmentId(7L)).thenReturn(false);
+        when(comandaRepository.save(any(Comanda.class))).thenAnswer(inv -> inv.getArgument(0));
+        UUID corte = UUID.randomUUID();
+        UUID barba = UUID.randomUUID();
+        when(pricingService.quote("Corte de Cabelo, Barba")).thenReturn(new PricingService.Quote(List.of(
+                new PricingService.QuoteLine(corte, "Corte de Cabelo", new BigDecimal("40.00"), 30),
+                new PricingService.QuoteLine(barba, "Barba", new BigDecimal("30.00"), 30)),
+                new BigDecimal("70.00"), 60, true));
+
+        service.open("João", null, null, 7L);
+
+        ArgumentCaptor<ComandaItem> cap = ArgumentCaptor.forClass(ComandaItem.class);
+        verify(itemRepository, org.mockito.Mockito.times(2)).save(cap.capture());
+        assertThat(cap.getAllValues()).extracting(ComandaItem::getReferenceId).containsExactly(corte, barba);
+        assertThat(cap.getAllValues()).extracting(ComandaItem::getUnitPrice)
+                .containsExactly(new BigDecimal("40.00"), new BigDecimal("30.00"));
     }
 
     // ---------- cancelamento e isolamento ----------

@@ -4,3 +4,5 @@ Dockerfile
 .dockerignore
 README.md
 *.log
+# Fonte da imagem de capa (og-image.png): HTML renderizado com Playwright, nao e servida.
+og/

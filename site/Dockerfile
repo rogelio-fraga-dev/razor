@@ -14,6 +14,8 @@ COPY security-headers.conf /etc/nginx/snippets/razor-security-headers.conf
 COPY docker-entrypoint.d/10-panel-url.sh /docker-entrypoint.d/10-panel-url.sh
 RUN chmod +x /docker-entrypoint.d/10-panel-url.sh
 
-COPY index.html styles.css script.js config.js favicon.svg logo.svg /usr/share/nginx/html/
+COPY index.html styles.css script.js config.js favicon.svg logo.svg og-image.png /usr/share/nginx/html/
+# Paginas legais (RASCUNHO ate a revisao do advogado; ver docs/MVP-PILOTO.md).
+COPY termos.html privacidade.html cancelamento.html legal.css legal.js /usr/share/nginx/html/
 
 EXPOSE 80

@@ -37,6 +37,7 @@ public class RazorScheduler {
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     /** Batimento do motor para o monitor de saude (V50). Nulo so em teste unitario. */
     private final com.razor.api.service.HealthSignals healthSignals;
+    private final com.razor.api.service.AutomationSettingsService automationSettingsService;
 
     /**
      * Executa a acao para cada barbearia ativa com o {@link TenantContext} escopado no tenant e
@@ -209,7 +210,10 @@ public class RazorScheduler {
                 // hasAgendamentoFuturo e o isAdmin consultem o tenant certo.
                 TenantContext.set(c.getBarbershopId());
 
-                if (c.isPaused() || tenantAdminService.isAdmin(c.getPhoneNumber())) {
+                if (c.isPaused() || c.isMarketingOptedOut() || tenantAdminService.isAdmin(c.getPhoneNumber())
+                        // Campanha "sumiu ha N dias" ligada (V47) substitui este lembrete legado no tenant.
+                        || (automationSettingsService != null
+                            && automationSettingsService.getFor(c.getBarbershopId()).isLapsedEnabled())) {
                     continue;
                 }
                 
@@ -264,7 +268,7 @@ public class RazorScheduler {
                 TenantContext.set(c.getBarbershopId());
 
                 // Ignora pausados ou administradores (do tenant do cliente)
-                if (c.isPaused() || tenantAdminService.isAdmin(c.getPhoneNumber())) {
+                if (c.isPaused() || c.isMarketingOptedOut() || tenantAdminService.isAdmin(c.getPhoneNumber())) {
                     continue;
                 }
 

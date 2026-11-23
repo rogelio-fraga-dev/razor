@@ -111,6 +111,11 @@ public final class ServiceCapability {
         return noAccents.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim();
     }
 
+    /** {@link #containsWord} para o calculo de preco ({@code PricingService.Quoter}). */
+    static boolean containsWordPublic(String haystack, String needle) {
+        return containsWord(haystack, needle);
+    }
+
     /** {@code needle} aparece em {@code haystack} como palavra(s) inteira(s) — "barba" nao casa "barbara". */
     private static boolean containsWord(String haystack, String needle) {
         if (needle.isEmpty()) return false;

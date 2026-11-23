@@ -51,68 +51,8 @@
   --space: 20px;
 }
 
-/* Este bloco parece redundante com o `:root[data-theme="light"]` logo abaixo — e é, DEPOIS que
-   o JS roda e define o atributo. Ele existe para a janela antes disso: sem ele, quem usa tema
-   claro veria o painel pintado de escuro até o `applyTheme` do boot executar. É o custo de uma
-   duplicação contra um flash de tema errado em todo carregamento. */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #f6f7f9;
-    --bg-raise: #ffffff;
-    --surface: #ffffff;
-    --surface-2: #f1f3f6;
-    --border: #e5e7ec;
-    --border-hi: #d5d8e0;
-    --text: #16181d;
-    --text-muted: #5d6572;
-    --text-faint: #7a828d; /* era #98a0ab — 2.66:1 sobre branco reprovava WCAG AA */
-    --accent: #2f51e6;
-    --accent-hover: #2543c4;
-    --accent-soft: #e9eeff;
-    --plasma: #7c5cff;
-    --plasma-soft: #efeaff;
-    --green: #169e4c;
-    --green-soft: #e5f7ec;
-    --blue: #2f51e6;
-    --blue-soft: #e9eeff;
-    --amber: #b45309;
-    --amber-soft: #fdf1dd;
-    --red: #dc2626;
-    --content-glow: radial-gradient(560px 280px at 50% -80px, rgba(47, 81, 230, 0.05), transparent 70%);
-    --grid-line: rgba(22, 24, 29, 0.03);
-    --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 4px 16px rgba(16, 24, 40, 0.06);
-    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
-    --focus-ring: 0 0 0 3px rgba(47, 81, 230, 0.18);
-  }
-}
-:root[data-theme="light"] {
-  --bg: #f6f7f9;
-  --bg-raise: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #f1f3f6;
-  --border: #e5e7ec;
-  --border-hi: #d5d8e0;
-  --text: #16181d;
-  --text-muted: #5d6572;
-  --text-faint: #7a828d; /* idem tema claro */
-  --accent: #2f51e6;
-  --accent-hover: #2543c4;
-  --accent-soft: #e9eeff;
-  --plasma: #7c5cff;
-  --plasma-soft: #efeaff;
-  --green: #169e4c;
-  --green-soft: #e5f7ec;
-  --blue: #2f51e6;
-  --blue-soft: #e9eeff;
-  --amber: #b45309;
-  --amber-soft: #fdf1dd;
-  --red: #dc2626;
-  --content-glow: radial-gradient(560px 280px at 50% -80px, rgba(47, 81, 230, 0.05), transparent 70%);
-  --grid-line: rgba(22, 24, 29, 0.03);
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 4px 16px rgba(16, 24, 40, 0.06);
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --focus-ring: 0 0 0 3px rgba(47, 81, 230, 0.18);
-}
+/* Tema CLARO: paleta inteira (tokens + ajustes de componente) em theme-light.css, importado por
+   último no main.tsx. Um lugar só — antes eram três blocos de tokens que divergiam entre si. */
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -2049,3 +1989,32 @@ a.user-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .confirm-chip.is-pending { background: var(--blue-soft); color: var(--blue); }
 .confirm-chip.is-noresp { background: var(--amber-soft); color: var(--amber); }
 .confirm-chip.is-deposit { background: var(--plasma-soft); color: var(--plasma); }
+
+/* Editor de serviços em linhas (config do bot, V46): nome | preço | duração | ações. */
+.svc-editor-head,
+.svc-editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.svc-editor-head { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+@media (max-width: 560px) {
+  .svc-editor-head { display: none; }
+  .svc-editor-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .svc-editor-row > input:first-child { grid-column: 1 / -1; }
+}
+
+/* Card de avaliações (V46). */
+.review-dist { display: grid; gap: 4px; }
+.review-dist-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 32px; gap: 8px; align-items: center; font-size: 13px; }
+.review-dist-bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.review-dist-bar > span { display: block; height: 100%; background: var(--amber); }
+.review-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.review-list li { display: grid; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.review-list li:last-child { border-bottom: 0; padding-bottom: 0; }
+.review-stars { color: var(--amber); letter-spacing: 1px; }

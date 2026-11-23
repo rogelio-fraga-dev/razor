@@ -63,6 +63,9 @@ class CustomerConversationServiceTest {
     @Mock private AppointmentConfirmationService confirmationService;
     @Mock private NoShowDepositService noShowDepositService;
     @Mock private ProfessionalAssignmentService professionalAssignmentService;
+    @Mock private CustomerReviewService customerReviewService;
+    @Mock private PricingService pricingService;
+    @Mock private CustomerPreferencesService customerPreferencesService;
 
     // Store REAL (nao mock): a maquina de estados da conversa precisa gravar/ler de verdade.
     @org.mockito.Spy
@@ -207,8 +210,9 @@ class CustomerConversationServiceTest {
     void serviceMentioned_scopesSlotsToQualified() {
         givenExistingCustomer();
         var barba = new ProfessionalAssignmentService.ServicoPedido("Barba", List.of(UUID.randomUUID()));
-        when(professionalAssignmentService.servicoCitado(argThat(falas -> falas != null
-                && !falas.isEmpty() && falas.get(0).contains("barba")))).thenReturn(barba);
+        when(professionalAssignmentService.nomeDoServicoCitado(argThat(t -> t != null && t.contains("barba"))))
+                .thenReturn("Barba");
+        when(professionalAssignmentService.servicoDefinido("Barba")).thenReturn(barba);
         when(agendaService.getHorariosOcupadosParaIA(barba)).thenReturn("ocupados da barba");
         when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
         when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
@@ -217,6 +221,152 @@ class CustomerConversationServiceTest {
         service.processCustomerMessage(textWebhook("quero marcar barba amanhã"), PHONE);
 
         verify(openAIService).processCustomerMessage(any(), any(), eq("ocupados da barba"), anyInt(), any(), any(), eq(barba));
+    }
+
+    @Test
+    @DisplayName("serviço ainda não citado: a IA é chamada sem serviço (ela pergunta o serviço antes do horário)")
+    void noServiceYet_aiGetsNullService() {
+        givenExistingCustomer();
+        when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
+                .thenReturn("Claro! Qual serviço: Corte, Barba ou Corte + Barba?");
+
+        service.processCustomerMessage(textWebhook("tem horário amanhã às 15h?"), PHONE);
+
+        verify(openAIService).processCustomerMessage(any(), any(), any(), anyInt(), any(), any(),
+                org.mockito.ArgumentMatchers.isNull());
+        assertThat(captureClientMessage()).contains("Qual serviço");
+    }
+
+    @Test
+    @DisplayName("escolha indireta: a tag [SERVICO|...] da IA fica gravada e vale na mensagem seguinte; a tag não vai ao cliente")
+    void indirectChoice_serviceTagRememberedForNextTurn() {
+        givenExistingCustomer();
+        var combo = new ProfessionalAssignmentService.ServicoPedido("Corte + Barba", List.of(UUID.randomUUID()));
+        when(professionalAssignmentService.nomeDoServicoCitado("Corte + Barba")).thenReturn("Corte + Barba");
+        when(professionalAssignmentService.servicoDefinido("Corte + Barba")).thenReturn(combo);
+        when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
+        when(openAIService.processCustomerMessage(eq("os dois"), any(), any(), anyInt(), any(), any(), any()))
+                .thenReturn("Fechado, *Corte + Barba*! Qual dia e horário? [SERVICO|Corte + Barba]");
+        when(openAIService.processCustomerMessage(eq("amanhã 15h"), any(), any(), anyInt(), any(), any(), any()))
+                .thenReturn("Amanhã 15h está livre!");
+
+        service.processCustomerMessage(textWebhook("os dois"), PHONE);
+        assertThat(captureClientMessage()).contains("Corte + Barba").doesNotContain("[SERVICO");
+
+        service.processCustomerMessage(textWebhook("amanhã 15h"), PHONE);
+        verify(openAIService).processCustomerMessage(eq("amanhã 15h"), any(), any(), anyInt(), any(), any(), eq(combo));
+    }
+
+    @Test
+    @DisplayName("tag com serviço fora do catálogo é ignorada (não vira serviço da conversa)")
+    void serviceTagOutsideCatalog_ignored() {
+        givenExistingCustomer();
+        when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
+        when(openAIService.processCustomerMessage(eq("o terceiro"), any(), any(), anyInt(), any(), any(), any()))
+                .thenReturn("Certo! [SERVICO|Massagem]");
+        when(openAIService.processCustomerMessage(eq("amanhã"), any(), any(), anyInt(), any(), any(), any()))
+                .thenReturn("Qual serviço?");
+
+        service.processCustomerMessage(textWebhook("o terceiro"), PHONE);
+        service.processCustomerMessage(textWebhook("amanhã"), PHONE);
+
+        verify(openAIService).processCustomerMessage(eq("amanhã"), any(), any(), anyInt(), any(), any(),
+                org.mockito.ArgumentMatchers.isNull());
+    }
+
+    @Test
+    @DisplayName("fala antiga (fora da janela da conversa) não define o serviço de um agendamento novo")
+    void oldHistoryDoesNotDefineService() {
+        Customer c = givenExistingCustomer();
+        Interaction antiga = Interaction.builder().type(Interaction.InteractionType.USER).content("quero barba")
+                .timestamp(java.time.LocalDateTime.now(com.razor.api.util.AppointmentDates.ZONE).minusDays(20)).build();
+        when(interactionRepository.findRecentInteractionsByCustomerId(c.getId())).thenReturn(List.of(antiga));
+        when(professionalAssignmentService.nomeDoServicoCitado("quero barba")).thenReturn("Barba");
+
+        assertThat(service.resolverServico("quero marcar", List.of(antiga), PHONE)).isNull();
+
+        Interaction recente = Interaction.builder().type(Interaction.InteractionType.USER).content("quero barba")
+                .timestamp(java.time.LocalDateTime.now(com.razor.api.util.AppointmentDates.ZONE).minusMinutes(2)).build();
+        var barba = new ProfessionalAssignmentService.ServicoPedido("Barba", List.of());
+        when(professionalAssignmentService.servicoDefinido("Barba")).thenReturn(barba);
+        assertThat(service.resolverServico("amanhã", List.of(recente), PHONE)).isEqualTo(barba);
+    }
+
+    @Test
+    @DisplayName("áudio transcrito com serviço já define o serviço da conversa")
+    void audioTranscription_definesService() {
+        givenExistingCustomer();
+        EvolutionWebhookDTO w = textWebhook("[audio]");
+        when(w.hasAudio()).thenReturn(true);
+        when(w.getBase64()).thenReturn("QUJD");
+        when(openAIService.transcribeAudio(any(), any())).thenReturn("quero um corte amanhã às 15h");
+        var corte = new ProfessionalAssignmentService.ServicoPedido("Corte", List.of(UUID.randomUUID()));
+        when(professionalAssignmentService.nomeDoServicoCitado("quero um corte amanhã às 15h")).thenReturn("Corte");
+        when(professionalAssignmentService.servicoDefinido("Corte")).thenReturn(corte);
+        when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
+                .thenReturn("Amanhã 15h tem!");
+
+        service.processCustomerMessage(w, PHONE);
+
+        verify(openAIService).processCustomerMessage(eq("quero um corte amanhã às 15h"), any(), any(), anyInt(),
+                any(), any(), eq(corte));
+        // "digitando..." enquanto o áudio é processado; base64 veio no webhook = sem download extra.
+        verify(messenger, org.mockito.Mockito.atLeastOnce()).presence(eq(PHONE), eq("composing"), anyInt());
+        verifyNoInteractions(evolutionMediaService);
+    }
+
+    @Test
+    @DisplayName("cliente pediu o barbeiro na mensagem: agenda direto com ele, sem perguntar 'com qual profissional?'")
+    void namedProfessional_booksDirectly() {
+        givenExistingCustomer();
+        givenPixConfigured("chave");
+        UUID bruno = UUID.randomUUID();
+        com.razor.api.model.Professional pBruno = com.razor.api.model.Professional.builder().id(bruno).name("Bruno Lima").build();
+        com.razor.api.model.Professional pDiego = com.razor.api.model.Professional.builder().id(UUID.randomUUID()).name("Diego").build();
+        when(professionalService.listActiveFor("Corte")).thenReturn(List.of(pDiego, pBruno));
+        when(agendaService.getAgendamentosFuturos(PHONE)).thenReturn(List.of());
+        when(agendaService.checkBookingLimit(PHONE)).thenReturn(java.util.Optional.empty());
+        when(noShowDepositService.requireDepositIfNeeded(any(), any())).thenReturn(java.util.Optional.empty());
+        Appointment salvo = Appointment.builder().customerPhone(PHONE).professionalId(bruno).build();
+        when(agendaService.adicionarAgendamentoViaIA(any(), any(), any(), any(), any(), eq(bruno)))
+                .thenReturn(java.util.Optional.of(salvo));
+        when(openAIService.processCustomerMessage(any(), any(), any(), anyInt(), any(), any(), any()))
+                .thenReturn("Agendamento Confirmado! [NOVO_AGENDAMENTO|João Silva|26/05|15:00|Corte|Bruno]");
+
+        service.processCustomerMessage(textWebhook("sim"), PHONE);
+
+        verify(agendaService).adicionarAgendamentoViaIA("João Silva", PHONE, "26/05", "15:00", "Corte", bruno);
+        assertThat(lastClientMessage()).contains("Bruno Lima").doesNotContain("com qual profissional");
+    }
+
+    @Test
+    @DisplayName("pedido de avaliação aberto: um '5' puro é nota (não é a opção 5 do menu nem vai para a IA)")
+    void pendingReview_bareFiveIsRating() {
+        givenExistingCustomer();
+        givenBotSettings("", "", "TABELA DE PRECOS", "");
+        when(customerReviewService.handleReply(PHONE, "5", false)).thenReturn(java.util.Optional.of("Valeu demais!"));
+
+        service.processCustomerMessage(textWebhook("5"), PHONE);
+
+        assertThat(captureClientMessage()).isEqualTo("Valeu demais!");
+        verifyNoInteractions(openAIService);
+    }
+
+    @Test
+    @DisplayName("nome do barbeiro: casa sem acento/caixa e pelo primeiro nome; ambíguo ou desconhecido = pergunta")
+    void matchProfessional_rules() {
+        var a = new CustomerConversationService.ProfessionalOption(UUID.randomUUID(), "Bruno Lima");
+        var b = new CustomerConversationService.ProfessionalOption(UUID.randomUUID(), "Bruno Souza");
+        var c = new CustomerConversationService.ProfessionalOption(UUID.randomUUID(), "Diógenes");
+
+        assertThat(CustomerConversationService.matchProfessional("bruno lima", List.of(a, b, c))).isEqualTo(a);
+        assertThat(CustomerConversationService.matchProfessional("com o Diogenes", List.of(a, b, c))).isEqualTo(c);
+        assertThat(CustomerConversationService.matchProfessional("Bruno", List.of(a, b, c))).isNull();
+        assertThat(CustomerConversationService.matchProfessional("Bruno", List.of(a, c))).isEqualTo(a);
+        assertThat(CustomerConversationService.matchProfessional("Zeca", List.of(a, c))).isNull();
+        assertThat(CustomerConversationService.matchProfessional(null, List.of(a, c))).isNull();
     }
 
     @Test
@@ -715,11 +865,36 @@ class CustomerConversationServiceTest {
     @DisplayName("vaga da lista de espera aceita conta como vaga reaproveitada")
     void waitlistAccept_recordsRefill() {
         givenExistingCustomer();
-        stateStore.put(com.razor.api.state.StateKeys.waitlistOffer(PHONE),
-                new WaitlistOfferService.WaitlistOffer(PHONE, "João", "20/12", "10:00", "Corte"), java.time.Duration.ofHours(1));
+        // V47: a oferta fica no banco; o servico (mock) devolve o agendamento criado pelo "sim".
+        var ag = com.razor.api.model.Appointment.builder().id(380L).customerName("João")
+                .customerPhone(PHONE).appointmentDate(java.time.LocalDate.now().plusDays(1))
+                .appointmentTime(java.time.LocalTime.of(10, 0)).service("Corte").build();
+        when(waitlistOfferService.handleReply(PHONE, "sim"))
+                .thenReturn(java.util.Optional.of(new WaitlistOfferService.Reply(ag, null, null)));
 
         service.processCustomerMessage(textWebhook("sim"), PHONE);
 
         verify(confirmationService).record(eq(com.razor.api.model.AiImpactEvent.Type.WAITLIST_REFILL), any());
+    }
+
+    @Test
+    @DisplayName("agendamento #380 (5 serviços): a confirmação traz cada serviço com preço, o total e a duração")
+    void bookingConfirmation_listsTotalForMultipleServices() {
+        var quote = PricingService.Quoter.of(List.of(
+                com.razor.api.model.ServiceOffering.builder().id(UUID.randomUUID()).name("Corte de Cabelo").price(new java.math.BigDecimal("40.00")).durationMinutes(30).build(),
+                com.razor.api.model.ServiceOffering.builder().id(UUID.randomUUID()).name("Barba").price(new java.math.BigDecimal("30.00")).durationMinutes(30).build(),
+                com.razor.api.model.ServiceOffering.builder().id(UUID.randomUUID()).name("Corte Visagista").price(new java.math.BigDecimal("60.00")).durationMinutes(45).build(),
+                com.razor.api.model.ServiceOffering.builder().id(UUID.randomUUID()).name("Sobrancelha").price(new java.math.BigDecimal("15.00")).durationMinutes(15).build(),
+                com.razor.api.model.ServiceOffering.builder().id(UUID.randomUUID()).name("Pézinho").price(new java.math.BigDecimal("10.00")).durationMinutes(10).build()))
+                .quote("Corte de Cabelo, Barba, Corte Visagista, Sobrancelha, Pézinho");
+        when(pricingService.quote(any())).thenReturn(quote);
+
+        String texto = service.comResumoDoValor("Agendamento Confirmado! ✅", "Corte de Cabelo, Barba, Corte Visagista, Sobrancelha, Pézinho");
+
+        assertThat(texto).contains("Corte Visagista — R$ 60,00").contains("Pézinho — R$ 10,00")
+                .contains("Total: R$ 155,00").contains("2h10");
+        // Um serviço só, ou a IA já disse o total: não repete.
+        assertThat(CustomerConversationService.resumoDoValor(PricingService.Quoter.of(List.of()).quote("Corte"))).isEmpty();
+        assertThat(service.comResumoDoValor("Total: R$ 155,00", "x")).isEqualTo("Total: R$ 155,00");
     }
 }
