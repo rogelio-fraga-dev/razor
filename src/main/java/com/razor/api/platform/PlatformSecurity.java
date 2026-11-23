@@ -90,7 +90,7 @@ public final class PlatformSecurity {
      * barbearia que tenha vindo antes e descartada: aqui so vale a sessao da plataforma.
      *
      * <p>Carencia do 2FA vencida sem configurar: a sessao so alcanca o login, o {@code /me} e a
-     * configuracao do 2FA — o resto responde 403 {@code MFA_REQUIRED}.
+     * configuracao do 2FA — o resto responde 403 {@code MFA_SETUP_REQUIRED}.
      */
     @Component
     @RequiredArgsConstructor
@@ -118,7 +118,7 @@ public final class PlatformSecurity {
                     response.setContentType("application/json");
                     response.setCharacterEncoding("UTF-8");
                     response.getWriter().write("{\"error\":\"O prazo para ativar a verificação em duas etapas acabou. "
-                            + "Configure o app autenticador para continuar.\",\"code\":\"MFA_REQUIRED\"}");
+                            + "Configure o app autenticador para continuar.\",\"code\":\"MFA_SETUP_REQUIRED\"}");
                     return;
                 }
                 var principal = new PlatformPrincipal(u.getId(), u.getEmail(), u.getName(), a.sessionId(), u.isTotpEnabled());

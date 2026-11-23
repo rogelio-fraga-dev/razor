@@ -1,15 +1,57 @@
 // Chamadas do console da plataforma (V51). Sempre com ignore401: a sessão do console é outra —
 // um 401 aqui mostra o login do console, nunca derruba a sessão do painel da barbearia.
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 
 const opts = { ignore401: true };
 
+/** Último uso da API (para o aviso de sessão expirando por inatividade). */
+export let lastActivity = Date.now();
+
+/** Sessão caiu (401) ou o 2FA passou a ser obrigatório (403 MFA_REQUIRED): o app troca de tela. */
+export const SESSION_LOST = "razor-platform-session-lost";
+export const MFA_REQUIRED = "razor-platform-mfa-required";
+
+async function track<T>(p: Promise<T>, path: string): Promise<T> {
+  try {
+    const r = await p;
+    lastActivity = Date.now();
+    return r;
+  } catch (e) {
+    if (e instanceof ApiError && !path.startsWith("/auth/")) {
+      if (e.status === 401) window.dispatchEvent(new Event(SESSION_LOST));
+      if (e.status === 403 && e.code === "MFA_SETUP_REQUIRED") window.dispatchEvent(new Event(MFA_REQUIRED));
+    }
+    throw e;
+  }
+}
+
 export const papi = {
-  get: <T>(path: string) => api.get<T>(`/api/platform${path}`, opts),
-  post: <T>(path: string, body?: unknown) => api.post<T>(`/api/platform${path}`, body, opts),
-  put: <T>(path: string, body?: unknown) => api.put<T>(`/api/platform${path}`, body, opts),
-  del: <T>(path: string) => api.del<T>(`/api/platform${path}`, opts),
+  get: <T>(path: string) => track(api.get<T>(`/api/platform${path}`, opts), path),
+  post: <T>(path: string, body?: unknown) => track(api.post<T>(`/api/platform${path}`, body, opts), path),
+  put: <T>(path: string, body?: unknown) => track(api.put<T>(`/api/platform${path}`, body, opts), path),
+  del: <T>(path: string) => track(api.del<T>(`/api/platform${path}`, opts), path),
 };
+
+export interface SecurityStatus {
+  mfaEnabled: boolean;
+  mfaDeadline: string | null;
+  mfaDaysLeft: number;
+  mfaRequiredNow: boolean;
+  recoveryCodesLeft: number;
+  idleMinutes: number;
+}
+
+export interface Me {
+  name: string;
+  email: string;
+  security: SecurityStatus;
+}
+
+export interface SetupInfo {
+  secret: string;
+  otpauthUri: string;
+  qrSvg: string;
+}
 
 export interface ShopRow {
   id: string;
