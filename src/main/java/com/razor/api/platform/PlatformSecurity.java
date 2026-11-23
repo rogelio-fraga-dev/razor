@@ -75,7 +75,9 @@ public final class PlatformSecurity {
     @Component
     @RequiredArgsConstructor
     public static class Filter extends OncePerRequestFilter {
-        private final PlatformAuthService authService;
+        // Provider (preguicoso): o SecurityConfig depende deste filtro, e o PlatformAuthService
+        // depende do PasswordEncoder definido no SecurityConfig — injecao direta fecharia um ciclo.
+        private final org.springframework.beans.factory.ObjectProvider<PlatformAuthService> authService;
 
         @Override
         protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -87,7 +89,7 @@ public final class PlatformSecurity {
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
                 throws ServletException, IOException {
             SecurityContextHolder.clearContext();
-            authService.authenticate(Cookies.read(request)).ifPresent(u -> {
+            authService.getObject().authenticate(Cookies.read(request)).ifPresent(u -> {
                 var principal = new PlatformPrincipal(u.getId(), u.getEmail(), u.getName());
                 SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                         principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + ROLE))));

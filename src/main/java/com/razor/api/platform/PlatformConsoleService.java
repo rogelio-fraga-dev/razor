@@ -191,7 +191,7 @@ public class PlatformConsoleService {
                   join customers c on c.id = i.customer_id
                   join barbershops b on b.id = c.barbershop_id
                   left join conversation_flags f on f.customer_id = c.id and f.resolved_at is null
-                 where i.timestamp >= ?""" + shopFilter + """
+                 where i.timestamp >= ?""" + shopFilter + " " + """
                  group by c.id, c.barbershop_id, b.name, c.name, c.phone_number, f.id, f.note
                  order by max(i.timestamp) desc
                  limit 500""", (rs, i) -> new ConversationRow(rs.getObject(1, UUID.class), rs.getObject(2, UUID.class),
@@ -335,7 +335,7 @@ public class PlatformConsoleService {
                 select cast(ts as date), avg(extract(epoch from next_ts - ts))
                   from (select type, timestamp ts,
                                lead(type) over w next_type, lead(timestamp) over w next_ts
-                          from interactions where timestamp >= ?""" + sf + """
+                          from interactions where timestamp >= ?""" + sf + " " + """
                         window w as (partition by customer_id order by timestamp)) x
                  where type = 'USER' and next_type = 'BOT' and next_ts - ts < interval '10 minutes'
                  group by 1""", rs -> {
