@@ -45,6 +45,9 @@ public class CustomerPreferencesService {
 
     private static final Pattern BIRTHDAY = Pattern.compile(
             "(?:aniversario|aniver|niver|nasci)\\D{0,25}?(\\d{1,2})\\s*/\\s*(\\d{1,2})(?:\\s*/\\s*(\\d{2,4}))?");
+    private static final Pattern BOOKING_INTENT = Pattern.compile(
+            "\\b(marcar|marca|agendar|agenda|reservar|horario|hora|vaga|encaixe|corte|cortar|barba)\\b"
+                    + "|\\b\\d{1,2}\\s*h\\b|\\b\\d{1,2}\\s*:\\s*\\d{2}\\b|\\bas \\d");
 
     /** Responde ao "parar"/"quero receber"; vazio = nao era isso. */
     public Optional<String> handleOptOut(Customer customer, String message) {
@@ -78,7 +81,11 @@ public class CustomerPreferencesService {
      * ano no futuro nao valem.
      */
     static Optional<LocalDate> parseBirthday(String message, LocalDate today) {
-        Matcher m = BIRTHDAY.matcher(normalize(message));
+        String t = normalize(message);
+        // "quero marcar pro meu aniversario dia 12/03 as 10h" e um pedido de horario, nao o cadastro
+        // da data: segue para a IA (que agenda) em vez de ser engolido aqui.
+        if (t.length() > 80 || BOOKING_INTENT.matcher(t).find()) return Optional.empty();
+        Matcher m = BIRTHDAY.matcher(t);
         if (!m.find()) return Optional.empty();
         try {
             int dia = Integer.parseInt(m.group(1));

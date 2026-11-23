@@ -57,7 +57,8 @@ public record WaitlistWish(LocalDate date, DayOfWeek weekday, WaitlistEntry.Peri
     /** Periodo citado ("de manhã", "à tarde", "noite"); "qualquer" = nenhum. */
     public static Optional<WaitlistEntry.Period> periodOf(String text) {
         String t = normalize(text);
-        if (t.contains("manha")) return Optional.of(WaitlistEntry.Period.MANHA);
+        // Palavra inteira: "amanha" contem "manha" e nao e periodo.
+        if (t.matches(".*\\bmanha\\b.*")) return Optional.of(WaitlistEntry.Period.MANHA);
         if (t.contains("tarde")) return Optional.of(WaitlistEntry.Period.TARDE);
         if (t.contains("noite")) return Optional.of(WaitlistEntry.Period.NOITE);
         return Optional.empty();
