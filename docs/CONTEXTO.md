@@ -3,54 +3,64 @@
 Arquivo para retomar o trabalho de onde parou (também numa sessão nova do Claude Code).
 Plano detalhado: `docs/MVP-PILOTO.md` · Visão de produto e histórico: `docs/ROADMAP.md`.
 
-_Última atualização: 2026-11-19_
+_Última atualização: 2026-11-23_
 
 ---
 
 ## Onde estamos
 
 - **Fase:** MVP para 3–5 barbearias piloto, **só local** (sem domínio, sem clientes, sem cobrança).
-- **Ordem combinada (18/11):** Parte 5 → Parte 4 → Parte 3 → demais → vídeo (Parte 6) por último.
+- **Ordem combinada:** Parte 4 ✅ → **Parte 3** → Parte 8 → débitos. Partes **7, 9 e 6 (vídeo)** só
+  quando o usuário mandar (22/11).
 - **Regra de execução:** no máximo 2 frentes por vez; cada parte termina com testes + build +
   Docker no ar + push antes de abrir a próxima.
-- **master:** `a4d1457` (merge da Parte 5), já no GitHub.
+- **master:** merge da Parte 4 (`68fc4ec`) + docs.
 
 | Parte | Migração | Situação |
 |---|---|---|
 | 1 — Bot correto e ligado ao painel | V46 | ✅ master |
-| 2 — Painel e tema claro | V48 | ✅ master |
+| 2 — Painel e tema claro | (V48 não usada) | ✅ master |
 | 5 — Cadastro, assistente, páginas legais, og:image | V49 | ✅ master (19/11) |
-| **4 — Automações** | V47 | 🟡 **próxima** — rascunho no worktree `agent-a893800d6accfaad7` |
-| 3 — Console da plataforma / monitoramento | V50 + V51 | 🟡 rascunho no worktree `agent-a7c84d8b86e8eb264` |
-| 7, 8, 9 — WhatsApp oficial, onda 2, salões/estética | V52–V55 | ⏳ não começou |
-| 6 — Vídeo para Reels | — | ⏳ por último |
+| 4 — Automações | V47 | ✅ master (23/11) |
+| **3 — Console da plataforma / monitoramento** | V50 + V51 | 🟡 **próxima** — rascunho no worktree `agent-a7c84d8b86e8eb264` |
+| 8 — Onda 2 | — | ⏳ |
+| 7, 9 — WhatsApp oficial, salões/estética | V52–V55 | ⏸ só quando o usuário mandar |
+| 6 — Vídeo para Reels | — | ⏸ por último, quando o usuário mandar |
 
-## O que foi feito em 19/11
+## O que foi feito em 23/11 (Parte 4)
 
-1. Sessão anterior caiu: **a máquina ficou sem memória** (≈1,3 GB livres de 11,8 GB; o fork do
-   Maven morreu com "insufficient memory"). Nada se perdeu, estava tudo nos worktrees.
-   - Sobras que ocupavam RAM: jar de validação na porta 8094 + container `pg-v49-signup` → removidos.
-   - Rodar testes com heap limitado: `./mvnw test "-DargLine=-Xmx768m -XX:+UseSerialGC"`.
-2. **Parte 5 concluída:** ajuste no `SignupController` (JSON inválido → `{error}` em português),
-   957 testes unitários verdes, build do web ok, merge no master, push.
-3. Stack Docker local tinha sido parada por fora (`docker compose stop`, 15:49) — religada.
-   Backup antes da V49: `backups/pre-v49-20261119-1550.dump`. V49 aplicada no banco local;
-   backend healthy; `/cadastro`, `termos.html`, `og-image.png` respondendo.
-4. Trabalho sem commit das Partes 4 e 3 salvo em commits `wip` (não testados) nos worktrees:
-   - Parte 4: `ba3cabf` (sobre `9366c9b`) — campanhas, relatório semanal, preferências do cliente.
-   - Parte 3: `9608fcc` — saúde, incidentes, aviso ao operador, storage de imagens (banco/S3), V50.
+1. Worktree `agent-a893800d6accfaad7`: `git merge master`; teste antigo ajustado ao contrato novo da
+   lista de espera; mock de `CustomerPreferencesService` faltando no teste da conversa.
+2. **Faltava ligar tudo:** criado `AutomationScheduler` (expira ofertas a cada 1 min; relatório
+   semanal e campanhas a cada 15 min por barbearia) e `AdminAutomationController`
+   (`GET/PUT /api/admin/settings/automations`, `POST .../preview`, só dono).
+3. Bugs achados: "amanhã" virava período *manhã* na lista de espera; "quero marcar pro meu
+   aniversário dia 12/03" era engolido como cadastro de aniversário; JPQL com enum aninhado em
+   `AutomationSendRepository` derrubava o boot.
+4. `spring.flyway.out-of-order: true` — a V47 entra depois da V49. (Não existe V48.)
+5. 22 testes novos → **979 verdes**. Painel: aba **Configurações → Automações**; build ok.
+6. Validação: cópia do banco local num Postgres descartável, jar com a Evolution apontada para uma
+   porta morta; rodada de campanha e relatório semanal exercitados (ficaram FAILED, nada saiu).
+   Jar e container derrubados depois.
+7. Banco local: backup `backups/pre-v47-20261123-1243.dump`; V47 aplicada; stack no ar
+   (backend/web/site). **Evolution (`--profile bot`) segue parada.**
 
-## Próximo passo (Parte 4 — Automações, V47)
+### Atenção — WhatsApp
+- O relatório semanal vem **ligado por padrão** (segunda 8h, recupera no mesmo dia) e vai para os
+  admins do tenant. O admin cadastrado no tenant demo é um número real de pessoa: com a Evolution
+  parada, as tentativas desta semana falham e param após 3; com o bot conectado, o relatório **vai**
+  para esse número na próxima segunda — desligue em Configurações → Automações se não quiser.
+- Lista de espera automática também vem ligada: um cancelamento oferece a vaga a quem está na fila.
+- Campanhas vêm desligadas.
 
-No worktree `.claude/worktrees/agent-a893800d6accfaad7`:
-1. `git merge master` (o worktree é anterior à Parte 5).
-2. Compilar e rodar os testes; revisar `WaitlistOfferService`, `AutomationCampaignService`,
-   `WeeklyReportService`, `CustomerPreferencesService`.
-3. Validar a V47 subindo o jar contra um `postgres:15-alpine` descartável (lembrar de derrubar
-   depois — sobra de jar/container foi o que estourou a memória).
-4. Telas no painel (configurar campanhas/relatório), backup do banco, Docker, merge, push.
-5. Cuidado: a instância demo do WhatsApp pode estar CONECTADA — campanhas e lista de espera
-   podem mandar mensagem para números reais. Testar com `notifyCustomer=false` / dados de teste.
+## Próximo passo (Parte 3 — Console da plataforma, V50 + V51)
+
+No worktree `.claude/worktrees/agent-a7c84d8b86e8eb264` (commit `9608fcc`, não testado):
+1. `git merge master` (o worktree é anterior às Partes 4 e 5).
+2. Compilar, testes, revisar saúde/incidentes/aviso ao operador/storage de imagens.
+3. Validar V50 numa cópia do banco local (como na V47: `pg_dump` → `postgres:15-alpine` descartável,
+   `EVOLUTION_BASE_URL=http://127.0.0.1:9`), derrubar depois.
+4. Telas do console, V51, backup, Docker, merge, push.
 
 ## Pendências fora das partes
 
@@ -70,5 +80,7 @@ No worktree `.claude/worktrees/agent-a893800d6accfaad7`:
 - Logins demo: `dono@` / `recepcao@` / `barbeiro@navalhademo.local`, senha `demo12345`.
 - Subir: `docker compose up -d --build backend web site` e `docker compose --profile bot up -d`.
 - Antes de migração no banco local: `pg_dump -Fc` para `backups/`.
+- Testes de backend: `./mvnw test "-DargLine=-Xmx768m -XX:+UseSerialGC"` (memória da máquina é curta).
+- Worktree novo precisa de `npm ci` em `web/` antes do build do painel.
 - Worktrees de agente antigos se acumulam em `.claude/worktrees/` (≈26); os já mesclados podem
   ser removidos com `git worktree remove` quando quiser liberar disco.

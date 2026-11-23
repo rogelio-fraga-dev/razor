@@ -5,7 +5,7 @@ Pagamentos ficam de fora até a decisão de modelo (ver "Decisões pendentes").
 
 **Ordem combinada (18/11):** Parte 5 → Parte 4 → Parte 3 → demais → vídeo por último.
 
-**Situação em 19/11:** Partes 1, 2 e 5 ✅ no master e no Docker local · **Parte 4 ← AGORA** (rascunho no worktree `agent-a893800d6accfaad7`, não testado) · Parte 3 em rascunho no worktree `agent-a7c84d8b86e8eb264` (V50, não testado). Contexto completo em `docs/CONTEXTO.md`.
+**Situação em 23/11:** Partes 1, 2, 4 e 5 ✅ no master e no Docker local · **Parte 3 ← AGORA** (rascunho no worktree `agent-a7c84d8b86e8eb264`, V50, não testado). Contexto completo em `docs/CONTEXTO.md`.
 
 **Como executamos:** em PARTES, no máximo 2 frentes por vez (para não estourar o limite de uso).
 Cada parte termina com testes + build + Docker no ar + push, antes de abrir a próxima.
@@ -83,14 +83,20 @@ Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com
 - [ ] "Caixa do Razor": MRR/receita por plano registrada manualmente até haver cobrança.
 - [ ] Alertas ao dono da barbearia e ao operador; testes E2E com Playwright; fotos em S3 opcional.
 
-## Parte 4 — Automações (V47) ← AGORA (🟡 rascunho)
-Rascunho no worktree `agent-a893800d6accfaad7` (commits `9366c9b` + `ba3cabf`, NÃO testado/mesclado):
-entidades + V47, `WaitlistOfferService`, `AutomationCampaignService`, `WeeklyReportService`,
-`CustomerPreferencesService`. Próximo passo: `git merge master` no worktree, compilar, testes, validar a
-V47 no boot (Postgres descartável), telas no painel, merge.
-- [ ] Lista de espera automática ao cancelar.
-- [ ] Campanhas: sumido há N dias, aniversário com cupom, retorno do corte.
-- [ ] Relatório semanal no WhatsApp do dono.
+## Parte 4 — Automações (V47) ✅ (merge `68fc4ec`, 23/11)
+- [x] Lista de espera automática ao cancelar: oferta persistida com prazo (padrão 15 min), uma vaga
+      por pessoa e uma pessoa por vaga (índices únicos), SIM marca / NÃO ou prazo passa ao próximo.
+- [x] Campanhas: sumido há N dias, aniversário com cupom (o bot pergunta a data uma vez), retorno do
+      corte por serviço. Só em horário comercial, 1 mensagem por cliente a cada N dias, "parar" =
+      opt-out permanente, rodapé de opt-out fixo, idempotência em `automation_sends`.
+- [x] Relatório semanal no WhatsApp do dono (padrão segunda 8h; se o servidor estava parado, sai
+      mais tarde no mesmo dia).
+- [x] `AutomationScheduler` (ofertas a cada 1 min; relatório e campanhas a cada 15 min),
+      `/api/admin/settings/automations` (só dono) e aba **Configurações → Automações** com prévia.
+- Corrigido na revisão: "amanhã" era lido como período manhã; aniversário dentro de um pedido de
+  horário era engolido antes da IA; JPQL com enum aninhado derrubava o boot; V47 exige
+  `spring.flyway.out-of-order` (entra depois da V49).
+- Padrões: campanhas **desligadas**; lista de espera e relatório semanal **ligados**.
 
 ## Parte 5 — Cadastro, landing e lançamento (V49) ✅ (merge `a4d1457`, 19/11)
 - [x] Cadastro sozinho + teste grátis de 14 dias (só status, sem cobrança).

@@ -1492,9 +1492,14 @@ Detalhe item a item em `docs/MVP-PILOTO.md`; contexto de retomada em `docs/CONTE
   `backups/pre-v49-20261119-1550.dump`), stack Docker no ar.
 
 **Pendente (próximas partes, nessa ordem):**
-- [ ] **Parte 4 — Automações (V47)** ← próxima: rascunho no worktree `agent-a893800d6accfaad7`
-      (lista de espera automática, campanhas sumido/aniversário/retorno, relatório semanal do dono).
-- [ ] **Parte 3 — Console da plataforma (V50 + V51):** rascunho de monitoramento/incidentes e
+- [x] **Parte 4 — Automações (V47)** ✅ (merge `68fc4ec`, 23/11): lista de espera automática
+      (oferta com prazo, SIM/NÃO, passa ao próximo), campanhas sumido/aniversário com cupom/retorno
+      do corte (horário comercial, 1 msg por cliente a cada N dias, opt-out "parar", idempotentes),
+      relatório semanal do dono, aba **Configurações → Automações**. Validação: 979 testes, V47
+      aplicada fora de ordem (`flyway.out-of-order`) numa cópia do banco local e no banco local
+      (backup `backups/pre-v47-20261123-1243.dump`), rodada de campanha e relatório exercitados com
+      a Evolution desligada.
+- [ ] **Parte 3 — Console da plataforma (V50 + V51)** ← próxima: rascunho de monitoramento/incidentes e
       storage S3 no worktree `agent-a7c84d8b86e8eb264`; telas do console e V51 não começaram.
 - [ ] Partes 7–9 (WhatsApp oficial, onda 2, salões/estética) e **Parte 6 — vídeo por último**.
 - [ ] Legal: preencher campos e revisar com advogado. Domínio: trocar URLs do og:image/canonical.
