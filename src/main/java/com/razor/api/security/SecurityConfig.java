@@ -82,10 +82,12 @@ public class SecurityConfig {
     private static final RequestMatcher CSRF_PATHS = new OrRequestMatcher(
             new AntPathRequestMatcher("/api/admin/**"),
             new AntPathRequestMatcher("/api/auth/logout"),
-            // Console da plataforma (V51): toda escrita, menos os dois passos do login (ainda sem sessao).
+            // Console da plataforma (V51/V56): toda escrita, menos o login, o codigo e a configuracao
+            // obrigatoria do 2FA (ainda sem sessao; protegidos pelo desafio assinado do login).
             request -> request.getRequestURI().startsWith("/api/platform/")
                     && !request.getRequestURI().equals("/api/platform/auth/login")
-                    && !request.getRequestURI().equals("/api/platform/auth/verify"));
+                    && !request.getRequestURI().equals("/api/platform/auth/verify")
+                    && !request.getRequestURI().startsWith("/api/platform/auth/setup/"));
 
     /**
      * Exige CSRF em escrita nas {@link #CSRF_PATHS}, exceto quando a requisicao traz
@@ -151,6 +153,7 @@ public class SecurityConfig {
                         // resto so com a sessao do console (PlatformSecurity.Filter). Um login de
                         // barbearia nunca tem este papel.
                         .requestMatchers(HttpMethod.POST, "/api/platform/auth/login", "/api/platform/auth/verify",
+                                "/api/platform/auth/setup/start", "/api/platform/auth/setup/confirm",
                                 "/api/platform/auth/logout").permitAll()
                         .requestMatchers("/api/platform/**").hasRole(com.razor.api.platform.PlatformSecurity.ROLE)
                         .requestMatchers("/api/webhook/**", "/api/auth/**", "/api/onboarding",

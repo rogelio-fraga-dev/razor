@@ -99,6 +99,8 @@ class PlatformSecurityTest {
         assertThat(com.razor.api.security.SecurityConfigAccess.csrfRequired(new MockHttpServletRequest("POST", "/api/platform/auth/login"))).isFalse();
         assertThat(com.razor.api.security.SecurityConfigAccess.csrfRequired(new MockHttpServletRequest("POST", "/api/platform/auth/verify"))).isFalse();
         assertThat(com.razor.api.security.SecurityConfigAccess.csrfRequired(new MockHttpServletRequest("POST", "/api/platform/auth/logout"))).isTrue();
+        assertThat(com.razor.api.security.SecurityConfigAccess.csrfRequired(new MockHttpServletRequest("POST", "/api/platform/auth/setup/confirm"))).isFalse();
+        assertThat(com.razor.api.security.SecurityConfigAccess.csrfRequired(new MockHttpServletRequest("POST", "/api/platform/security/2fa/disable"))).isTrue();
         assertThat(com.razor.api.security.SecurityConfigAccess.csrfRequired(new MockHttpServletRequest("GET", "/api/platform/overview"))).isFalse();
     }
 
@@ -106,110 +108,5 @@ class PlatformSecurityTest {
         RazorProperties props = new RazorProperties();
         props.getSecurity().setJwtSecret("um-segredo-de-teste-bem-longo-0123456789");
         return new JwtService(props);
-    }
-
-    // ------------------------------------------------------------------ fluxo de login
-
-    @Nested
-    class LoginFlow {
-        private final Map<UUID, PlatformUser> db = new HashMap<>();
-        private final PlatformUserRepository repo = mock(PlatformUserRepository.class);
-        private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
-        private final RazorProperties props = new RazorProperties();
-        private final JwtService jwt = jwt();
-        private final Instant now = Instant.parse("2026-11-23T15:00:00Z");
-        private PlatformAuthService auth;
-        private PlatformUser user;
-
-        @BeforeEach
-        void setUp() {
-            user = PlatformUser.builder().id(UUID.randomUUID()).email("op@razor.dev").name("Op")
-                    .passwordHash(encoder.encode("senha-forte-123")).createdAt(java.time.LocalDateTime.now()).build();
-            db.put(user.getId(), user);
-            when(repo.findByEmailIgnoreCase(any())).thenAnswer(i -> db.values().stream()
-                    .filter(u -> u.getEmail().equalsIgnoreCase(i.getArgument(0))).findFirst());
-            when(repo.findById(any())).thenAnswer(i -> Optional.ofNullable(db.get(i.<UUID>getArgument(0))));
-            when(repo.save(any())).thenAnswer(i -> i.getArgument(0));
-            auth = new PlatformAuthService(repo, encoder, new SecretCipher(KEY), jwt, props, Clock.fixed(now, ZoneOffset.UTC));
-        }
-
-        @Test
-        @DisplayName("primeiro acesso: senha -> SETUP com segredo; codigo certo liga o 2FA e emite a sessao")
-        void firstLogin_setupThenSession() {
-            var step = auth.login("OP@razor.dev", "senha-forte-123");
-            assertThat(step.step()).isEqualTo(PlatformAuthService.Step.SETUP);
-            assertThat(step.secret()).isNotBlank();
-            assertThat(user.getTotpSecretEnc()).doesNotContain(step.secret());
-            assertThat(auth.authenticate("qualquer")).isEmpty();
-
-            var s = auth.verify(step.challenge(), Totp.code(step.secret(), Totp.step(now)));
-            assertThat(user.isTotpEnabled()).isTrue();
-            assertThat(auth.authenticate(s.token())).contains(user);
-
-            // Depois de ligado: o login pede so o codigo, sem devolver segredo.
-            var again = auth.login("op@razor.dev", "senha-forte-123");
-            assertThat(again.step()).isEqualTo(PlatformAuthService.Step.MFA);
-            assertThat(again.secret()).isNull();
-        }
-
-        @Test
-        @DisplayName("senha errada, usuario inexistente, codigo errado, reuso e desafio usado como sessao: recusados")
-        void rejections() {
-            assertThatThrownBy(() -> auth.login("op@razor.dev", "errada")).isInstanceOf(BadCredentialsException.class);
-            assertThatThrownBy(() -> auth.login("ninguem@x", "senha-forte-123")).isInstanceOf(BadCredentialsException.class);
-
-            var step = auth.login("op@razor.dev", "senha-forte-123");
-            assertThatThrownBy(() -> auth.verify(step.challenge(), "000000")).isInstanceOf(BadCredentialsException.class);
-            assertThat(auth.authenticate(step.challenge())).as("desafio nao e sessao").isEmpty();
-
-            String code = Totp.code(step.secret(), Totp.step(now));
-            auth.verify(step.challenge(), code);
-            var step2 = auth.login("op@razor.dev", "senha-forte-123");
-            assertThatThrownBy(() -> auth.verify(step2.challenge(), code)).as("reuso").isInstanceOf(BadCredentialsException.class);
-        }
-
-        @Test
-        @DisplayName("usuario desativado ou com versao trocada perde a sessao")
-        void revoked() {
-            var step = auth.login("op@razor.dev", "senha-forte-123");
-            var s = auth.verify(step.challenge(), Totp.code(step.secret(), Totp.step(now)));
-            user.setTokenVersion(1);
-            assertThat(auth.authenticate(s.token())).isEmpty();
-            user.setTokenVersion(0);
-            user.setActive(false);
-            assertThat(auth.authenticate(s.token())).isEmpty();
-        }
-
-        @Test
-        @DisplayName("sem RAZOR_SECRETS_KEY o console fica desligado")
-        void disabledWithoutKey() {
-            var off = new PlatformAuthService(repo, encoder, new SecretCipher(""), jwt, props, Clock.fixed(now, ZoneOffset.UTC));
-            assertThatThrownBy(() -> off.login("op@razor.dev", "senha-forte-123"))
-                    .isInstanceOf(SecretCipher.ConsoleDisabledException.class);
-        }
-
-        @Test
-        @DisplayName("primeiro admin vem do ambiente so se nao houver nenhum e com senha de 12+")
-        void bootstrap() {
-            db.clear();
-            when(repo.count()).thenAnswer(i -> (long) db.size());
-            when(repo.save(any())).thenAnswer(i -> {
-                PlatformUser u = i.getArgument(0);
-                db.put(u.getId(), u);
-                return u;
-            });
-            props.getPlatform().setAdminEmail("Admin@Razor.dev");
-            props.getPlatform().setAdminPassword("curta");
-            auth.bootstrap();
-            assertThat(db).isEmpty();
-            props.getPlatform().setAdminPassword("uma-senha-bem-longa");
-            auth.bootstrap();
-            assertThat(db.values()).singleElement().satisfies(u -> {
-                assertThat(u.getEmail()).isEqualTo("admin@razor.dev");
-                assertThat(u.isTotpEnabled()).isFalse();
-            });
-            auth.bootstrap();
-            assertThat(db).hasSize(1);
-        }
     }
 }

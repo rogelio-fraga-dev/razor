@@ -165,6 +165,14 @@
             <artifactId>url-connection-client</artifactId>
         </dependency>
 
+        <!-- QR code do 2FA do console (V56), gerado no proprio servidor: a chave nunca vai para um
+             servico de QR de terceiros. So o "core" (sem javase/AWT). -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

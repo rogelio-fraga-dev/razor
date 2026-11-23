@@ -16,6 +16,18 @@ public class PlatformExceptionHandler {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
     }
 
+    /** Acao sensivel sem 2FA ativo (V56). */
+    public static class MfaRequiredException extends RuntimeException {
+        public MfaRequiredException() {
+            super("Ative a verificação em duas etapas (aba Segurança) para usar esta função.");
+        }
+    }
+
+    @ExceptionHandler(MfaRequiredException.class)
+    public ResponseEntity<Object> mfaRequired(MfaRequiredException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage(), "code", "MFA_REQUIRED"));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> badRequest(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
