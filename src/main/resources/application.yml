@@ -21,6 +21,9 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # Cada parte do piloto tem numero de migracao reservado (docs/MVP-PILOTO.md) e elas entram
+    # na ordem em que ficam prontas: a V47 (automacoes) chega depois da V49 ja aplicada.
+    out-of-order: true
 
   # Conexao Redis — usada apenas quando razor.state.store=redis. Com store=memory (padrao),
   # os beans do Redis ficam ociosos e nao abrem conexao.

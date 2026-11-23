@@ -10,6 +10,7 @@ import { Tabs, panelId, tabId, type TabDef } from "../components/Tabs";
 import { BookingLimitCard } from "../components/BookingLimitCard";
 import { NoShowSettingsCard } from "../components/NoShowSettingsCard";
 import { ReviewSettingsCard } from "../components/ReviewSettingsCard";
+import { AutomationSettingsCard } from "../components/AutomationSettingsCard";
 import { evaluateConfig } from "../lib/configCompleteness";
 import { fillBot } from "../lib/botSettings";
 import { matchSpeechMode, SPEECH_MODES } from "../lib/speechModes";
@@ -497,6 +498,7 @@ const TABS: TabDef[] = [
   { id: "status", label: "Status" },
   { id: "whatsapp", label: "WhatsApp" },
   { id: "bot", label: "Bot & IA" },
+  { id: "automacoes", label: "Automações" },
   { id: "equipe", label: "Equipe & acesso" },
   { id: "barbearia", label: "Barbearia" },
   { id: "site", label: "Site" },
@@ -610,6 +612,7 @@ export function Settings() {
           <ReviewSettingsCard reloadKey={configVersion} />
         </div>,
       )}
+      {panel("automacoes", <AutomationSettingsCard reloadKey={configVersion} />)}
       {panel(
         "equipe",
         <>

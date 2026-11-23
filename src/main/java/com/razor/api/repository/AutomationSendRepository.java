@@ -21,16 +21,22 @@ public interface AutomationSendRepository extends JpaRepository<AutomationSend, 
     List<AutomationSend> findByBarbershopIdAndKindIn(UUID barbershopId, Collection<AutomationSend.Kind> kinds);
 
     /** Telefones que receberam mensagem automatica de marketing desde {@code since} — limite de frequencia. */
+    default List<String> phonesSentSince(UUID barbershopId, Collection<AutomationSend.Kind> kinds, LocalDateTime since) {
+        return phonesWithStatusSince(barbershopId, kinds, AutomationSend.Status.SENT, since);
+    }
+
+    // Status por parametro: enum aninhado escrito na JPQL nao e resolvido pelo Hibernate 6.
     @Query("""
             select distinct s.customerPhone from AutomationSend s
              where s.barbershopId = :shop
                and s.kind in :kinds
-               and s.status = com.razor.api.model.AutomationSend.Status.SENT
+               and s.status = :status
                and s.sentAt >= :since
             """)
-    List<String> phonesSentSince(@Param("shop") UUID barbershopId,
-                                 @Param("kinds") Collection<AutomationSend.Kind> kinds,
-                                 @Param("since") LocalDateTime since);
+    List<String> phonesWithStatusSince(@Param("shop") UUID barbershopId,
+                                       @Param("kinds") Collection<AutomationSend.Kind> kinds,
+                                       @Param("status") AutomationSend.Status status,
+                                       @Param("since") LocalDateTime since);
 
     long countByBarbershopIdAndKindAndStatusAndSentAtGreaterThanEqual(
             UUID barbershopId, AutomationSend.Kind kind, AutomationSend.Status status, LocalDateTime since);

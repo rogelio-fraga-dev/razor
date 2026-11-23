@@ -1000,3 +1000,33 @@ export interface ReviewSummary {
   enabled: boolean;
   googleLinkConfigured: boolean;
 }
+
+/** Aba Automações (V47): lista de espera automática, campanhas e relatório semanal. */
+export type AutomationKind = "LAPSED" | "BIRTHDAY" | "RETURN";
+
+export interface AutomationServiceReturn {
+  id: string;
+  name: string;
+  returnReminderDays: number | null;
+}
+
+export interface AutomationSettings {
+  waitlistEnabled: boolean;
+  waitlistWindowMinutes: number;
+  lapsedEnabled: boolean;
+  lapsedDays: number;
+  lapsedTemplate: string;
+  birthdayEnabled: boolean;
+  birthdayTemplate: string;
+  birthdayDiscountPercent: number;
+  birthdayCouponValidDays: number;
+  returnEnabled: boolean;
+  returnTemplate: string;
+  frequencyCapDays: number;
+  weeklyReportEnabled: boolean;
+  weeklyReportDay: number;
+  weeklyReportHour: number;
+  services: AutomationServiceReturn[];
+  defaultTemplates?: Record<AutomationKind, string>;
+  stats?: { lapsedSent30d: number; birthdaySent30d: number; returnSent30d: number; waitlistWaiting: number };
+}
