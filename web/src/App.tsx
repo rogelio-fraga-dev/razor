@@ -3,6 +3,9 @@ import { useAuth } from "./auth/AuthContext";
 import { canAccess, homeFor } from "./lib/access";
 import { CommandPalette } from "./components/CommandPalette";
 import { Login } from "./pages/Login";
+import { Signup } from "./pages/Signup";
+import { signupFlow } from "./api/onboarding";
+import { Onboarding } from "./pages/Onboarding";
 import { Dashboard } from "./pages/Dashboard";
 import { MeuDia } from "./pages/MeuDia";
 import { Agenda } from "./pages/Agenda";
@@ -56,7 +59,14 @@ export default function App() {
           é dono. */}
       <Route path="/site-previa" element={<SitePreviewPage />} />
       <Route path="/login" element={session ? <Navigate to={home} replace /> : <Login />} />
+      {/* Cadastro pela landing (V49): quem já tem sessão vai direto para o painel. */}
+      <Route
+        path="/cadastro"
+        element={session ? <Navigate to={signupFlow.done ? "/comecar" : home} replace /> : <Signup />}
+      />
       <Route element={<Protected />}>
+        {/* Assistente guiado em tela cheia: sem o Layout do painel, só o passo a passo. */}
+        <Route path="/comecar" element={<Onboarding />} />
         <Route path="/" element={<Dashboard />} />
         <Route path="/meu-dia" element={<MeuDia />} />
         <Route path="/agenda" element={<Agenda />} />

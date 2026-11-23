@@ -14,6 +14,7 @@ import {
 import { EdgeMark, RazorLogo } from "./Logo";
 import { Clock } from "./Clock";
 import { InstallAppButton } from "./InstallAppButton";
+import { TrialBanner } from "./TrialBanner";
 import { Drawer } from "./Drawer";
 import { IconChevron, IconMore } from "./Icons";
 
@@ -451,7 +452,11 @@ export function Layout({
             </button>
           </div>
         </header>
-        <div className={`content${flush ? " flush" : ""}`}>{children}</div>
+        <div className={`content${flush ? " flush" : ""}`}>
+          {/* Telas de tela cheia (agenda) ficam sem a faixa: ali cada pixel de altura é grade. */}
+          {session?.role === "OWNER" && !flush && <TrialBanner />}
+          {children}
+        </div>
       </div>
 
       <BottomNav quick={quick} groups={groups} />

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, setUnauthorizedHandler } from "../api/client";
 import type { LoginResponse, Me } from "../api/types";
+import type { SignupInput, SignupResponse } from "../api/onboarding";
 
 // Sessao do painel. O JWT vive num cookie HttpOnly que este codigo nunca ve; aqui ficam so os
 // dados NAO secretos do usuario (nome, papel), em memoria. Ao recarregar a pagina a sessao e
@@ -20,6 +21,8 @@ interface Session {
 interface AuthState {
   session: Session | null;
   login: (email: string, password: string) => Promise<void>;
+  /** Cadastro pela landing (V49): a resposta já traz a sessão aberta no cookie. */
+  signup: (input: SignupInput) => Promise<SignupResponse>;
   logout: () => void;
   /** Relê o /me (ex.: depois de o dono trocar o próprio e-mail em "Equipe & acesso"). */
   refresh: () => Promise<void>;
@@ -94,7 +97,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value = useMemo<AuthState>(() => ({ session, login, logout, refresh }), [session, login, logout, refresh]);
+  const signup = useCallback(async (input: SignupInput) => {
+    const res = await api.post<SignupResponse>("/api/signup", input, { ignore401: true });
+    setSession(toSession(res));
+    return res;
+  }, []);
+
+  const value = useMemo<AuthState>(
+    () => ({ session, login, signup, logout, refresh }),
+    [session, login, signup, logout, refresh],
+  );
 
   // Enquanto o /me nao responde nao da para saber se ha sessao; renderizar agora mandaria quem
   // esta logado para /login e perderia a rota que ele abriu.

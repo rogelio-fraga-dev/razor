@@ -67,6 +67,11 @@ razor:
     # Vazio por padrão = onboarding desabilitado (fail-closed). Defina ONBOARDING_API_KEY
     # no ambiente para habilitar o provisionamento de novas barbearias.
     api-key: "${ONBOARDING_API_KEY:}"
+  signup:
+    # Cadastro sozinho pela landing (V49): cria barbearia + dono em TRIAL. O teste e so
+    # informativo (banner no painel) enquanto a cobranca nao existe.
+    enabled: "${RAZOR_SIGNUP_ENABLED:true}"
+    trial-days: "${RAZOR_TRIAL_DAYS:14}"
   webhook:
     # Segredo que a Evolution deve enviar no webhook (header X-Webhook-Token ou ?token=...).
     # Vazio = webhook DESABILITADO (fail-closed): sem ele, qualquer um poderia forjar uma
@@ -97,6 +102,9 @@ razor:
       site-per-minute: "${RAZOR_RATE_LIMIT_SITE:120}"
       booking-per-window: "${RAZOR_RATE_LIMIT_BOOKING:10}"
       booking-window-seconds: 3600
+      # Cadastro de barbearia pela landing (POST /api/signup): teto por IP na janela de 1h.
+      signup-per-window: "${RAZOR_RATE_LIMIT_SIGNUP:10}"
+      signup-window-seconds: 3600
   openai:
     api-key: "${OPENAI_API_KEY}"
     # Chat: gpt-4o-mini por padrao (rapido e barato); o gpt-4o so entra quando o mini falha ou

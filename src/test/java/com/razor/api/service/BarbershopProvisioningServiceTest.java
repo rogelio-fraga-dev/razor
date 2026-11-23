@@ -46,6 +46,7 @@ class BarbershopProvisioningServiceTest {
     @Mock private TenantAdminService tenantAdminService;
     @Mock private TenantUserRepository tenantUserRepository;
     @Mock private PasswordEncoder passwordEncoder;
+    @Mock private com.razor.api.repository.BarbershopSettingsRepository settingsRepository;
 
     @InjectMocks private BarbershopProvisioningService service;
 
@@ -143,5 +144,37 @@ class BarbershopProvisioningServiceTest {
                 .isInstanceOf(OnboardingConflictException.class)
                 .hasMessageContaining("instancia");
         verify(barbershopRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("cadastro pela landing: TRIAL com fim do teste, dono vira barbeiro e admin, nome do bot preenchido")
+    void provisionTrial_createsTrialShop() {
+        when(barbershopRepository.findBySlug("barbearia-do-ze")).thenReturn(Optional.empty());
+        givenSaveAssignsId();
+        when(passwordEncoder.encode("senha1234")).thenReturn("hash");
+        when(tenantUserRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        java.time.LocalDateTime fim = java.time.LocalDateTime.of(2026, 12, 2, 10, 0);
+
+        BarbershopProvisioningService.Provisioned p = service.provisionTrial(new BarbershopProvisioningService.TrialSignup(
+                "Barbearia do Zé", "barbearia-do-ze", "Niterói", "EQUIPE", "José Silva",
+                "Ze@Loja.com", "5521970001111", "senha1234", fim));
+
+        Barbershop shop = p.shop();
+        assertThat(shop.getStatus()).isEqualTo(Barbershop.STATUS_TRIAL);
+        assertThat(shop.getTrialEndsAt()).isEqualTo(fim);
+        assertThat(shop.getCity()).isEqualTo("Niterói");
+        assertThat(shop.getSignupPlan()).isEqualTo("EQUIPE");
+        assertThat(shop.getWhatsappInstance()).isNull(); // derivada do slug no primeiro QR
+        verify(professionalService).create(eq("José Silva"), isNull());
+        verify(tenantAdminService).add(eq("5521970001111"), isNull());
+        assertThat(p.owner().getEmail()).isEqualTo("ze@loja.com");
+        assertThat(p.owner().getName()).isEqualTo("José Silva");
+        assertThat(p.owner().getRole()).isEqualTo(UserRole.OWNER);
+
+        ArgumentCaptor<com.razor.api.model.BarbershopSettings> settings =
+                ArgumentCaptor.forClass(com.razor.api.model.BarbershopSettings.class);
+        verify(settingsRepository).save(settings.capture());
+        assertThat(settings.getValue().getDisplayName()).isEqualTo("Barbearia do Zé");
+        assertThat(settings.getValue().getBarbershopId()).isEqualTo(shop.getId());
     }
 }
