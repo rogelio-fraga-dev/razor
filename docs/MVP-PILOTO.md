@@ -119,62 +119,71 @@ campo aceita só os 6 dígitos que o app mostra (não a chave longa) — a tela 
       recentes na aba Trilha com aparelho/IP.
 - [ ] Testes: QR/URI, chave estável entre tentativas, prazo de carência vencendo, códigos de recuperação.
 
-## Piloto na AWS (2–3 barbearias, 2–4 semanas) ← PRÓXIMO (decidido em 23/11)
-Objetivo: rodar com barbearias reais num servidor público barato, medir e só então decidir o que o
-lançamento precisa. Ordem: **3c (acesso ao console) → piloto → avaliação → pré-lançamento → Parte 8**.
+## Piloto na AWS — 1 semana, 2–3 barbearias ← PRÓXIMO (decidido em 23/11)
+Objetivo: rodar **uma semana** com barbearias reais em `razor.<seu-domínio>`, gastando o mínimo, e só então
+decidir o que o lançamento precisa. Ordem: **3c (acesso ao console) → montar a estrutura → (desligada)
+→ "pode abrir" → 1 semana → avaliação → pré-lançamento → Parte 8**.
 
-**1. Servidor (AWS — a conta que já existe, analisada em 23/11)**
-Conta da AWS criada em 22/11 para o curso (região us-east-1), no **plano gratuito novo: US$ 180 de crédito,
-válido até 05/2027**. Já roda nela o servidor do curso (t3.small, 2 GB, Elastic IP, 20 GB gp3, só 80/443
-abertas, acesso por SSM/OIDC, bucket de deploy/backup) e há um orçamento de alerta de US$ 20.
-- [ ] **Servidor próprio para o Razor** (t3.small, 2 GB — elegível no plano gratuito). Não dividir com o
-      do curso: ele já usa os 2 GB com Java + Postgres, e um pico do Razor derrubaria o sistema dos alunos.
-- [ ] Custo estimado (us-east-1, sob demanda): ~US$ 15/mês a máquina + ~US$ 3,65 o IP público + ~US$ 1,60
-      o disco ≈ **US$ 20/mês por servidor**. Curso + Razor ≈ US$ 40/mês → o crédito dura uns 4–5 meses
-      (o piloto de 2–4 semanas custa ~US$ 10–20). Conferir no Billing depois da primeira semana.
-- [ ] **Atenção ao plano gratuito:** quando o crédito acaba ou o prazo vence, a conta precisa virar paga ou
-      é fechada (vale também para o servidor do curso). Decidir antes disso.
-- [ ] Orçamento: subir o alerta de US$ 20 para ~US$ 45/mês, ou um orçamento separado por tag (`projeto=razor`).
-- [ ] Permissões: o usuário de CLI desta máquina (`claude-deploy`) só lê hoje; criar a máquina do Razor
-      pelo console da AWS ou dar a ele permissão de EC2 limitada à tag `projeto=razor`.
-- [ ] Ubuntu + Docker, reaproveitando `setup-ec2.sh` e `docker-compose.prod.yml` (revisar: o script ainda
-      tem o nome antigo "BarberBot"); **Elastic IP** para o endereço não mudar a cada reinício.
-- [ ] Security group: só 80/443 (e 22 restrito ao seu IP); Postgres, Evolution e backend fechados para fora.
-- [ ] Segredos de produção no `.env` do servidor (`RAZOR_STRICT_SECRETS=true`: JWT, webhook, onboarding,
-      `RAZOR_SECRETS_KEY`, senha do Postgres, chave da OpenAI) — nunca os de dev.
+> 🔴 **Regra:** a estrutura é montada e testada, e fica **DESLIGADA** até o usuário dizer "pode abrir o
+> piloto". Nada de ligar a máquina, conectar WhatsApp de barbearia ou divulgar o endereço antes disso.
+> Nada é criado na AWS antes de o usuário mandar montar.
 
-**2. Endereço público e HTTPS (sem domínio ainda)**
-- [ ] Link padrão do EC2 (`ec2-…compute.amazonaws.com`) ou o IP. Atenção: **sem HTTPS** o login do painel
-      não funciona (cookie Secure) e dado de cliente trafega aberto — não usar com clientes reais assim.
-- [ ] **Melhor opção (já existe):** um subdomínio do domínio pessoal que já serve o sistema do curso (DNS na
-      Cloudflare), ex.: `razor.<seu-dominio>` → Elastic IP do Razor + certbot, igual ao `deploy/DEPLOY.md` do
-      curso. HTTPS de verdade, sem comprar nada, e troca para o domínio próprio depois.
-- [ ] Alternativa sem mexer no DNS: `IP.sslip.io` + Let's Encrypt. Último caso: o link do EC2 sem HTTPS só
-      para testes internos, nunca com clientes reais.
-- [ ] Reaproveitar do curso: deploy pelo GitHub Actions com OIDC (sem chave guardada) e comandos por SSM
-      (porta 22 fechada), backup diário no S3 com restauração conferida, "vigia" de site fora do ar.
-- [ ] Trocar `og:url`/`canonical`/links do site e `RAZOR_CORS_ORIGINS`/`RAZOR_PANEL_URL` para o endereço do piloto.
+**1. A conta (verificada em 23/11, só leitura)**
+- Conta da AWS do curso (us-east-1), **plano gratuito: US$ 180 de crédito até 05/2027**. Nela roda o servidor
+  de produção do curso (t3.small) — **não pode ser tocado**: nada de parar, reiniciar, mudar security group,
+  papel ou bucket dele. Tudo do Razor leva a tag `projeto=razor` e nome começando com `razor-`.
+- O usuário de CLI desta máquina (`claude-deploy`) tem **AdministratorAccess** — consegue criar tudo, e
+  também consegue mexer no curso. Toda ação do Razor confere o ID/tag antes; comandos de parar/apagar
+  sempre com o ID da máquina do Razor, nunca por filtro amplo. (Opcional depois: trocar por uma política
+  limitada à tag `projeto=razor`.)
+- Orçamento: hoje há um alerta de US$ 20/mês para a conta. Criar um **orçamento só do Razor** (filtro pela
+  tag) com aviso em US$ 5 e US$ 10.
 
-**3. Operação durante o piloto**
-- [ ] Backup diário do Postgres (`pg_dump` agendado) para fora da máquina (S3, dentro do gratuito) + teste
-      de restauração uma vez.
-- [ ] Alerta do operador ligado (`RAZOR_OPERATOR_WEBHOOK_URL` ou log) e console `/plataforma` com 2FA.
-- [ ] OpenAI: chave própria do piloto com **limite de gasto mensal** na conta da OpenAI.
-- [ ] WhatsApp: um número por barbearia (Evolution, não oficial — risco de bloqueio aceito no piloto).
-- [ ] Acordo simples de piloto com cada barbearia (o que é, prazo, que os dados dos clientes ficam no
-      sistema e são apagados se sair) — antes da revisão jurídica completa.
+**2. Arquitetura barata (o que será montado)**
+- **1 EC2 t3.small** (2 GB — o stack Java + Postgres + Evolution + painel + site não cabe com folga em 1 GB),
+  Ubuntu 24.04, disco gp3 de 16 GB, **sem Elastic IP** (IP público só enquanto ligada).
+- **Cloudflare Tunnel** (`cloudflared` na máquina) para `razor.<seu-domínio>`: o domínio já está na
+  Cloudflare, o HTTPS vem dela, o endereço não muda quando a máquina liga/desliga e **nenhuma porta fica
+  aberta** (security group sem entrada; nem 22, nem 80/443). Alternativa se o túnel não servir: IP fixo +
+  certbot como no curso (+ ~US$ 3,65/mês pelo IP).
+- Acesso administrativo por **SSM** (papel `razor-ec2-ssm`, sem SSH, sem chave .pem).
+- Tudo em Docker com `docker-compose.prod.yml` (revisar o `setup-ec2.sh`, que ainda diz "BarberBot");
+  Postgres dentro da máquina; `RAZOR_STRICT_SECRETS=true` e segredos novos de produção no `.env` do
+  servidor (JWT, webhook, onboarding, `RAZOR_SECRETS_KEY`, senha do banco, chave da OpenAI do piloto).
+- **Backup:** `pg_dump` diário para um bucket `razor-backup-…` (S3, centavos) com restauração testada uma
+  vez; e um backup final ao encerrar o piloto.
+- Deploy: no piloto, por SSM (copiar o jar/imagens e subir); GitHub Actions com OIDC fica para depois.
 
-**4. As 2–3 barbearias**
-- [ ] Escolher casas conhecidas (de preferência uma com 1 barbeiro e outra com equipe).
-- [ ] Cadastro pelo próprio fluxo (`/cadastro` → assistente) com você acompanhando a primeira vez.
-- [ ] Canal direto de suporte (grupo de WhatsApp) e anotação de cada problema/pedido.
+**3. Custo esperado (estimativa, us-east-1)**
+- **Desligada:** só o disco (16 GB gp3 ≈ US$ 1,30/mês) + backups no S3 (centavos). Sem IP fixo, sem máquina.
+- **Ligada 1 semana:** t3.small ≈ US$ 0,021/h + IP público ≈ US$ 0,005/h → ~US$ 4–5 na semana, mais a OpenAI
+  (com limite mensal na conta da OpenAI). Tudo sai do crédito de US$ 180.
+- Ligar por algumas horas para montar e testar custa centavos.
 
-**5. O que medir (console `/plataforma`) e decidir no fim**
-- [ ] Custo real de IA por barbearia/mês, mensagens/dia, agendamentos pela IA, tempo de resposta, erros,
-      alertas de saúde, uso de memória/CPU do EC2.
-- [ ] Perguntas a responder: o servidor aguenta quantas casas? qual plano/preço cobre o custo? o que os
-      donos mais pediram? o WhatsApp caiu/bloqueou? o que precisa estar pronto para abrir para 10+?
-- [ ] Relatório do piloto em `docs/` com números e a lista do pré-lançamento.
+**4. Montagem (só quando o usuário mandar montar)**
+- [ ] Revisar `docker-compose.prod.yml`/`setup-ec2.sh` (limites de memória por container, swap de 1–2 GB
+      por segurança, logs com rotação).
+- [ ] Criar: security group `razor-sg` (sem entrada), papel/perfil `razor-ec2-ssm` (SSM + escrita só no
+      bucket do Razor), bucket `razor-backup-…`, a EC2 com tag `projeto=razor`, o orçamento do Razor.
+- [ ] Instalar Docker e `cloudflared`; criar o túnel e o registro `razor` no DNS da Cloudflare (precisa de
+      um token da Cloudflare com permissão só nessa zona, ou o usuário cria pelo painel).
+- [ ] Subir o sistema, conferir HTTPS, cadastro, painel, site, console `/plataforma` (com 2FA da 3c) e um
+      agendamento de teste com um número de WhatsApp de teste.
+- [ ] Backup + restauração testados. **Desligar a máquina** e anotar o estado ("pronto, desligado").
+
+**5. Abertura (só com "pode abrir o piloto")**
+- [ ] Ligar a máquina (o túnel volta sozinho), conferir saúde no console.
+- [ ] Acordo simples com cada barbearia (o que é, 1 semana, dados apagados se sair).
+- [ ] Cadastrar as 2–3 barbearias (uma com 1 barbeiro, outra com equipe), conectar o WhatsApp de cada uma,
+      grupo de suporte no WhatsApp.
+
+**6. Durante a semana**
+- [ ] Olhar o console todo dia: custo de IA, mensagens, agendamentos da IA, tempo de resposta, erros, saúde;
+      memória/CPU da máquina. Anotar problemas e pedidos dos donos.
+
+**7. Encerramento**
+- [ ] Backup final, relatório do piloto em `docs/` (números + o que precisa para lançar), decidir: desligar,
+      manter ligado ou apagar (apagar tudo do Razor = custo zero).
 
 ## Pré-lançamento (depois do piloto)
 - [ ] Jurídico/LGPD: preencher e revisar com advogado Termos, Privacidade, Cancelamento e o contrato

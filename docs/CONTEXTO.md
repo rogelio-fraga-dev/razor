@@ -9,8 +9,10 @@ _Última atualização: 2026-11-23_
 
 ## Onde estamos
 
-- **Fase:** MVP. Até aqui só local. **Decidido em 23/11:** piloto com 2–3 barbearias reais na AWS (plano
-  gratuito, endereço público do EC2, sem domínio) por 2–4 semanas; jurídico, CNPJ, marca, domínio depois.
+- **Fase:** MVP. Até aqui só local. **Decidido em 23/11:** piloto de **1 semana** com 2–3 barbearias em
+  `razor.<domínio pessoal>` na AWS (conta do curso, plano gratuito), o mais barato possível. A estrutura é
+  montada e fica **DESLIGADA até o usuário dizer "pode abrir o piloto"**. Nada é criado na AWS antes de ele
+  mandar montar. Jurídico, CNPJ, marca e domínio próprio só depois do piloto.
 - **Ordem combinada:** Partes 4 e 3 ✅ → **3c** → **piloto na AWS** → pré-lançamento → Parte 8 → débitos. Partes **7, 9 e 6 (vídeo)** só
   quando o usuário mandar (22/11).
 - **Regra de execução:** no máximo 2 frentes por vez; cada parte termina com testes + build +
@@ -105,9 +107,10 @@ dispositivo). Motivo: o cadastro no Authy falhou — a chave muda a cada tentati
 
 ### Depois: piloto na AWS
 
-Plano completo em `docs/MVP-PILOTO.md` (seção "Piloto na AWS"): servidor (cuidado com memória — 1 GB não
-basta sem swap), HTTPS sem domínio (`IP.sslip.io` + Let's Encrypt), backup diário, limite de gasto na
-OpenAI, acordo simples com as barbearias, o que medir no console e o relatório final do piloto.
+Plano completo em `docs/MVP-PILOTO.md` (seção "Piloto na AWS"): 1 EC2 t3.small só do Razor, Cloudflare Tunnel
+para `razor.<domínio>` (HTTPS, sem IP fixo e sem porta aberta), SSM, backup no S3, orçamento próprio.
+Desligada custa ~US$ 1,30/mês (só o disco); ligada uma semana ~US$ 4–5 + OpenAI. **Nunca tocar no servidor
+do curso**, que roda na mesma conta (o usuário de CLI tem acesso de administrador).
 
 ### Parte 8 — Onda 2 (depois do pré-lançamento)
 
