@@ -72,7 +72,7 @@ public class IncidentService {
      */
     public SystemIncident raise(UUID shop, IncidentType type, String detail) {
         UUID owner = type.platform() ? null : shop;
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(com.razor.api.util.AppointmentDates.ZONE);
         String safeDetail = truncate(detail);
         SystemIncident incident = findOpen(owner, type).map(open -> {
             open.setOccurrences(open.getOccurrences() + 1);
@@ -113,7 +113,7 @@ public class IncidentService {
         if (open.isEmpty()) return false;
         SystemIncident incident = open.get();
         incident.setStatus(SystemIncident.Status.RESOLVED);
-        incident.setResolvedAt(LocalDateTime.now());
+        incident.setResolvedAt(LocalDateTime.now(com.razor.api.util.AppointmentDates.ZONE));
         repository.save(incident);
         log.info("[MONITOR] Incidente resolvido: {} (tenant {})", type, owner);
 
@@ -144,7 +144,7 @@ public class IncidentService {
     public HealthOverview overviewForCurrentTenant() {
         UUID shop = TenantContext.getCurrent();
         List<IncidentView> open = repository.findOpenVisibleTo(shop).stream().map(IncidentService::view).toList();
-        List<IncidentView> history = repository.findRecentVisibleTo(shop, LocalDateTime.now().minusDays(HISTORY_DAYS),
+        List<IncidentView> history = repository.findRecentVisibleTo(shop, LocalDateTime.now(com.razor.api.util.AppointmentDates.ZONE).minusDays(HISTORY_DAYS),
                         PageRequest.of(0, HISTORY_LIMIT)).stream()
                 .filter(i -> !i.isOpen())
                 .map(IncidentService::view)
@@ -167,7 +167,7 @@ public class IncidentService {
     // --- Avisos -------------------------------------------------------------------------------
 
     private void notifyIfDue(SystemIncident incident) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(com.razor.api.util.AppointmentDates.ZONE);
         RazorProperties.Monitoring cfg = properties.getMonitoring();
         boolean changed = false;
 

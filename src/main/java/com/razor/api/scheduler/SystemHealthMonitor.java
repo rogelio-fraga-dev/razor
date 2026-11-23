@@ -174,7 +174,7 @@ public class SystemHealthMonitor {
     private boolean staleIncident(UUID shop, IncidentType type, RazorProperties.Monitoring cfg) {
         return incidents.openIncidents().stream()
                 .filter(i -> type == i.getType() && shop.equals(i.getBarbershopId()))
-                .anyMatch(i -> i.getLastSeenAt().isBefore(LocalDateTime.now().minusHours(cfg.getStaleResolveHours())));
+                .anyMatch(i -> i.getLastSeenAt().isBefore(LocalDateTime.now(com.razor.api.util.AppointmentDates.ZONE).minusHours(cfg.getStaleResolveHours())));
     }
 
     private void checkQueue(UUID shop, RazorProperties.Monitoring cfg) {

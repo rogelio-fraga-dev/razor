@@ -1,0 +1,22 @@
+/* Saúde do sistema (V50): faixa de alerta no topo e lista de incidentes. */
+.health-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  border: 1px solid var(--red);
+  border-radius: var(--radius);
+  background: rgba(220, 38, 38, 0.08);
+  font-size: 13.5px;
+}
+.health-strip.platform { border-color: var(--amber); background: var(--amber-soft); }
+.health-strip b { font-weight: 600; }
+.health-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.health-list li { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+.health-list .meta { font-size: 12.5px; color: var(--text-muted); margin-top: 4px; }
+@media (max-width: 560px) {
+  .health-strip .btn { width: 100%; justify-content: center; }
+}

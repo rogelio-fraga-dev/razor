@@ -1030,3 +1030,24 @@ export interface AutomationSettings {
   defaultTemplates?: Record<AutomationKind, string>;
   stats?: { lapsedSent30d: number; birthdaySent30d: number; returnSent30d: number; waitlistWaiting: number };
 }
+
+/** Saúde do sistema (V50): incidente como o painel vê. */
+export interface IncidentView {
+  id: string;
+  type: string;
+  status: "OPEN" | "RESOLVED";
+  platform: boolean;
+  message: string;
+  detail: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  resolvedAt: string | null;
+  occurrences: number;
+  action: "RECONNECT_WHATSAPP" | "CHECK_AI" | null;
+}
+
+export interface HealthOverview {
+  monitoringEnabled: boolean;
+  open: IncidentView[];
+  history: IncidentView[];
+}

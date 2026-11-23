@@ -29,9 +29,15 @@ public interface SystemIncidentRepository extends JpaRepository<SystemIncident, 
     long countByStatus(SystemIncident.Status status);
 
     /** Abertos da barbearia + os da plataforma (que valem para todos). */
-    @Query("select i from SystemIncident i where i.status = com.razor.api.model.SystemIncident.Status.OPEN "
+    /** Abertos da barbearia mais os da plataforma (barbershop_id nulo). */
+    default List<SystemIncident> findOpenVisibleTo(UUID shop) {
+        return findVisibleToWithStatus(shop, SystemIncident.Status.OPEN);
+    }
+
+    // Status por parametro: enum aninhado escrito na JPQL nao e resolvido pelo Hibernate 6.
+    @Query("select i from SystemIncident i where i.status = :status "
             + "and (i.barbershopId = :shop or i.barbershopId is null) order by i.firstSeenAt desc")
-    List<SystemIncident> findOpenVisibleTo(@Param("shop") UUID shop);
+    List<SystemIncident> findVisibleToWithStatus(@Param("shop") UUID shop, @Param("status") SystemIncident.Status status);
 
     /** Historico recente (abertos e resolvidos) da barbearia + plataforma. */
     @Query("select i from SystemIncident i where (i.barbershopId = :shop or i.barbershopId is null) "

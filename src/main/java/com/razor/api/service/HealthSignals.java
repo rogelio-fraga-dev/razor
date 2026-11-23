@@ -62,7 +62,7 @@ public class HealthSignals {
         this(Clock.systemUTC());
     }
 
-    HealthSignals(Clock clock) {
+    public HealthSignals(Clock clock) {
         this.clock = clock;
         this.startedAt = clock.instant();
     }
