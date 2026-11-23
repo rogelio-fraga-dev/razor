@@ -36,6 +36,7 @@ public class JwtService {
     private static final String CLAIM_TYPE = "typ";
     public static final String TYPE_PLATFORM = "platform";
     public static final String TYPE_MFA = "mfa";
+    private static final String CLAIM_SESSION = "sid";
     private static final int MIN_SECRET_LENGTH = 32;
 
     private final SecretKey key;
@@ -101,13 +102,21 @@ public class JwtService {
     // --- Console da plataforma (V51) ---------------------------------------------------------
 
     /** Claims de um token da plataforma. */
-    public record PlatformClaims(UUID userId, String email, int version, String type) {
+    public record PlatformClaims(UUID userId, String email, int version, String type, UUID sessionId) {
     }
 
     /** Sessao do console ({@code typ=platform}) ou desafio do 2FA ({@code typ=mfa}). */
     public String issuePlatform(UUID userId, String email, int version, String type, java.time.Duration ttl) {
+        return issuePlatform(userId, email, version, type, ttl, null);
+    }
+
+    /** Com o id da sessao ({@code sid}, V56): permite expirar por inatividade e encerrar uma sessao. */
+    public String issuePlatform(UUID userId, String email, int version, String type, java.time.Duration ttl,
+                                UUID sessionId) {
         Instant now = Instant.now();
-        return Jwts.builder()
+        var b = Jwts.builder();
+        if (sessionId != null) b.claim(CLAIM_SESSION, sessionId.toString());
+        return b
                 .subject(email)
                 .claim(CLAIM_USER_ID, userId.toString())
                 .claim(CLAIM_VERSION, version)
@@ -125,7 +134,8 @@ public class JwtService {
             throw new JwtException("tipo de token inesperado");
         }
         Integer version = claims.get(CLAIM_VERSION, Integer.class);
+        String sid = claims.get(CLAIM_SESSION, String.class);
         return new PlatformClaims(UUID.fromString(claims.get(CLAIM_USER_ID, String.class)), claims.getSubject(),
-                version == null ? 0 : version, expectedType);
+                version == null ? 0 : version, expectedType, sid == null ? null : UUID.fromString(sid));
     }
 }

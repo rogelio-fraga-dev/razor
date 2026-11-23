@@ -60,6 +60,7 @@ public class PlatformController {
     public WhatsAppConnectResponse whatsappConnect(@PathVariable UUID id,
                                                    @AuthenticationPrincipal PlatformSecurity.PlatformPrincipal p,
                                                    HttpServletRequest http) {
+        requireMfa(p);
         console.shopInstance(id);
         audit.record(p.userId(), "WHATSAPP_CONNECT", id, null, ClientIp.of(http));
         return inTenant(id, whatsApp::connect);
@@ -80,6 +81,7 @@ public class PlatformController {
     public PlatformAiSettingsService.View updateAi(@Valid @RequestBody AiUpdate req,
                                                    @AuthenticationPrincipal PlatformSecurity.PlatformPrincipal p,
                                                    HttpServletRequest http) {
+        requireMfa(p);
         var view = aiSettings.update(new PlatformAiSettingsService.Update(req.apiKey(), req.clearKey(), req.chatModel(),
                 req.escalationModel(), req.transcribeModel()), p.userId());
         String what = (req.apiKey() != null && !req.apiKey().isBlank()) ? "nova chave ..." + view.keyLast4()
@@ -92,7 +94,9 @@ public class PlatformController {
     }
 
     @PostMapping("/ai/test")
-    public PlatformAiSettingsService.TestResult testAi(@Valid @RequestBody(required = false) AiTest req) {
+    public PlatformAiSettingsService.TestResult testAi(@Valid @RequestBody(required = false) AiTest req,
+                                                       @AuthenticationPrincipal PlatformSecurity.PlatformPrincipal p) {
+        requireMfa(p);
         return aiSettings.test(req == null ? null : req.apiKey());
     }
 
@@ -112,6 +116,7 @@ public class PlatformController {
                                                                   @RequestParam(defaultValue = "30") int days,
                                                                   @AuthenticationPrincipal PlatformSecurity.PlatformPrincipal p,
                                                                   HttpServletRequest http) {
+        requireMfa(p);
         var detail = console.conversation(customerId, days);
         audit.record(p.userId(), "READ_CONVERSATION", detail.shopId(), "cliente " + customerId, ClientIp.of(http));
         return detail;
@@ -171,6 +176,11 @@ public class PlatformController {
     @GetMapping("/audit")
     public List<PlatformAuditLog.Entry> audit(@RequestParam(defaultValue = "100") int limit) {
         return audit.recent(Math.max(1, Math.min(limit, 500)));
+    }
+
+    /** Telefone de cliente, chave da IA e pareamento de WhatsApp so com o 2FA ativo (V56). */
+    private static void requireMfa(PlatformSecurity.PlatformPrincipal p) {
+        if (p == null || !p.mfaEnabled()) throw new PlatformExceptionHandler.MfaRequiredException();
     }
 
     private static <T> T inTenant(UUID shop, Supplier<T> action) {

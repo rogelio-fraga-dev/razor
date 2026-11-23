@@ -293,7 +293,12 @@ export function AuditTab() {
   const { data, loading, error } = useApi<AuditEntry[]>(() => papi.get("/audit?limit=200"), []);
   const LABEL: Record<string, string> = {
     LOGIN: "entrou no console", READ_CONVERSATION: "leu uma conversa", AI_SETTINGS: "mudou a IA",
-    WHATSAPP_CONNECT: "gerou QR do WhatsApp",
+    WHATSAPP_CONNECT: "gerou QR do WhatsApp", MFA_ENABLED: "ativou o 2FA", MFA_DISABLED: "desativou o 2FA",
+    RECOVERY_CODES: "gerou códigos de recuperação", LOGOUT_ALL: "saiu de todos os aparelhos",
+    DEVICE_REVOKED: "esqueceu um aparelho",
+  };
+  const METHOD: Record<string, string> = {
+    PASSWORD: "só senha", TOTP: "senha + app", RECOVERY: "código de recuperação", TRUSTED_DEVICE: "aparelho lembrado",
   };
   return (
     <>
@@ -307,7 +312,7 @@ export function AuditTab() {
               {data.map((e) => (
                 <tr key={e.id}>
                   <td>{dt(e.createdAt)}</td><td>{e.userEmail ?? "—"}</td><td>{LABEL[e.action] ?? e.action}</td>
-                  <td>{e.barbershopName ?? "—"}</td><td>{e.target ?? "—"}</td><td>{e.ip ?? "—"}</td>
+                  <td>{e.barbershopName ?? "—"}</td><td>{e.action === "LOGIN" ? METHOD[e.target ?? ""] ?? e.target : e.target ?? "—"}</td><td>{e.ip ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

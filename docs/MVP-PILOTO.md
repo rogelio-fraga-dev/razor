@@ -11,7 +11,8 @@ Pagamentos ficam de fora até a decisão de modelo (ver "Decisões pendentes").
 Cada parte termina com testes + build + Docker no ar + push, antes de abrir a próxima.
 
 Migrações reservadas: V46 bot · V47 automações · V48 painel · V49 cadastro · V50 monitoramento ·
-V51 console da plataforma · V52 área do cliente · V53 metas · V54 multiunidade · V55 vertical.
+V51 console da plataforma · V52 área do cliente · V53 metas · V54 multiunidade · V55 vertical ·
+V56 segurança do console (3c).
 
 ---
 
@@ -97,27 +98,23 @@ Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com
 - [x] Alertas ao dono e ao operador (3a); fotos em S3 opcional (3a).
 - [ ] Testes E2E com Playwright (adiado — vai para os débitos).
 
-**3c ⏳ — acesso ao console: 2FA mais fácil e sessão melhor (pedido em 23/11, antes da Parte 8)**
-Problema relatado: no Authy o código não funcionou. Causa provável: até confirmar, **cada tentativa de
-login gera uma chave nova** — a cadastrada no app deixa de valer se a pessoa volta/tenta de novo. E o
-campo aceita só os 6 dígitos que o app mostra (não a chave longa) — a tela não deixa isso claro.
-- [ ] **QR code** na configuração do 2FA (lido pela câmera no Google Authenticator, Authy, 1Password,
-      app Senhas do iOS/iPhone), com a chave manual ao lado e botão **copiar**; link "abrir no app" no celular.
-- [ ] **Chave estável até confirmar:** a mesma chave/QR em todas as tentativas; botão **"gerar novo QR"**
-      (invalida a anterior) quando a pessoa quiser recomeçar.
-- [ ] **2FA não obrigatório no primeiro acesso:** entra só com senha e vê um aviso fixo "ative a verificação
-      em duas etapas — faltam X dias" (prazo configurável, padrão 7). **Vencido o prazo, vira obrigatório**
-      (o login leva direto à configuração). Recomendação: enquanto não ativar, bloquear só o que é sensível
-      (ler conversas com telefone, trocar a chave da IA) — o resto do console funciona.
-- [ ] Tela **"Segurança"** dentro do console: ativar/desativar 2FA (pedindo um código), ver o QR de novo
-      (só reconfigurando), status e prazo.
-- [ ] Mensagens de erro claras: "digite os 6 números que o app mostra agora", aviso de relógio do celular
-      fora de hora, contador dos 30 s do código; aceitar código com espaço ("123 456").
-- [ ] **Códigos de recuperação** (10 de uso único, mostrados uma vez) para quem perder o celular.
-- [ ] **Sessão:** "sair de todos os dispositivos" (`token_version`), expiração por inatividade, aviso antes
-      de expirar, "lembrar este dispositivo por 30 dias" (pula o código no mesmo navegador), lista de acessos
-      recentes na aba Trilha com aparelho/IP.
-- [ ] Testes: QR/URI, chave estável entre tentativas, prazo de carência vencendo, códigos de recuperação.
+**3c ✅ (23/11) — acesso ao console: 2FA fácil e sessão melhor (V56)**
+Causa do erro no Authy confirmada e corrigida: a chave em configuração agora é **estável** (só muda com
+"gerar novo QR") e fica separada da ativa até ser confirmada.
+- [x] **QR code** gerado no servidor (zxing, a chave não vai para serviço de terceiros) + chave manual com
+      copiar + "abrir no app"; instruções para Google/Microsoft Authenticator, Authy, 1Password e Senhas do iPhone.
+- [x] **Carência de 7 dias** (`RAZOR_PLATFORM_MFA_GRACE_DAYS`/`mfa-grace-days`): entra só com a senha e vê a faixa
+      "faltam X dias"; ler conversas, trocar a chave da IA e parear WhatsApp ficam bloqueados (`MFA_REQUIRED`).
+      Vencido o prazo, o login leva à configuração e as sessões abertas só alcançam a configuração
+      (`MFA_SETUP_REQUIRED`).
+- [x] Aba **Segurança**: ativar, desativar (troca de celular, pede código), novos códigos de recuperação,
+      sessões recentes (aparelho, IP, como entrou, encerrar), aparelhos lembrados (esquecer), sair de todos.
+- [x] Código com contador dos 30 s, aceita "123 456", envia sozinho ao completar; mensagem de erro clara.
+- [x] **10 códigos de recuperação** (uso único, só o hash no banco), copiar/baixar .txt.
+- [x] **Sessão:** expira após 30 min sem uso (aviso 2 min antes com "continuar conectado"), máximo de 8 h,
+      "lembrar este aparelho por 30 dias" (cookie próprio, só o hash no banco), sair de todos.
+- [x] 9 testes novos (1019 no total); validado numa cópia do banco local (backup
+      `backups/pre-v56-20261123-1941.dump`) com todos os cenários pela API.
 
 ## Piloto na AWS — 1 semana, 2–3 barbearias ← PRÓXIMO (decidido em 23/11)
 Objetivo: rodar **uma semana** com barbearias reais em `razor.<seu-domínio>`, gastando o mínimo, e só então

@@ -30,8 +30,14 @@ public class RazorProperties {
         /** Primeiro administrador, criado no boot se nao houver nenhum. */
         private String adminEmail = "";
         private String adminPassword = "";
-        /** Duracao da sessao do console (minutos). */
+        /** Duracao maxima da sessao do console (minutos). */
         private long sessionMinutes = 480;
+        /** Sem uso por este tempo, a sessao do console expira (minutos). */
+        private long idleMinutes = 30;
+        /** Dias para ativar o 2FA depois do primeiro acesso; vencido, passa a ser obrigatorio. */
+        private int mfaGraceDays = 7;
+        /** "Lembrar este aparelho": dias sem pedir o codigo no mesmo navegador. */
+        private int trustedDeviceDays = 30;
         /** Preco por 1 milhao de tokens (USD), entrada e saida, por modelo — base do custo estimado. */
         private java.util.Map<String, java.util.List<Double>> prices = new java.util.LinkedHashMap<>(java.util.Map.of(
                 "gpt-4o-mini", java.util.List.of(0.15, 0.60),

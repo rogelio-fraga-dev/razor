@@ -13,7 +13,7 @@ _Última atualização: 2026-11-23_
   `razor.<domínio pessoal>` na AWS (conta do curso, plano gratuito), o mais barato possível. A estrutura é
   montada e fica **DESLIGADA até o usuário dizer "pode abrir o piloto"**. Nada é criado na AWS antes de ele
   mandar montar. Jurídico, CNPJ, marca e domínio próprio só depois do piloto.
-- **Ordem combinada:** Partes 4 e 3 ✅ → **3c** → **piloto na AWS** → pré-lançamento → Parte 8 → débitos. Partes **7, 9 e 6 (vídeo)** só
+- **Ordem combinada:** Partes 4, 3 e 3c ✅ → **piloto na AWS** (montar só quando o usuário mandar) → pré-lançamento → Parte 8 → débitos. Partes **7, 9 e 6 (vídeo)** só
   quando o usuário mandar (22/11).
 - **Regra de execução:** no máximo 2 frentes por vez; cada parte termina com testes + build +
   Docker no ar + push antes de abrir a próxima.
@@ -27,6 +27,7 @@ _Última atualização: 2026-11-23_
 | 4 — Automações | V47 | ✅ master (23/11) |
 | 3a — Monitoramento, alertas, storage de fotos | V50 | ✅ master (23/11) |
 | 3b — Console da plataforma (`/plataforma`, 2FA) | V51 | ✅ master (23/11) |
+| 3c — 2FA com QR, carência, recuperação, sessões | V56 | ✅ master (23/11) |
 | **8 — Onda 2** (área do cliente, metas, multiunidade) | V52–V54 | 🟡 **próxima** |
 | 7, 9 — WhatsApp oficial, salões/estética | V52–V55 | ⏸ só quando o usuário mandar |
 | 6 — Vídeos: Reels + tutoriais "Como configurar o site" e "Como configurar a IA" (landing, Ajuda e 1º acesso) | — | ⏸ por último, quando o usuário mandar |
@@ -98,12 +99,20 @@ _Última atualização: 2026-11-23_
 - **Não troque o `RAZOR_SECRETS_KEY` depois de usar:** o que foi cifrado com a chave antiga fica
   ilegível (a IA volta para a chave do ambiente e o 2FA precisa ser refeito).
 
-## Próximo passo: Parte 3c (acesso ao console) e depois o piloto na AWS
+## O que foi feito em 23/11 (Parte 3c — acesso ao console, V56)
 
-**3c — 2FA mais fácil e sessão melhor** (detalhes em `docs/MVP-PILOTO.md`, seção da Parte 3): QR code,
-chave estável até confirmar + "gerar novo QR", 2FA com prazo de carência (aviso de X dias, depois
-obrigatório), tela Segurança, códigos de recuperação, sessão (sair de todos, inatividade, lembrar
-dispositivo). Motivo: o cadastro no Authy falhou — a chave muda a cada tentativa antes de confirmar.
+- Worktree `.claude/worktrees/parte-3c`. O erro no Authy era a chave mudando a cada tentativa antes de
+  confirmar — agora a chave em configuração é estável e separada da ativa.
+- QR code gerado no servidor (dependência `com.google.zxing:core`), carência de 7 dias com aviso,
+  bloqueio de ações sensíveis sem 2FA, configuração forçada depois do prazo, códigos de recuperação,
+  sessões no banco (`platform_sessions`) com expiração por inatividade (30 min) e aviso no painel,
+  "lembrar este aparelho" (30 dias), aba Segurança, sair de todos. Trilha com os eventos novos.
+- Validado numa cópia do banco local, todos os cenários pela API; 1019 testes.
+- **Para entrar agora:** `http://localhost:3000/plataforma`, e-mail `admin@razor.local` e a senha que
+  está em `RAZOR_PLATFORM_ADMIN_PASSWORD` no `.env`. Entra só com a senha; a faixa amarela leva à aba
+  Segurança para ler o QR.
+
+## Próximo passo: piloto na AWS (só quando o usuário mandar montar)
 
 ### Depois: piloto na AWS
 

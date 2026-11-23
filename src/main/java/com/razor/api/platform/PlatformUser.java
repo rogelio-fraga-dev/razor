@@ -29,6 +29,12 @@ public class PlatformUser {
     private String passwordHash;
     @Column(name = "totp_secret_enc")
     private String totpSecretEnc;
+    /** Chave do 2FA em configuracao (cifrada), estavel ate confirmar (V56). */
+    @Column(name = "totp_pending_enc")
+    private String totpPendingEnc;
+    /** Fim da carencia sem 2FA (V56). */
+    @Column(name = "mfa_deadline_at")
+    private LocalDateTime mfaDeadlineAt;
     @Column(name = "totp_enabled", nullable = false)
     private boolean totpEnabled;
     @Column(name = "last_totp_step")

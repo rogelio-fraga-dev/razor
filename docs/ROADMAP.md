@@ -1504,9 +1504,9 @@ Detalhe item a item em `docs/MVP-PILOTO.md`; contexto de retomada em `docs/CONTE
 - [x] **Parte 3b — Console da plataforma (V51)** ✅ (23/11): `/plataforma` com sessão própria e 2FA,
       visão geral com custo de IA, saúde de todas as casas, chave/modelos da IA cifrados e trocáveis,
       conversas com filtros e trilha LGPD, métricas e caixa. 1015 testes.
-- [ ] **Parte 3c — acesso ao console** ← próxima: QR code no 2FA, chave estável + "gerar novo QR", 2FA com
-      prazo de carência (depois obrigatório), tela Segurança, códigos de recuperação, sessão melhor.
-- [ ] **Piloto na AWS** (depois da 3c): 1 semana, 2–3 barbearias, `razor.<domínio>` via Cloudflare Tunnel,
+- [x] **Parte 3c — acesso ao console** ✅ (23/11, V56): QR code, chave estável, carência de 7 dias, aba
+      Segurança, códigos de recuperação, sessões com inatividade, aparelho lembrado.
+- [ ] **Piloto na AWS** ← próximo, quando o usuário mandar montar: 1 semana, 2–3 barbearias, `razor.<domínio>` via Cloudflare Tunnel,
       t3.small só do Razor, montado e **desligado até o "pode abrir"**. Plano em `docs/MVP-PILOTO.md`.
 - [ ] **Pré-lançamento** (depois do piloto): jurídico/LGPD, CNPJ, marca e registro de software no INPI,
       domínio, cobrança, decisão sobre o WhatsApp oficial.
