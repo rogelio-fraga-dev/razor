@@ -126,8 +126,20 @@ Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com
   - [ ] Trocar as URLs do `og:image`/`canonical` quando houver domínio e testar no depurador da Meta.
   - [ ] Decidir o que acontece ao fim do teste grátis (hoje não bloqueia nada) — depende da cobrança.
 
-## Parte 6 — Vídeo para Reels (POR ÚLTIMO, depois de todas as atualizações, para mostrar o produto final)
-- [ ] Roteiro 30–45 s para narração + vídeo vertical dinâmico (limpo e legendado), fonte editável.
+## Parte 6 — Vídeos (POR ÚLTIMO, depois de todas as atualizações, para mostrar o produto final)
+- [ ] **Reels:** roteiro 30–45 s para narração + vídeo vertical dinâmico (limpo e legendado), fonte editável.
+- [ ] **Tutorial "Como configurar o site"** (vídeo 1) e **"Como configurar a IA"** (vídeo 2) —
+      dois vídeos separados (23/11), gravados no painel final, com legenda e fonte editável.
+      Onde aparecem:
+  - [ ] **Landing page:** seção "Veja como é fácil configurar" com os dois vídeos (carregar só ao
+        clicar — sem pesar a página; capa estática + play).
+  - [ ] **Ajuda dentro do sistema:** seção/menu "Ajuda" no painel com os dois vídeos.
+  - [ ] **Primeira vez:** ao abrir pela primeira vez a configuração do site (editor do site) ou da IA
+        (assistente/aba Bot & IA), mostrar o vídeo correspondente num modal, com "pular" e "não
+        mostrar de novo"; o "já viu" fica salvo por usuário no servidor (como o progresso do
+        assistente), não só no navegador.
+  - Formato: horizontal 16:9 (tela do computador) — o Reels continua vertical. Hospedagem: arquivo
+    próprio (MP4/WebM leve) ou YouTube não listado — decidir junto com o domínio/deploy.
 
 ## Parte 7 — WhatsApp oficial (Cloud API)
 Antes de vender em escala (a Evolution, não oficial, pode ter o número banido):

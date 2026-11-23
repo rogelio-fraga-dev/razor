@@ -1501,7 +1501,7 @@ Detalhe item a item em `docs/MVP-PILOTO.md`; contexto de retomada em `docs/CONTE
       a Evolution desligada.
 - [ ] **Parte 3 — Console da plataforma (V50 + V51)** ← próxima: rascunho de monitoramento/incidentes e
       storage S3 no worktree `agent-a7c84d8b86e8eb264`; telas do console e V51 não começaram.
-- [ ] Partes 7–9 (WhatsApp oficial, onda 2, salões/estética) e **Parte 6 — vídeo por último**.
+- [ ] Partes 7–9 (WhatsApp oficial, onda 2, salões/estética) e **Parte 6 — vídeos por último** (Reels + tutoriais de configuração do site e da IA para landing, Ajuda e primeiro acesso).
 - [ ] Legal: preencher campos e revisar com advogado. Domínio: trocar URLs do og:image/canonical.
 - [ ] Decisões: cobrança (o fim do teste hoje não bloqueia nada), pagamentos, NFS-e, domínio/deploy.
 - [ ] Débito: `npm audit` (esbuild/vite, só dev → vite 6+); ITs com Testcontainers não rodam

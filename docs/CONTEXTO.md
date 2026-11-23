@@ -25,7 +25,7 @@ _Última atualização: 2026-11-23_
 | **3 — Console da plataforma / monitoramento** | V50 + V51 | 🟡 **próxima** — rascunho no worktree `agent-a7c84d8b86e8eb264` |
 | 8 — Onda 2 | — | ⏳ |
 | 7, 9 — WhatsApp oficial, salões/estética | V52–V55 | ⏸ só quando o usuário mandar |
-| 6 — Vídeo para Reels | — | ⏸ por último, quando o usuário mandar |
+| 6 — Vídeos: Reels + tutoriais "Como configurar o site" e "Como configurar a IA" (landing, Ajuda e 1º acesso) | — | ⏸ por último, quando o usuário mandar |
 
 ## O que foi feito em 23/11 (Parte 4)
 
