@@ -9,8 +9,9 @@ _Última atualização: 2026-11-23_
 
 ## Onde estamos
 
-- **Fase:** MVP para 3–5 barbearias piloto, **só local** (sem domínio, sem clientes, sem cobrança).
-- **Ordem combinada:** Partes 4 e 3 ✅ → **Parte 8** → débitos. Partes **7, 9 e 6 (vídeo)** só
+- **Fase:** MVP. Até aqui só local. **Decidido em 23/11:** piloto com 2–3 barbearias reais na AWS (plano
+  gratuito, endereço público do EC2, sem domínio) por 2–4 semanas; jurídico, CNPJ, marca, domínio depois.
+- **Ordem combinada:** Partes 4 e 3 ✅ → **3c** → **piloto na AWS** → pré-lançamento → Parte 8 → débitos. Partes **7, 9 e 6 (vídeo)** só
   quando o usuário mandar (22/11).
 - **Regra de execução:** no máximo 2 frentes por vez; cada parte termina com testes + build +
   Docker no ar + push antes de abrir a próxima.
@@ -95,14 +96,20 @@ _Última atualização: 2026-11-23_
 - **Não troque o `RAZOR_SECRETS_KEY` depois de usar:** o que foi cifrado com a chave antiga fica
   ilegível (a IA volta para a chave do ambiente e o 2FA precisa ser refeito).
 
-## Próximo passo: Parte 3c (acesso ao console) e depois a Parte 8
+## Próximo passo: Parte 3c (acesso ao console) e depois o piloto na AWS
 
 **3c — 2FA mais fácil e sessão melhor** (detalhes em `docs/MVP-PILOTO.md`, seção da Parte 3): QR code,
 chave estável até confirmar + "gerar novo QR", 2FA com prazo de carência (aviso de X dias, depois
 obrigatório), tela Segurança, códigos de recuperação, sessão (sair de todos, inatividade, lembrar
 dispositivo). Motivo: o cadastro no Authy falhou — a chave muda a cada tentativa antes de confirmar.
 
-### Parte 8 — Onda 2
+### Depois: piloto na AWS
+
+Plano completo em `docs/MVP-PILOTO.md` (seção "Piloto na AWS"): servidor (cuidado com memória — 1 GB não
+basta sem swap), HTTPS sem domínio (`IP.sslip.io` + Let's Encrypt), backup diário, limite de gasto na
+OpenAI, acordo simples com as barbearias, o que medir no console e o relatório final do piloto.
+
+### Parte 8 — Onda 2 (depois do pré-lançamento)
 
 Área do cliente no site (V52: código pelo WhatsApp, ver/remarcar/cancelar, pacote, clube), metas e
 ranking com comissão variável (V53), multiunidade (V54), botão "Reservar" no Instagram.

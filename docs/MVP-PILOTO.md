@@ -5,7 +5,7 @@ Pagamentos ficam de fora até a decisão de modelo (ver "Decisões pendentes").
 
 **Ordem combinada (18/11):** Parte 5 → Parte 4 → Parte 3 → demais → vídeo por último.
 
-**Situação em 23/11:** Partes 1, 2, 3, 4 e 5 ✅ no master e no Docker local · próximo: Parte 8 e débitos (7, 9 e 6 só quando o usuário mandar). Contexto completo em `docs/CONTEXTO.md`.
+**Situação em 23/11:** Partes 1, 2, 3, 4 e 5 ✅ no master e no Docker local · próximo: **3c → piloto na AWS (2–3 barbearias, 2–4 semanas) → pré-lançamento → Parte 8** (7, 9 e 6 só quando o usuário mandar). Contexto completo em `docs/CONTEXTO.md`.
 
 **Como executamos:** em PARTES, no máximo 2 frentes por vez (para não estourar o limite de uso).
 Cada parte termina com testes + build + Docker no ar + push, antes de abrir a próxima.
@@ -118,6 +118,61 @@ campo aceita só os 6 dígitos que o app mostra (não a chave longa) — a tela 
       de expirar, "lembrar este dispositivo por 30 dias" (pula o código no mesmo navegador), lista de acessos
       recentes na aba Trilha com aparelho/IP.
 - [ ] Testes: QR/URI, chave estável entre tentativas, prazo de carência vencendo, códigos de recuperação.
+
+## Piloto na AWS (2–3 barbearias, 2–4 semanas) ← PRÓXIMO (decidido em 23/11)
+Objetivo: rodar com barbearias reais num servidor público barato, medir e só então decidir o que o
+lançamento precisa. Ordem: **3c (acesso ao console) → piloto → avaliação → pré-lançamento → Parte 8**.
+
+**1. Servidor (AWS, conta nova no plano gratuito)**
+- [ ] Criar a conta AWS com alerta de gasto (AWS Budgets: aviso em US$ 1, 5 e 10) e MFA no usuário raiz.
+- [ ] Conferir as regras atuais do plano gratuito ao criar a conta (a AWS mudou em 2025: contas novas
+      recebem créditos por tempo limitado em vez dos 12 meses antigos) — anotar o que vale e até quando.
+- [ ] **Memória é o ponto crítico:** o stack (Java + Postgres + Evolution + painel + site) não cabe com
+      folga em 1 GB (t2/t3.micro). Opções: t3.small (2 GB, provavelmente coberta pelos créditos) ou micro +
+      swap de 2 GB + limites de memória nos containers. Decidir medindo no próprio EC2.
+- [ ] Ubuntu + Docker, reaproveitando `setup-ec2.sh` e `docker-compose.prod.yml` (revisar: o script ainda
+      tem o nome antigo "BarberBot"); **Elastic IP** para o endereço não mudar a cada reinício.
+- [ ] Security group: só 80/443 (e 22 restrito ao seu IP); Postgres, Evolution e backend fechados para fora.
+- [ ] Segredos de produção no `.env` do servidor (`RAZOR_STRICT_SECRETS=true`: JWT, webhook, onboarding,
+      `RAZOR_SECRETS_KEY`, senha do Postgres, chave da OpenAI) — nunca os de dev.
+
+**2. Endereço público e HTTPS (sem domínio ainda)**
+- [ ] Link padrão do EC2 (`ec2-…compute.amazonaws.com`) ou o IP. Atenção: **sem HTTPS** o login do painel
+      não funciona (cookie Secure) e dado de cliente trafega aberto — não usar com clientes reais assim.
+- [ ] HTTPS sem comprar domínio: endereço tipo `IP.sslip.io` + certificado Let's Encrypt (Caddy ou
+      nginx/certbot na frente). Validar no início do piloto; se não der, um domínio barato resolve.
+- [ ] Trocar `og:url`/`canonical`/links do site e `RAZOR_CORS_ORIGINS`/`RAZOR_PANEL_URL` para o endereço do piloto.
+
+**3. Operação durante o piloto**
+- [ ] Backup diário do Postgres (`pg_dump` agendado) para fora da máquina (S3, dentro do gratuito) + teste
+      de restauração uma vez.
+- [ ] Alerta do operador ligado (`RAZOR_OPERATOR_WEBHOOK_URL` ou log) e console `/plataforma` com 2FA.
+- [ ] OpenAI: chave própria do piloto com **limite de gasto mensal** na conta da OpenAI.
+- [ ] WhatsApp: um número por barbearia (Evolution, não oficial — risco de bloqueio aceito no piloto).
+- [ ] Acordo simples de piloto com cada barbearia (o que é, prazo, que os dados dos clientes ficam no
+      sistema e são apagados se sair) — antes da revisão jurídica completa.
+
+**4. As 2–3 barbearias**
+- [ ] Escolher casas conhecidas (de preferência uma com 1 barbeiro e outra com equipe).
+- [ ] Cadastro pelo próprio fluxo (`/cadastro` → assistente) com você acompanhando a primeira vez.
+- [ ] Canal direto de suporte (grupo de WhatsApp) e anotação de cada problema/pedido.
+
+**5. O que medir (console `/plataforma`) e decidir no fim**
+- [ ] Custo real de IA por barbearia/mês, mensagens/dia, agendamentos pela IA, tempo de resposta, erros,
+      alertas de saúde, uso de memória/CPU do EC2.
+- [ ] Perguntas a responder: o servidor aguenta quantas casas? qual plano/preço cobre o custo? o que os
+      donos mais pediram? o WhatsApp caiu/bloqueou? o que precisa estar pronto para abrir para 10+?
+- [ ] Relatório do piloto em `docs/` com números e a lista do pré-lançamento.
+
+## Pré-lançamento (depois do piloto)
+- [ ] Jurídico/LGPD: preencher e revisar com advogado Termos, Privacidade, Cancelamento e o contrato
+      com as barbearias (o Razor é operador dos dados dos clientes delas).
+- [ ] Abrir CNPJ (ver com contador: desenvolvimento de software geralmente não cabe no MEI → ME no Simples).
+- [ ] Registro da marca no INPI (busca de anterioridade antes de fixar o nome "Razor").
+- [ ] Registro do programa de computador no INPI (opcional, barato, prova de autoria).
+- [ ] Domínio (`.com.br` no registro.br, exige CPF/CNPJ), e-mail profissional, HTTPS definitivo.
+- [ ] Cobrança da assinatura e o que acontece no fim do teste grátis.
+- [ ] Decidir o WhatsApp oficial (Parte 7) conforme o que o piloto mostrar.
 
 ## Parte 4 — Automações (V47) ✅ (merge `68fc4ec`, 23/11)
 - [x] Lista de espera automática ao cancelar: oferta persistida com prazo (padrão 15 min), uma vaga

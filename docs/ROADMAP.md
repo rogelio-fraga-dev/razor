@@ -1506,6 +1506,10 @@ Detalhe item a item em `docs/MVP-PILOTO.md`; contexto de retomada em `docs/CONTE
       conversas com filtros e trilha LGPD, métricas e caixa. 1015 testes.
 - [ ] **Parte 3c — acesso ao console** ← próxima: QR code no 2FA, chave estável + "gerar novo QR", 2FA com
       prazo de carência (depois obrigatório), tela Segurança, códigos de recuperação, sessão melhor.
+- [ ] **Piloto na AWS** (depois da 3c): 2–3 barbearias reais, 2–4 semanas, EC2 com endereço público, HTTPS
+      sem domínio, backup diário, medir custo/uso no console. Plano em `docs/MVP-PILOTO.md`.
+- [ ] **Pré-lançamento** (depois do piloto): jurídico/LGPD, CNPJ, marca e registro de software no INPI,
+      domínio, cobrança, decisão sobre o WhatsApp oficial.
 - [ ] **Parte 8 — Onda 2**: área do cliente (V52), metas/ranking (V53), multiunidade (V54).
 - [ ] Débito: testes E2E com Playwright.
 - [ ] Partes 7–9 (WhatsApp oficial, onda 2, salões/estética) e **Parte 6 — vídeos por último** (Reels + tutoriais de configuração do site e da IA para landing, Ajuda e primeiro acesso).
