@@ -166,7 +166,7 @@ function PlatformLogin({ onDone }: { onDone: () => void }) {
               )}
               <div className="field">
                 <label>Código de 6 dígitos do app
-                  <input className="input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus
+                  <input className="input" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
                     value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} required />
                 </label>
               </div>
