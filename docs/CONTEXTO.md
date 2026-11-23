@@ -3,7 +3,7 @@
 Arquivo para retomar o trabalho de onde parou (também numa sessão nova do Claude Code).
 Plano detalhado: `docs/MVP-PILOTO.md` · Visão de produto e histórico: `docs/ROADMAP.md`.
 
-_Última atualização: 2026-11-23_
+_Última atualização: 2026-11-23 (noite) — sessão salva; tudo no master e no GitHub_
 
 ---
 
@@ -125,6 +125,30 @@ do curso**, que roda na mesma conta (o usuário de CLI tem acesso de administrad
 
 Área do cliente no site (V52: código pelo WhatsApp, ver/remarcar/cancelar, pacote, clube), metas e
 ranking com comissão variável (V53), multiunidade (V54), botão "Reservar" no Instagram.
+
+## Lista do que falta (resumo — detalhes em `docs/MVP-PILOTO.md`)
+
+✋ = depende do usuário.
+
+1. **Montar o piloto na AWS — só com "pode montar":** revisar produção (memória, swap, logs, `setup-ec2.sh`);
+   criar `razor-*` com tag `projeto=razor` (security group fechado, papel SSM, bucket de backup, orçamento
+   US$ 5/10, EC2 t3.small 16 GB sem IP fixo); ✋ token da Cloudflare (ou túnel criado no painel); Docker +
+   Cloudflare Tunnel em `razor.<domínio>`; segredos de produção; ✋ chave da OpenAI do piloto com limite;
+   subir e testar tudo; backup + restauração; **desligar**.
+2. **Abrir o piloto — só com "pode abrir o piloto":** ✋ 2–3 barbearias e acordo simples; ligar; cadastrar e
+   conectar WhatsApp; ✋ grupo de suporte.
+3. **Semana do piloto:** acompanhar o console todo dia, anotar pedidos, corrigir o urgente.
+4. **Encerramento:** backup final, relatório em `docs/`, ✋ desligar/manter/apagar.
+5. **Pré-lançamento:** ✋ jurídico/LGPD com advogado, ✋ CNPJ (contador), ✋ marca e registro de software no
+   INPI, ✋ domínio `.com.br` + e-mail, cobrança da assinatura, ✋ WhatsApp oficial, ✋ o que fazer quando o
+   plano gratuito da AWS acabar (05/2027, vale também para o curso).
+6. **Parte 8:** área do cliente (V52), metas/ranking (V53), multiunidade (V54), "Reservar" no Instagram.
+7. **Débitos:** Playwright E2E, Vite 6+ (`npm audit`), code-split do painel, ITs com Testcontainers nesta máquina.
+8. **Só quando o usuário mandar:** Parte 7 (WhatsApp oficial), Parte 9 (salões/estética), Parte 6 (Reels +
+   tutoriais "Como configurar o site" e "Como configurar a IA").
+
+**Pendente do usuário agora:** testar o 2FA novo em `http://localhost:3000/plataforma`
+(`admin@razor.local`, senha em `RAZOR_PLATFORM_ADMIN_PASSWORD` no `.env`).
 
 ## Pendências fora das partes
 
