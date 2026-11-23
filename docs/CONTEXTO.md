@@ -22,7 +22,8 @@ _Última atualização: 2026-11-23_
 | 2 — Painel e tema claro | (V48 não usada) | ✅ master |
 | 5 — Cadastro, assistente, páginas legais, og:image | V49 | ✅ master (19/11) |
 | 4 — Automações | V47 | ✅ master (23/11) |
-| **3 — Console da plataforma / monitoramento** | V50 + V51 | 🟡 **próxima** — rascunho no worktree `agent-a7c84d8b86e8eb264` |
+| 3a — Monitoramento, alertas, storage de fotos | V50 | ✅ master (23/11) |
+| **3b — Console da plataforma (PLATFORM_ADMIN)** | V51 | 🟡 **próxima** — não começou |
 | 8 — Onda 2 | — | ⏳ |
 | 7, 9 — WhatsApp oficial, salões/estética | V52–V55 | ⏸ só quando o usuário mandar |
 | 6 — Vídeos: Reels + tutoriais "Como configurar o site" e "Como configurar a IA" (landing, Ajuda e 1º acesso) | — | ⏸ por último, quando o usuário mandar |
@@ -53,14 +54,30 @@ _Última atualização: 2026-11-23_
 - Lista de espera automática também vem ligada: um cancelamento oferece a vaga a quem está na fila.
 - Campanhas vêm desligadas.
 
-## Próximo passo (Parte 3 — Console da plataforma, V50 + V51)
+## O que foi feito em 23/11 (Parte 3a — monitoramento, V50)
 
-No worktree `.claude/worktrees/agent-a7c84d8b86e8eb264` (commit `9608fcc`, não testado):
-1. `git merge master` (o worktree é anterior às Partes 4 e 5).
-2. Compilar, testes, revisar saúde/incidentes/aviso ao operador/storage de imagens.
-3. Validar V50 numa cópia do banco local (como na V47: `pg_dump` → `postgres:15-alpine` descartável,
-   `EVOLUTION_BASE_URL=http://127.0.0.1:9`), derrubar depois.
-4. Telas do console, V51, backup, Docker, merge, push.
+1. Worktree `agent-a7c84d8b86e8eb264`: merge do master (3 conflitos, todos "os dois lados
+   acrescentaram": sinais de saúde + escalonamento da IA + presença "digitando").
+2. Corrigido: JPQL com enum aninhado no `SystemIncidentRepository` e construtor ambíguo do
+   `OperatorNotifier` (os dois derrubavam o boot — achados subindo o jar); horários dos incidentes
+   no fuso de São Paulo.
+3. Painel: faixa de alerta (dono e recepção; barbeiro não) e card **Saúde do sistema** na aba Status.
+4. 12 testes novos → **1001 verdes**. V50 validada numa cópia do banco local (backup
+   `backups/pre-v50-20261123-1331.dump`) com a Evolution "morta": abriu `EVOLUTION_UNAVAILABLE`
+   como incidente de plataforma; permissões conferidas. V50 aplicada no banco local; stack no ar.
+5. Por volta de 13:10 o Docker parou todos os containers (inclusive de outro projeto) por fora —
+   religado só o do Razor.
+6. Como a Evolution está parada, o painel local mostra a faixa "serviço de WhatsApp fora do ar" —
+   é o monitor funcionando; some quando o `--profile bot` subir.
+
+## Próximo passo (Parte 3b — console da plataforma, V51)
+
+Acesso único do dono da plataforma (papel `PLATFORM_ADMIN`, fora dos tenants, com 2FA):
+1. V51: usuário de plataforma + 2FA (TOTP), uso de IA por barbearia (tokens/custo), chave da
+   OpenAI cifrada, log de acesso a conversas (LGPD), receitas manuais ("Caixa do Razor").
+2. Telas: visão geral, saúde de todas as barbearias (reusa os incidentes da V50), chave/modelos
+   da IA, conversas com filtros, gráficos, caixa.
+3. Mesmo roteiro: testes, cópia do banco, Docker, merge, push.
 
 ## Pendências fora das partes
 

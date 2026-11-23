@@ -68,11 +68,16 @@ como TWA (Trusted Web Activity):
 5. Play Console: conta de desenvolvedor, ficha (screenshots de `web/public/screenshots`), política
    de privacidade (Parte 5) e envio para teste interno antes da produção.
 
-## Parte 3 — Console do desenvolvedor / plataforma (V50 + V51) — 🟡 rascunho
-Rascunho no worktree `agent-a7c84d8b86e8eb264` (commit `9608fcc`, NÃO testado/mesclado): health indicator,
-`SystemIncident` + `IncidentService`, `SystemHealthMonitor`, `OperatorNotifier`, `AdminSystemHealthController`,
-storage de imagens plugável (banco ou S3) e `V50__monitoring_and_image_storage.sql`. Falta revisar, testar e
-fazer as telas do console; V51 não começou.
+## Parte 3 — Console do desenvolvedor / plataforma (V50 + V51)
+**3a ✅ (merge `651d71e`, 23/11) — monitoramento (V50):** monitor a cada 2 min (WhatsApp por barbearia,
+IA, envios, fila de lembretes, motor de tarefas, Evolution fora), incidentes deduplicados no banco
+(um aberto por barbearia+tipo), aviso ao dono pelo WhatsApp só quando o canal funciona (intervalo
+mínimo 6h) e ao operador por webhook/log (opt-in, `RAZOR_OPERATOR_WEBHOOK_URL`). Painel: faixa de
+alerta para dono e recepção + card **Saúde do sistema** em Configurações → Status. Fotos do site em
+banco (padrão) ou S3 (`RAZOR_STORAGE_TYPE=s3`). Corrigido na revisão: JPQL com enum aninhado e
+construtor ambíguo do `OperatorNotifier` (os dois derrubavam o boot), horários em UTC.
+
+**3b ⏳ — console da plataforma (V51):** tudo abaixo.
 Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com 2FA):
 - [ ] Visão geral: barbearias, status (teste/ativa), uso de IA por barbearia, custo estimado de IA.
 - [ ] Saúde: instâncias do WhatsApp (conectar/reconectar/QR), falhas da IA, fila de envio, incidentes.
