@@ -34,6 +34,8 @@ public class OpenAIService {
     private final com.razor.api.repository.ServiceOfferingRepository serviceOfferingRepository;
     private final PlanPricingService planPricingService;
     private final PackageService packageService;
+    /** Sucesso/falha da IA por barbearia para o monitor de saude (V50). Nulo so em teste. */
+    private final HealthSignals healthSignals;
     private final PricingService pricingService;
     /** Modelo mais forte (gpt-4o); nulo nos testes = sem escalonamento. */
     private final ChatEscalation chatEscalation;
@@ -381,10 +383,13 @@ public class OpenAIService {
             
             messages.addAll(buildHistoryMessages(recentHistory, userMessage));
 
-            return generateWithEscalation(messages);
+            String text = generateWithEscalation(messages);
+            if (healthSignals != null) healthSignals.aiSuccess();
+            return text;
         } catch (Exception e) {
             // Nada de responder "deu um erro" como se fosse a IA: quem chama manda a mensagem de
             // contingencia (sem grava-la como fala do bot) e avisa o dono.
+            if (healthSignals != null) healthSignals.aiFailure(e);
             log.error("[IA] Falha ao gerar resposta do chat", e);
             throw new AiUnavailableException("IA indisponivel: " + e.getMessage(), e);
         }

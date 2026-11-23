@@ -27,15 +27,23 @@ public interface SiteImageRepository extends JpaRepository<SiteImage, UUID> {
         Integer getSizeBytes();
 
         LocalDateTime getCreatedAt();
+
+        /** Onde os bytes estao (V50): DB ou S3. */
+        String getStorageBackend();
     }
 
-    @Query("select i.id as id, i.contentType as contentType, i.sizeBytes as sizeBytes, i.createdAt as createdAt "
+    @Query("select i.id as id, i.contentType as contentType, i.sizeBytes as sizeBytes, i.createdAt as createdAt, "
+            + "i.storageBackend as storageBackend "
             + "from SiteImage i where i.barbershopId = :shop order by i.createdAt desc")
     List<Info> listInfo(@Param("shop") UUID barbershopId);
 
     long countByBarbershopId(UUID barbershopId);
 
     boolean existsByIdAndBarbershopId(UUID id, UUID barbershopId);
+
+    /** Backend da foto (V50) — para apagar o arquivo no lugar certo. */
+    @Query("select i.storageBackend from SiteImage i where i.id = :id and i.barbershopId = :shop")
+    java.util.Optional<String> findBackend(@Param("id") UUID id, @Param("shop") UUID barbershopId);
 
     @Modifying
     @Query("delete from SiteImage i where i.id = :id and i.barbershopId = :shop")

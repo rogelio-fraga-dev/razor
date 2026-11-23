@@ -35,6 +35,8 @@ public class RazorScheduler {
     private final com.razor.api.service.BarbershopSettingsService barbershopSettingsService;
     private final com.razor.api.service.AppointmentConfirmationService confirmationService;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+    /** Batimento do motor para o monitor de saude (V50). Nulo so em teste unitario. */
+    private final com.razor.api.service.HealthSignals healthSignals;
     private final com.razor.api.service.AutomationSettingsService automationSettingsService;
 
     /**
@@ -86,6 +88,7 @@ public class RazorScheduler {
         // dispararia tarefas 3 horas antes do previsto.
         LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"));
         log.debug("[SCHEDULER] Rodando motor de tarefas. Hora BRT: {}", now);
+        if (healthSignals != null) healthSignals.schedulerBeat();
 
         List<ScheduledTask> pendingTasks = taskRepository.findByStatusAndExecutionTimeBeforeOrderByExecutionTimeAsc(
                 ScheduledTask.TaskStatus.PENDING, now,

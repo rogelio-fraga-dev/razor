@@ -35,8 +35,17 @@ public class SiteImage {
     @Column(name = "content_type", nullable = false, length = 20)
     private String contentType;
 
-    @Column(name = "bytes", nullable = false, columnDefinition = "bytea")
+    /**
+     * Os bytes da foto quando ela mora no banco ({@code storageBackend = DB}). Nulo quando mora
+     * no S3 (V50) — ai a linha e so o registro e quem guarda o arquivo e o {@code ImageStorage}.
+     */
+    @Column(name = "bytes", columnDefinition = "bytea")
     private byte[] bytes;
+
+    /** Onde os bytes estao (V50): {@code DB} (padrao) ou {@code S3}. */
+    @Builder.Default
+    @Column(name = "storage_backend", nullable = false, length = 10)
+    private String storageBackend = "DB";
 
     @Column(name = "size_bytes", nullable = false)
     private Integer sizeBytes;

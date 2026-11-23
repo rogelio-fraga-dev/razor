@@ -2,6 +2,7 @@ package com.razor.api.service;
 
 import com.razor.api.client.EvolutionClient;
 import com.razor.api.dto.MessageDTO;
+import com.razor.api.tenant.TenantContext;
 import com.razor.api.tenant.TenantResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -27,6 +29,8 @@ public class WhatsAppService {
 
     private final EvolutionClient evolutionClient;
     private final TenantResolver tenantResolver;
+    /** Sucesso/falha de envio por barbearia para o monitor de saude (V50). Nulo so em teste. */
+    private final HealthSignals healthSignals;
 
     /** Tempo maximo esperando a Evolution confirmar um envio sincrono. */
     static final Duration SYNC_SEND_TIMEOUT = Duration.ofSeconds(30);
@@ -38,10 +42,14 @@ public class WhatsAppService {
      */
     public void sendTextMessage(String phone, String message) {
         String instance = tenantResolver.outboundInstance();
+        // O tenant vai capturado junto: o ThreadLocal nao atravessa o runAsync.
+        UUID shop = currentShop();
         CompletableFuture.runAsync(() -> {
             try {
                 evolutionClient.sendTextMessage(instance, phone, message).block(SYNC_SEND_TIMEOUT);
+                recordSend(shop, true);
             } catch (Exception e) {
+                recordSend(shop, false);
                 log.error("Erro ao enviar mensagem para {}: {}", phone, e.getMessage(), e);
             }
         });
@@ -55,11 +63,24 @@ public class WhatsAppService {
      */
     public void sendTextMessageSync(String phone, String message) {
         String instance = tenantResolver.outboundInstance();
+        UUID shop = currentShop();
         try {
             evolutionClient.sendTextMessage(instance, phone, message).block(SYNC_SEND_TIMEOUT);
+            recordSend(shop, true);
         } catch (Exception e) {
+            recordSend(shop, false);
             throw new WhatsAppSendException("Falha ao enviar mensagem para " + phone + ": " + e.getMessage(), e);
         }
+    }
+
+    private static UUID currentShop() {
+        return TenantContext.isSet() ? TenantContext.getCurrent() : null;
+    }
+
+    private void recordSend(UUID shop, boolean ok) {
+        if (healthSignals == null || shop == null) return;
+        if (ok) healthSignals.sendSuccess(shop);
+        else healthSignals.sendFailure(shop);
     }
 
     /**

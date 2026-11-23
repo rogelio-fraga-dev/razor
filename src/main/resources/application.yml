@@ -17,6 +17,13 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
+  # Pool dos @Scheduled. Com 1 thread (padrao do Boot), o motor de tarefas travado travaria
+  # tambem o monitor de saude (V50) que deveria denuncia-lo, e os relatorios das 08h/21h.
+  task:
+    scheduling:
+      pool:
+        size: "${RAZOR_SCHEDULER_THREADS:3}"
+
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -42,6 +49,18 @@ server:
   forward-headers-strategy: native
 
 management:
+  # So o health fica exposto na web (o padrao do Boot, explicito para ninguem ligar env/beans
+  # por engano). Detalhes desligados por padrao: o compose so precisa do status. Com
+  # RAZOR_HEALTH_DETAILS=always aparecem os detalhes de db, disco e o componente "razor" (V50: incidentes
+  # abertos por tipo, batimento do motor de tarefas, storage das fotos) — nada de segredo.
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: "${RAZOR_HEALTH_DETAILS:never}"
+      show-components: "${RAZOR_HEALTH_COMPONENTS:always}"
   health:
     # O starter do Redis esta no classpath so pelo adaptador de StateStore opcional. Com
     # store=memory (padrao) nao ha Redis, entao o health check dele ficaria DOWN a toa —
@@ -66,6 +85,30 @@ razor:
     base-url: "${EVOLUTION_BASE_URL:http://localhost:8080}"
     instance-name: "BarberBotOficial"
     api-key: "${EVOLUTION_API_KEY:barberbot}"
+  # Monitoramento de saude por barbearia (V50): WhatsApp desconectado, IA falhando, envios
+  # falhando, fila parada, motor de tarefas parado. Vira incidente no painel (Configuracoes →
+  # Status e banner) e, quando o canal funciona, aviso no WhatsApp do dono com intervalo minimo.
+  # O aviso ao OPERADOR da plataforma e opt-in: webhook (Slack/Discord/JSON) e/ou linha de log.
+  monitoring:
+    enabled: "${RAZOR_MONITORING_ENABLED:true}"
+    interval-ms: "${RAZOR_MONITORING_INTERVAL_MS:120000}"
+    owner-cooldown-hours: "${RAZOR_MONITORING_OWNER_COOLDOWN_HOURS:6}"
+    operator-cooldown-minutes: "${RAZOR_MONITORING_OPERATOR_COOLDOWN_MINUTES:60}"
+    operator-webhook-url: "${RAZOR_OPERATOR_WEBHOOK_URL:}"
+    operator-log-alerts: "${RAZOR_OPERATOR_LOG_ALERTS:false}"
+  # Onde ficam as fotos do site (V50): "db" (padrao, no Postgres) ou "s3" (bucket S3 compativel:
+  # AWS, MinIO, R2). A URL publica /api/site/img/{uuid} nao muda: o backend le do bucket
+  # (privado) e responde. Credenciais vazias = cadeia padrao da AWS (AWS_*, perfil, IAM role).
+  storage:
+    type: "${RAZOR_STORAGE_TYPE:db}"
+    s3:
+      bucket: "${RAZOR_S3_BUCKET:}"
+      region: "${RAZOR_S3_REGION:us-east-1}"
+      endpoint: "${RAZOR_S3_ENDPOINT:}"
+      prefix: "${RAZOR_S3_PREFIX:site-images/}"
+      access-key: "${RAZOR_S3_ACCESS_KEY:}"
+      secret-key: "${RAZOR_S3_SECRET_KEY:}"
+      path-style: "${RAZOR_S3_PATH_STYLE:false}"
   onboarding:
     # Vazio por padrão = onboarding desabilitado (fail-closed). Defina ONBOARDING_API_KEY
     # no ambiente para habilitar o provisionamento de novas barbearias.

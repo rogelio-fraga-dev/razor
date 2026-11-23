@@ -10,6 +10,7 @@ import { Tabs, panelId, tabId, type TabDef } from "../components/Tabs";
 import { BookingLimitCard } from "../components/BookingLimitCard";
 import { NoShowSettingsCard } from "../components/NoShowSettingsCard";
 import { ReviewSettingsCard } from "../components/ReviewSettingsCard";
+import { SystemHealthCard } from "../components/SystemHealth";
 import { AutomationSettingsCard } from "../components/AutomationSettingsCard";
 import { evaluateConfig } from "../lib/configCompleteness";
 import { fillBot } from "../lib/botSettings";
@@ -601,7 +602,13 @@ export function Settings() {
         <Tabs tabs={TABS} active={tab} onChange={setTab} idPrefix={TAB_PREFIX} label="Seções de configuração" />
       </div>
 
-      {panel("status", <BotStatusCard reloadKey={configVersion} />)}
+      {panel(
+        "status",
+        <>
+          <BotStatusCard reloadKey={configVersion} />
+          <SystemHealthCard reloadKey={configVersion} />
+        </>,
+      )}
       {panel("whatsapp", <WhatsAppCard reloadKey={configVersion} />)}
       {panel(
         "bot",

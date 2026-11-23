@@ -27,7 +27,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -40,7 +39,9 @@ class SiteImageServiceTest {
 
     @Mock private SiteImageRepository repository;
     @Mock private BarbershopSiteRepository siteRepository;
-    @InjectMocks private SiteImageService service;
+    private SiteImageService service;
+    /** Storage "remoto" falso (faz o papel do S3) para provar que o servico nao depende do banco. */
+    private final FakeRemoteStorage remote = new FakeRemoteStorage();
 
     private static final UUID SHOP = UUID.randomUUID();
     private static final UUID OTHER_SHOP = UUID.randomUUID();
@@ -52,8 +53,37 @@ class SiteImageServiceTest {
         static final byte[] JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 1, 2, 3};
     }
 
+    /** Guarda os bytes num mapa, como um bucket. */
+    static final class FakeRemoteStorage implements com.razor.api.service.storage.ImageStorage {
+        final java.util.Map<UUID, byte[]> objects = new java.util.HashMap<>();
+        final List<UUID> deleted = new java.util.ArrayList<>();
+
+        public String backend() { return "S3"; }
+
+        public void put(SiteImage image, byte[] bytes) {
+            objects.put(image.getId(), bytes);
+            image.setBytes(null);
+        }
+
+        public Optional<byte[]> get(SiteImage image) { return Optional.ofNullable(objects.get(image.getId())); }
+
+        public void delete(UUID shop, UUID id) {
+            objects.remove(id);
+            deleted.add(id);
+        }
+    }
+
+    private SiteImageService serviceWith(String type) {
+        var props = new com.razor.api.config.RazorProperties();
+        props.getStorage().setType(type);
+        var registry = new com.razor.api.service.storage.ImageStorageRegistry(
+                List.of(new com.razor.api.service.storage.DbImageStorage(), remote), props);
+        return new SiteImageService(repository, siteRepository, registry);
+    }
+
     @BeforeEach
     void tenant() {
+        service = serviceWith("db");
         TenantContext.set(SHOP);
         when(repository.save(any(SiteImage.class))).thenAnswer(inv -> {
             SiteImage i = inv.getArgument(0);
@@ -73,6 +103,7 @@ class SiteImageServiceTest {
             public String getContentType() { return "image/jpeg"; }
             public Integer getSizeBytes() { return 10; }
             public LocalDateTime getCreatedAt() { return createdAt; }
+            public String getStorageBackend() { return "DB"; }
         };
     }
 
@@ -194,5 +225,68 @@ class SiteImageServiceTest {
         when(repository.findById(id)).thenReturn(Optional.of(
                 SiteImage.builder().id(id).barbershopId(SHOP).contentType("text/html").bytes(new byte[] {1}).sizeBytes(1).build()));
         assertThat(service.publicImage(id)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("banco (padrão): os bytes vão no próprio registro, marcado como DB")
+    void dbStorageKeepsBytesInRow() {
+        service.upload(JPEG_B64);
+        ArgumentCaptor<SiteImage> cap = ArgumentCaptor.forClass(SiteImage.class);
+        verify(repository).save(cap.capture());
+        assertThat(cap.getValue().getStorageBackend()).isEqualTo("DB");
+        assertThat(cap.getValue().getBytes()).containsExactly(SiteImagePolicyTestBytes.JPEG);
+    }
+
+    @Test
+    @DisplayName("storage remoto (S3): registro sem bytes, leitura pública e remoção pelo backend da foto")
+    void remoteStorageRoundTrip() {
+        service = serviceWith("s3");
+        var view = service.upload(JPEG_B64);
+
+        ArgumentCaptor<SiteImage> cap = ArgumentCaptor.forClass(SiteImage.class);
+        verify(repository).save(cap.capture());
+        SiteImage row = cap.getValue();
+        assertThat(row.getStorageBackend()).isEqualTo("S3");
+        assertThat(row.getBytes()).isNull();
+        assertThat(remote.objects).containsKey(view.id());
+        // A URL pública não muda com o backend.
+        assertThat(view.url()).isEqualTo("/api/site/img/" + view.id());
+
+        when(repository.findById(view.id())).thenReturn(Optional.of(row));
+        var pub = service.publicImage(view.id()).orElseThrow();
+        assertThat(pub.bytes()).containsExactly(SiteImagePolicyTestBytes.JPEG);
+        assertThat(pub.contentType()).isEqualTo("image/jpeg");
+
+        when(repository.existsByIdAndBarbershopId(view.id(), SHOP)).thenReturn(true);
+        when(repository.findBackend(view.id(), SHOP)).thenReturn(Optional.of("S3"));
+        service.delete(view.id());
+        verify(repository).deleteByIdAndShop(view.id(), SHOP);
+        assertThat(remote.deleted).containsExactly(view.id());
+    }
+
+    @Test
+    @DisplayName("ligar o S3 não quebra as fotos antigas: foto gravada como DB continua lida do banco")
+    void legacyDbImagesStillServedWithS3Active() {
+        service = serviceWith("s3");
+        UUID id = UUID.randomUUID();
+        when(repository.findById(id)).thenReturn(Optional.of(SiteImage.builder().id(id).barbershopId(SHOP)
+                .contentType("image/png").bytes(new byte[] {9, 9}).sizeBytes(2).storageBackend("DB").build()));
+        assertThat(service.publicImage(id).orElseThrow().bytes()).containsExactly(9, 9);
+    }
+
+    @Test
+    @DisplayName("arquivo sumiu do storage: 404 (vazio), nunca erro 500")
+    void missingRemoteObjectIsEmpty() {
+        service = serviceWith("s3");
+        UUID id = UUID.randomUUID();
+        when(repository.findById(id)).thenReturn(Optional.of(SiteImage.builder().id(id).barbershopId(SHOP)
+                .contentType("image/png").sizeBytes(2).storageBackend("S3").build()));
+        assertThat(service.publicImage(id)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("tipo de storage desconhecido falha no boot")
+    void unknownStorageTypeFails() {
+        assertThatThrownBy(() -> serviceWith("ftp")).isInstanceOf(IllegalStateException.class);
     }
 }

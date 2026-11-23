@@ -50,6 +50,8 @@ public class PublicSiteController {
      *   <li>{@code nosniff} + content-type da lista fechada (o detectado no upload): o navegador
      *       nunca "adivinha" que aquilo e HTML e executa. Tipo fora da lista nao sai — 404.</li>
      *   <li>Id malformado ou inexistente: 404, igual — nao ha o que distinguir para um estranho.</li>
+     *   <li>Com o S3 ligado (V50) a URL e a mesma e o backend faz streaming do bucket (privado):
+     *       sem redirect para URL assinada, que venceria dentro do cache de um ano.</li>
      * </ul>
      */
     @GetMapping("/img/{id}")
@@ -62,11 +64,11 @@ public class PublicSiteController {
         }
         return imageService.publicImage(uuid)
                 .map(img -> ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(img.getContentType()))
+                        .contentType(MediaType.parseMediaType(img.contentType()))
                         .cacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic().immutable())
                         .header("X-Content-Type-Options", "nosniff")
                         .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
-                        .body(img.getBytes()))
+                        .body(img.bytes()))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
