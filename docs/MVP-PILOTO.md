@@ -123,13 +123,20 @@ campo aceita só os 6 dígitos que o app mostra (não a chave longa) — a tela 
 Objetivo: rodar com barbearias reais num servidor público barato, medir e só então decidir o que o
 lançamento precisa. Ordem: **3c (acesso ao console) → piloto → avaliação → pré-lançamento → Parte 8**.
 
-**1. Servidor (AWS, conta nova no plano gratuito)**
-- [ ] Criar a conta AWS com alerta de gasto (AWS Budgets: aviso em US$ 1, 5 e 10) e MFA no usuário raiz.
-- [ ] Conferir as regras atuais do plano gratuito ao criar a conta (a AWS mudou em 2025: contas novas
-      recebem créditos por tempo limitado em vez dos 12 meses antigos) — anotar o que vale e até quando.
-- [ ] **Memória é o ponto crítico:** o stack (Java + Postgres + Evolution + painel + site) não cabe com
-      folga em 1 GB (t2/t3.micro). Opções: t3.small (2 GB, provavelmente coberta pelos créditos) ou micro +
-      swap de 2 GB + limites de memória nos containers. Decidir medindo no próprio EC2.
+**1. Servidor (AWS — a conta que já existe, analisada em 23/11)**
+Conta da AWS criada em 22/11 para o curso (região us-east-1), no **plano gratuito novo: US$ 180 de crédito,
+válido até 05/2027**. Já roda nela o servidor do curso (t3.small, 2 GB, Elastic IP, 20 GB gp3, só 80/443
+abertas, acesso por SSM/OIDC, bucket de deploy/backup) e há um orçamento de alerta de US$ 20.
+- [ ] **Servidor próprio para o Razor** (t3.small, 2 GB — elegível no plano gratuito). Não dividir com o
+      do curso: ele já usa os 2 GB com Java + Postgres, e um pico do Razor derrubaria o sistema dos alunos.
+- [ ] Custo estimado (us-east-1, sob demanda): ~US$ 15/mês a máquina + ~US$ 3,65 o IP público + ~US$ 1,60
+      o disco ≈ **US$ 20/mês por servidor**. Curso + Razor ≈ US$ 40/mês → o crédito dura uns 4–5 meses
+      (o piloto de 2–4 semanas custa ~US$ 10–20). Conferir no Billing depois da primeira semana.
+- [ ] **Atenção ao plano gratuito:** quando o crédito acaba ou o prazo vence, a conta precisa virar paga ou
+      é fechada (vale também para o servidor do curso). Decidir antes disso.
+- [ ] Orçamento: subir o alerta de US$ 20 para ~US$ 45/mês, ou um orçamento separado por tag (`projeto=razor`).
+- [ ] Permissões: o usuário de CLI desta máquina (`claude-deploy`) só lê hoje; criar a máquina do Razor
+      pelo console da AWS ou dar a ele permissão de EC2 limitada à tag `projeto=razor`.
 - [ ] Ubuntu + Docker, reaproveitando `setup-ec2.sh` e `docker-compose.prod.yml` (revisar: o script ainda
       tem o nome antigo "BarberBot"); **Elastic IP** para o endereço não mudar a cada reinício.
 - [ ] Security group: só 80/443 (e 22 restrito ao seu IP); Postgres, Evolution e backend fechados para fora.
@@ -139,8 +146,13 @@ lançamento precisa. Ordem: **3c (acesso ao console) → piloto → avaliação 
 **2. Endereço público e HTTPS (sem domínio ainda)**
 - [ ] Link padrão do EC2 (`ec2-…compute.amazonaws.com`) ou o IP. Atenção: **sem HTTPS** o login do painel
       não funciona (cookie Secure) e dado de cliente trafega aberto — não usar com clientes reais assim.
-- [ ] HTTPS sem comprar domínio: endereço tipo `IP.sslip.io` + certificado Let's Encrypt (Caddy ou
-      nginx/certbot na frente). Validar no início do piloto; se não der, um domínio barato resolve.
+- [ ] **Melhor opção (já existe):** um subdomínio do domínio pessoal que já serve o sistema do curso (DNS na
+      Cloudflare), ex.: `razor.<seu-dominio>` → Elastic IP do Razor + certbot, igual ao `deploy/DEPLOY.md` do
+      curso. HTTPS de verdade, sem comprar nada, e troca para o domínio próprio depois.
+- [ ] Alternativa sem mexer no DNS: `IP.sslip.io` + Let's Encrypt. Último caso: o link do EC2 sem HTTPS só
+      para testes internos, nunca com clientes reais.
+- [ ] Reaproveitar do curso: deploy pelo GitHub Actions com OIDC (sem chave guardada) e comandos por SSM
+      (porta 22 fechada), backup diário no S3 com restauração conferida, "vigia" de site fora do ar.
 - [ ] Trocar `og:url`/`canonical`/links do site e `RAZOR_CORS_ORIGINS`/`RAZOR_PANEL_URL` para o endereço do piloto.
 
 **3. Operação durante o piloto**
