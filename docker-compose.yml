@@ -71,6 +71,13 @@ services:
       ONBOARDING_API_KEY: ${ONBOARDING_API_KEY:-dev-onboarding-key}
       WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:-dev-webhook-token}
 
+      # Console da plataforma (V51), em /plataforma no painel. Sem RAZOR_SECRETS_KEY fica desligado.
+      # Gerar a chave: openssl rand -base64 32. O admin e criado no primeiro boot (senha 12+);
+      # o 2FA (app autenticador) e configurado no primeiro login.
+      RAZOR_SECRETS_KEY: ${RAZOR_SECRETS_KEY:-}
+      RAZOR_PLATFORM_ADMIN_EMAIL: ${RAZOR_PLATFORM_ADMIN_EMAIL:-}
+      RAZOR_PLATFORM_ADMIN_PASSWORD: ${RAZOR_PLATFORM_ADMIN_PASSWORD:-}
+
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-barberbot}
       EVOLUTION_BASE_URL: http://evolution-api:8080
 

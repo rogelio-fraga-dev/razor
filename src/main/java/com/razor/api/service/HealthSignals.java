@@ -130,6 +130,11 @@ public class HealthSignals {
      * Categoria da falha da IA pelo texto/tipo da excecao — nunca devolve o texto cru (o erro da
      * OpenAI para chave errada inclui um pedaco da chave).
      */
+    /** Categoria do erro da IA (texto seguro, sem a mensagem crua) — usada tambem no console (V51). */
+    public static String classifyAiErrorPublic(Throwable error) {
+        return classifyAiError(error);
+    }
+
     static String classifyAiError(Throwable error) {
         StringBuilder all = new StringBuilder();
         for (Throwable t = error; t != null && all.length() < 4000; t = t.getCause()) {

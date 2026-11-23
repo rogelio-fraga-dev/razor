@@ -10,7 +10,7 @@ _Última atualização: 2026-11-23_
 ## Onde estamos
 
 - **Fase:** MVP para 3–5 barbearias piloto, **só local** (sem domínio, sem clientes, sem cobrança).
-- **Ordem combinada:** Parte 4 ✅ → **Parte 3** → Parte 8 → débitos. Partes **7, 9 e 6 (vídeo)** só
+- **Ordem combinada:** Partes 4 e 3 ✅ → **Parte 8** → débitos. Partes **7, 9 e 6 (vídeo)** só
   quando o usuário mandar (22/11).
 - **Regra de execução:** no máximo 2 frentes por vez; cada parte termina com testes + build +
   Docker no ar + push antes de abrir a próxima.
@@ -23,8 +23,8 @@ _Última atualização: 2026-11-23_
 | 5 — Cadastro, assistente, páginas legais, og:image | V49 | ✅ master (19/11) |
 | 4 — Automações | V47 | ✅ master (23/11) |
 | 3a — Monitoramento, alertas, storage de fotos | V50 | ✅ master (23/11) |
-| **3b — Console da plataforma (PLATFORM_ADMIN)** | V51 | 🟡 **próxima** — não começou |
-| 8 — Onda 2 | — | ⏳ |
+| 3b — Console da plataforma (`/plataforma`, 2FA) | V51 | ✅ master (23/11) |
+| **8 — Onda 2** (área do cliente, metas, multiunidade) | V52–V54 | 🟡 **próxima** |
 | 7, 9 — WhatsApp oficial, salões/estética | V52–V55 | ⏸ só quando o usuário mandar |
 | 6 — Vídeos: Reels + tutoriais "Como configurar o site" e "Como configurar a IA" (landing, Ajuda e 1º acesso) | — | ⏸ por último, quando o usuário mandar |
 
@@ -70,14 +70,35 @@ _Última atualização: 2026-11-23_
 6. Como a Evolution está parada, o painel local mostra a faixa "serviço de WhatsApp fora do ar" —
    é o monitor funcionando; some quando o `--profile bot` subir.
 
-## Próximo passo (Parte 3b — console da plataforma, V51)
+## O que foi feito em 23/11 (Parte 3b — console da plataforma, V51)
 
-Acesso único do dono da plataforma (papel `PLATFORM_ADMIN`, fora dos tenants, com 2FA):
-1. V51: usuário de plataforma + 2FA (TOTP), uso de IA por barbearia (tokens/custo), chave da
-   OpenAI cifrada, log de acesso a conversas (LGPD), receitas manuais ("Caixa do Razor").
-2. Telas: visão geral, saúde de todas as barbearias (reusa os incidentes da V50), chave/modelos
-   da IA, conversas com filtros, gráficos, caixa.
-3. Mesmo roteiro: testes, cópia do banco, Docker, merge, push.
+1. Worktree `.claude/worktrees/parte-3b` (branch `parte-3b`). Backend em `com.razor.api.platform`:
+   `PlatformAuthService` (login em 2 passos + TOTP), `SecretCipher` (AES-GCM), `AiRuntime` (chave e
+   modelos trocáveis sem reiniciar), `AiUsageRecorder` (tokens/custo em lote), `ConversationEventRecorder`
+   (IA fora / agendamento não salvo), `PlatformConsoleService` (visão geral, saúde, conversas,
+   métricas, caixa), `PlatformAuditLog` (trilha LGPD). Web: `web/src/platform/*`, rota `/plataforma`.
+2. Achados só subindo o jar: ciclo de beans (filtro da plataforma ↔ `PasswordEncoder`) e SQL de
+   text block concatenado sem espaço (`?group by`). Corrigidos.
+3. 14 testes novos (TOTP com os vetores da RFC 6238, cifra, separação dos tokens, fluxo de login,
+   custo, máscara, heurística) → **1015 verdes**.
+4. Validação numa cópia do banco local (backup `backups/pre-v51-20261123-1502.dump`): admin criado no
+   boot, 2FA de ponta a ponta (senha/código errados, reuso de código e desafio como sessão recusados),
+   filtros de conversa, CSRF, métricas (tempo de resposta), caixa, chave da IA cifrada, trilha e
+   isolamento entre sessão do console e do painel. Jar e container derrubados depois.
+
+### Como entrar no console (local)
+- Variáveis no `.env` (não vai para o git): `RAZOR_SECRETS_KEY` (`openssl rand -base64 32`),
+  `RAZOR_PLATFORM_ADMIN_EMAIL`, `RAZOR_PLATFORM_ADMIN_PASSWORD` (12+). Sem a chave o console fica desligado.
+- Abrir `http://localhost:3000/plataforma`, entrar com e-mail/senha e, no primeiro acesso, cadastrar a
+  chave mostrada no app autenticador (Google Authenticator, Authy…). Perdeu o celular: no banco,
+  `update platform_users set totp_enabled=false` e entrar de novo.
+- **Não troque o `RAZOR_SECRETS_KEY` depois de usar:** o que foi cifrado com a chave antiga fica
+  ilegível (a IA volta para a chave do ambiente e o 2FA precisa ser refeito).
+
+## Próximo passo (Parte 8 — Onda 2)
+
+Área do cliente no site (V52: código pelo WhatsApp, ver/remarcar/cancelar, pacote, clube), metas e
+ranking com comissão variável (V53), multiunidade (V54), botão "Reservar" no Instagram.
 
 ## Pendências fora das partes
 

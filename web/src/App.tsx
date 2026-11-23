@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth/AuthContext";
 import { canAccess, homeFor } from "./lib/access";
@@ -45,6 +46,8 @@ function Protected() {
   );
 }
 
+const PlatformApp = lazy(() => import("./platform/PlatformApp"));
+
 export default function App() {
   const { session } = useAuth();
   const home = homeFor(session?.role);
@@ -58,6 +61,16 @@ export default function App() {
           paleta de comandos dentro do iframe; a página confere o papel e a API recusa quem não
           é dono. */}
       <Route path="/site-previa" element={<SitePreviewPage />} />
+      {/* Console da plataforma (V51): sessão e 2FA próprios, independente do login da barbearia.
+          Carregado sob demanda — quem usa o painel nunca baixa este código. */}
+      <Route
+        path="/plataforma/*"
+        element={
+          <Suspense fallback={<div className="muted" style={{ padding: 24 }}>Carregando…</div>}>
+            <PlatformApp />
+          </Suspense>
+        }
+      />
       <Route path="/login" element={session ? <Navigate to={home} replace /> : <Login />} />
       {/* Cadastro pela landing (V49): quem já tem sessão vai direto para o painel. */}
       <Route

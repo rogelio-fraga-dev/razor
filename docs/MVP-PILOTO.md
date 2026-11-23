@@ -5,7 +5,7 @@ Pagamentos ficam de fora até a decisão de modelo (ver "Decisões pendentes").
 
 **Ordem combinada (18/11):** Parte 5 → Parte 4 → Parte 3 → demais → vídeo por último.
 
-**Situação em 23/11:** Partes 1, 2, 4 e 5 ✅ no master e no Docker local · **Parte 3 ← AGORA** (rascunho no worktree `agent-a7c84d8b86e8eb264`, V50, não testado). Contexto completo em `docs/CONTEXTO.md`.
+**Situação em 23/11:** Partes 1, 2, 3, 4 e 5 ✅ no master e no Docker local · próximo: Parte 8 e débitos (7, 9 e 6 só quando o usuário mandar). Contexto completo em `docs/CONTEXTO.md`.
 
 **Como executamos:** em PARTES, no máximo 2 frentes por vez (para não estourar o limite de uso).
 Cada parte termina com testes + build + Docker no ar + push, antes de abrir a próxima.
@@ -77,16 +77,25 @@ alerta para dono e recepção + card **Saúde do sistema** em Configurações �
 banco (padrão) ou S3 (`RAZOR_STORAGE_TYPE=s3`). Corrigido na revisão: JPQL com enum aninhado e
 construtor ambíguo do `OperatorNotifier` (os dois derrubavam o boot), horários em UTC.
 
-**3b ⏳ — console da plataforma (V51):** tudo abaixo.
+**3b ✅ (23/11) — console da plataforma (V51)** em `/plataforma` no painel (chunk próprio, 29 kB):
+sessão separada (cookie `RAZOR_PLATFORM_SESSION` só em `/api/platform`, JWT com `typ`; o token de um
+lado nunca vale no outro) e **2FA obrigatório** (TOTP RFC 6238, configurado no primeiro login, sem
+reuso de código). Primeiro admin por `RAZOR_PLATFORM_ADMIN_EMAIL/PASSWORD`; segredos (chave da OpenAI,
+segredo do 2FA) cifrados com AES-GCM e `RAZOR_SECRETS_KEY` — sem ela o console fica desligado (503).
+Corrigido ao subir o jar: ciclo de beans (filtro ↔ PasswordEncoder) e SQL de text block sem espaço.
 Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com 2FA):
-- [ ] Visão geral: barbearias, status (teste/ativa), uso de IA por barbearia, custo estimado de IA.
-- [ ] Saúde: instâncias do WhatsApp (conectar/reconectar/QR), falhas da IA, fila de envio, incidentes.
-- [ ] Chave da OpenAI e modelos trocáveis pelo console (guardada cifrada, nunca exibida inteira).
-- [ ] Conversas do bot: ler por barbearia, filtros (erro, cliente irritado, agendamento falhou),
-      marcar para revisão. Acesso registrado em log (LGPD).
-- [ ] Gráficos: mensagens/dia, agendamentos da IA, tempo de resposta, erros.
-- [ ] "Caixa do Razor": MRR/receita por plano registrada manualmente até haver cobrança.
-- [ ] Alertas ao dono da barbearia e ao operador; testes E2E com Playwright; fotos em S3 opcional.
+- [x] Visão geral: barbearias, status (teste/ativa), uso de IA por barbearia, custo estimado de IA
+      (tokens registrados em lote em `ai_usage_daily`; preços por modelo configuráveis).
+- [x] Saúde: incidentes de todas as barbearias, estado do WhatsApp por casa e gerar QR de pareamento.
+- [x] Chave da OpenAI e modelos trocáveis pelo console sem reiniciar (cifrada; só os 4 últimos aparecem;
+      teste da chave via `/v1/models`).
+- [x] Conversas do bot: por barbearia, filtros (IA falhou, agendamento falhou, cliente irritado —
+      heurística por palavras —, marcadas), marcar para revisão. Telefone mascarado na lista; abrir a
+      conversa entra na **trilha** (`platform_access_log`, aba Trilha).
+- [x] Gráficos: mensagens/dia, respostas, agendamentos da IA, tempo de resposta do bot, chamadas e erros.
+- [x] "Caixa do Razor": receita lançada à mão, MRR do mês, por plano e 12 meses.
+- [x] Alertas ao dono e ao operador (3a); fotos em S3 opcional (3a).
+- [ ] Testes E2E com Playwright (adiado — vai para os débitos).
 
 ## Parte 4 — Automações (V47) ✅ (merge `68fc4ec`, 23/11)
 - [x] Lista de espera automática ao cancelar: oferta persistida com prazo (padrão 15 min), uma vaga

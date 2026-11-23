@@ -39,7 +39,12 @@ public class OpenAIService {
     private final PricingService pricingService;
     /** Modelo mais forte (gpt-4o); nulo nos testes = sem escalonamento. */
     private final ChatEscalation chatEscalation;
+    /** Chave/modelos trocaveis pelo console (V51); nulo nos testes = os beans do ambiente. */
+    private final com.razor.api.platform.AiRuntime aiRuntime;
+    /** Uso/custo da IA por barbearia (V51); nulo nos testes. */
+    private final com.razor.api.platform.AiUsageRecorder usage;
     private WebClient openAiWebClient;
+    private String openAiWebClientKey;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String DEFAULT_PERSONA = "Seja simpática, objetiva e eficiente.";
@@ -405,7 +410,8 @@ public class OpenAIService {
         String text = null;
         Exception falha = null;
         try {
-            text = chatModel.generate(messages).content().text();
+            text = generateCounted(mainModel(), mainModelName(), com.razor.api.platform.AiUsageRecorder.Kind.CHAT,
+                    m -> m.generate(messages));
         } catch (Exception e) {
             falha = e;
         }
@@ -416,15 +422,52 @@ public class OpenAIService {
             log.info("[TEMPO] IA (modelo principal) respondeu em {} ms", ms);
             return text;
         }
-        if (chatEscalation == null || chatEscalation.model() == null) {
+        OpenAiChatModel forteModel = strongModel();
+        if (forteModel == null) {
             if (falha != null) throw new IllegalStateException(falha.getMessage(), falha);
             return text;
         }
         log.warn("[IA] Modelo principal: {} em {} ms — escalando para o modelo forte", motivo, ms);
         long t1 = System.nanoTime();
-        String forte = chatEscalation.model().generate(messages).content().text();
+        String forte = generateCounted(forteModel, strongModelName(), com.razor.api.platform.AiUsageRecorder.Kind.CHAT,
+                m -> m.generate(messages));
         log.info("[TEMPO] IA (modelo forte) respondeu em {} ms", (System.nanoTime() - t1) / 1_000_000);
         return forte;
+    }
+
+    private OpenAiChatModel mainModel() {
+        return aiRuntime != null ? aiRuntime.chat() : chatModel;
+    }
+
+    private OpenAiChatModel strongModel() {
+        if (aiRuntime != null) return aiRuntime.escalation();
+        return chatEscalation != null ? chatEscalation.model() : null;
+    }
+
+    private String mainModelName() {
+        if (aiRuntime != null) return aiRuntime.current().chatModelName();
+        return properties.getOpenai() != null ? properties.getOpenai().getModel() : null;
+    }
+
+    private String strongModelName() {
+        if (aiRuntime != null) return aiRuntime.current().escalationModelName();
+        return properties.getOpenai() != null ? properties.getOpenai().getEscalationModel() : null;
+    }
+
+    /** Gera e registra o uso (tokens) — ou a falha — da chamada. */
+    private String generateCounted(OpenAiChatModel model, String modelName, com.razor.api.platform.AiUsageRecorder.Kind kind,
+                                   java.util.function.Function<OpenAiChatModel, dev.langchain4j.model.output.Response<dev.langchain4j.data.message.AiMessage>> call) {
+        try {
+            var r = call.apply(model);
+            if (usage != null) {
+                var t = r.tokenUsage();
+                usage.success(kind, modelName, t == null ? null : t.inputTokenCount(), t == null ? null : t.outputTokenCount());
+            }
+            return r.content().text();
+        } catch (RuntimeException e) {
+            if (usage != null) usage.failure(kind, modelName);
+            throw e;
+        }
     }
 
     /** Resposta que nao serve: vazia, ou com tag de agendamento que o parser nao consegue ler. */
@@ -486,9 +529,10 @@ public class OpenAIService {
             );
             SystemMessage systemMessage = SystemMessage.from(SYSTEM_PROMPT_AGENDA_READER);
             // Ler foto de agenda e o caso dificil: vai direto no modelo forte, quando existe.
-            OpenAiChatModel visao = chatEscalation != null && chatEscalation.model() != null
-                    ? chatEscalation.model() : chatModel;
-            String response = visao.generate(systemMessage, userMessage).content().text();
+            OpenAiChatModel forte = strongModel();
+            OpenAiChatModel visao = forte != null ? forte : mainModel();
+            String response = generateCounted(visao, forte != null ? strongModelName() : mainModelName(),
+                    com.razor.api.platform.AiUsageRecorder.Kind.VISION, m -> m.generate(systemMessage, userMessage));
             return response.replace("```json", "").replace("```", "").trim();
         } catch (Exception e) {
             log.error("Erro Visão Computacional: {}", e.getMessage());
@@ -516,7 +560,8 @@ public class OpenAIService {
             if (mimeType.contains("mp4")) extension = "mp4";
             else if (mimeType.contains("mpeg") || mimeType.contains("mp3")) extension = "mp3";
         }
-        String principal = blankTo(properties.getOpenai().getWhisperModel(), "gpt-4o-mini-transcribe");
+        String principal = aiRuntime != null ? aiRuntime.current().transcribeModelName()
+                : blankTo(properties.getOpenai().getWhisperModel(), "gpt-4o-mini-transcribe");
         String reserva = blankTo(properties.getOpenai().getWhisperFallbackModel(), "whisper-1");
 
         long t0 = System.nanoTime();
@@ -552,23 +597,29 @@ public class OpenAIService {
                 JsonNode root = objectMapper.readTree(jsonResponse);
                 if (root.has("text")) {
                     String text = root.get("text").asText().trim();
+                    if (usage != null) usage.success(com.razor.api.platform.AiUsageRecorder.Kind.TRANSCRIBE, model, null, null);
                     return text.isEmpty() ? null : text;
                 }
             }
             log.error("Erro Áudio ({}): resposta sem campo 'text'", model);
+            if (usage != null) usage.failure(com.razor.api.platform.AiUsageRecorder.Kind.TRANSCRIBE, model);
             return null;
         } catch (Exception e) {
             log.error("Erro Áudio ({}): {}", model, e.getMessage());
+            if (usage != null) usage.failure(com.razor.api.platform.AiUsageRecorder.Kind.TRANSCRIBE, model);
             return null;
         }
     }
 
-    private WebClient getOpenAiWebClient() {
-        if (openAiWebClient == null) {
+    private synchronized WebClient getOpenAiWebClient() {
+        // A chave pode ter sido trocada no console (V51): recria o cliente quando muda.
+        String key = aiRuntime != null ? aiRuntime.current().apiKey() : properties.getOpenai().getApiKey();
+        if (openAiWebClient == null || !java.util.Objects.equals(key, openAiWebClientKey)) {
             openAiWebClient = WebClient.builder()
                     .baseUrl("https://api.openai.com/v1")
-                    .defaultHeader("Authorization", "Bearer " + properties.getOpenai().getApiKey())
+                    .defaultHeader("Authorization", "Bearer " + key)
                     .build();
+            openAiWebClientKey = key;
         }
         return openAiWebClient;
     }

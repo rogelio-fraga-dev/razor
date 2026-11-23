@@ -20,6 +20,27 @@ public class RazorProperties {
     private Webhook webhook = new Webhook();
     private Monitoring monitoring = new Monitoring();
     private Storage storage = new Storage();
+    private Platform platform = new Platform();
+
+    /** Console da plataforma (V51): acesso do dono do Razor, fora dos tenants. */
+    @Data
+    public static class Platform {
+        /** Chave AES-256 em base64 (32 bytes) para os segredos guardados no banco. Vazia = console desligado. */
+        private String secretsKey = "";
+        /** Primeiro administrador, criado no boot se nao houver nenhum. */
+        private String adminEmail = "";
+        private String adminPassword = "";
+        /** Duracao da sessao do console (minutos). */
+        private long sessionMinutes = 480;
+        /** Preco por 1 milhao de tokens (USD), entrada e saida, por modelo — base do custo estimado. */
+        private java.util.Map<String, java.util.List<Double>> prices = new java.util.LinkedHashMap<>(java.util.Map.of(
+                "gpt-4o-mini", java.util.List.of(0.15, 0.60),
+                "gpt-4o", java.util.List.of(2.50, 10.00)));
+        /** Custo estimado por transcricao de audio (USD) — a API nao devolve tokens de audio. */
+        private double transcribeCallUsd = 0.003;
+        /** Cotacao usada so para exibir o custo em reais. */
+        private double usdToBrl = 5.40;
+    }
 
     /**
      * Monitoramento de saude por barbearia (V50): WhatsApp, IA, envios, fila e motor de tarefas.

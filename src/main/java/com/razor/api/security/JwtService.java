@@ -32,6 +32,10 @@ public class JwtService {
     private static final String CLAIM_SHOP = "shop";
     private static final String CLAIM_ROLE = "role";
     private static final String CLAIM_VERSION = "ver";
+    /** Tokens do console da plataforma (V51): "platform" (sessao) ou "mfa" (desafio do 2FA). */
+    private static final String CLAIM_TYPE = "typ";
+    public static final String TYPE_PLATFORM = "platform";
+    public static final String TYPE_MFA = "mfa";
     private static final int MIN_SECRET_LENGTH = 32;
 
     private final SecretKey key;
@@ -81,6 +85,10 @@ public class JwtService {
     /** Como {@link #parse}, devolvendo tambem a versao para a revalidacao da sessao. */
     public ParsedToken parseToken(String token) {
         Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+        // Token do console da plataforma (ou desafio de 2FA) nunca vale no painel das barbearias.
+        if (claims.get(CLAIM_TYPE) != null) {
+            throw new JwtException("token de outro tipo");
+        }
         TenantUserPrincipal principal = new TenantUserPrincipal(
                 UUID.fromString(claims.get(CLAIM_USER_ID, String.class)),
                 claims.getSubject(),
@@ -88,5 +96,36 @@ public class JwtService {
                 UserRole.valueOf(claims.get(CLAIM_ROLE, String.class)));
         Integer version = claims.get(CLAIM_VERSION, Integer.class);
         return new ParsedToken(principal, version == null ? 0 : version);
+    }
+
+    // --- Console da plataforma (V51) ---------------------------------------------------------
+
+    /** Claims de um token da plataforma. */
+    public record PlatformClaims(UUID userId, String email, int version, String type) {
+    }
+
+    /** Sessao do console ({@code typ=platform}) ou desafio do 2FA ({@code typ=mfa}). */
+    public String issuePlatform(UUID userId, String email, int version, String type, java.time.Duration ttl) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(email)
+                .claim(CLAIM_USER_ID, userId.toString())
+                .claim(CLAIM_VERSION, version)
+                .claim(CLAIM_TYPE, type)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(ttl)))
+                .signWith(key)
+                .compact();
+    }
+
+    /** Valida e exige o tipo pedido. Lanca {@link JwtException} se nao bater. */
+    public PlatformClaims parsePlatform(String token, String expectedType) {
+        Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+        if (!expectedType.equals(claims.get(CLAIM_TYPE, String.class))) {
+            throw new JwtException("tipo de token inesperado");
+        }
+        Integer version = claims.get(CLAIM_VERSION, Integer.class);
+        return new PlatformClaims(UUID.fromString(claims.get(CLAIM_USER_ID, String.class)), claims.getSubject(),
+                version == null ? 0 : version, expectedType);
     }
 }
