@@ -58,6 +58,8 @@ public class CustomerConversationService {
     private final CustomerReviewService customerReviewService;
     private final PricingService pricingService;
     private final CustomerPreferencesService customerPreferencesService;
+    /** Eventos para o filtro de conversas do console (V51); nulo nos testes. */
+    private final com.razor.api.platform.ConversationEventRecorder conversationEvents;
 
     // Publicas + construtor vazio: sao serializadas em JSON pelo StateStore.
 
@@ -631,6 +633,8 @@ public class CustomerConversationService {
         if (criado.isEmpty()) {
             // Nada foi salvo: NAO repassa o "Agendamento Confirmado!" da IA nem pede pagamento.
             log.warn("[AGENDA] Tag da IA nao gerou agendamento para {} ('{}' '{}')", phoneNumber, date, time);
+            recordEvent(phoneNumber, com.razor.api.platform.ConversationEventRecorder.Kind.BOOKING_FAILED,
+                    "IA pediu " + date + " " + time + " (" + service + ")");
             return BOOKING_FAILED_MSG;
         }
         stateStore.remove(StateKeys.chosenService(phoneNumber)); // agendado: o proximo comeca do zero
@@ -778,6 +782,8 @@ public class CustomerConversationService {
         }
         if (criado.isEmpty()) {
             clearCustomerState(phoneNumber);
+            recordEvent(phoneNumber, com.razor.api.platform.ConversationEventRecorder.Kind.BOOKING_FAILED,
+                    "escolha de barbeiro " + pend.getDate() + " " + pend.getTime());
             saveAndSend(customer, BOOKING_FAILED_MSG, phoneNumber);
             return;
         }
@@ -954,9 +960,15 @@ public class CustomerConversationService {
      * senao a proxima chamada a IA leria o proprio "deu erro" como contexto. Os admins do tenant
      * sao avisados (com throttle, para uma queda nao virar uma enxurrada de mensagens).
      */
+    private void recordEvent(String phone, com.razor.api.platform.ConversationEventRecorder.Kind kind, String detail) {
+        if (conversationEvents != null) conversationEvents.record(phone, kind, detail);
+    }
+
     private void tratarIaIndisponivel(String phoneNumber, AiUnavailableException e) {
         log.error("[IA] Indisponivel ao atender {} — enviando contingencia", phoneNumber, e);
         sendMsg(phoneNumber, AI_CONTINGENCY_MSG, "CLIENTE");
+        recordEvent(phoneNumber, com.razor.api.platform.ConversationEventRecorder.Kind.AI_ERROR,
+                com.razor.api.service.HealthSignals.classifyAiErrorPublic(e));
 
         String alertKey = StateKeys.aiOutageAlert();
         if (stateStore.get(alertKey, Boolean.class).isPresent()) return;

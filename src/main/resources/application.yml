@@ -151,6 +151,13 @@ razor:
       # Cadastro de barbearia pela landing (POST /api/signup): teto por IP na janela de 1h.
       signup-per-window: "${RAZOR_RATE_LIMIT_SIGNUP:10}"
       signup-window-seconds: 3600
+  # Console da plataforma (V51). Sem RAZOR_SECRETS_KEY o console fica desligado (503): a chave da
+  # OpenAI e o segredo do 2FA sao guardados cifrados com ela. Gerar: openssl rand -base64 32
+  platform:
+    secrets-key: "${RAZOR_SECRETS_KEY:}"
+    admin-email: "${RAZOR_PLATFORM_ADMIN_EMAIL:}"
+    admin-password: "${RAZOR_PLATFORM_ADMIN_PASSWORD:}"
+    usd-to-brl: "${RAZOR_USD_TO_BRL:5.40}"
   openai:
     api-key: "${OPENAI_API_KEY}"
     # Chat: gpt-4o-mini por padrao (rapido e barato); o gpt-4o so entra quando o mini falha ou

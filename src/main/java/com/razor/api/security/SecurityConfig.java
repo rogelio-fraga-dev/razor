@@ -65,6 +65,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final com.razor.api.platform.PlatformSecurity.Filter platformFilter;
     private final RazorProperties properties;
 
     // Nomes dos papeis SEM o prefixo ROLE_: e o que hasRole/hasAnyRole esperam (o Spring
@@ -80,7 +81,11 @@ public class SecurityConfig {
     /** Rotas autenticadas por cookie onde uma escrita precisa provar a origem (token CSRF). */
     private static final RequestMatcher CSRF_PATHS = new OrRequestMatcher(
             new AntPathRequestMatcher("/api/admin/**"),
-            new AntPathRequestMatcher("/api/auth/logout"));
+            new AntPathRequestMatcher("/api/auth/logout"),
+            // Console da plataforma (V51): toda escrita, menos os dois passos do login (ainda sem sessao).
+            request -> request.getRequestURI().startsWith("/api/platform/")
+                    && !request.getRequestURI().equals("/api/platform/auth/login")
+                    && !request.getRequestURI().equals("/api/platform/auth/verify"));
 
     /**
      * Exige CSRF em escrita nas {@link #CSRF_PATHS}, exceto quando a requisicao traz
@@ -142,6 +147,12 @@ public class SecurityConfig {
                         // Cadastro sozinho pela landing (V49): publico, contido pelo limite por
                         // IP por hora (RateLimitFilter), honeypot e e-mail unico.
                         .requestMatchers(HttpMethod.POST, "/api/signup").permitAll()
+                        // Console da plataforma (V51): login em dois passos e logout abertos; todo o
+                        // resto so com a sessao do console (PlatformSecurity.Filter). Um login de
+                        // barbearia nunca tem este papel.
+                        .requestMatchers(HttpMethod.POST, "/api/platform/auth/login", "/api/platform/auth/verify",
+                                "/api/platform/auth/logout").permitAll()
+                        .requestMatchers("/api/platform/**").hasRole(com.razor.api.platform.PlatformSecurity.ROLE)
                         .requestMatchers("/api/webhook/**", "/api/auth/**", "/api/onboarding",
                                 "/actuator/health", "/error").permitAll()
 
@@ -246,6 +257,7 @@ public class SecurityConfig {
                                 .includeSubDomains(true)
                                 .maxAgeInSeconds(31536000)))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(platformFilter, JwtAuthenticationFilter.class)
                 // O token CSRF do Spring 6 e "deferred": so vira cookie se alguem o ler. Sem este
                 // filtro o XSRF-TOKEN nunca chegaria a SPA e toda escrita levaria 403.
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
