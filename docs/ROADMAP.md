@@ -1504,7 +1504,9 @@ Detalhe item a item em `docs/MVP-PILOTO.md`; contexto de retomada em `docs/CONTE
 - [x] **Parte 3b — Console da plataforma (V51)** ✅ (23/11): `/plataforma` com sessão própria e 2FA,
       visão geral com custo de IA, saúde de todas as casas, chave/modelos da IA cifrados e trocáveis,
       conversas com filtros e trilha LGPD, métricas e caixa. 1015 testes.
-- [ ] **Parte 8 — Onda 2** ← próxima: área do cliente (V52), metas/ranking (V53), multiunidade (V54).
+- [ ] **Parte 3c — acesso ao console** ← próxima: QR code no 2FA, chave estável + "gerar novo QR", 2FA com
+      prazo de carência (depois obrigatório), tela Segurança, códigos de recuperação, sessão melhor.
+- [ ] **Parte 8 — Onda 2**: área do cliente (V52), metas/ranking (V53), multiunidade (V54).
 - [ ] Débito: testes E2E com Playwright.
 - [ ] Partes 7–9 (WhatsApp oficial, onda 2, salões/estética) e **Parte 6 — vídeos por último** (Reels + tutoriais de configuração do site e da IA para landing, Ajuda e primeiro acesso).
 - [ ] Legal: preencher campos e revisar com advogado. Domínio: trocar URLs do og:image/canonical.

@@ -95,7 +95,14 @@ _Última atualização: 2026-11-23_
 - **Não troque o `RAZOR_SECRETS_KEY` depois de usar:** o que foi cifrado com a chave antiga fica
   ilegível (a IA volta para a chave do ambiente e o 2FA precisa ser refeito).
 
-## Próximo passo (Parte 8 — Onda 2)
+## Próximo passo: Parte 3c (acesso ao console) e depois a Parte 8
+
+**3c — 2FA mais fácil e sessão melhor** (detalhes em `docs/MVP-PILOTO.md`, seção da Parte 3): QR code,
+chave estável até confirmar + "gerar novo QR", 2FA com prazo de carência (aviso de X dias, depois
+obrigatório), tela Segurança, códigos de recuperação, sessão (sair de todos, inatividade, lembrar
+dispositivo). Motivo: o cadastro no Authy falhou — a chave muda a cada tentativa antes de confirmar.
+
+### Parte 8 — Onda 2
 
 Área do cliente no site (V52: código pelo WhatsApp, ver/remarcar/cancelar, pacote, clube), metas e
 ranking com comissão variável (V53), multiunidade (V54), botão "Reservar" no Instagram.

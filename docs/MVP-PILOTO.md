@@ -97,6 +97,28 @@ Acesso único do dono da plataforma (papel PLATFORM_ADMIN, fora dos tenants, com
 - [x] Alertas ao dono e ao operador (3a); fotos em S3 opcional (3a).
 - [ ] Testes E2E com Playwright (adiado — vai para os débitos).
 
+**3c ⏳ — acesso ao console: 2FA mais fácil e sessão melhor (pedido em 23/11, antes da Parte 8)**
+Problema relatado: no Authy o código não funcionou. Causa provável: até confirmar, **cada tentativa de
+login gera uma chave nova** — a cadastrada no app deixa de valer se a pessoa volta/tenta de novo. E o
+campo aceita só os 6 dígitos que o app mostra (não a chave longa) — a tela não deixa isso claro.
+- [ ] **QR code** na configuração do 2FA (lido pela câmera no Google Authenticator, Authy, 1Password,
+      app Senhas do iOS/iPhone), com a chave manual ao lado e botão **copiar**; link "abrir no app" no celular.
+- [ ] **Chave estável até confirmar:** a mesma chave/QR em todas as tentativas; botão **"gerar novo QR"**
+      (invalida a anterior) quando a pessoa quiser recomeçar.
+- [ ] **2FA não obrigatório no primeiro acesso:** entra só com senha e vê um aviso fixo "ative a verificação
+      em duas etapas — faltam X dias" (prazo configurável, padrão 7). **Vencido o prazo, vira obrigatório**
+      (o login leva direto à configuração). Recomendação: enquanto não ativar, bloquear só o que é sensível
+      (ler conversas com telefone, trocar a chave da IA) — o resto do console funciona.
+- [ ] Tela **"Segurança"** dentro do console: ativar/desativar 2FA (pedindo um código), ver o QR de novo
+      (só reconfigurando), status e prazo.
+- [ ] Mensagens de erro claras: "digite os 6 números que o app mostra agora", aviso de relógio do celular
+      fora de hora, contador dos 30 s do código; aceitar código com espaço ("123 456").
+- [ ] **Códigos de recuperação** (10 de uso único, mostrados uma vez) para quem perder o celular.
+- [ ] **Sessão:** "sair de todos os dispositivos" (`token_version`), expiração por inatividade, aviso antes
+      de expirar, "lembrar este dispositivo por 30 dias" (pula o código no mesmo navegador), lista de acessos
+      recentes na aba Trilha com aparelho/IP.
+- [ ] Testes: QR/URI, chave estável entre tentativas, prazo de carência vencendo, códigos de recuperação.
+
 ## Parte 4 — Automações (V47) ✅ (merge `68fc4ec`, 23/11)
 - [x] Lista de espera automática ao cancelar: oferta persistida com prazo (padrão 15 min), uma vaga
       por pessoa e uma pessoa por vaga (índices únicos), SIM marca / NÃO ou prazo passa ao próximo.
