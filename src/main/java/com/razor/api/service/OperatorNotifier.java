@@ -38,6 +38,7 @@ public class OperatorNotifier {
     private final HttpClient http;
     private final ObjectMapper json = new ObjectMapper();
 
+    @org.springframework.beans.factory.annotation.Autowired
     public OperatorNotifier(RazorProperties properties) {
         this(properties, HttpClient.newBuilder().connectTimeout(TIMEOUT).build());
     }
