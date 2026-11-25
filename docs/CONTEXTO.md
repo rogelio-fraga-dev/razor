@@ -3,9 +3,29 @@
 Arquivo para retomar o trabalho de onde parou (também numa sessão nova do Claude Code).
 Plano detalhado: `docs/MVP-PILOTO.md` · Visão de produto e histórico: `docs/ROADMAP.md`.
 
-_Última atualização: 2026-11-23 (noite) — sessão salva; tudo no master e no GitHub_
+_Última atualização: 2026-11-25 — Parte 6 (upgrade visual + vídeos) em andamento no branch `parte-6-visual`_
 
 ---
+
+## FOCO ATUAL (25/11): Parte 6 — upgrade visual e vídeos
+
+O usuário pausou o piloto e pediu, nesta ordem: **upgrade visual → vídeo do professor → Reels**.
+Branch/worktree `parte-6-visual` (`.claude/worktrees/parte-6-visual`), já no GitHub.
+
+- **Upgrade visual (pronto):** landing com a cena fixa "Um dia na barbearia", título linha a linha,
+  luz nos cartões e placar na calculadora (`site/motion.css`); modelos de site com a frase que acende
+  e a foto que revela; painel com transição de tela, KPIs contando, gráfico que se desenha e carimbo
+  PAGO. Regras de tela em `docs/DESIGN.md`. Referências em `c:/projetos/curso-sistema/DESIGN`.
+- **Dados demo:** `scripts/seed-demo.sql` (limpeza genérica por FK, preserva o site) +
+  `scripts/seed-demo-extra.sql` (pacotes, avaliações, etiquetas, cartão da IA, uso da IA).
+  Backup antes: `backups/pre-demo-video-20261125-1404.dump`.
+- **Vídeos:** pasta `video/` — Playwright grava (`professor/record.mjs`, `tools/rec-lib.mjs`), Piper
+  narra em pt-BR local (`tools/tts.py`, voz em `video/voices/`, fora do git), Remotion edita (`src/`).
+  Renderizar: `cd video && npm run render:professor`.
+- **Reels:** roteiro em `video/roteiros/reels.md`; esperando os 5 áudios do usuário.
+- **CUIDADO — Evolution:** subir o `--profile bot` reconecta sozinho a sessão do número real
+  (instância `DemoNavalhaWpp`). Deixar PARADO. As gravações simulam "WhatsApp conectado" só no
+  navegador (rota interceptada em `rec-lib.mjs`).
 
 ## Onde estamos
 

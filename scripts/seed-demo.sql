@@ -85,32 +85,44 @@ BEGIN
     -- -----------------------------------------------------------------------------------------
     -- 0. Limpeza do tenant demo (ordem que respeita as FKs)
     -- -----------------------------------------------------------------------------------------
-    DELETE FROM expenses              WHERE barbershop_id = v_shop;
-    DELETE FROM stock_movements       WHERE barbershop_id = v_shop;
-    DELETE FROM coupon_redemptions    WHERE barbershop_id = v_shop;
-    DELETE FROM product_sales         WHERE barbershop_id = v_shop;
-    DELETE FROM comanda_items         WHERE barbershop_id = v_shop;
-    DELETE FROM comandas              WHERE barbershop_id = v_shop;
-    DELETE FROM commission_payments   WHERE barbershop_id = v_shop;
-    DELETE FROM professional_advances WHERE barbershop_id = v_shop;
-    DELETE FROM cash_movements        WHERE barbershop_id = v_shop;
-    DELETE FROM cash_register_sessions WHERE barbershop_id = v_shop;
-    DELETE FROM appointments          WHERE barbershop_id = v_shop;
-    DELETE FROM interactions          WHERE barbershop_id = v_shop;
-    DELETE FROM scheduled_tasks       WHERE barbershop_id = v_shop;
-    DELETE FROM waitlist_entries      WHERE barbershop_id = v_shop;
-    DELETE FROM schedule_blocks       WHERE barbershop_id = v_shop;
-    DELETE FROM customers             WHERE barbershop_id = v_shop;
-    DELETE FROM coupons               WHERE barbershop_id = v_shop;
-    DELETE FROM plan_benefits         WHERE barbershop_id = v_shop;
-    DELETE FROM subscription_plans    WHERE barbershop_id = v_shop;
-    DELETE FROM products              WHERE barbershop_id = v_shop;
-    DELETE FROM services              WHERE barbershop_id = v_shop;
-    DELETE FROM professionals         WHERE barbershop_id = v_shop;
-    DELETE FROM barbershop_admins     WHERE barbershop_id = v_shop;
-    DELETE FROM tenant_users          WHERE barbershop_id = v_shop;
-    DELETE FROM barbershop_settings   WHERE barbershop_id = v_shop;
-    DELETE FROM barbershops           WHERE id = v_shop;
+    -- O site do tenant (textos, fotos, modelo) e configuracao feita a mao: guardado antes da
+    -- limpeza e devolvido no fim, para regenerar o movimento sem perder o site.
+    DROP TABLE IF EXISTS pg_temp.keep_site;
+    DROP TABLE IF EXISTS pg_temp.keep_site_image;
+    CREATE TEMP TABLE keep_site AS SELECT * FROM barbershop_site WHERE barbershop_id = v_shop;
+    CREATE TEMP TABLE keep_site_image AS SELECT * FROM site_image WHERE barbershop_id = v_shop;
+
+    -- Limpeza generica: toda tabela com FK para barbershops perde as linhas do tenant demo.
+    -- A lista sai do catalogo (pg_constraint), entao tabela nova de migracao futura entra
+    -- sozinha. Filhos antes dos pais: tenta em varias passadas; quem ainda e referenciado
+    -- (violacao de FK) fica para a passada seguinte.
+    DECLARE
+        v_tab   text;
+        v_left  int;
+        v_pass  int := 0;
+    BEGIN
+        LOOP
+            v_left := 0;
+            v_pass := v_pass + 1;
+            FOR v_tab IN
+                SELECT DISTINCT c.conrelid::regclass::text
+                  FROM pg_constraint c
+                  JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+                 WHERE c.contype = 'f' AND c.confrelid = 'barbershops'::regclass AND a.attname = 'barbershop_id'
+            LOOP
+                BEGIN
+                    EXECUTE format('DELETE FROM %s WHERE barbershop_id = $1', v_tab) USING v_shop;
+                EXCEPTION WHEN foreign_key_violation THEN
+                    v_left := v_left + 1;
+                END;
+            END LOOP;
+            EXIT WHEN v_left = 0;
+            IF v_pass > 12 THEN
+                RAISE EXCEPTION 'Limpeza do tenant demo nao convergiu (% tabelas presas)', v_left;
+            END IF;
+        END LOOP;
+    END;
+    DELETE FROM barbershops WHERE id = v_shop;
 
     -- -----------------------------------------------------------------------------------------
     -- 1. Barbearia, configuracoes e usuarios do painel
@@ -118,6 +130,8 @@ BEGIN
     INSERT INTO barbershops (id, name, slug, whatsapp_instance, active, created_at, updated_at)
     VALUES (v_shop, 'Barbearia Navalha de Prata (demo)', 'demo-navalha', 'DemoNavalhaWpp',
             true, now() - interval '18 months', now());
+    -- V49: barbearia antiga ja passou pelo assistente; sem isto o painel mostra "configuracao guiada 0/7".
+    UPDATE barbershops SET onboarding_completed_at = now() - interval '18 months' WHERE id = v_shop;
 
     INSERT INTO barbershop_settings (
         barbershop_id, display_name, address_text, address_maps_url, schedule_url, instagram_url,
@@ -750,6 +764,10 @@ BEGIN
             END IF;
         END;
     END LOOP;
+
+    -- Devolve o site guardado na limpeza (ver secao 0).
+    INSERT INTO barbershop_site SELECT * FROM keep_site;
+    INSERT INTO site_image SELECT * FROM keep_site_image;
 
     RAISE NOTICE 'Seed da demo concluido para a barbearia % (slug demo-navalha).', v_shop;
 END

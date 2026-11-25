@@ -1,0 +1,84 @@
+{
+  "title": "Razor — o sistema por dentro",
+  "scenes": [
+    {
+      "id": "intro",
+      "chapter": "",
+      "card": true,
+      "text": "Este é o Razor, um sistema de gestão para barbearias. Neste vídeo eu mostro o sistema por dentro: o painel do dono, a agenda, as comandas, o caixa, a fidelização, o site da barbearia e o console da plataforma. A conversa da inteligência artificial no WhatsApp fica de fora. Aqui é só o sistema."
+    },
+    {
+      "id": "cadastro",
+      "chapter": "01 · Cadastro e primeiro acesso",
+      "text": "Tudo começa no cadastro. O dono informa o nome da barbearia, a cidade, o WhatsApp e cria o acesso, sem cartão de crédito: são catorze dias de teste grátis. Depois, um assistente guia a configuração em sete passos: a casa, o horário, os serviços, a equipe, o WhatsApp, um teste e o site. Leva uns dez minutos."
+    },
+    {
+      "id": "painel",
+      "chapter": "02 · Painel do dono",
+      "text": "Ao entrar, o dono vê o dia da barbearia num olhar. No topo fica o status do atendimento automático. Logo abaixo, o cartão O que a IA fez por você mostra quantos horários foram marcados sozinhos no mês, quanto isso rendeu, quantas mensagens foram respondidas fora do horário e quantas faltas a confirmação evitou. Depois vêm a meta do mês, o faturamento, os atendimentos, o tíquete médio, o que falta receber e o gráfico do faturamento."
+    },
+    {
+      "id": "busca",
+      "chapter": "02 · Painel do dono",
+      "text": "Qualquer tela abre pela busca rápida, com Control K. E o painel tem tema escuro e tema claro.",
+      "hold": 5
+    },
+    {
+      "id": "agenda",
+      "chapter": "03 · Agenda",
+      "text": "A agenda mostra uma coluna por barbeiro, com a linha vermelha marcando a hora atual. As cores dizem se o horário foi pago por PIX, se é presencial ou se ainda está pendente, e o diamante marca quem é assinante do clube. Dá para ver o dia ou a semana, abrir os detalhes de cada atendimento, arrastar um horário para outra cadeira avisando o cliente, marcar um horário na mão e cadastrar folgas e bloqueios."
+    },
+    {
+      "id": "comandas",
+      "chapter": "04 · Comandas",
+      "text": "Na comanda entra tudo o que o cliente consumiu: o serviço e o produto do balcão. Ao fechar, o pagamento pode ser dividido entre PIX, cartão e dinheiro, e o cupom ou o pacote abatem do total. A comissão do barbeiro e o caixa são atualizados na mesma hora.",
+      "hold": 6.5
+    },
+    {
+      "id": "clientes",
+      "chapter": "05 · Clientes",
+      "text": "A base de clientes se organiza sozinha. Pelo ritmo de visitas de cada pessoa, o sistema classifica o cliente como novo, ativo, em risco ou sumido. Cada ficha tem o histórico, os pontos de fidelidade, o pacote, o plano do clube e as etiquetas, que servem para separar grupos e mandar campanhas."
+    },
+    {
+      "id": "fidelizacao",
+      "chapter": "06 · Fidelização",
+      "text": "Na fidelização ficam as ferramentas para o cliente voltar. A retenção mostra a ocupação de cada cadeira e quem passou do tempo de voltar. O clube de assinatura gera receita todo mês. Os pacotes vendem cortes adiantados, com o saldo controlado. E os cupons cobrem campanha, indicação e o corte grátis do cartão fidelidade."
+    },
+    {
+      "id": "dinheiro",
+      "chapter": "07 · Dinheiro",
+      "text": "No dinheiro, o caixa abre com o fundo de troco e mostra quanto deve haver na gaveta, separando o que entrou por PIX, cartão e dinheiro. As comissões saem calculadas por barbeiro e por período, e o acerto registra o que já foi pago e os vales. Em despesas, as contas da barbearia viram o resultado do mês: quanto entrou, quanto saiu e quanto sobrou. E os produtos do balcão têm controle de estoque."
+    },
+    {
+      "id": "configurar",
+      "chapter": "08 · Configurar",
+      "text": "Em configurar ficam o catálogo de serviços, com preço e duração, e a equipe, com a comissão e o login de cada barbeiro. Nas configurações, o sistema mostra a saúde de tudo: o WhatsApp, a inteligência artificial e o envio de mensagens. E ali ficam as automações: a lista de espera que oferece a vaga de quem cancelou, o relatório semanal para o dono e as campanhas."
+    },
+    {
+      "id": "site",
+      "chapter": "09 · Site da barbearia",
+      "text": "Cada barbearia ganha um site pronto, com três modelos. No editor, o dono troca o modelo, as cores, os textos e as fotos, e vê a prévia ao vivo. O site publicado tem a página de agendamento online, ligada à mesma agenda: o cliente escolhe o serviço, o barbeiro e o horário."
+    },
+    {
+      "id": "papeis",
+      "chapter": "10 · Cada um vê o que precisa",
+      "text": "Cada pessoa vê só o que precisa. A recepção cuida da agenda, das comandas e do caixa. O barbeiro entra no Meu dia, com os próprios horários e quanto já ganhou."
+    },
+    {
+      "id": "celular",
+      "chapter": "11 · No celular",
+      "text": "No celular, o painel funciona como aplicativo instalado, com os atalhos do dia a dia na barra de baixo e o resto no menu Mais."
+    },
+    {
+      "id": "plataforma",
+      "chapter": "12 · Console da plataforma",
+      "text": "Por fim, o console da plataforma, de uso interno. Ele tem login próprio, com verificação em duas etapas por QR code, e mostra as barbearias, a saúde do sistema, o consumo e o custo da inteligência artificial, as métricas de atendimento e uma trilha de auditoria para a LGPD."
+    },
+    {
+      "id": "outro",
+      "chapter": "",
+      "card": true,
+      "text": "Esse é o Razor: agenda, comandas, caixa, fidelização, site e equipe, num lugar só. Obrigado."
+    }
+  ]
+}
