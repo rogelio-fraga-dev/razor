@@ -27,7 +27,9 @@ type Scene = { id: string; chapter: string; text: string; card?: boolean; hold?:
 const SCENES = script.scenes as Scene[];
 const DUR = voiceDurations as Record<string, number>; // duração de cada fala gravada
 const TTS = ttsDurations as Record<string, number>; // a gravação de tela foi feita no ritmo da voz de IA
-const MAX_RATE = 1.3; // quanto a gravação pode acelerar para acompanhar uma fala mais curta
+const MAX_RATE = 1.3;
+// Fundo musical desligado: o dono preferiu só a voz (25/11). A trilha continua em public/music.
+const MUSIC = false; // quanto a gravação pode acelerar para acompanhar uma fala mais curta
 const CLIPS = clips as Record<string, { file: string; offset: number; length: number }>;
 
 // Quanto da gravação a cena precisa mostrar (o carimbo PAGO, o tema claro: `hold` estica).
@@ -191,7 +193,7 @@ export function Professor() {
   return (
     <AbsoluteFill style={{ background: C.obsidian }}>
       {/* Jimmy Blythe, "Armour Avenue Struggle" (1924): domínio público. */}
-      <Audio src={staticFile("music/blues-bed.wav")} volume={(f) => musicVolume(f, durationInFrames)} />
+      {MUSIC && <Audio src={staticFile("music/blues-bed.wav")} volume={(f) => musicVolume(f, durationInFrames)} />}
       <TransitionSeries>
         {SCENES.flatMap((s, i) => {
           const showChapter = !!s.chapter && s.chapter !== prevChapter;

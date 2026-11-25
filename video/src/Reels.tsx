@@ -13,6 +13,8 @@ loadInter("normal", { weights: ["500", "700", "800"], subsets: ["latin"] });
 loadMono("normal", { weights: ["500", "700"], subsets: ["latin"] });
 
 const FPS = 30;
+// Sem música: o dono coloca a trilha dele na edição final (25/11).
+const MUSIC = false;
 const s2f = (s: number) => Math.round(s * FPS);
 
 // Falas: duração do arquivo cortado e o início de cada palavra (s, relativo ao arquivo, da transcrição).
@@ -303,13 +305,13 @@ export function Reels() {
   return (
     <AbsoluteFill style={{ background: C.obsidian }}>
       {/* Jimmy Blythe, "Armour Avenue Struggle" (1924): domínio público. */}
-      <Audio src={staticFile("music/blues-bed.wav")} startFrom={s2f(20)}
+      {MUSIC && <Audio src={staticFile("music/blues-bed.wav")} startFrom={s2f(20)}
         volume={(f) => {
           const end = s2f(STARTS[4] + LINES[4].len);
           const base = f > end ? interpolate(f, [end, end + 12], [0.08, 0.2], { extrapolateRight: "clamp" }) : 0.08;
           return base * interpolate(f, [0, 8], [0, 1], { extrapolateRight: "clamp" })
             * interpolate(f, [durationInFrames - 25, durationInFrames], [1, 0], { extrapolateLeft: "clamp" });
-        }} />
+        }} />}
       {scenes.map((Scene, i) => {
         const from = i === 0 ? 0 : S[i] - EARLY;
         const to = i < 4 ? S[i + 1] - EARLY : durationInFrames;
