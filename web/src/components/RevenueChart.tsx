@@ -59,11 +59,11 @@ export function RevenueChart({ points }: { points: SeriesPoint[] }) {
         <line x1={PAD_X} y1={PAD_TOP + drawH / 2} x2={SVG_W - PAD_X} y2={PAD_TOP + drawH / 2} style={{ stroke: "var(--chart-grid, rgba(255,255,255,0.06))" }} strokeDasharray="4" />
         <line x1={PAD_X} y1={baseline} x2={SVG_W - PAD_X} y2={baseline} style={{ stroke: "var(--chart-grid, rgba(255,255,255,0.1))" }} />
 
-        {hasMovement && <polygon points={polygon} fill="url(#chartGrad)" />}
-        <polyline fill="none" style={{ stroke: "var(--chart-line, #37E2FF)" }} strokeWidth="3" points={polyline} />
+        {hasMovement && <polygon className="chart-area" points={polygon} fill="url(#chartGrad)" />}
+        <polyline className="chart-line" pathLength={1} fill="none" style={{ stroke: "var(--chart-line, #37E2FF)" }} strokeWidth="3" points={polyline} />
 
-        {plotted.map((p) => (
-          <g key={p.label}>
+        {plotted.map((p, i) => (
+          <g key={p.label} className="chart-pt" style={{ ["--d" as string]: `${0.15 + (i / Math.max(1, plotted.length - 1)) * 0.9}s` }}>
             <circle cx={p.x} cy={p.y} r="5" style={{ fill: "var(--chart-dot, #3E63FF)", stroke: "var(--chart-line, #37E2FF)" }} strokeWidth="2.5" />
             {p.value > 0 && (
               <text x={p.x} y={p.y - 10} textAnchor="middle" fill="var(--chrome)" fontSize="10" fontWeight="700" fontFamily="var(--font-mono)">

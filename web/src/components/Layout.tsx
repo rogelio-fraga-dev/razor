@@ -18,6 +18,7 @@ import { TrialBanner } from "./TrialBanner";
 import { HealthBanner } from "./SystemHealth";
 import { Drawer } from "./Drawer";
 import { IconChevron, IconMore } from "./Icons";
+import { StampLayer } from "./Motion";
 
 const COLLAPSED_KEY = "razor.sidebar_collapsed";
 /** Grupos abertos/fechados, POR USUÁRIO: dono e recepção dividem o computador do balcão. */
@@ -65,6 +66,7 @@ function tourId(to: string): string {
 function NavItem({ page, sub }: { page: NavPage; sub?: boolean }) {
   return (
     <NavLink
+      viewTransition
       to={page.to}
       end={page.end}
       title={page.label}
@@ -133,6 +135,7 @@ function GroupFlyout({
       <span className="nav-flyout-title">{group.label}</span>
       {group.pages.map((p) => (
         <NavLink
+          viewTransition
           key={p.to}
           to={p.to}
           end={p.end}
@@ -280,6 +283,7 @@ function BottomNav({ quick, groups }: { quick: NavPage[]; groups: NavGroup[] }) 
         {quick.map((p) => {
           return (
             <NavLink
+              viewTransition
               key={p.to}
               to={p.to}
               end={p.end}
@@ -319,6 +323,7 @@ function BottomNav({ quick, groups }: { quick: NavPage[]; groups: NavGroup[] }) 
                 {g.pages.map((p) => (
                   <li key={p.to}>
                     <NavLink
+                      viewTransition
                       to={p.to}
                       end={p.end}
                       className={({ isActive }) => `area-link${isActive ? " active" : ""}`}
@@ -418,7 +423,7 @@ export function Layout({
         />
         <div className="sidebar-foot">
           <InstallAppButton className="btn btn-ghost btn-sm install-btn" compact={collapsed || narrow} />
-          <NavLink to="/profile" className="user-chip" title="Meu perfil" data-tour="profile">
+          <NavLink viewTransition to="/profile" className="user-chip" title="Meu perfil" data-tour="profile">
             <span className="avatar">{initial}</span>
             <div className="grow user-meta">
               <div className="user-name">{session?.name || "Admin"}</div>
@@ -464,6 +469,7 @@ export function Layout({
       </div>
 
       <BottomNav quick={quick} groups={groups} />
+      <StampLayer />
     </div>
   );
 }

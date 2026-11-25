@@ -3,9 +3,46 @@
 Arquivo para retomar o trabalho de onde parou (também numa sessão nova do Claude Code).
 Plano detalhado: `docs/MVP-PILOTO.md` · Visão de produto e histórico: `docs/ROADMAP.md`.
 
-_Última atualização: 2026-11-23 (noite) — sessão salva; tudo no master e no GitHub_
+_Última atualização: 2026-11-25 — Parte 6 (upgrade visual + vídeos) em andamento no branch `parte-6-visual`_
 
 ---
+
+## FOCO ATUAL (25/11): Parte 6 — upgrade visual e vídeos ✅ (vídeos entregues)
+
+O usuário pausou o piloto e pediu: **upgrade visual → vídeo do professor → Reels**. Tudo entregue em 25/11.
+Branch/worktree `parte-6-visual` (`.claude/worktrees/parte-6-visual`), no GitHub, **ainda sem merge no master**.
+
+- **Upgrade visual (pronto):** landing com a cena fixa "Um dia na barbearia", título linha a linha,
+  luz nos cartões e placar na calculadora (`site/motion.css`); modelos de site com a frase que acende
+  e a foto que revela; painel com transição de tela, KPIs contando, gráfico que se desenha e carimbo
+  PAGO. Regras de tela em `docs/DESIGN.md`. Referências em `c:/projetos/curso-sistema/DESIGN`.
+- **Vídeos prontos** em `C:/projetos/razor/videos/` (fora do git):
+  - `razor-professor.mp4` — 4min27, voz do dono, **sem música** (a pedido).
+  - `razor-reels-so-voz.mp4` — 35 s vertical, voz do dono, sem música (ele põe a trilha dele).
+  - `razor-reels.mp4` — mesma coisa com o blues de fundo (só para comparar).
+- **Como os vídeos são feitos** (pasta `video/`):
+  - Telas do professor: Playwright (`professor/record.mjs`, `tools/rec-lib.mjs`), desktop 1600x900.
+  - Telas do Reels: `reels/record.mjs` + `tools/rec-sharp.mjs` (screencast do Chrome em 3x; o
+    recordVideo do Playwright grava em px CSS e fica borrado no celular).
+  - Voz: o dono gravou; `tools/prep-voice.py` corta e normaliza para `public/professor/voice/`.
+    Falas do Reels em `public/reels/voz1..5.wav`. A voz de IA (Piper, `tools/tts.py`) ficou só
+    como ritmo das gravações (`public/professor/durations.json`).
+  - Remotion edita (`src/Professor.tsx`, `src/Reels.tsx`); `npm run render:professor` /
+    `render:reels` (concorrência 1: com 2 o Windows ficou sem memória). Música desligada no código
+    (`MUSIC = false`); trilha em `public/music/` (Jimmy Blythe, 1924, domínio público).
+  - `public/`, `out/` e `recordings/` ficam fora do git. Áudios e gravação de tela originais do dono
+    ficam em `C:/projetos/razor/roteiros/` (fora do git; nomes de arquivo com dado pessoal).
+  - ffmpeg completo: `imageio-ffmpeg` (pip); o do Remotion não tem setpts/drawtext/tile.
+- **Dados demo:** `scripts/seed-demo.sql` + `scripts/seed-demo-extra.sql`; recarregados no fim do dia
+  (backups em `backups/antes-*-20261125-*.dump`).
+- **Bot corrigido (25/11):** o gpt-4o-mini às vezes escrevia "Agendamento Confirmado / Como deseja
+  pagar?" sem a tag `[NOVO_AGENDAMENTO]` (nada gravado). Agora escala para o modelo forte e, se ainda
+  faltar a tag, pede o SIM de novo (`OpenAIService.claimsBookingWithoutTag`). Testado ao vivo: agendou.
+- **CUIDADO — Evolution:** subir o `--profile bot` reconecta sozinho a sessão do número real
+  (instância `DemoNavalhaWpp`) e o bot responde qualquer pessoa. Deixar PARADO; só ligar quando o
+  usuário pedir e desligar quando ele terminar.
+- **Próximo:** merge do `parte-6-visual` no master quando o usuário aprovar; depois retomar a ordem
+  (piloto na AWS só quando ele mandar montar).
 
 ## Onde estamos
 

@@ -754,7 +754,15 @@ export function StorySplit({ site, reverse, index }: { site: PublicSite; reverse
         )}
         <div className="rz-story-text" data-reveal>
           <SectionHead s={{ ...s, text: "" }} id="casa-titulo" index={index} reveal={false} />
-          <p className="rz-story-quote">{primeira}</p>
+          {/* Momento da página: as palavras da frase acendem uma a uma com a rolagem
+              (--sp do bloco). Sem movimento, --sp não existe e a frase nasce acesa. */}
+          <p className="rz-story-quote rz-lit" aria-label={primeira}>
+            {primeira.split(/\s+/).map((w, i, all) => (
+              <span key={i} aria-hidden="true" style={{ ["--w" as string]: (i / Math.max(1, all.length)).toFixed(3) }}>
+                {w}{" "}
+              </span>
+            ))}
+          </p>
           {resto.map((p, i) => (
             <p key={i} className="rz-lead">
               {p}

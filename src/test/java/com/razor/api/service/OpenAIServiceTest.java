@@ -401,5 +401,8 @@ class OpenAIServiceTest {
         assertThat(OpenAIService.needsEscalation("[NOVO_AGENDAMENTO|Joao|26/05")).isTrue();
         assertThat(OpenAIService.needsEscalation("Oi! Qual serviço?")).isFalse();
         assertThat(OpenAIService.needsEscalation("[NOVO_AGENDAMENTO|Joao|26/05|14:00|Corte]")).isFalse();
+        // Diz que agendou mas esqueceu a tag: nada foi gravado.
+        assertThat(OpenAIService.needsEscalation("Agendamento Confirmado! ✅ Como deseja pagar? 1️⃣ PIX 2️⃣ Presencialmente")).isTrue();
+        assertThat(OpenAIService.needsEscalation("Agendamento Confirmado! Como deseja pagar? [NOVO_AGENDAMENTO|Joao|26/05|14:00|Corte]")).isFalse();
     }
 }

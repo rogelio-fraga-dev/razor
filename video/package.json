@@ -1,0 +1,27 @@
+{
+  "name": "video",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render:professor": "remotion render src/index.ts Professor out/razor-professor.mp4 --codec=h264 --crf=18 --concurrency=1",
+    "render:reels": "remotion render src/index.ts Reels out/razor-reels.mp4 --codec=h264 --crf=18 --concurrency=1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@remotion/cli": "^4.0.547",
+    "@remotion/google-fonts": "^4.0.547",
+    "@remotion/media-utils": "^4.0.547",
+    "@remotion/transitions": "^4.0.547",
+    "@types/react": "^19.3.3",
+    "playwright": "^1.65.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.547",
+    "typescript": "^7.0.2"
+  }
+}

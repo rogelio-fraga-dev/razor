@@ -12,6 +12,7 @@ import { api, ApiError } from "../api/client";
 import type { CashPaymentMethod, Comanda, ComandaClosePreview, ComandaCouponPreview } from "../api/types";
 import { money } from "../lib/format";
 import { cents, METHOD_LABEL, PAYMENT_METHODS } from "../lib/paymentMethods";
+import { stamp } from "./Motion";
 
 interface Line {
   key: number;
@@ -226,6 +227,7 @@ export function CloseComandaModal({
           lines.length > 1 ? ` (${lines.map((l) => METHOD_LABEL[l.method]).join(" + ")})` : "";
         toast.success(`Comanda fechada ✓ ${money(total)} recebido${resumo}.`);
       }
+      stamp("PAGO");
       onClosed();
       onClose();
     } catch (e) {
