@@ -16,7 +16,7 @@ Branch/worktree `parte-6-visual` (`.claude/worktrees/parte-6-visual`), no GitHub
   luz nos cartões e placar na calculadora (`site/motion.css`); modelos de site com a frase que acende
   e a foto que revela; painel com transição de tela, KPIs contando, gráfico que se desenha e carimbo
   PAGO. Regras de tela em `docs/DESIGN.md`. Referências em `c:/projetos/curso-sistema/DESIGN`.
-- **Vídeos prontos** em `C:\projetosazorideos\` (fora do git):
+- **Vídeos prontos** em `C:/projetos/razor/videos/` (fora do git):
   - `razor-professor.mp4` — 4min27, voz do dono, **sem música** (a pedido).
   - `razor-reels-so-voz.mp4` — 35 s vertical, voz do dono, sem música (ele põe a trilha dele).
   - `razor-reels.mp4` — mesma coisa com o blues de fundo (só para comparar).
@@ -31,7 +31,7 @@ Branch/worktree `parte-6-visual` (`.claude/worktrees/parte-6-visual`), no GitHub
     `render:reels` (concorrência 1: com 2 o Windows ficou sem memória). Música desligada no código
     (`MUSIC = false`); trilha em `public/music/` (Jimmy Blythe, 1924, domínio público).
   - `public/`, `out/` e `recordings/` ficam fora do git. Áudios e gravação de tela originais do dono
-    ficam em `C:\projetosazoroteiros\` (fora do git; nomes de arquivo com dado pessoal).
+    ficam em `C:/projetos/razor/roteiros/` (fora do git; nomes de arquivo com dado pessoal).
   - ffmpeg completo: `imageio-ffmpeg` (pip); o do Remotion não tem setpts/drawtext/tile.
 - **Dados demo:** `scripts/seed-demo.sql` + `scripts/seed-demo-extra.sql`; recarregados no fim do dia
   (backups em `backups/antes-*-20261125-*.dump`).
