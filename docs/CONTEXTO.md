@@ -10,7 +10,7 @@ _Última atualização: 2026-11-25 — Parte 6 (upgrade visual + vídeos) em and
 ## FOCO ATUAL (25/11): Parte 6 — upgrade visual e vídeos ✅ (vídeos entregues)
 
 O usuário pausou o piloto e pediu: **upgrade visual → vídeo do professor → Reels**. Tudo entregue em 25/11.
-Branch/worktree `parte-6-visual` (`.claude/worktrees/parte-6-visual`), no GitHub, **ainda sem merge no master**.
+Branch/worktree `parte-6-visual` (`.claude/worktrees/parte-6-visual`), no GitHub e **no master** (merge `0b5eec8`, 25/11).
 
 - **Upgrade visual (pronto):** landing com a cena fixa "Um dia na barbearia", título linha a linha,
   luz nos cartões e placar na calculadora (`site/motion.css`); modelos de site com a frase que acende
@@ -41,8 +41,8 @@ Branch/worktree `parte-6-visual` (`.claude/worktrees/parte-6-visual`), no GitHub
 - **CUIDADO — Evolution:** subir o `--profile bot` reconecta sozinho a sessão do número real
   (instância `DemoNavalhaWpp`) e o bot responde qualquer pessoa. Deixar PARADO; só ligar quando o
   usuário pedir e desligar quando ele terminar.
-- **Próximo:** merge do `parte-6-visual` no master quando o usuário aprovar; depois retomar a ordem
-  (piloto na AWS só quando ele mandar montar).
+- **Próximo:** ✋ o usuário publica o Reels (com a música dele) e junta os interessados; depois
+  retomar a ordem (piloto na AWS só quando ele mandar montar).
 
 ## Onde estamos
 
@@ -181,10 +181,10 @@ ranking com comissão variável (V53), multiunidade (V54), botão "Reservar" no 
    plano gratuito da AWS acabar (05/2027, vale também para o curso).
 6. **Parte 8:** área do cliente (V52), metas/ranking (V53), multiunidade (V54), "Reservar" no Instagram.
 7. **Débitos:** Playwright E2E, Vite 6+ (`npm audit`), code-split do painel, ITs com Testcontainers nesta máquina.
-8. **Só quando o usuário mandar:** Parte 7 (WhatsApp oficial), Parte 9 (salões/estética), Parte 6 (Reels +
-   tutoriais "Como configurar o site" e "Como configurar a IA").
+8. **Só quando o usuário mandar:** Parte 7 (WhatsApp oficial), Parte 9 (salões/estética), resto da Parte 6
+   (tutoriais "Como configurar o site" e "Como configurar a IA"; o Reels e o vídeo do professor já saíram).
 
-**Pendente do usuário agora:** testar o 2FA novo em `http://localhost:3000/plataforma`
+**Pendente do usuário agora:** ✋ publicar o Reels; ✋ testar o 2FA novo em `http://localhost:3000/plataforma`
 (`admin@razor.local`, senha em `RAZOR_PLATFORM_ADMIN_PASSWORD` no `.env`).
 
 ## Pendências fora das partes
