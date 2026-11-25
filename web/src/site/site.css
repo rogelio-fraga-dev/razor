@@ -1284,3 +1284,25 @@ html:has(.tpl) { scroll-behavior: smooth; }
 /* O painel (index.css) pinta h1..h6 com a cor de texto DELE (clara no tema escuro do painel).
    Dentro do site, titulo herda a cor do template. */
 .rzsite h1, .rzsite h2, .rzsite h3, .rzsite h4, .rzsite h5, .rzsite h6 { color: inherit; }
+
+/* ============================================================================
+   MOMENTOS (Parte 6) — um por página, ligado à rolagem do bloco "a casa".
+   ========================================================================== */
+/* Frase que acende palavra por palavra: L vai de 0 a 1 enquanto o bloco cruza o meio da tela. */
+.rz-lit { --L: calc((var(--sp, 1) - 0.2) * 2.6); }
+.rz-lit span { opacity: clamp(0.16, calc((var(--L) - var(--w)) * 7 + 0.16), 1); transition: opacity 0.12s linear; }
+
+/* Clássico: a foto da casa "revela" como uma foto antiga saindo do envelope. */
+.tpl-classico .rz-story-frame { clip-path: inset(calc(clamp(0, (0.55 - var(--sp, 1)) * 1.6, 1) * 50%) 0 round var(--radius)); }
+
+/* Estúdio: a foto em preto e branco abre como uma cortina lateral. */
+.tpl-estudio .rz-story-frame { clip-path: inset(0 calc(clamp(0, (0.55 - var(--sp, 1)) * 1.6, 1) * 100%) 0 0 round var(--radius)); }
+
+/* Vitrine: a foto gira para a frente como um cartaz sendo colado. */
+.tpl-vitrine .rz-story-frame { transform: perspective(1200px) rotateY(calc(clamp(0, 0.55 - var(--sp, 1), 1) * -50deg)); transform-origin: left center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rz-lit span { opacity: 1; }
+  .tpl-classico .rz-story-frame, .tpl-estudio .rz-story-frame { clip-path: none; }
+  .tpl-vitrine .rz-story-frame { transform: none; }
+}

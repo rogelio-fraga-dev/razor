@@ -9,6 +9,7 @@ import { applyTheme, currentTheme } from "./lib/theme";
 import { registerServiceWorker } from "./lib/pwa";
 import "./index.css";
 import "./shell.css";
+import "./motion.css";
 import "./theme-light.css"; // por último: a paleta clara vence as demais folhas
 
 applyTheme(currentTheme());

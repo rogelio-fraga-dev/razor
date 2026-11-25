@@ -1,0 +1,171 @@
+/* ============================================================================
+   RAZOR · Landing — camada de movimento (Parte 6, upgrade visual)
+   Carregada depois de styles.css. Regras: só transform/opacity animam; conteúdo
+   nunca depende de JS para aparecer; tudo desliga com prefers-reduced-motion.
+   ========================================================================== */
+
+/* ============================================================ UM DIA NA BARBEARIA
+   Cena fixa: a trilha alta (.day-track) dá a rolagem; o palco (.day-pin) fica preso
+   e o script.js acende o capítulo ativo (.on) e o progresso (--p).
+   Sem a classe .live (sem JS ou com movimento reduzido) tudo aparece empilhado. */
+.day { padding-bottom: 40px; }
+.day .sec-head { margin-bottom: 8px; }
+.day-grid { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: clamp(28px, 5vw, 72px); align-items: center; }
+.day-steps { display: flex; flex-direction: column; gap: 10px; }
+.day-step {
+  position: relative; padding: 18px 20px 18px 24px; border-radius: 16px; border: 1px solid transparent;
+  transition: opacity 0.5s var(--ease), background-color 0.5s var(--ease), border-color 0.5s var(--ease);
+}
+.day-step::before {
+  content: ""; position: absolute; left: 0; top: 18px; bottom: 18px; width: 3px; border-radius: 3px;
+  background: var(--edge-gradient); transform: scaleY(0); transform-origin: top; transition: transform 0.6s var(--ease);
+}
+.day-step h3 { font-size: clamp(19px, 2vw, 24px); margin: 6px 0; }
+.day-step p { color: var(--steel); font-size: 15px; max-width: 420px; }
+.ds-time { font-size: 12px; letter-spacing: 0.16em; color: var(--accent-text); }
+
+.day-device {
+  position: relative; border-radius: 22px; background: var(--graphite); border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.dd-bar { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--steel); }
+.dd-screens { position: relative; }
+.dd-screen { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+.dd-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.dd-head b { font-family: var(--font-display); font-size: 20px; }
+.dd-head span { font-size: 12px; color: var(--steel); }
+.dd-rail { height: 3px; background: var(--border); }
+.dd-rail i { display: block; height: 100%; background: var(--edge-gradient); transform-origin: left; transform: scaleX(var(--p, 1)); }
+
+/* Agenda */
+.dd-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.dd-col { display: flex; flex-direction: column; gap: 8px; }
+.dd-who { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.dd-ap { display: block; padding: 10px; border-radius: 10px; font-size: 12.5px; background: var(--graphite-2); border: 1px solid var(--border); }
+.dd-ap.ai { border-color: rgba(62, 99, 255, 0.45); background: linear-gradient(140deg, rgba(62, 99, 255, 0.18), rgba(55, 226, 255, 0.05)); }
+.dd-ap b { font-family: var(--font-mono); font-size: 10px; padding: 1px 5px; border-radius: 5px; background: var(--voltage); color: #fff; margin-right: 4px; }
+
+/* Comanda */
+.dd-receipt { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 14px; background: var(--graphite-2); border: 1px dashed var(--border-strong); }
+.dd-line, .dd-total { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.dd-line em, .dd-total em { font-style: normal; color: var(--steel); }
+.dd-total { padding-top: 10px; border-top: 1px solid var(--border); font-size: 17px; }
+.dd-total em { color: var(--chrome); font-weight: 600; }
+.dd-split { display: flex; gap: 8px; }
+.dd-split i { font-style: normal; font-size: 12px; padding: 6px 10px; border-radius: 8px; background: rgba(37, 211, 102, 0.12); color: var(--signal); }
+.dd-stamp {
+  position: absolute; right: 18px; top: 38%; padding: 6px 16px; border: 3px solid var(--signal); border-radius: 10px;
+  color: var(--signal); font-size: 26px; font-weight: 700; letter-spacing: 0.2em; transform: rotate(-12deg);
+}
+
+/* Caixa */
+.dd-kpi { display: flex; flex-direction: column; gap: 2px; }
+.dd-kpi span { font-size: 13px; color: var(--steel); }
+.dd-kpi b { font-family: var(--font-display); font-size: clamp(38px, 5vw, 56px); letter-spacing: -0.03em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.dd-bars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; height: 120px; align-items: end; }
+.dd-bars span { position: relative; height: calc(var(--v) * 100%); border-radius: 8px 8px 4px 4px; background: var(--edge-gradient); transform-origin: bottom; }
+.dd-bars i { position: absolute; bottom: -20px; left: 0; right: 0; text-align: center; font-style: normal; font-size: 11px; color: var(--steel); }
+.dd-mini { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.dd-mini span { font-size: 12.5px; color: var(--steel); padding: 8px 10px; border-radius: 10px; background: var(--graphite-2); border: 1px solid var(--border); }
+.dd-mini b { color: var(--chrome); margin-left: 4px; }
+.dd-mini .ok { border-color: rgba(37, 211, 102, 0.4); }
+.dd-mini .ok b { color: var(--signal); }
+
+/* Retenção */
+.dd-list { display: flex; flex-direction: column; gap: 8px; }
+.dd-list li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--graphite-2); border: 1px solid var(--border); font-size: 13px; }
+.dd-list li > span:nth-child(2) { flex: 1; color: var(--steel); }
+.dd-list b { color: var(--chrome); }
+.dd-list em { font-style: normal; color: var(--amber); }
+.dd-sent { font-family: var(--font-mono); font-size: 11px; color: var(--signal); padding: 4px 8px; border-radius: 6px; background: rgba(37, 211, 102, 0.12); }
+.dd-back { font-size: 14px; color: var(--steel); }
+.dd-back b { color: var(--signal); font-size: 18px; margin-right: 4px; }
+
+/* Estático (sem JS / movimento reduzido): telas uma embaixo da outra. */
+.day:not(.live) .dd-screen + .dd-screen { border-top: 1px solid var(--border); }
+.day:not(.live) .dd-rail { display: none; }
+.day:not(.live) .day-grid { align-items: start; padding-top: 32px; }
+
+/* Ao vivo: trilha alta + palco preso. */
+.day.live .day-track { height: 420vh; }
+.day.live .day-pin { position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; align-items: center; }
+.day.live .day-step { opacity: 0.38; }
+.day.live .day-step.on { opacity: 1; background: rgba(255, 255, 255, 0.03); border-color: var(--border); }
+:root[data-theme="light"] .day.live .day-step.on { background: rgba(18, 20, 26, 0.03); }
+.day.live .day-step.on::before { transform: scaleY(1); }
+.day.live .dd-screens { height: 400px; }
+.day.live .dd-screen {
+  position: absolute; inset: 0; opacity: 0; transform: translateY(24px) scale(0.98); pointer-events: none;
+  transition: opacity 0.5s var(--ease), transform 0.6s var(--ease);
+}
+.day.live .dd-screen.on { opacity: 1; transform: none; }
+/* Itens de cada tela entram em cascata quando a tela acende. */
+.day.live .dd-ap, .day.live .dd-line, .day.live .dd-total, .day.live .dd-split, .day.live .dd-list li {
+  opacity: 0; transform: translateY(14px) scale(0.96);
+  transition: opacity 0.45s var(--ease), transform 0.55s var(--ease);
+  transition-delay: calc(var(--i, 0) * 90ms + 120ms);
+}
+.day.live .on .dd-ap, .day.live .on .dd-line, .day.live .on .dd-total, .day.live .on .dd-split, .day.live .on .dd-list li { opacity: 1; transform: none; }
+.day.live .dd-stamp { opacity: 0; transform: rotate(-12deg) scale(2.6); transition: opacity 0.2s, transform 0.35s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.day.live .on .dd-stamp { opacity: 1; transform: rotate(-12deg) scale(1); transition-delay: 0.75s; }
+.day.live .dd-bars span { transform: scaleY(0); transition: transform 0.8s var(--ease); }
+.day.live .on .dd-bars span { transform: scaleY(1); }
+.day.live .on .dd-bars span:nth-child(2) { transition-delay: 0.08s; }
+.day.live .on .dd-bars span:nth-child(3) { transition-delay: 0.16s; }
+.day.live .on .dd-bars span:nth-child(4) { transition-delay: 0.24s; }
+.day.live .on .dd-bars span:nth-child(5) { transition-delay: 0.32s; }
+.day.live .dd-sent { opacity: 0; transform: scale(0.6); transition: opacity 0.3s, transform 0.4s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.day.live .on .dd-sent { opacity: 1; transform: none; }
+.day.live .on li:nth-child(1) .dd-sent { transition-delay: 0.7s; }
+.day.live .on li:nth-child(2) .dd-sent { transition-delay: 0.85s; }
+.day.live .on li:nth-child(3) .dd-sent { transition-delay: 1s; }
+.day.live .on li:nth-child(4) .dd-sent { transition-delay: 1.15s; }
+
+@media (max-width: 900px) {
+  .day-grid { grid-template-columns: 1fr; gap: 18px; }
+  .day.live .day-grid { display: flex; flex-direction: column-reverse; align-items: stretch; justify-content: center; }
+  .day.live .day-steps { position: relative; min-height: 150px; width: 100%; }
+  .dd-list li:nth-child(4) { display: none; }
+  .day.live .day-step { position: absolute; inset: 0 0 auto 0; opacity: 0; transform: translateY(10px); transition: opacity 0.4s, transform 0.4s var(--ease); }
+  .day.live .day-step.on { opacity: 1; transform: none; background: none; border-color: transparent; }
+  .day.live .dd-screens { height: 330px; }
+  .dd-screen { padding: 16px; gap: 12px; }
+  .dd-cols { gap: 6px; }
+  .dd-ap { font-size: 11px; padding: 8px 6px; }
+  .dd-bars { height: 90px; }
+}
+
+/* ============================================================ DETALHES (guia da Vercel) */
+h1, h2, h3 { text-wrap: balance; }
+a, button, input, label, summary { touch-action: manipulation; }
+
+/* Título do topo: cada linha sobe de dentro de uma máscara (o script.js embrulha as linhas). */
+.hero h1.lined { opacity: 1; transform: none; }
+.hero h1 .ln { display: block; overflow: hidden; padding-bottom: 0.1em; margin-bottom: -0.1em; }
+.hero h1 .ln > span { display: inline-block; transform: translateY(110%); transition: transform 1s var(--ease); transition-delay: calc(var(--i) * 130ms + 150ms); }
+.hero h1.lined.in .ln > span { transform: none; }
+
+/* Cartões e planos: luz que segue o ponteiro. */
+.b-card, .plan { position: relative; }
+.b-card::after, .plan::after {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; opacity: 0;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(55, 226, 255, 0.14), transparent 45%);
+  transition: opacity 0.3s;
+}
+.b-card:hover::after, .plan:hover::after { opacity: 1; }
+
+/* Calculadora: dígitos que rolam como placar. */
+.odo { display: inline-flex; overflow: hidden; height: 1.1em; line-height: 1.1em; vertical-align: bottom; }
+.odo-d { display: inline-flex; flex-direction: column; transition: transform 0.7s var(--ease); }
+.odo-d span { display: block; height: 1.1em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero h1 .ln > span { transform: none; transition: none; }
+  .odo-d { transition: none; }
+  .b-card::after, .plan::after { display: none; }
+}
+/* O cartão do resultado estiliza todo <span> como legenda; o placar mantém o tamanho do número. */
+.co-big .odo, .co-big .odo span { font-size: inherit; color: inherit; line-height: 1.1em; }
+/* Margem automática num item de grid encolhe o item: o palco ocupa a largura toda. */
+.day.live .day-pin > .wrap { width: 100%; }
+.dd-line b, .dd-total b { white-space: nowrap; }

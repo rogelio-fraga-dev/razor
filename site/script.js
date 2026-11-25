@@ -210,6 +210,39 @@ if (mock) {
 }
 
 // ---- Calculadora de faltas -------------------------------------------------
+// O valor recuperado rola dígito a dígito, como um placar. Cada dígito é uma coluna 0–9
+// que desliza; vírgula, ponto e "R$" ficam parados. Com movimento reduzido, texto puro.
+function odometer(el, text, suffix = "") {
+  if (!el) return;
+  if (reduced) { el.innerHTML = text + suffix; return; }
+  let box = el.querySelector(".odo");
+  if (!box || box.dataset.shape !== text.replace(/\d/g, "0")) {
+    box = document.createElement("span");
+    box.className = "odo";
+    box.dataset.shape = text.replace(/\d/g, "0");
+    box.setAttribute("aria-hidden", "true");
+    for (const ch of text) {
+      const d = document.createElement("span");
+      if (/\d/.test(ch)) {
+        d.className = "odo-d";
+        d.innerHTML = "0123456789".split("").map((n) => `<span>${n}</span>`).join("");
+      } else {
+        d.textContent = ch === " " ? " " : ch;
+      }
+      box.appendChild(d);
+    }
+    el.innerHTML = "";
+    el.appendChild(box);
+    const sr = document.createElement("span");
+    sr.className = "sr";
+    el.appendChild(sr);
+    el.insertAdjacentHTML("beforeend", suffix);
+  }
+  const digits = text.replace(/\D/g, "").split("");
+  box.querySelectorAll(".odo-d").forEach((d, i) => { d.style.transform = `translateY(${-digits[i] * 1.1}em)`; });
+  el.querySelector(".sr").textContent = text;
+}
+
 const brl = (v) => "R$ " + Math.round(v).toLocaleString("pt-BR");
 const calcInputs = {
   cortes: $("#c-cortes"), ticket: $("#c-ticket"), faltas: $("#c-faltas"), rec: $("#c-rec"),
@@ -231,7 +264,7 @@ function calc() {
   $("#o-rec").textContent = `${rec.value}%`;
   $("#r-faltas").textContent = qtdFaltas.toLocaleString("pt-BR");
   $("#r-perdida").textContent = brl(perdida);
-  $("#r-mes").innerHTML = `${brl(recuperada)}<small>/mês</small>`;
+  odometer($("#r-mes"), brl(recuperada), "<small>/mês</small>");
   $("#r-ano").textContent = `≈ ${brl(recuperada * 12)} em 12 meses`;
   Object.values(calcInputs).forEach(paintRange);
 }
@@ -269,9 +302,70 @@ if (!reduced && matchMedia("(hover: hover)").matches) {
       const px = (e.clientX - r.left) / r.width - 0.5;
       const py = (e.clientY - r.top) / r.height - 0.5;
       card.style.transform = `perspective(900px) rotateX(${-py * 3}deg) rotateY(${px * 3}deg) translateY(-3px)`;
+      card.style.setProperty("--mx", `${(px + 0.5) * 100}%`);
+      card.style.setProperty("--my", `${(py + 0.5) * 100}%`);
     });
     card.addEventListener("pointerleave", () => { card.style.transform = ""; });
   });
+}
+
+// ---- Título do topo: linhas que sobem de dentro de uma máscara ---------------
+const heroTitle = $(".hero h1");
+if (heroTitle && !reduced) {
+  const lines = heroTitle.innerHTML.split(/<br\s*\/?>/i);
+  heroTitle.innerHTML = lines.map((l, i) => `<span class="ln"><span style="--i:${i}">${l.trim()}</span></span>`).join("");
+  heroTitle.classList.add("lined");
+}
+
+// ---- Um dia na barbearia: palco preso + capítulos pela rolagem --------------
+// A trilha tem 420vh; o progresso dentro dela escolhe um dos quatro capítulos.
+const day = $("#um-dia");
+const dayTrack = $("#day-track");
+if (day && dayTrack && !reduced) {
+  day.classList.add("live");
+  const steps = $$(".day-step", day);
+  const screens = $$(".dd-screen", day);
+  const rail = $("#dd-rail");
+  const url = $("#dd-url");
+  const URLS = ["agenda", "comandas", "caixa", "retention"];
+  const count = $("#dd-count");
+  let current = -1;
+  let countRun = 0;
+  const countUp = () => {
+    if (!count) return;
+    const to = +count.dataset.to;
+    const run = ++countRun;
+    const t0 = performance.now();
+    const tick = (now) => {
+      if (run !== countRun) return;
+      const k = Math.min(1, (now - t0) / 1100);
+      const eased = 1 - Math.pow(1 - k, 3);
+      count.textContent = brl(to * eased);
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  const setStep = (i) => {
+    if (i === current) return;
+    current = i;
+    steps.forEach((s, k) => s.classList.toggle("on", k === i));
+    screens.forEach((s, k) => s.classList.toggle("on", k === i));
+    if (url) url.textContent = `app.razor.com.br/${URLS[i]}`;
+    if (i === 2) countUp();
+  };
+  const onDay = () => {
+    const r = dayTrack.getBoundingClientRect();
+    const total = r.height - innerHeight;
+    const p = clamp01(-r.top / (total || 1));
+    rail?.style.setProperty("--p", p.toFixed(3));
+    setStep(Math.min(3, Math.floor(p * 4)));
+  };
+  let dayTick = false;
+  addEventListener("scroll", () => {
+    if (!dayTick) { dayTick = true; requestAnimationFrame(() => { dayTick = false; onDay(); }); }
+  }, { passive: true });
+  addEventListener("resize", onDay);
+  onDay();
 }
 
 // ---- Ligação com o painel (login e planos) ----------------------------------

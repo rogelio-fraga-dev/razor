@@ -33,6 +33,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="motion.css" />
 </head>
 <body>
 <a class="skip" href="#conteudo">Pular para o conteúdo</a>
@@ -354,6 +355,107 @@
       </article>
     </div>
   </div>
+</section>
+
+<!-- ============ UM DIA NA BARBEARIA (cena fixa guiada pela rolagem) ============
+     O palco fica preso na tela enquanto a página rola; cada capítulo troca a tela do
+     painel. Sem JS ou com movimento reduzido, os quatro capítulos aparecem empilhados. -->
+<section class="day" id="um-dia" aria-labelledby="day-title">
+  <div class="wrap">
+    <div class="sec-head center rv">
+      <span class="eyebrow">UM DIA NA BARBEARIA</span>
+      <h2 id="day-title">Das 8h às 20h,<br /><em>o Razor trabalha junto.</em></h2>
+    </div>
+  </div>
+  <div class="day-track" id="day-track">
+    <div class="day-pin">
+      <div class="wrap wide day-grid">
+        <ol class="day-steps" id="day-steps">
+          <li class="day-step" data-step="0">
+            <span class="ds-time mono">08:00</span>
+            <h3>A agenda enche sozinha</h3>
+            <p>Os horários que a IA marcou de madrugada já estão na coluna de cada barbeiro.</p>
+          </li>
+          <li class="day-step" data-step="1">
+            <span class="ds-time mono">14:30</span>
+            <h3>A comanda fecha em segundos</h3>
+            <p>Serviço, produto do balcão e pagamento dividido. A comissão já sai calculada.</p>
+          </li>
+          <li class="day-step" data-step="2">
+            <span class="ds-time mono">20:00</span>
+            <h3>O caixa bate sozinho</h3>
+            <p>Entradas por forma de pagamento, despesas e o resultado do dia, sem caderno.</p>
+          </li>
+          <li class="day-step" data-step="3">
+            <span class="ds-time mono">SEGUNDA</span>
+            <h3>Quem sumiu é chamado de volta</h3>
+            <p>A retenção mostra quem passou do tempo de voltar e manda a mensagem por você.</p>
+          </li>
+        </ol>
+
+        <div class="day-device" aria-hidden="true">
+          <div class="dd-bar"><span class="dots"><i></i><i></i><i></i></span><span class="mono" id="dd-url">app.razor.com.br/agenda</span></div>
+          <div class="dd-screens">
+            <!-- 0 · Agenda -->
+            <div class="dd-screen s-agenda" data-screen="0">
+              <div class="dd-head"><b>Agenda</b><span class="mono">qui · 12 horários</span></div>
+              <div class="dd-cols">
+                <div class="dd-col"><span class="dd-who"><i class="av a1">D</i>Diego</span>
+                  <span class="dd-ap" style="--i:0">09h · Corte · Marcos</span>
+                  <span class="dd-ap ai" style="--i:3"><b>IA</b> 10h · Corte + Barba</span>
+                  <span class="dd-ap" style="--i:6">13h · Barba · Paulo</span>
+                </div>
+                <div class="dd-col"><span class="dd-who"><i class="av a2">R</i>Rafa</span>
+                  <span class="dd-ap ai" style="--i:1"><b>IA</b> 09h · Corte · João</span>
+                  <span class="dd-ap" style="--i:4">11h · Pacote · Igor</span>
+                  <span class="dd-ap ai" style="--i:7"><b>IA</b> 15h · Corte</span>
+                </div>
+                <div class="dd-col"><span class="dd-who"><i class="av a3">L</i>Léo</span>
+                  <span class="dd-ap" style="--i:2">09h30 · Pigmentação</span>
+                  <span class="dd-ap ai" style="--i:5"><b>IA</b> 12h · Corte · Bruno</span>
+                  <span class="dd-ap" style="--i:8">16h · Sobrancelha</span>
+                </div>
+              </div>
+            </div>
+            <!-- 1 · Comanda -->
+            <div class="dd-screen s-comanda" data-screen="1">
+              <div class="dd-head"><b>Comanda #0412</b><span class="mono">Lucas · com Diego</span></div>
+              <div class="dd-receipt">
+                <span class="dd-line" style="--i:0"><em>Corte + Barba</em><b class="mono">R$ 60,00</b></span>
+                <span class="dd-line" style="--i:1"><em>Pomada modeladora</em><b class="mono">R$ 35,00</b></span>
+                <span class="dd-line" style="--i:2"><em>Sinal PIX (abatido)</em><b class="mono">− R$ 15,00</b></span>
+                <span class="dd-total" style="--i:3"><em>Total</em><b class="mono">R$ 80,00</b></span>
+                <span class="dd-split" style="--i:4"><i class="mono">PIX R$ 40</i><i class="mono">Cartão R$ 40</i></span>
+                <span class="dd-stamp mono">PAGO</span>
+              </div>
+            </div>
+            <!-- 2 · Caixa -->
+            <div class="dd-screen s-caixa" data-screen="2">
+              <div class="dd-head"><b>Caixa do dia</b><span class="mono">fechamento 20:00</span></div>
+              <div class="dd-kpi"><span>Entrou hoje</span><b class="mono" id="dd-count" data-to="2380">R$ 2.380</b></div>
+              <div class="dd-bars">
+                <span style="--v:.82"><i>PIX</i></span><span style="--v:.55"><i>Cartão</i></span><span style="--v:.24"><i>Dinheiro</i></span><span style="--v:.38"><i>Pacote</i></span><span style="--v:.3"><i>Clube</i></span>
+              </div>
+              <div class="dd-mini"><span>Comissões <b class="mono">R$ 952</b></span><span>Despesas <b class="mono">R$ 180</b></span><span class="ok">Resultado <b class="mono">R$ 1.248</b></span></div>
+            </div>
+            <!-- 3 · Retenção -->
+            <div class="dd-screen s-ret" data-screen="3">
+              <div class="dd-head"><b>Retenção</b><span class="mono">7 clientes em risco</span></div>
+              <ul class="dd-list">
+                <li style="--i:0"><i class="av a1">C</i><span><b>Caio</b> vinha a cada 21 dias · <em>sumiu há 46</em></span><span class="dd-sent">enviado</span></li>
+                <li style="--i:1"><i class="av a2">A</i><span><b>André</b> vinha a cada 15 dias · <em>sumiu há 38</em></span><span class="dd-sent">enviado</span></li>
+                <li style="--i:2"><i class="av a3">T</i><span><b>Thiago</b> vinha a cada 30 dias · <em>sumiu há 52</em></span><span class="dd-sent">enviado</span></li>
+                <li style="--i:3"><i class="av a1">V</i><span><b>Vitor</b> vinha a cada 20 dias · <em>sumiu há 41</em></span><span class="dd-sent">enviado</span></li>
+              </ul>
+              <div class="dd-back"><b class="mono">+3</b> voltaram a agendar nesta semana</div>
+            </div>
+          </div>
+          <div class="dd-rail"><i id="dd-rail"></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="wrap mock-note">Ilustração da interface com dados de exemplo.</p>
 </section>
 
 <!-- ============ SITE WHITE-LABEL ============ -->

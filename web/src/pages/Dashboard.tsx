@@ -20,6 +20,7 @@ import { getOnce } from "../lib/dedupe";
 import { api } from "../api/client";
 import { fetchRevenueSeries, firstDayOfMonth, type SeriesPeriod } from "../lib/reportSeries";
 import { money, timeShort, todayIso } from "../lib/format";
+import { CountUp } from "../components/Motion";
 import type {
   AppointmentView,
   CommissionReport,
@@ -115,7 +116,7 @@ export function Dashboard() {
             <div className="kpi-header">
               <span className="kpi-title">Faturamento do mês</span>
             </div>
-            <div className="kpi-value mono">{money(m?.totalRevenue)}</div>
+            <div className="kpi-value mono">{m ? <CountUp value={m.totalRevenue ?? 0} format={money} /> : money(undefined)}</div>
             <div className="kpi-sub">
               {m
                 ? `Serviços ${money(m.servicesRevenue)} · produtos ${money(m.productsRevenue)}`
@@ -127,7 +128,7 @@ export function Dashboard() {
             <div className="kpi-header">
               <span className="kpi-title">Atendimentos no mês</span>
             </div>
-            <div className="kpi-value mono">{m?.totalAppointments ?? 0}</div>
+            <div className="kpi-value mono">{m ? <CountUp value={m.totalAppointments ?? 0} format={(n) => Math.round(n).toLocaleString("pt-BR")} /> : 0}</div>
             <div className="kpi-sub">
               {m
                 ? `${m.categories.combo} combo · ${m.categories.barba} barba · ${m.categories.simples} corte`
@@ -139,7 +140,7 @@ export function Dashboard() {
             <div className="kpi-header">
               <span className="kpi-title">Tíquete médio<Hint term="ticketMedio" label="tíquete médio" /></span>
             </div>
-            <div className="kpi-value mono">{money(m?.averageTicket)}</div>
+            <div className="kpi-value mono">{m ? <CountUp value={m.averageTicket ?? 0} format={money} /> : money(undefined)}</div>
             <div className="kpi-sub">
               {m && m.productsSold > 0
                 ? `Serviços por atendimento · ${m.productsSold} produto(s) à parte`
@@ -151,7 +152,7 @@ export function Dashboard() {
             <div className="kpi-header">
               <span className="kpi-title">A receber</span>
             </div>
-            <div className="kpi-value mono">{money(m?.payments.pendente.value)}</div>
+            <div className="kpi-value mono">{m ? <CountUp value={m.payments.pendente.value ?? 0} format={money} /> : money(undefined)}</div>
             <div className="kpi-sub">
               {m ? `${m.payments.pendente.count} pagamento(s) em aberto` : "—"}
             </div>
