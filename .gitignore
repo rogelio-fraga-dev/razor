@@ -68,3 +68,7 @@ evolution_store/
 
 # dumps locais do banco
 backups/
+
+# Gravacoes do dono e videos renderizados (dados pessoais, arquivos grandes)
+roteiros/
+videos/
