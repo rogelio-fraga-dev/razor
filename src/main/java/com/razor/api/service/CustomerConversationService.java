@@ -519,6 +519,10 @@ public class CustomerConversationService {
             return;
         } else if (intent instanceof AiIntent.ListaDeEspera listaDeEspera) {
             responseToSend = tratarListaDeEspera(phoneNumber, listaDeEspera);
+        } else if (OpenAIService.claimsBookingWithoutTag(intent.cleanedResponse())) {
+            // Nem o modelo forte mandou a tag: nao confirma um horario que nao existe.
+            log.warn("[IA] Resposta dizia que agendou, mas sem a tag; nada foi gravado para {}", phoneNumber);
+            responseToSend = "Opa, não consegui registrar seu horário agora. 😕 Pode responder *SIM* de novo para eu confirmar?";
         } else {
             responseToSend = intent.cleanedResponse();
         }

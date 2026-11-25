@@ -470,9 +470,21 @@ public class OpenAIService {
         }
     }
 
-    /** Resposta que nao serve: vazia, ou com tag de agendamento que o parser nao consegue ler. */
+    /**
+     * O modelo escreveu "Agendamento Confirmado / Como deseja pagar?" mas esqueceu a tag: nada foi
+     * gravado e o cliente acharia que tem horario (visto em 25/11 com o gpt-4o-mini).
+     */
+    public static boolean claimsBookingWithoutTag(String text) {
+        if (text == null || text.contains("[NOVO_AGENDAMENTO|")) return false;
+        String t = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT);
+        return t.contains("agendamento confirmado") || t.contains("como deseja pagar");
+    }
+
+    /** Resposta que nao serve: vazia, que diz ter agendado sem a tag, ou com tag que o parser nao le. */
     static boolean needsEscalation(String text) {
         if (text == null || text.isBlank()) return true;
+        if (claimsBookingWithoutTag(text)) return true;
         if (!text.contains("[NOVO_AGENDAMENTO|")) return false;
         var intent = new com.razor.api.ai.AiTagParser().parse(text);
         return !(intent instanceof com.razor.api.ai.AiIntent.NovoAgendamento);
