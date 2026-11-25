@@ -66,10 +66,10 @@ export function Backdrop({ children }: { children?: ReactNode }) {
 }
 
 /** Legenda: a frase atual em pílula escura, embaixo e ao centro. */
-export function Caption({ text, bottom = 54, size = 34 }: { text: string; bottom?: number; size?: number }) {
+export function Caption({ text, bottom = 54, size = 34, left = 0 }: { text: string; bottom?: number; size?: number; left?: number }) {
   if (!text) return null;
   return (
-    <div style={{ position: "absolute", left: 0, right: 0, bottom, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
+    <div style={{ position: "absolute", left, right: 0, bottom, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
       <div
         style={{
           maxWidth: 1500,

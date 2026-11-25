@@ -1,7 +1,7 @@
 // Vídeo de demonstração para o professor: o sistema por dentro (sem a conversa do bot).
 // Cenas, narração e clipes vêm de professor/script.json, public/professor/durations.json
 // (gerado por tools/tts.py) e public/professor/clips.json (gerado por professor/record.mjs).
-import { AbsoluteFill, Audio, OffthreadVideo, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, OffthreadVideo, Sequence, Series, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { fade } from "@remotion/transitions/fade";
 import { loadFont as loadArchivo } from "@remotion/google-fonts/Archivo";
@@ -21,7 +21,7 @@ const TRANSITION = 12;
 const VOICE_DELAY = 0.35; // s antes da narração começar em cada cena
 const TAIL = 1.1; // s de respiro depois da narração
 
-type Scene = { id: string; chapter: string; text: string; card?: boolean; hold?: number };
+type Scene = { id: string; chapter: string; text: string; card?: boolean; hold?: number; cuts?: [number, number][] };
 const SCENES = script.scenes as Scene[];
 const DUR = durations as Record<string, number>;
 const CLIPS = clips as Record<string, { file: string; offset: number; length: number }>;
@@ -61,7 +61,7 @@ function captionAt(text: string, total: number, t: number): string {
   return t < total + 0.4 ? chunks[chunks.length - 1] : "";
 }
 
-function Narrated({ scene }: { scene: Scene }) {
+function Narrated({ scene, captionLeft = 0 }: { scene: Scene; captionLeft?: number }) {
   const f = useCurrentFrame();
   const t = f / FPS - VOICE_DELAY;
   return (
@@ -69,7 +69,7 @@ function Narrated({ scene }: { scene: Scene }) {
       <Sequence from={Math.round(VOICE_DELAY * FPS)}>
         <Audio src={staticFile(`professor/${scene.id}.wav`)} />
       </Sequence>
-      {t >= 0 && <Caption text={captionAt(scene.text, DUR[scene.id], t)} />}
+      {t >= 0 && <Caption text={captionAt(scene.text, DUR[scene.id], t)} left={captionLeft} />}
     </>
   );
 }
@@ -85,15 +85,28 @@ function ScreenScene({ scene, showChapter }: { scene: Scene; showChapter: boolea
       <Backdrop />
       {clip && !mobile && (
         <AbsoluteFill style={{ transform: `scale(${zoom})` }}>
-          <OffthreadVideo src={staticFile(`professor/${clip.file}`)} startFrom={Math.round(clip.offset * FPS)} muted
-            style={{ width: 1920, height: 1080, objectFit: "cover" }} />
+          {scene.cuts ? (
+            // Trechos escolhidos da gravação (pula a digitação do login entre um papel e outro).
+            <Series>
+              {scene.cuts.map(([a, b]) => (
+                <Series.Sequence key={a} durationInFrames={Math.round((b - a) * FPS)}>
+                  <OffthreadVideo src={staticFile(`professor/${clip.file}`)} startFrom={Math.round(a * FPS)} muted
+                    style={{ width: 1920, height: 1080, objectFit: "cover" }} />
+                </Series.Sequence>
+              ))}
+            </Series>
+          ) : (
+            <OffthreadVideo src={staticFile(`professor/${clip.file}`)} startFrom={Math.round(clip.offset * FPS)} muted
+              style={{ width: 1920, height: 1080, objectFit: "cover" }} />
+          )}
         </AbsoluteFill>
       )}
       {clip && mobile && (
         <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 120 }}>
           <PhoneFrame height={900}>
             <OffthreadVideo src={staticFile(`professor/${clip.file}`)} startFrom={Math.round(clip.offset * FPS)} muted
-              style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              // A gravação com escala 2 deixa a página no quarto de cima à esquerda do quadro: amplia 2x a partir do canto.
+              style={{ position: "absolute", left: 0, top: 0, width: "200%", height: "200%", objectFit: "fill" }} />
           </PhoneFrame>
           <div style={{ width: 560, color: C.chrome, fontFamily: FONT_DISPLAY, fontSize: 64, fontWeight: 800, lineHeight: 1.05, letterSpacing: "-0.03em" }}>
             O painel no bolso.
@@ -104,7 +117,7 @@ function ScreenScene({ scene, showChapter }: { scene: Scene; showChapter: boolea
         </AbsoluteFill>
       )}
       {showChapter && <ChapterTag label={scene.chapter} />}
-      <Narrated scene={scene} />
+      <Narrated scene={scene} captionLeft={mobile ? 900 : 0} />
     </AbsoluteFill>
   );
 }

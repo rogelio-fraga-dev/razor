@@ -62,7 +62,17 @@
     {
       "id": "papeis",
       "chapter": "10 · Cada um vê o que precisa",
-      "text": "Cada pessoa vê só o que precisa. A recepção cuida da agenda, das comandas e do caixa. O barbeiro entra no Meu dia, com os próprios horários e quanto já ganhou."
+      "text": "Cada pessoa vê só o que precisa. A recepção cuida da agenda, das comandas e do caixa. O barbeiro entra no Meu dia, com os próprios horários e quanto já ganhou.",
+      "cuts": [
+        [
+          9.0,
+          17.0
+        ],
+        [
+          27.2,
+          35.4
+        ]
+      ]
     },
     {
       "id": "celular",
