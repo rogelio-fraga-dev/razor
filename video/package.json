@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "studio": "remotion studio src/index.ts",
-    "render:professor": "remotion render src/index.ts Professor out/razor-professor.mp4 --codec=h264 --crf=18"
+    "render:professor": "remotion render src/index.ts Professor out/razor-professor.mp4 --codec=h264 --crf=18 --concurrency=1",
+    "render:reels": "remotion render src/index.ts Reels out/razor-reels.mp4 --codec=h264 --crf=18 --concurrency=1"
   },
   "keywords": [],
   "author": "",

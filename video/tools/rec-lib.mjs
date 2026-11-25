@@ -8,7 +8,7 @@ export const BASE = "http://localhost:3000";
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Cursor desenhado na página (o modo sem janela não grava o ponteiro) + onda no clique.
-const CURSOR = `
+export const CURSOR = `
 (() => {
   const mk = () => {
     if (document.getElementById("__cur")) return;
@@ -33,7 +33,7 @@ const CURSOR = `
 })();`;
 
 /** Simula WhatsApp conectado e sistema saudável (o serviço de WhatsApp fica desligado de propósito). */
-async function mockHealthy(ctx) {
+export async function mockHealthy(ctx) {
   const json = (route, body) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   await ctx.route("**/api/admin/settings/bot/status", (r) =>
     json(r, { instanceName: "DemoNavalhaWpp", whatsappState: "open", whatsappConnected: true, aiConfigured: true, botEnabled: true }));
@@ -51,13 +51,13 @@ async function mockHealthy(ctx) {
  * Devolve { file, offset } — offset = segundos do início do vídeo até o começo da cena.
  */
 export async function record(outDir, id, minSeconds, fn, opts = {}) {
-  const { width = 1600, height = 900, storageState, scale = 1, mobile = false } = opts;
+  const { width = 1600, height = 900, storageState, scale = 1, mobile = false, dsf = 1 } = opts;
   const browser = await chromium.launch({ args: ["--lang=pt-BR"] });
   const dir = path.join(outDir, "_tmp_" + id);
   fs.rmSync(dir, { recursive: true, force: true });
   const ctx = await browser.newContext({
     viewport: { width, height },
-    deviceScaleFactor: 1,
+    deviceScaleFactor: dsf,
     isMobile: mobile,
     hasTouch: mobile,
     locale: "pt-BR",
@@ -93,7 +93,7 @@ export async function record(outDir, id, minSeconds, fn, opts = {}) {
   return { file: `${id}.webm`, offset: +start.toFixed(2), length: +(total - start).toFixed(2) };
 }
 
-function helpers(page, ctx) {
+export function helpers(page, ctx) {
   let mx = 800, my = 450;
   const h = {
     async go(route, wait = 1400) {

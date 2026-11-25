@@ -1,6 +1,7 @@
 // Vídeo de demonstração para o professor: o sistema por dentro (sem a conversa do bot).
-// Cenas, narração e clipes vêm de professor/script.json, public/professor/durations.json
-// (gerado por tools/tts.py) e public/professor/clips.json (gerado por professor/record.mjs).
+// Cenas, narração e clipes vêm de professor/script.json, public/professor/voice/ (voz do dono,
+// preparada por tools/prep-voice.py), public/professor/durations.json (a voz de IA, que deu o ritmo
+// das gravações) e public/professor/clips.json (gerado por professor/record.mjs).
 import { AbsoluteFill, Audio, OffthreadVideo, Sequence, Series, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { fade } from "@remotion/transitions/fade";
@@ -8,7 +9,8 @@ import { loadFont as loadArchivo } from "@remotion/google-fonts/Archivo";
 import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
 import { loadFont as loadMono } from "@remotion/google-fonts/JetBrainsMono";
 import script from "../professor/script.json";
-import durations from "../public/professor/durations.json";
+import ttsDurations from "../public/professor/durations.json";
+import voiceDurations from "../public/professor/voice/durations.json";
 import clips from "../public/professor/clips.json";
 import { Backdrop, C, Caption, ChapterTag, FONT_BODY, FONT_DISPLAY, FONT_MONO, Logo, PhoneFrame } from "./brand";
 
@@ -23,15 +25,24 @@ const TAIL = 1.1; // s de respiro depois da narração
 
 type Scene = { id: string; chapter: string; text: string; card?: boolean; hold?: number; cuts?: [number, number][] };
 const SCENES = script.scenes as Scene[];
-const DUR = durations as Record<string, number>;
+const DUR = voiceDurations as Record<string, number>; // duração de cada fala gravada
+const TTS = ttsDurations as Record<string, number>; // a gravação de tela foi feita no ritmo da voz de IA
+const MAX_RATE = 1.3; // quanto a gravação pode acelerar para acompanhar uma fala mais curta
 const CLIPS = clips as Record<string, { file: string; offset: number; length: number }>;
 
-// A cena dura a narração; se a gravação mostra algo depois (o carimbo PAGO, o tema claro), `hold` estica.
-const sceneFrames = (s: Scene) => {
-  const narr = DUR[s.id] + VOICE_DELAY + TAIL;
+// Quanto da gravação a cena precisa mostrar (o carimbo PAGO, o tema claro: `hold` estica).
+const visualSecs = (s: Scene) => {
   const clip = CLIPS[s.id];
-  const visual = clip ? Math.min(clip.length - 0.3, DUR[s.id] + VOICE_DELAY + (s.hold ?? 2)) : 0;
-  return Math.round(Math.max(narr, visual) * FPS);
+  if (!clip) return 0;
+  const avail = s.cuts ? s.cuts.reduce((a, [x, y]) => a + y - x, 0) : clip.length - 0.3;
+  return Math.min(avail, TTS[s.id] + VOICE_DELAY + (s.hold ?? 2));
+};
+// A cena dura a fala; se a gravação for mais longa, ela acelera até MAX_RATE e o resto estica a cena.
+const sceneSecs = (s: Scene) => Math.max(DUR[s.id] + VOICE_DELAY + TAIL, visualSecs(s) / MAX_RATE);
+const sceneFrames = (s: Scene) => Math.round(sceneSecs(s) * FPS);
+const rateOf = (s: Scene) => {
+  const v = visualSecs(s);
+  return v ? Math.min(MAX_RATE, Math.max(1, v / sceneSecs(s))) : 1;
 };
 
 export function professorFrames() {
@@ -67,7 +78,7 @@ function Narrated({ scene, captionLeft = 0 }: { scene: Scene; captionLeft?: numb
   return (
     <>
       <Sequence from={Math.round(VOICE_DELAY * FPS)}>
-        <Audio src={staticFile(`professor/${scene.id}.wav`)} />
+        <Audio src={staticFile(`professor/voice/${scene.id}.wav`)} />
       </Sequence>
       {t >= 0 && <Caption text={captionAt(scene.text, DUR[scene.id], t)} left={captionLeft} />}
     </>
@@ -80,6 +91,7 @@ function ScreenScene({ scene, showChapter }: { scene: Scene; showChapter: boolea
   const clip = CLIPS[scene.id];
   const zoom = interpolate(f, [0, durationInFrames], [1, 1.035]);
   const mobile = scene.id === "celular";
+  const rate = rateOf(scene);
   return (
     <AbsoluteFill>
       <Backdrop />
@@ -89,14 +101,14 @@ function ScreenScene({ scene, showChapter }: { scene: Scene; showChapter: boolea
             // Trechos escolhidos da gravação (pula a digitação do login entre um papel e outro).
             <Series>
               {scene.cuts.map(([a, b]) => (
-                <Series.Sequence key={a} durationInFrames={Math.round((b - a) * FPS)}>
-                  <OffthreadVideo src={staticFile(`professor/${clip.file}`)} startFrom={Math.round(a * FPS)} muted
+                <Series.Sequence key={a} durationInFrames={Math.round(((b - a) * FPS) / rate)}>
+                  <OffthreadVideo src={staticFile(`professor/${clip.file}`)} startFrom={Math.round(a * FPS)} playbackRate={rate} muted
                     style={{ width: 1920, height: 1080, objectFit: "cover" }} />
                 </Series.Sequence>
               ))}
             </Series>
           ) : (
-            <OffthreadVideo src={staticFile(`professor/${clip.file}`)} startFrom={Math.round(clip.offset * FPS)} muted
+            <OffthreadVideo src={staticFile(`professor/${clip.file}`)} startFrom={Math.round(clip.offset * FPS)} playbackRate={rate} muted
               style={{ width: 1920, height: 1080, objectFit: "cover" }} />
           )}
         </AbsoluteFill>
@@ -104,7 +116,7 @@ function ScreenScene({ scene, showChapter }: { scene: Scene; showChapter: boolea
       {clip && mobile && (
         <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 120 }}>
           <PhoneFrame height={900}>
-            <OffthreadVideo src={staticFile(`professor/${clip.file}`)} startFrom={Math.round(clip.offset * FPS)} muted
+            <OffthreadVideo src={staticFile(`professor/${clip.file}`)} startFrom={Math.round(clip.offset * FPS)} playbackRate={rate} muted
               // A gravação com escala 2 deixa a página no quarto de cima à esquerda do quadro: amplia 2x a partir do canto.
               style={{ position: "absolute", left: 0, top: 0, width: "200%", height: "200%", objectFit: "fill" }} />
           </PhoneFrame>
@@ -151,10 +163,35 @@ function TitleCard({ scene }: { scene: Scene }) {
   );
 }
 
+// Trechos (em quadros do vídeo todo) em que alguém está falando: a música abaixa neles.
+const VOICE_WINDOWS = (() => {
+  const w: [number, number][] = [];
+  let start = 0;
+  for (const s of SCENES) {
+    const a = start + Math.round(VOICE_DELAY * FPS);
+    w.push([a, a + Math.round(DUR[s.id] * FPS)]);
+    start += sceneFrames(s) - TRANSITION;
+  }
+  return w;
+})();
+
+function musicVolume(f: number, total: number) {
+  const RAMP = 15;
+  let near = Infinity;
+  for (const [a, b] of VOICE_WINDOWS) near = Math.min(near, f < a ? a - f : f > b ? f - b : 0);
+  const duck = interpolate(near, [0, RAMP], [0.07, 0.17], { extrapolateRight: "clamp" });
+  const edges = Math.min(interpolate(f, [0, 30], [0, 1], { extrapolateRight: "clamp" }),
+    interpolate(f, [total - 75, total], [1, 0], { extrapolateLeft: "clamp" }));
+  return duck * edges;
+}
+
 export function Professor() {
+  const { durationInFrames } = useVideoConfig();
   let prevChapter = "";
   return (
     <AbsoluteFill style={{ background: C.obsidian }}>
+      {/* Jimmy Blythe, "Armour Avenue Struggle" (1924): domínio público. */}
+      <Audio src={staticFile("music/blues-bed.wav")} volume={(f) => musicVolume(f, durationInFrames)} />
       <TransitionSeries>
         {SCENES.flatMap((s, i) => {
           const showChapter = !!s.chapter && s.chapter !== prevChapter;
