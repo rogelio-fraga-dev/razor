@@ -124,6 +124,30 @@ Para isso a comanda precisa marcar, em cada item do assinante, se foi **coberto 
 já sabe os benefícios de cada plano: serviço, dias da semana e limite por mês). O relatório de comissões passa a
 mostrar quatro colunas por barbeiro: **clube · serviços · extras · produtos**, e "Meus ganhos" do barbeiro também.
 
+## 8. Regras definidas com o primeiro cliente (26/11)
+- **Comissão do jeito que o dono quiser:** nada fixo no sistema. Pote do clube com % e critério de divisão
+  escolhidos pelo dono (quantidade, valor, pesos por serviço, ou manual), % por serviço, % por produto (ou não
+  paga), extra do assinante, e **taxa da maquininha descontada da comissão** (opcional): o dono informa a taxa de
+  débito, crédito à vista e parcelado; a comissão é calculada sobre o valor líquido daquele pagamento.
+- **Troca de cartão na migração (a parte mais difícil):** o cartão salvo na CashBarber/DOM não passa para o Asaas
+  sozinho (os dados ficam guardados no cofre do gateway antigo, regra de segurança dos cartões — PCI).
+  1. Perguntar ao Asaas e à CashBarber/DOM se fazem **migração da base de cartões entre gateways** (PCI para PCI).
+     Se fizerem, o assinante antigo nem percebe.
+  2. Se não: o assinante antigo **cadastra o cartão uma vez** (link no WhatsApp / pop-up no primeiro acesso),
+     sem trocar o dia de cobrança nem o preço; enquanto isso continua sendo cobrado no sistema antigo.
+  - **Assinantes antigos ficam no cartão**; **novos** (sem clube antes) podem escolher cartão ou **PIX Automático**.
+- **Dois números:** o da barbearia vai para o bot; o pessoal do dono fica como contato/alertas do dono.
+- Nota fiscal: precisa (o cliente tem CNPJ) → o Razor precisa de CNPJ antes de cobrar dele.
+- Ele vai mostrar a CashBarber por dentro, como usuário, para comparar funções. Regra: olhar e anotar o que ela
+  oferece; **não copiar** código, textos, telas nem dados de outras pessoas, e não usar automação/robô no site dela.
+
+## 9. Depois: anúncios (Meta/Instagram)
+- Painel "De onde vêm os clientes": link do site com marcação para a bio e os anúncios do Instagram (o
+  agendamento guarda a origem), o bot pergunta "como nos conheceu?" no primeiro contato.
+- Ligar a conta de anúncios da Meta (login do Facebook do dono; exige aprovação do app pela Meta) para mostrar
+  gasto, alcance e cliques ao lado de **clientes novos e faturamento que vieram do anúncio** → custo por cliente
+  novo. Primeiro a origem (simples), depois a integração com a Meta.
+
 ## Ordem de construção (2ª quinzena de dezembro)
 1. Ligação da conta (chave criptografada, conferência, webhook automático) + situação no painel e no console.
 2. Planos → assinaturas no Asaas; link de pagamento; webhook liga e desliga o plano do cliente.
