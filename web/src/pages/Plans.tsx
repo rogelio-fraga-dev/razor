@@ -95,6 +95,8 @@ export function Plans() {
         </div>
       }
     >
+      <RecurrenceCard />
+
       <div className="card">
         <div className="card-head">
           <h3>Clube de assinatura</h3>
@@ -189,5 +191,41 @@ export function Plans() {
         </Modal>
       )}
     </Layout>
+  );
+}
+
+type ClubSummary = {
+  plans: { id: string; name: string; price: number; subscribers: number; monthly: number }[];
+  subscribers: number; customers: number; monthlyRecurring: number; yearlyRecurring: number;
+  revenueLast30: number; recurringShare: number;
+};
+
+/** Recorrência do clube: o que entra todo mês antes de abrir a porta (26/11). */
+function RecurrenceCard() {
+  const { data } = useApi<ClubSummary>(() => api.get("/api/admin/plans/summary"), []);
+  if (!data || data.plans.length === 0) return null;
+  const max = Math.max(1, ...data.plans.map((p) => p.subscribers));
+  return (
+    <div className="card recurrence">
+      <div className="card-head"><h3>Recorrência do clube</h3><span className="badge badge-plan">todo mês</span></div>
+      <div className="card-pad">
+        <div className="rec-kpis">
+          <div><span className="rec-label">Receita recorrente / mês</span><b className="rec-big mono">{money(data.monthlyRecurring)}</b>
+            <span className="rec-sub">{money(data.yearlyRecurring)} por ano</span></div>
+          <div><span className="rec-label">Assinantes</span><b className="rec-big mono">{data.subscribers}</b>
+            <span className="rec-sub">de {data.customers} clientes ({data.customers ? Math.round((data.subscribers * 100) / data.customers) : 0}%)</span></div>
+          <div><span className="rec-label">Peso no faturamento</span><b className="rec-big mono">{data.recurringShare}%</b>
+            <span className="rec-sub">do que entra no mês vem do clube</span></div>
+        </div>
+        <div className="rec-plans">
+          {data.plans.map((p) => (
+            <div key={p.id} className="rec-plan">
+              <div className="rec-plan-head"><b>{p.name}</b><span className="mono">{p.subscribers} × {money(p.price)} = <b>{money(p.monthly)}</b></span></div>
+              <div className="rec-bar"><span style={{ width: `${(p.subscribers / max) * 100}%` }} /></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

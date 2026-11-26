@@ -140,3 +140,16 @@ a.card:hover, .card.clickable:hover { transform: translateY(-2px); }
 .support-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; padding: 10px 14px;
   border-radius: 12px; font-size: 14px; color: #1a1300; background: #ffcf3f; border: 1px solid #e0a800; }
 .support-banner .btn { margin-left: auto; color: #1a1300; border-color: rgba(0,0,0,.25); }
+
+/* Recorrência do clube (tela Planos) */
+.recurrence { margin-bottom: 16px; }
+.rec-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.rec-kpis > div { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); }
+.rec-label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.rec-big { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; }
+.rec-sub { font-size: 13px; color: var(--text-muted); }
+.rec-plans { display: flex; flex-direction: column; gap: 12px; }
+.rec-plan-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 14px; margin-bottom: 6px; }
+.rec-bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.rec-bar span { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+@media (max-width: 720px) { .rec-kpis { grid-template-columns: 1fr; } }
