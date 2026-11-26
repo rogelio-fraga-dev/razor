@@ -9,10 +9,20 @@ _Última atualização: 2026-11-25 — Parte 6 (upgrade visual + vídeos) em and
 
 ## PRÓXIMO: versão 1.0 em 30/11/2026 — plano em `docs/PLANO-V1.md`
 
+**Sessão de 26/11 (tarde):** demonstração local para o primeiro prospect (detalhes só em documentos/, fora do git —
+o repositório é público: nada de nome de barbearia, dono ou barbeiro real em arquivo versionado).
+- Entregue no master: card "Recorrência do clube" (GET /api/admin/plans/summary) e **comissão própria por serviço**
+  na tela Serviços (o cálculo já usava V27; vazio = % do barbeiro).
+- Primeiro cliente pagante planejado para **janeiro/2027**, **R$ 250/mês tudo incluso** (o Razor absorve as taxas),
+  pagante + validador. Fase 1.1 (conta do cliente com código no WhatsApp → senha; agendar melhor; recorrência
+  **Asaas** com baixa manual; importação da CashBarber + pop-up único de reativação; **pote do clube**: X% do
+  recebido dividido por produtividade) na 2ª quinzena de dezembro. Detalhes: docs/PLANO-V1.md (seção "Próxima
+  fase 1.1") e **docs/RECORRENCIA-ASAAS.md**.
+
 **Próxima fase pedida em 26/11 (no plano):** agendar horário melhor; área do cliente com código pelo WhatsApp;
 recorrência automática (Asaas/Mercado Pago, cartão e PIX Automático); importar planilha da CashBarber e, no primeiro
-acesso do cliente que tinha clube, pop-up único para cadastrar o cartão e refazer a assinatura. Demo da LH Barbearia
-no ambiente local (scripts/seed-lh.sql + site-lh.py; fotos em documentos/lh-barbearia, fora do git).
+acesso do cliente que tinha clube, pop-up único para cadastrar o cartão e refazer a assinatura. Demo do prospect
+no ambiente local (scripts e fotos em documentos/, fora do git).
 
 **Andamento (26/11, madrugada):** itens 1 a 10 do plano feitos e no ar (ver "Andamento" no plano). Piloto: cadastro
 só por convite, plano PILOTO sem fidelidade/clube/pacotes, feedback obrigatório, console com Barbearias/Feedback/

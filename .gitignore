@@ -75,3 +75,7 @@ videos/
 .env.piloto
 .cloudflare-token
 documentos/
+
+# demonstração de prospect real (nomes reais): só local
+scripts/*-lh*.py
+scripts/seed-lh*.sql

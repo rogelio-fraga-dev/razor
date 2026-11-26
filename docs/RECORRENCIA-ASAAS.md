@@ -101,8 +101,8 @@ ganha como se o corte fosse avulso — num clube ilimitado a comissão pode pass
 **O que entra (escolha por barbearia em Comissões → "Clube"):**
 1. **Pote do clube (rateio por produtividade)** — o modelo pedido: **X% do que o clube recebeu no mês** vira um
    pote, dividido entre os barbeiros pela produtividade nos atendimentos de assinante.
-   Ex.: clube recebeu R$ 10.000, pote de 30% = R$ 3.000. Atendimentos de assinante no mês: Luiz 60, Vinícius 90
-   → Luiz R$ 1.200, Vinícius R$ 1.800.
+   Ex.: clube recebeu R$ 10.000, pote de 30% = R$ 3.000. Atendimentos de assinante no mês: barbeiro A 60, barbeiro B 90
+   → A R$ 1.200, B R$ 1.800.
    - Produtividade por **quantidade** de atendimentos ou **ponderada pelo valor de tabela** (corte + barba pesa mais
      que só corte) — a barbearia escolhe; padrão: ponderada.
    - Base = **o que foi efetivamente recebido** no mês (cobranças pagas no Asaas + baixas manuais), não o previsto.
