@@ -92,10 +92,30 @@ A mensalidade do Razor também pelo Asaas, numa **conta do Razor** (CPF por enqu
 PIX Automático só quando o Razor tiver CNPJ). Taxas do clube que o Razor cobrir no plano "tudo incluso": o Razor lê
 pela API as taxas do mês da barbearia e **abate na mensalidade seguinte**.
 
+## 7. Comissão sobre o clube (pergunta da barbearia, 26/11)
+**Hoje no Razor:** a receita do clube é 100% da barbearia; a comissão é por atendimento = **preço de tabela do
+serviço × % do barbeiro** (ou % próprio do serviço). Isso vale também para o corte do assinante, ou seja, o barbeiro
+ganha como se o corte fosse avulso — num clube ilimitado a comissão pode passar do que o assinante pagou.
+(Pacotes já usam o valor unitário do pacote, não a tabela.)
+
+**O que entra (escolha por barbearia em Comissões → "Clube"):**
+1. **Pote do clube (rateio por produtividade)** — o modelo pedido: **X% do que o clube recebeu no mês** vira um
+   pote, dividido entre os barbeiros pela produtividade nos atendimentos de assinante.
+   Ex.: clube recebeu R$ 10.000, pote de 30% = R$ 3.000. Atendimentos de assinante no mês: Luiz 60, Vinícius 90
+   → Luiz R$ 1.200, Vinícius R$ 1.800.
+   - Produtividade por **quantidade** de atendimentos ou **ponderada pelo valor de tabela** (corte + barba pesa mais
+     que só corte) — a barbearia escolhe; padrão: ponderada.
+   - Base = **o que foi efetivamente recebido** no mês (cobranças pagas no Asaas + baixas manuais), não o previsto.
+   - O pote fecha no fim do mês (o barbeiro vê a prévia durante o mês em "Meus ganhos").
+2. **Valor fixo por atendimento de assinante** (ex.: R$ 15 por corte do clube).
+3. **Como hoje** (tabela × %).
+Atendimentos avulsos e produtos continuam com o % normal. O relatório de comissões mostra as duas partes separadas.
+
 ## Ordem de construção (2ª quinzena de dezembro)
 1. Ligação da conta (chave criptografada, conferência, webhook automático) + situação no painel e no console.
 2. Planos → assinaturas no Asaas; link de pagamento; webhook liga e desliga o plano do cliente.
 3. Central do clube: filas, baixa manual, cobrar no WhatsApp, regras de atraso.
 4. Mensagens do bot e termos do clube.
 5. Importação da planilha + fila "Falta reativar" + pop-up único.
+5b. Comissão do clube (pote por produtividade / fixo por atendimento).
 6. Testes no **sandbox do Asaas** (ambiente de teste, sem dinheiro de verdade) e, por fim, o teste de R$ 5 real.
