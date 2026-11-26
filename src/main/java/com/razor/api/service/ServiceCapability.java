@@ -90,6 +90,70 @@ public final class ServiceCapability {
                 .toList();
     }
 
+    /** Jeitos comuns de pedir o corte sem dizer o nome do catálogo ("cortar o cabelo", "na máquina"). */
+    private static final java.util.regex.Pattern CUT_WORDS = java.util.regex.Pattern.compile(
+            "\\b(corte|cortar|cortes|cortezinho|cabelo|degrade|disfarcado|maquina|tesoura|navalhado)\\b");
+
+    /**
+     * Como {@link #mentioned}, mas entende o pedido de corte em linguagem do dia a dia: "quero
+     * cortar o cabelo", "corte na máquina", "corte e barba". Sem um serviço de corte citado pelo
+     * nome, assume o corte simples do catálogo (o que tem "cabelo" no nome, senão o mais barato que
+     * começa com "corte", nunca um combo). Antes o bot só reconhecia o nome exato e ficava
+     * perguntando "Corte de Cabelo ou Corte Visagista?" em loop (pente fino de 25/11).
+     */
+    public static List<ServiceOffering> mentionedLoosely(String text, List<ServiceOffering> catalog) {
+        List<ServiceOffering> hits = new java.util.ArrayList<>(mentioned(text, catalog));
+        if (catalog == null || catalog.isEmpty()) return hits;
+        String t = normalize(text);
+        boolean hasCut = hits.stream().anyMatch(s -> isCut(s));
+        if (!hasCut && CUT_WORDS.matcher(t).find()) {
+            ServiceOffering basic = basicCut(catalog);
+            if (basic != null && !hits.contains(basic)) hits.add(0, basic);
+        }
+        ServiceOffering combo = comboCovering(hits, catalog);
+        return combo != null ? List.of(combo) : hits;
+    }
+
+    /**
+     * "Corte e barba" com um combo no catálogo que cobre os dois: o pedido vira o combo (mais
+     * barato). Antes o bot somava R$ 45 + R$ 35 = R$ 80 com o combo de R$ 70 na tabela.
+     */
+    static ServiceOffering comboCovering(List<ServiceOffering> hits, List<ServiceOffering> catalog) {
+        if (hits.size() < 2 || hits.stream().anyMatch(ServiceCapability::isCombo)) return null;
+        return catalog.stream().filter(c -> c.getId() != null && isCombo(c)).filter(c -> {
+            String n = normalize(c.getName());
+            return hits.stream().allMatch(h -> containsWord(n, keyWord(h)));
+        }).findFirst().orElse(null);
+    }
+
+    /** "corte de cabelo" -> "corte"; "barba" -> "barba". */
+    private static String keyWord(ServiceOffering s) {
+        String n = normalize(s.getName());
+        int sp = n.indexOf(' ');
+        return sp > 0 ? n.substring(0, sp) : n;
+    }
+
+    private static boolean isCut(ServiceOffering s) {
+        String n = normalize(s.getName());
+        return n.startsWith("corte") || n.contains("cabelo");
+    }
+
+    private static boolean isCombo(ServiceOffering s) {
+        String n = normalize(s.getName());
+        return n.contains("+") || n.contains("combo");
+    }
+
+    /** O corte "padrão" do catálogo, ou null se não houver nenhum serviço de corte simples. */
+    static ServiceOffering basicCut(List<ServiceOffering> catalog) {
+        List<ServiceOffering> cuts = catalog.stream()
+                .filter(s -> s.getId() != null && isCut(s) && !isCombo(s)).toList();
+        if (cuts.isEmpty()) return null;
+        return cuts.stream().filter(s -> normalize(s.getName()).contains("cabelo")).findFirst()
+                .orElseGet(() -> cuts.stream()
+                        .min(java.util.Comparator.comparing(s -> s.getPrice() == null ? java.math.BigDecimal.ZERO : s.getPrice()))
+                        .orElse(null));
+    }
+
     /** O barbeiro atende o servico? Sem servicos configurados = atende todos. */
     public static boolean canPerform(Professional p, List<Set<UUID>> requirements) {
         if (p.servesAllServices() || requirements.isEmpty()) return true;

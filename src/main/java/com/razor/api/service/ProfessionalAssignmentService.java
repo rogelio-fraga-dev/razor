@@ -188,7 +188,8 @@ public class ProfessionalAssignmentService {
         List<com.razor.api.model.ServiceOffering> catalogo =
                 serviceOfferingRepository.findByBarbershopIdAndActiveTrue(TenantContext.getCurrent());
         if (catalogo == null || catalogo.isEmpty()) return null;
-        List<com.razor.api.model.ServiceOffering> citados = ServiceCapability.mentioned(texto, catalogo);
+        // Na conversa vale o jeito de falar do cliente ("cortar o cabelo" = o corte simples).
+        List<com.razor.api.model.ServiceOffering> citados = ServiceCapability.mentionedLoosely(texto, catalogo);
         if (citados.isEmpty()) return null;
         return String.join(" + ", citados.stream().map(com.razor.api.model.ServiceOffering::getName).toList());
     }

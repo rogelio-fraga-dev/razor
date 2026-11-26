@@ -452,7 +452,7 @@ class CustomerConversationServiceTest {
         service.processCustomerMessage(textWebhook("cancelar meu horario"), PHONE);
 
         verify(agendaService).cancelarAgendamentoExato(ag);
-        assertThat(captureClientMessage()).contains("cancelado com sucesso");
+        assertThat(captureClientMessage()).contains("Cancelei seu horário");
     }
 
     @Test
@@ -604,7 +604,8 @@ class CustomerConversationServiceTest {
         service.processCustomerMessage(textWebhook("quero marcar um horario"), PHONE);
         service.processCustomerMessage(textWebhook("1"), PHONE); // pede o Diego
 
-        assertThat(lastClientMessage()).contains("*Bruno*").doesNotContain("*Diego*");
+        // O pedido estava ocupado: confirma com quem ficou e avisa a troca (25/11).
+        assertThat(lastClientMessage()).contains("com *Bruno*").contains("*Diego* já estava ocupado");
     }
 
     @Test
@@ -690,7 +691,7 @@ class CustomerConversationServiceTest {
         service.processCustomerMessage(textWebhook("quero cancelar"), PHONE);
 
         verify(agendaService).cancelarAgendamentoExato(ag);
-        assertThat(lastClientMessage()).contains("cancelado com sucesso");
+        assertThat(lastClientMessage()).contains("Cancelei seu horário");
     }
 
     @Test

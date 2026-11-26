@@ -287,7 +287,7 @@ class OpenAIServiceTest {
         service.processCustomerMessage("tem horário amanhã?", List.of(), "ocupados gerais", 0, "Joao Silva", null, null);
 
         String prompt = capturedSystemPrompt();
-        assertThat(prompt).contains("SERVIÇO AINDA NÃO DEFINIDO").contains(OpenAIService.SERVICO_PENDENTE)
+        assertThat(prompt).contains("ainda não foi definido").contains(OpenAIService.SERVICO_PENDENTE)
                 .doesNotContain("ocupados gerais");
         assertThat(prompt.indexOf("PASSO 2 — SERVIÇO")).isLessThan(prompt.indexOf("PASSO 3 — DIA E HORÁRIO"));
         org.mockito.Mockito.verify(agendaService, org.mockito.Mockito.never()).getHorariosDisponiveisDoDia(any(), any());
@@ -327,7 +327,7 @@ class OpenAIServiceTest {
     void serviceStageBlock_variants() {
         var semAptos = new ProfessionalAssignmentService.ServicoPedido("Pigmentação", List.of());
         assertThat(OpenAIService.serviceStageBlock(semAptos, false)).contains("Pigmentação").doesNotContain("só para os barbeiros");
-        assertThat(OpenAIService.serviceStageBlock(null, false)).contains("AINDA NÃO DEFINIDO");
+        assertThat(OpenAIService.serviceStageBlock(null, false)).contains("ainda não foi definido");
         assertThat(OpenAIService.serviceStageBlock(null, true)).contains("catálogo ainda não foi cadastrado");
     }
 

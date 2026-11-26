@@ -43,6 +43,8 @@ public class OpenAIService {
     private final com.razor.api.platform.AiRuntime aiRuntime;
     /** Uso/custo da IA por barbearia (V51); nulo nos testes. */
     private final com.razor.api.platform.AiUsageRecorder usage;
+    /** Barbeiros ativos, para o bot saber quem existe (pente fino de 25/11); nulo nos testes. */
+    private final com.razor.api.repository.ProfessionalRepository professionalRepository;
     private WebClient openAiWebClient;
     private String openAiWebClientKey;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -51,16 +53,24 @@ public class OpenAIService {
 
     private static final String SYSTEM_PROMPT_RECEPTIONIST = """
             Você é a recepcionista virtual da "{{nomeBarbearia}}". {{persona}}
+            Os títulos e avisos deste texto (em MAIÚSCULAS ou com emoji) são instruções internas: NUNCA os copie na resposta.
             Responda SEMPRE em português brasileiro. Use formatação *negrito* (um asterisco) e _itálico_ (underscore), pois estamos no WhatsApp.
 
             HOJE É DIA: {{hoje}}
 
-            🗓️ *CALENDÁRIO DA SEMANA:*
+            🗓️ *PRÓXIMOS 7 DIAS (dá para agendar em qualquer dia aberto desta lista):*
             {{calendarioSemana}}
 
             ✂️ *SERVIÇOS E PREÇOS:*
             {{tabelaServicos}}
             (Funcionamento: {{funcionamento}})
+
+            🏠 *SOBRE A BARBEARIA (as únicas informações que você tem):*
+            {{sobreBarbearia}}
+            - Responda perguntas sobre a barbearia SÓ com o que está aqui e na tabela de serviços.
+            - NUNCA invente nada que não esteja escrito (estacionamento, formas de pagamento, Wi-Fi, bebida,
+              promoções, endereço). Se não souber, diga que não tem essa informação e que ele pode digitar
+              *8* para falar com o barbeiro.
 
             ⚙️ *FLUXO OBRIGATÓRIO DE AGENDAMENTO (siga estes passos em ordem):*
             
@@ -73,19 +83,20 @@ public class OpenAIService {
             {{etapaServico}}
             {{orcamentoServico}}
             - Os horários livres dependem do serviço: só contam os barbeiros que fazem o serviço e a duração dele. Por isso o serviço vem primeiro.
+            - "Corte", "cortar o cabelo", "na máquina", "degradê" = o corte simples do catálogo. NÃO pergunte se é visagista ou outro tipo: só ofereça uma variação se o cliente pedir.
             - Se o serviço ainda não foi definido, pergunte qual é, citando *brevemente* os nomes do catálogo acima numa linha só (preço só se o cliente perguntar). Use APENAS os serviços e preços da tabela — nunca invente valores. Combos valem: "corte e barba" são os dois serviços juntos.
             - Se o cliente escolher de forma indireta ("o primeiro", "os dois", "esse mesmo"), repita o nome exato do catálogo na resposta e inclua a tag [SERVICO|Nome exato do catálogo] (combo: [SERVICO|Corte + Barba]). Nessa mesma resposta NÃO cite horários livres: apenas pergunte o dia e o horário que ele prefere (os horários certos chegam na próxima mensagem).
             - Se o cliente já disse o dia/horário antes do serviço, guarde essa preferência: pergunte só o serviço e, quando ele responder, confira a disponibilidade daquele horário sem perguntar de novo.
             
             *PASSO 3 — DIA E HORÁRIO:* Com o serviço definido, pergunte (ou confira) o dia e horário que o cliente prefere.
             - *REGRA DE OURO:* NUNCA liste todos os horários disponíveis de uma vez, isso polui a tela.
-            - *REGRA OBRIGATÓRIA:* A agenda só abre *de semana em semana*. O cliente só pode agendar para dias da semana atual (Segunda a Sábado, sem domingo).
-            - Ao perguntar o horário, informe em *negrito* que a *agenda abre semanalmente* e apenas os dias dessa semana estão disponíveis.
-            - Consulte os horários livres de hoje aqui: {{horariosLivresHoje}}. Para outros dias, consulte o [STATUS DA AGENDA].
+            - Dá para agendar nos dias abertos dos *próximos 7 dias* (lista acima), dentro do funcionamento. "Amanhã" e "depois de amanhã" estão sempre dentro.
+            - Só fale do prazo se o cliente pedir um dia fora da lista; aí diga com gentileza até que dia dá para marcar. Não repita esse aviso nas outras mensagens.
+            - Horários livres de *HOJE* (vale SÓ para hoje, não para outros dias): {{horariosLivresHoje}}
+            - Para outros dias, use os *HORÁRIOS LIVRES NO DIA PEDIDO* (quando vierem abaixo) ou o [STATUS DA AGENDA].
+            - Você já tem os horários: NUNCA diga "um momento", "vou verificar" ou "aguarde". Responda direto.
             - Se o cliente sugerir um horário que está LIVRE, passe para o próximo passo.
             - Se o horário sugerido estiver OCUPADO, sugira *apenas 2 opções próximas* que estejam livres (ex: 30 min antes ou depois).
-            - Se ele pedir uma data para a próxima semana, informe que a agenda só abre na própria semana.
-            - Informe brevemente que, se quiser desistir do atendimento, basta dizer "cancelar".
             
             *PASSO 4 — PEDIR CONFIRMAÇÃO:* Com nome, serviço, data e horário em mãos, retorne um resumo completo e PERGUNTE de forma clara se o cliente confirma o agendamento.
             NÃO emita a tag de agendamento neste passo.
@@ -107,6 +118,7 @@ public class OpenAIService {
             🚫 *CANCELAMENTO DE HORÁRIO VS ABORTO DE CONVERSA:*
             - SE O CLIENTE JÁ TEM UM AGENDAMENTO NA BASE e pedir para "cancelar o meu horário", "desmarcar o meu horário", inclua a tag [CANCELAR_AGENDAMENTO] na sua resposta.
             - SE O CLIENTE ESTÁ NO MEIO DO FLUXO (Passo 1 ao 4) apenas conversando e disser "cancelar", "deixa pra lá", "não quero mais", ele está abortando a conversa atual. NESSE CASO, NÃO USE NENHUMA TAG. Apenas responda "Sem problemas! O atendimento foi cancelado. Se precisar de algo, chame novamente."
+            - Use essa frase SÓ quando o cliente pedir com palavras para cancelar ou desistir. Emoji, "ok", 👍, um número solto, arquivo ou mensagem que você não entendeu NÃO é desistência: siga a conversa ou pergunte como pode ajudar.
             
             🚫 *BLOQUEIO ABSOLUTO DE DUPLICATAS (ERRO CRÍTICO):*
             NUNCA emita a tag [NOVO_AGENDAMENTO|...] mais de uma vez para a mesma intenção.
@@ -239,7 +251,7 @@ public class OpenAIService {
         if (catalogoVazio) {
             return "- O catálogo ainda não foi cadastrado: pergunte o serviço que o cliente quer e siga para o horário.";
         }
-        return "- ❓ *SERVIÇO AINDA NÃO DEFINIDO.* Antes de oferecer ou confirmar qualquer horário, descubra o serviço. "
+        return "- (interno) O serviço ainda não foi definido: antes de oferecer ou confirmar qualquer horário, descubra o serviço. "
                 + "Você ainda NÃO tem os horários livres — não invente nem confirme disponibilidade.";
     }
 
@@ -285,6 +297,120 @@ public class OpenAIService {
     }
 
     /** Ex.: "Seg a Sáb, das 09:00 às 19:00" — vindo das configuracoes do tenant. */
+    /** Os próximos 7 dias, marcando os fechados — a IA não oferece dia em que a barbearia não abre. */
+    static String calendarBlock(LocalDate hoje, BarbershopSettingsService.BotSettings cfg) {
+        DateTimeFormatter fmtDia = DateTimeFormatter.ofPattern("dd/MM (EEEE)", new Locale("pt", "BR"));
+        StringBuilder cal = new StringBuilder();
+        for (int i = 0; i < 7; i++) {
+            LocalDate d = hoje.plusDays(i);
+            cal.append("- ").append(d.format(fmtDia));
+            if (i == 0) cal.append(" — hoje");
+            if (i == 1) cal.append(" — amanhã");
+            if (!cfg.isOpenOn(d.getDayOfWeek())) cal.append(" — FECHADO");
+            cal.append("\n");
+        }
+        return cal.toString();
+    }
+
+    /**
+     * O que a IA pode dizer sobre a barbearia além do catálogo (25/11): sem isto ela inventava
+     * ("não aceitamos cartão", "temos estacionamento") ou respondia o endereço de forma vaga.
+     */
+    static String aboutBlock(BarbershopSettingsService.BotSettings cfg) {
+        StringBuilder sb = new StringBuilder();
+        String addr = oneLine(cfg.addressText()).replaceAll("[*_📍]", "").trim();
+        sb.append("- Endereço: ").append(addr.isBlank() ? "não informado" : addr);
+        if (cfg.addressMapsUrl() != null && !cfg.addressMapsUrl().isBlank()) sb.append(" (mapa: ").append(cfg.addressMapsUrl()).append(")");
+        sb.append("\n- Pagamento: ");
+        String pay = oneLine(cfg.paymentInfo());
+        if (!pay.isBlank()) sb.append(pay);
+        else sb.append(cfg.hasPix() ? "PIX ou presencial no caixa (as outras formas não foram informadas)"
+                : "presencial no caixa (as formas não foram informadas)");
+        if (cfg.instagramUrl() != null && !cfg.instagramUrl().isBlank())
+            sb.append("\n- Instagram: ").append(cfg.instagramUrl().trim());
+        String cancel = oneLine(cfg.cancellationPolicy());
+        if (!cancel.isBlank()) sb.append("\n- Cancelamento: ").append(cancel);
+        return sb.toString();
+    }
+
+    /** "- Barbeiros: Rafael, Bruno" + a regra para quem pede alguém que não existe. */
+    String barbersLine() {
+        if (professionalRepository == null) return "";
+        java.util.UUID shop = com.razor.api.tenant.TenantContext.getCurrent();
+        if (shop == null) return "";
+        List<String> nomes = professionalRepository.findByBarbershopIdAndActiveTrue(shop).stream()
+                .map(com.razor.api.model.Professional::getName).filter(n -> n != null && !n.isBlank()).toList();
+        if (nomes.isEmpty()) return "";
+        return "\n- Barbeiros: " + String.join(", ", nomes)
+                + ". Se o cliente pedir alguém que não está nesta lista, diga que esse profissional não atende aqui e cite os que atendem.";
+    }
+
+    /**
+     * Horários livres do dia que o cliente pediu ("amanhã", "sexta", "27/11"), já calculados pelo
+     * sistema para o serviço da conversa. Antes a IA deduzia da lista de ocupados e errava: chegou a
+     * dizer que a sexta estava cheia quando havia vaga (pente fino de 25/11).
+     */
+    String requestedDayBlock(String userMessage, List<com.razor.api.model.Interaction> history, LocalDate hoje,
+                             BarbershopSettingsService.BotSettings cfg,
+                             ProfessionalAssignmentService.ServicoPedido servico, boolean semServico) {
+        if (semServico || agendaService == null) return "";
+        LocalDate dia = RequestedDate.find(userMessage, hoje);
+        if (dia == null && history != null) {
+            // A data pode ter vindo antes ("amanhã às 10" e só depois o serviço).
+            for (com.razor.api.model.Interaction i : history) {
+                if (i.getType() != com.razor.api.model.Interaction.InteractionType.USER) continue;
+                dia = RequestedDate.find(i.getContent(), hoje);
+                if (dia != null) break;
+            }
+        }
+        if (dia == null || dia.isBefore(hoje) || !dia.isBefore(hoje.plusDays(7))) return "";
+        String rotulo = dia.format(DateTimeFormatter.ofPattern("dd/MM (EEEE)", new Locale("pt", "BR")));
+        if (!cfg.isOpenOn(dia.getDayOfWeek())) {
+            return "\n\n🕒 *DIA PEDIDO: " + rotulo + "* — a barbearia está FECHADA nesse dia.";
+        }
+        String ddMM = dia.format(DateTimeFormatter.ofPattern("dd/MM"));
+        com.razor.api.model.Professional barbeiro = barberMentioned(userMessage, history);
+        if (barbeiro != null) {
+            // Cliente pediu alguém: os horários são os DELE (antes saíam os da barbearia toda e o
+            // horário acabava com outro barbeiro).
+            String dele = agendaService.getHorariosDisponiveisDoProfissional(barbeiro.getId(), ddMM);
+            return "\n\n🕒 *HORÁRIOS LIVRES DE " + barbeiro.getName().toUpperCase() + " NO DIA PEDIDO — " + rotulo + ":* " + dele
+                    + "\nO cliente pediu esse barbeiro: ofereça SÓ estes horários (no máximo 3). Se nenhum servir, diga que ele está sem horário e ofereça outro dia ou outro barbeiro.";
+        }
+        String livres = agendaService.getHorariosDisponiveisDoDia(ddMM, servico);
+        return "\n\n🕒 *HORÁRIOS LIVRES NO DIA PEDIDO — " + rotulo
+                + (servico != null ? " — " + servico.nome() : "") + ":* " + livres
+                + "\nUse ESTA lista para dizer se o horário pedido está livre e para sugerir os mais próximos (no máximo 3).";
+    }
+
+    /** O barbeiro citado pelo primeiro nome na mensagem atual ou nas anteriores do cliente. */
+    com.razor.api.model.Professional barberMentioned(String userMessage, List<com.razor.api.model.Interaction> history) {
+        if (professionalRepository == null) return null;
+        java.util.UUID shop = com.razor.api.tenant.TenantContext.getCurrent();
+        if (shop == null) return null;
+        List<com.razor.api.model.Professional> pros = professionalRepository.findByBarbershopIdAndActiveTrue(shop);
+        List<String> falas = new ArrayList<>();
+        falas.add(userMessage);
+        if (history != null) history.stream()
+                .filter(i -> i.getType() == com.razor.api.model.Interaction.InteractionType.USER)
+                .map(com.razor.api.model.Interaction::getContent).forEach(falas::add);
+        for (String fala : falas) {
+            if (fala == null) continue;
+            String t = " " + java.text.Normalizer.normalize(fala, java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase() + " ";
+            for (var p : pros) {
+                if (p.getName() == null || p.getName().isBlank()) continue;
+                String first = java.text.Normalizer.normalize(p.getName().trim().split("\\s+")[0], java.text.Normalizer.Form.NFD)
+                        .replaceAll("\\p{M}", "").toLowerCase();
+                if (first.length() >= 3 && t.matches("(?s).*[^a-z]" + java.util.regex.Pattern.quote(first) + "[^a-z].*")) return p;
+            }
+        }
+        return null;
+    }
+
+    private static String oneLine(String s) {
+        return s == null ? "" : s.replaceAll("\\s*\\n\\s*", ", ").trim();
+    }
+
     String buildOpeningHours(BarbershopSettingsService.BotSettings cfg) {
         // Frase derivada dos dias estruturados (V32): antes vinha de um texto livre a parte, que
         // podia anunciar "Seg a Sáb" enquanto a agenda aceitava domingo.
@@ -337,11 +463,8 @@ public class OpenAIService {
             LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
             String dataHoje = hoje.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
             
-            StringBuilder cal = new StringBuilder();
-            DateTimeFormatter fmtDia = DateTimeFormatter.ofPattern("dd/MM (EEEE)", new Locale("pt", "BR"));
-            for(int i = 0; i < 7; i++) {
-                cal.append("- ").append(hoje.plusDays(i).format(fmtDia)).append("\n");
-            }
+            var cfg = barbershopSettingsService.resolve();
+            String cal = calendarBlock(hoje, cfg);
             
             // Calcula horários livres de HOJE para o prompt
             String dataHojeFormatada = hoje.format(DateTimeFormatter.ofPattern("dd/MM"));
@@ -364,9 +487,8 @@ public class OpenAIService {
                 }
             }
 
-            // Identidade, catalogo e funcionamento vem do TENANT ATUAL — sem isso toda barbearia
-            // teria um bot dizendo o nome e os precos de outra (bug multi-tenant).
-            var cfg = barbershopSettingsService.resolve();
+            // Identidade, catalogo e funcionamento vem do TENANT ATUAL (cfg, acima) — sem isso toda
+            // barbearia teria um bot dizendo o nome e os precos de outra (bug multi-tenant).
 
             String finalPrompt = SYSTEM_PROMPT_RECEPTIONIST
                     .replace("{{etapaServico}}", serviceStageBlock(servicoPedido, catalogoVazio))
@@ -374,13 +496,15 @@ public class OpenAIService {
                     .replace("{{agendaContext}}", agendaContext == null ? "" : agendaContext)
                     .replace("{{hoje}}", dataHoje)
                     .replace("{{horariosLivresHoje}}", horariosLivresHoje)
-                    .replace("{{calendarioSemana}}", cal.toString())
+                    .replace("{{calendarioSemana}}", cal)
+                    .replace("{{sobreBarbearia}}", aboutBlock(cfg) + barbersLine())
                     .replace("{{knownCustomerName}}", knownCustomerName)
                     .replace("{{nomeBarbearia}}", cfg.displayName())
                     .replace("{{persona}}", blankTo(cfg.botPersona(), DEFAULT_PERSONA))
                     .replace("{{tabelaServicos}}", buildServiceTable(customer))
                     .replace("{{funcionamento}}", buildOpeningHours(cfg));
                     
+            finalPrompt += requestedDayBlock(userMessage, recentHistory, hoje, cfg, servicoPedido, perguntarServico);
             finalPrompt += bookingLimitHint(activeAppointments,
                     barbershopSettingsService.getMaxFutureBookingsPerCustomer());
                     
