@@ -103,6 +103,8 @@ com os dois sistemas em paralelo por 1–2 semanas. Fora isso, as funções do p
 - **Painel:** marcar mais rápido (buscar cliente, sugerir horário livre, repetir o último serviço).
 
 ### 3. Recorrência do clube (cobrança automática)
+**Decidido em 26/11: Asaas.** Organização completa (ativação por barbearia, como o cliente assina, Central do clube,
+suporte, migração e ordem de construção) em **docs/RECORRENCIA-ASAAS.md**.
 **Como o dinheiro anda:**
 ```
 Assinante paga (cartão recorrente ou PIX Automático)
