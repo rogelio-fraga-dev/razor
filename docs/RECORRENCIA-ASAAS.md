@@ -131,10 +131,9 @@ mostrar quatro colunas por barbeiro: **clube · serviços · extras · produtos*
   débito, crédito à vista e parcelado; a comissão é calculada sobre o valor líquido daquele pagamento.
 - **Troca de cartão na migração (a parte mais difícil):** o cartão salvo na CashBarber/DOM não passa para o Asaas
   sozinho (os dados ficam guardados no cofre do gateway antigo, regra de segurança dos cartões — PCI).
-  1. Perguntar ao Asaas e à CashBarber/DOM se fazem **migração da base de cartões entre gateways** (PCI para PCI).
-     Se fizerem, o assinante antigo nem percebe.
-  2. Se não: o assinante antigo **cadastra o cartão uma vez** (link no WhatsApp / pop-up no primeiro acesso),
-     sem trocar o dia de cobrança nem o preço; enquanto isso continua sendo cobrado no sistema antigo.
+  **Decidido (26/11):** o assinante antigo **cadastra o cartão uma vez** (link no WhatsApp / pop-up no primeiro
+  acesso), sem trocar o dia de cobrança nem o preço; enquanto isso continua sendo cobrado no sistema antigo.
+  (Migração da base de cartões entre gateways fica só como pergunta, não como plano.)
   - **Assinantes antigos ficam no cartão**; **novos** (sem clube antes) podem escolher cartão ou **PIX Automático**.
 - **Dois números:** o da barbearia vai para o bot; o pessoal do dono fica como contato/alertas do dono.
 - Nota fiscal: precisa (o cliente tem CNPJ) → o Razor precisa de CNPJ antes de cobrar dele.
@@ -142,8 +141,10 @@ mostrar quatro colunas por barbeiro: **clube · serviços · extras · produtos*
   oferece; **não copiar** código, textos, telas nem dados de outras pessoas, e não usar automação/robô no site dela.
 
 ## 9. Depois: anúncios (Meta/Instagram)
-- Painel "De onde vêm os clientes": link do site com marcação para a bio e os anúncios do Instagram (o
-  agendamento guarda a origem), o bot pergunta "como nos conheceu?" no primeiro contato.
+- **O link do site/agendamento já pode ir no anúncio e na bio** (`/b/<barbearia>` e `/b/<barbearia>/agendar`) e o
+  agendamento já fica marcado como "SITE" (V38). Falta: **link por campanha** (`?origem=anuncio-novembro`), guardado
+  no agendamento e no cliente novo, um botão "Copiar link para anúncio" no editor do site, e o painel
+  "De onde vêm os clientes"; o bot pergunta "como nos conheceu?" no primeiro contato.
 - Ligar a conta de anúncios da Meta (login do Facebook do dono; exige aprovação do app pela Meta) para mostrar
   gasto, alcance e cliques ao lado de **clientes novos e faturamento que vieram do anúncio** → custo por cliente
   novo. Primeiro a origem (simples), depois a integração com a Meta.
