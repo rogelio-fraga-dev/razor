@@ -356,7 +356,7 @@ function BottomNav({ quick, groups }: { quick: NavPage[]; groups: NavGroup[] }) 
 
 // Funções do plano (piloto sem clube/pacotes): busca uma vez por sessão e redesenha o menu.
 let planFeaturesLoaded = false;
-function usePlanFeatures(enabled: boolean) {
+export function usePlanFeatures(enabled: boolean) {
   const [, bump] = useState(0);
   useEffect(() => {
     if (!enabled || planFeaturesLoaded) return;
@@ -463,6 +463,7 @@ export function Layout({
               <div className="faint user-mail">{session?.email}</div>
             </div>
           </NavLink>
+          {!collapsed && <NavLink viewTransition to="/sobre" className="app-version mono" title="Sobre o Razor e novidades">Razor v{__APP_VERSION__} · novidades</NavLink>}
         </div>
       </aside>
 

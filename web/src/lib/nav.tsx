@@ -107,6 +107,7 @@ export const GROUPS: NavGroup[] = [
       { to: "/professionals", label: "Profissionais", hint: "equipe, comissão e login", icon: <IconUser /> },
       { to: "/settings", label: "Configurações", hint: "bot, WhatsApp e site", icon: <IconSliders /> },
       { to: "/profile", label: "Meu perfil", hint: "nome e senha", icon: <IconUser /> },
+      { to: "/sobre", label: "Sobre e novidades", hint: "versão, contato e o que mudou", icon: <IconUser /> },
     ],
   },
 ];

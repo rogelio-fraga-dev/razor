@@ -24,6 +24,7 @@ export const ROUTE_ROLES: Record<string, UserRole[]> = {
   "/meu-dia": ["OWNER", "BARBER"],
   "/agenda": ALL,
   "/profile": ALL,
+  "/sobre": ALL,
   "/customers": COUNTER,
   "/comandas": COUNTER,
   "/caixa": COUNTER,

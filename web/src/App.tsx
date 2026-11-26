@@ -1,4 +1,5 @@
 import { FeatureGate } from "./components/Layout";
+import { About } from "./pages/About";
 import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth/AuthContext";
@@ -99,6 +100,7 @@ export default function App() {
         <Route path="/retention" element={<RetentionPage />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/sobre" element={<About />} />
       </Route>
       <Route path="*" element={<Navigate to={home} replace />} />
     </Routes>

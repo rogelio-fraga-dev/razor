@@ -1,3 +1,5 @@
+import { usePlanFeatures } from "../components/Layout";
+import { featureEnabled } from "../lib/nav";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ErrorState } from "../components/ErrorState";
 import { Link } from "react-router";
@@ -49,6 +51,8 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 export function Customers() {
+  usePlanFeatures(true);
+  const loyalty = featureEnabled("LOYALTY"); // piloto: sem cartão fidelidade
   const toast = useToast();
   // Vincular plano e so do dono (SecurityConfig: PUT /customers/*/plan = OWNER). A recepcao ve o
   // plano do cliente, mas sem o seletor — e sem buscar /plans, que tambem e so do dono.
@@ -310,7 +314,7 @@ export function Customers() {
                     </span>
                     <span className="rw-meta">
                       <span className="mono">{phoneBr(c.phone)}</span>
-                      <span>· {c.fidelityPoints}/10 pts</span>
+                      {loyalty && <span>· {c.fidelityPoints}/10 pts</span>}
                       <span>· última visita {dateShort(c.lastServiceDate)}</span>
                     </span>
                   </div>
@@ -370,8 +374,8 @@ export function Customers() {
             </dd>
             <dt>Última visita</dt>
             <dd>{dateShort(detail.lastServiceDate)}</dd>
-            <dt>Fidelidade</dt>
-            <dd>{detail.fidelityPoints}/10 pontos</dd>
+            {featureEnabled("LOYALTY") && (<><dt>Fidelidade</dt>
+            <dd>{detail.fidelityPoints}/10 pontos</dd></>)}
             <dt>Cliente desde</dt>
             <dd>{dateShort(detail.createdAt)}</dd>
           </dl>
