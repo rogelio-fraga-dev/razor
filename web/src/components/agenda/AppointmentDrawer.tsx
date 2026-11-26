@@ -1,5 +1,6 @@
 // Detalhe de um agendamento (gaveta lateral; no celular, folha de baixo): remarcar, trocar de
 // barbeiro, cancelar, marcar comparecimento e abrir a comanda do atendimento.
+import { createPortal } from "react-dom";
 import { useId, useState } from "react";
 import { useNavigate } from "react-router";
 import { Switch } from "../Modal";
@@ -127,7 +128,8 @@ export function AppointmentDrawer({
       navigate("/comandas");
     });
 
-  return (
+  // Portal no <body>: o .content animado prendia o "fixed" (cabeçalho escondido).
+  return createPortal(
     <div
       className="drawer-overlay"
       role="presentation"
@@ -317,6 +319,7 @@ export function AppointmentDrawer({
           )}
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }

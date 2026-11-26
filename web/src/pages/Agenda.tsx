@@ -618,6 +618,8 @@ export function Agenda() {
                             att === "ATTENDED" ? "ev-done" : "",
                             dragging ? "is-ghost" : "",
                             canChange(a) && att !== "ATTENDED" ? "is-draggable" : "",
+                            // Horário curto (15 min): hora e nome na mesma linha, senão o nome sumia.
+                            height < 40 ? "ev-short" : "",
                           ].join(" ")}
                           style={{
                             top: (startMin - range.start) * PX_PER_MIN,

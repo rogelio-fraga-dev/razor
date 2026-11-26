@@ -1,4 +1,5 @@
 import { useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useFocusTrap } from "../lib/useFocusTrap";
 
 /**
@@ -47,7 +48,8 @@ export function Modal({
     initialFocus: titleRef,
   });
 
-  return (
+  // Portal no <body>: mesmo motivo do Drawer (o .content animado prendia o overlay).
+  return createPortal(
     // Clique fora fecha (atalho de mouse; no teclado o equivalente é Esc ou o ✕). O overlay é
     // só apresentação — o diálogo de verdade é o filho com role="dialog".
     <div
@@ -79,7 +81,8 @@ export function Modal({
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

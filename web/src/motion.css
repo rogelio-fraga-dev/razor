@@ -130,3 +130,8 @@ a.card:hover, .card.clickable:hover { transform: translateY(-2px); }
 .rw-meta { font-size: 13px; color: var(--text-muted); }
 .rw-meta .mono { font-size: 12.5px; }
 .tl-service { font-size: 14px; }
+
+/* Agenda: horário curto (sobrancelha, pezinho) mostra hora e nome numa linha só. */
+.cal-event.ev-short { flex-direction: row; align-items: center; gap: 6px; padding: 2px 8px; }
+.cal-event.ev-short .ev-time { flex-shrink: 0; }
+.cal-event.ev-short .ev-name { font-size: 12.5px; min-width: 0; }

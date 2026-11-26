@@ -2,6 +2,7 @@
 // Lateral no desktop, folha de baixo no celular (≤760px). Foco preso, Esc fecha, toque fora
 // fecha, e o foco volta para quem abriu — o mesmo contrato da gaveta da agenda.
 import { useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useFocusTrap } from "../lib/useFocusTrap";
 import "./drawer.css";
 
@@ -22,7 +23,9 @@ export function Drawer({
   const titleRef = useRef<HTMLHeadingElement>(null);
   const { ref, onKeyDown } = useFocusTrap<HTMLElement>({ onEscape: onClose, initialFocus: titleRef });
 
-  return (
+  // Portal no <body>: a transição de tela anima o .content, e um "fixed" dentro dele ficava preso
+  // na área do conteúdo (a barra do topo cobria o cabeçalho da ficha).
+  return createPortal(
     <div
       className="drawer-overlay"
       role="presentation"
@@ -54,6 +57,7 @@ export function Drawer({
         </div>
         <div className="drawer-body stack">{children}</div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }

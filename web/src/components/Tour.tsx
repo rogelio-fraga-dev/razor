@@ -1,5 +1,6 @@
 // Tour de primeiro acesso (UX_BLUEPRINT §3.1): 5 spotlights de ~20s no total, "Pular"
 // sempre visível. Dispara uma única vez (localStorage) no primeiro login do painel.
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useState } from "react";
 
 const DONE_KEY = "razor.tour_done";
@@ -83,7 +84,8 @@ export function Tour({ steps, onFinish }: { steps: TourStep[]; onFinish: () => v
   const tipTop = below ? rect.top + rect.height + 14 : Math.max(12, rect.top - 176);
   const tipLeft = Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 332));
 
-  return (
+  // Portal no <body>: com o .content animado, o destaque do tour saía no lugar errado.
+  return createPortal(
     <div className="tour-root" role="dialog" aria-label={`Tour: ${step.title}`}>
       <div
         className="tour-spot"
@@ -100,6 +102,7 @@ export function Tour({ steps, onFinish }: { steps: TourStep[]; onFinish: () => v
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

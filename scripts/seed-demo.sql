@@ -306,7 +306,8 @@ BEGIN
         VALUES (v_cust[v_i], v_shop, v_cust_fone[v_i], v_cust_nome[v_i], 0,
                 -- Os tres primeiros sao assinantes, um de cada plano; o resto e avulso.
                 CASE v_i WHEN 1 THEN v_plan_vip WHEN 2 THEN v_plan_silver WHEN 3 THEN v_plan_bronze ELSE NULL END,
-                now() - (interval '1 day' * (400 - v_i * 17)), now());
+                -- Sempre no passado (antes, 400 - i*17 ficava negativo do 24o cliente em diante).
+                now() - (interval '1 day' * (30 + (v_i * 17) % 370)), now());
     END LOOP;
 
     -- -----------------------------------------------------------------------------------------
