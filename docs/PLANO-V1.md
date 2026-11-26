@@ -78,6 +78,22 @@ polir e montar o que o piloto precisa. Tudo vai para a AWS sozinho a cada envio 
 4. **Venda como trabalho principal.** Reels, direct e visita presencial em barbearias de Araguari. Daqui
    para frente, a venda pesa tanto quanto o código.
 
+## Decisões para mais adiante: nome, marca e domínio (26/11)
+
+- **Busca no INPI (26/11):** "RAZOR" sozinha está registrada em vigor na classe 9 (Razor USA), foi
+  **indeferida** na classe 42 (outra empresa, 2018) e tem duas em vigor na 35 → alto risco de recusa.
+  Compostos (RAZOR BARBER, RAZORAPP, RAZOR AI, RAZOR GESTÃO) não têm processo. Detalhes em
+  `documentos/guia-cnpj-e-registros.md`.
+- **Domínio:** preferência por **razorapp.com.br** (fácil de falar e digitar, sem a dúvida do "ã", serve para
+  qualquer nicho, padrão de SaaS) e **razorgestao.com.br** como reserva defensiva. "Gestão" entra no slogan.
+  ✋ registrar os dois no registro.br; depois mover o piloto para `razorapp.com.br` / `app.razorapp.com.br`.
+- **Aviso 1 — marca:** "Razor Gestão", "Razor App" e "Razor Barber" correm o mesmo risco no INPI (o termo
+  descritivo não conta; a palavra principal continua "Razor"). O que mais ajuda: **marca mista** (nome + logo
+  da navalha) e uma avaliação rápida com especialista em marcas antes de depositar (classes 42 e 9).
+- **Aviso 2 — expansão para salões e estética:** "Razor" (navalha) soa muito "barbearia". Se a expansão for
+  séria, considerar marca-mãe com linhas por nicho (Razor Barber / Razor Salão / Razor Estética) ou um nome
+  neutro. Decidir antes de investir pesado em divulgação fora das barbearias.
+
 ## Decisões (26/11)
 
 - Termos em nome de pessoa física, contato por e-mail, foro de Araguari/MG.
