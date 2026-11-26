@@ -112,8 +112,9 @@ polir e montar o que o piloto precisa. Tudo vai para a AWS sozinho a cada envio 
   (próximo cliente, horários, quanto entrou) e "Comece por aqui" recolhido; 8. feedback obrigatório (V57);
   9. console: Barbearias (estender, suspender, plano, senha do dono, anotação), Feedback e Relatório para o
   Claude; suspensão vale no login e no bot (V58); 10. versão 1.0.0, página "Sobre" e Novidades (`web/CHANGELOG.md`).
-- ⏳ Falta: conferir tudo no ar, revisar as demais telas do dia a dia (agenda, comandas, clientes) com o mesmo
-  cuidado da faixa "Hoje", e o "entrar como a barbearia" (só leitura) — deixado para depois da 1.0.
+- ✅ 26/11 (manhã) — revisão de agenda/comandas/clientes: ficha, janelas e tour por cima da tela toda (portal),
+  horário de 15 min com nome, seed sem datas futuras; "entrar como a barbearia" (só leitura, 30 min, faixa amarela,
+  escrita bloqueada no filtro, na Trilha); filtro de custo `projeto` ativo na AWS.
 
 ## Piloto (já ligado desde 25/11)
 

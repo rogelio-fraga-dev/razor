@@ -42,6 +42,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final SessionValidator sessionValidator;
 
+    /** Atributo da requisição quando a sessão é de suporte (só leitura). */
+    public static final String READ_ONLY_ATTR = "razor.readOnly";
+
     /** O console da plataforma (V51) tem sessao propria; o cookie do painel nao vale la. */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -60,6 +63,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     JwtService.ParsedToken parsed = jwtService.parseToken(token);
                     TenantUserPrincipal principal = parsed.principal();
                     if (sessionValidator.isValid(principal, parsed.version())) {
+                        if (parsed.readOnly()) {
+                            // Modo suporte (só leitura): nenhuma escrita passa. Sair é a única exceção.
+                            request.setAttribute(READ_ONLY_ATTR, Boolean.TRUE);
+                            String m = request.getMethod();
+                            boolean write = !("GET".equals(m) || "HEAD".equals(m) || "OPTIONS".equals(m));
+                            if (write && !request.getRequestURI().startsWith("/api/auth/logout")) {
+                                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                                response.setContentType("application/json;charset=UTF-8");
+                                response.getWriter().write("{\"error\":\"Modo suporte: só leitura. Nada pode ser alterado.\"}");
+                                return;
+                            }
+                        }
                         var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + principal.role().name()));
                         var authentication = new UsernamePasswordAuthenticationToken(principal, null, authorities);
                         SecurityContextHolder.getContext().setAuthentication(authentication);

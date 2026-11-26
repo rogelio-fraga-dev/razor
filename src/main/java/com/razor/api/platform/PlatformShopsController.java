@@ -27,6 +27,9 @@ public class PlatformShopsController {
     private final PlatformShopsService shops;
     private final TrialFeedbackService feedback;
     private final PlatformAuditLog audit;
+    private final com.razor.api.repository.TenantUserRepository tenantUsers;
+    private final com.razor.api.security.JwtService jwtService;
+    private final com.razor.api.security.SessionCookies sessionCookies;
 
     public record Days(int days) {}
     public record Value(String value) {}
@@ -71,6 +74,23 @@ public class PlatformShopsController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /**
+     * "Entrar como a barbearia" (suporte): abre o painel dela como o dono vê, SÓ LEITURA, por 30 min.
+     * O cookie é o do painel (mesmo endereço); o console continua com a sessão dele.
+     */
+    @PostMapping("/shops/{id}/impersonate")
+    public ResponseEntity<Object> impersonate(@PathVariable UUID id,
+                                              @AuthenticationPrincipal PlatformSecurity.PlatformPrincipal p, HttpServletRequest http) {
+        requireMfa(p);
+        var owner = tenantUsers.findByBarbershopIdOrderByNameAsc(id).stream()
+                .filter(u -> u.getRole() == com.razor.api.model.UserRole.OWNER && u.isActive()).findFirst().orElse(null);
+        if (owner == null) return ResponseEntity.badRequest().body(Map.of("error", "Barbearia sem dono ativo."));
+        audit.record(p.userId(), "SHOP_IMPERSONATE", id, "somente leitura, 30 min", ClientIp.of(http));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, sessionCookies.issue(jwtService.issueReadOnly(owner, 30)).toString())
+                .body(Map.of("open", "/"));
     }
 
     @GetMapping("/feedback")

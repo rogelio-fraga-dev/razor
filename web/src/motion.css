@@ -135,3 +135,8 @@ a.card:hover, .card.clickable:hover { transform: translateY(-2px); }
 .cal-event.ev-short { flex-direction: row; align-items: center; gap: 6px; padding: 2px 8px; }
 .cal-event.ev-short .ev-time { flex-shrink: 0; }
 .cal-event.ev-short .ev-name { font-size: 12.5px; min-width: 0; }
+
+/* Modo suporte (só leitura) aberto pelo console */
+.support-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; padding: 10px 14px;
+  border-radius: 12px; font-size: 14px; color: #1a1300; background: #ffcf3f; border: 1px solid #e0a800; }
+.support-banner .btn { margin-left: auto; color: #1a1300; border-color: rgba(0,0,0,.25); }

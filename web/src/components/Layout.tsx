@@ -497,14 +497,20 @@ export function Layout({
           {(session?.role === "OWNER" || session?.role === "RECEPTION") && !flush && (
             <HealthBanner canAct={session?.role === "OWNER"} />
           )}
-          {session?.role === "OWNER" && !flush && <TrialBanner />}
+          {session?.readOnly && (
+            <div className="support-banner" role="status">
+              🛟 <b>Modo suporte — só leitura.</b> Você está vendo o painel como o dono. Nada pode ser alterado; a sessão acaba em 30 minutos.
+              <button className="btn btn-sm btn-ghost" onClick={logout}>Sair do modo suporte</button>
+            </div>
+          )}
+          {session?.role === "OWNER" && !flush && !session?.readOnly && <TrialBanner />}
           {children}
         </div>
       </div>
 
       <BottomNav quick={quick} groups={groups} />
       <StampLayer />
-      {session?.role === "OWNER" && <FeedbackPrompt />}
+      {session?.role === "OWNER" && !session?.readOnly && <FeedbackPrompt />}
     </div>
   );
 }

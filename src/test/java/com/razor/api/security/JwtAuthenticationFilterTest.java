@@ -153,4 +153,25 @@ class JwtAuthenticationFilterTest {
         assertThat(TenantContext.isSet()).isFalse();
         verify(chain).doFilter(request, response);
     }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("sessão de suporte (só leitura): GET passa, escrita recebe 403 e não chega no controller")
+    void readOnlySession_blocksWrites() throws Exception {
+        TenantUserPrincipal principal = new TenantUserPrincipal(java.util.UUID.randomUUID(), "dono@x.com", java.util.UUID.randomUUID(), com.razor.api.model.UserRole.OWNER);
+        when(jwtService.parseToken("ro")).thenReturn(new JwtService.ParsedToken(principal, 0, true));
+
+        org.springframework.mock.web.MockHttpServletRequest get = new org.springframework.mock.web.MockHttpServletRequest("GET", "/api/admin/customers");
+        get.addHeader("Authorization", "Bearer ro");
+        FilterChain chainGet = mock(FilterChain.class);
+        filter.doFilter(get, new org.springframework.mock.web.MockHttpServletResponse(), chainGet);
+        org.mockito.Mockito.verify(chainGet).doFilter(any(), any());
+
+        org.springframework.mock.web.MockHttpServletRequest post = new org.springframework.mock.web.MockHttpServletRequest("POST", "/api/admin/comandas");
+        post.addHeader("Authorization", "Bearer ro");
+        org.springframework.mock.web.MockHttpServletResponse res = new org.springframework.mock.web.MockHttpServletResponse();
+        FilterChain chainPost = mock(FilterChain.class);
+        filter.doFilter(post, res, chainPost);
+        org.assertj.core.api.Assertions.assertThat(res.getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verify(chainPost, org.mockito.Mockito.never()).doFilter(any(), any());
+    }
 }

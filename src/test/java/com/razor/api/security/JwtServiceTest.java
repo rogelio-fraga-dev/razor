@@ -74,4 +74,11 @@ class JwtServiceTest {
         assertThat(parsed.version()).isEqualTo(7);
         assertThat(parsed.principal().userId()).isEqualTo(u.getId());
     }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("sessão de suporte do console sai como só leitura; a normal não")
+    void readOnlyToken() {
+        org.assertj.core.api.Assertions.assertThat(jwtService.parseToken(jwtService.issueReadOnly(user(), 30)).readOnly()).isTrue();
+        org.assertj.core.api.Assertions.assertThat(jwtService.parseToken(jwtService.issue(user())).readOnly()).isFalse();
+    }
 }

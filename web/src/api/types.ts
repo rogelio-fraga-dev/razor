@@ -137,6 +137,8 @@ export interface Me {
   role: UserRole;
   /** Cadastro de profissional ligado a este login (V44); null = sem vínculo. */
   professionalId?: string | null;
+  /** Sessão de suporte aberta pelo console da plataforma (só leitura). */
+  readOnly?: boolean;
 }
 
 /** "Quanto eu ganhei" — GET /api/admin/me/earnings (V44). */

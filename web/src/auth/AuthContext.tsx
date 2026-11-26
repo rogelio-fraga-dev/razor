@@ -16,6 +16,8 @@ interface Session {
   userId?: string;
   /** Profissional ligado a este login (V44): o barbeiro só mexe nos horários dele na agenda. */
   professionalId?: string | null;
+  /** Suporte pelo console (só leitura): faixa amarela, nada pode ser salvo. */
+  readOnly?: boolean;
 }
 
 interface AuthState {
@@ -36,7 +38,7 @@ const AuthContext = createContext<AuthState | null>(null);
 
 function toSession(u: LoginResponse | Me): Session {
   const base: Session = { role: u.role, name: u.name, email: u.email, barbershopId: u.barbershopId };
-  if ("userId" in u) return { ...base, userId: u.userId, professionalId: u.professionalId ?? null };
+  if ("userId" in u) return { ...base, userId: u.userId, professionalId: u.professionalId ?? null, readOnly: !!u.readOnly };
   return base;
 }
 

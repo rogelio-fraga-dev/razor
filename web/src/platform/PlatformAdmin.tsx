@@ -97,6 +97,13 @@ export function ShopsAdminTab() {
                         } catch (e) { toast.error(err(e)); }
                       }}>Redefinir senha do dono</button>
                     </div>
+                    <div>
+                      <button className="btn btn-ghost btn-sm" disabled={busy} onClick={async () => {
+                        if (!window.confirm(`Abrir o painel de ${s.name} como o dono vê, só leitura, por 30 minutos? Fica registrado na Trilha.`)) return;
+                        try { await papi.post(`/shops/${s.id}/impersonate`); window.open("/", "_blank", "noopener"); }
+                        catch (e) { toast.error(err(e)); }
+                      }}>Entrar como a barbearia (só leitura)</button>
+                    </div>
                     <NoteEditor shop={s} onSaved={reload} />
                     <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>
                       Endereço público: /b/{s.slug} · última mensagem de cliente: {s.last_message_at ? dt(s.last_message_at) : "nenhuma"} · criada em {dt(s.created_at)}

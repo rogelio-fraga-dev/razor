@@ -57,6 +57,11 @@ public class AdminController {
         body.put("role", principal.role().name());
         // Vinculo com o cadastro de profissional (V44): o "Meu dia" filtra a agenda por ele.
         body.put("professionalId", user.getProfessionalId());
+        // Sessão de suporte aberta pelo console (só leitura): o painel mostra a faixa amarela.
+        var attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        body.put("readOnly", attrs != null && Boolean.TRUE.equals(attrs.getAttribute(
+                com.razor.api.security.JwtAuthenticationFilter.READ_ONLY_ATTR,
+                org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST)));
         return body;
     }
 }

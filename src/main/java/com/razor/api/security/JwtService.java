@@ -56,6 +56,28 @@ public class JwtService {
         this.expirationMinutes = properties.getSecurity().getJwtExpirationMinutes();
     }
 
+    /** Claim do "entrar como a barbearia" (suporte, só leitura). */
+    public static final String CLAIM_READ_ONLY = "ro";
+
+    /**
+     * Sessão de suporte (26/11): o console abre o painel da barbearia como o dono vê, SÓ LEITURA
+     * (o filtro recusa qualquer escrita) e por {@code minutes} minutos.
+     */
+    public String issueReadOnly(TenantUser user, long minutes) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(user.getEmail())
+                .claim(CLAIM_USER_ID, user.getId().toString())
+                .claim(CLAIM_SHOP, user.getBarbershopId().toString())
+                .claim(CLAIM_ROLE, user.getRole().name())
+                .claim(CLAIM_VERSION, user.getTokenVersion())
+                .claim(CLAIM_READ_ONLY, true)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(minutes * 60)))
+                .signWith(key)
+                .compact();
+    }
+
     /** Emite um token para o usuario autenticado. */
     public String issue(TenantUser user) {
         Instant now = Instant.now();
@@ -80,7 +102,10 @@ public class JwtService {
     }
 
     /** Principal + versao do token (claim {@code ver}; ausente = 0, tokens anteriores a ela). */
-    public record ParsedToken(TenantUserPrincipal principal, int version) {
+    public record ParsedToken(TenantUserPrincipal principal, int version, boolean readOnly) {
+        public ParsedToken(TenantUserPrincipal principal, int version) {
+            this(principal, version, false);
+        }
     }
 
     /** Como {@link #parse}, devolvendo tambem a versao para a revalidacao da sessao. */
@@ -96,7 +121,7 @@ public class JwtService {
                 UUID.fromString(claims.get(CLAIM_SHOP, String.class)),
                 UserRole.valueOf(claims.get(CLAIM_ROLE, String.class)));
         Integer version = claims.get(CLAIM_VERSION, Integer.class);
-        return new ParsedToken(principal, version == null ? 0 : version);
+        return new ParsedToken(principal, version == null ? 0 : version, Boolean.TRUE.equals(claims.get(CLAIM_READ_ONLY, Boolean.class)));
     }
 
     // --- Console da plataforma (V51) ---------------------------------------------------------
