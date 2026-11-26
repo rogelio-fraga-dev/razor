@@ -9,6 +9,20 @@ _Última atualização: 2026-11-25 — Parte 6 (upgrade visual + vídeos) em and
 
 ## PRÓXIMO: versão 1.0 em 30/11/2026 — plano em `docs/PLANO-V1.md`
 
+**Sessão de 26/11 (fim do dia) — onde paramos:**
+- No servidor do piloto: a barbearia de exemplo da instalação (V4, id 0000…0001) foi **apagada** (backup
+  razor-20261126-152820.dump antes); existe só a conta de teste do primeiro prospect (plano PRO, tudo liberado,
+  TRIAL até 10/12 — estender/ativar no console antes). Acessos só em documentos/ (fora do git).
+- Entregue: menu do botão direito na agenda (fechar comanda, compareceu/faltou, sinal, WhatsApp, cancelar),
+  comissão própria por serviço, card "Recorrência do clube".
+- Decidido: Asaas; assinantes antigos recadastram o cartão uma vez (mesmo dia e preço); novos escolhem cartão ou
+  PIX Automático; comissão 100% configurável pelo dono (pote do clube, serviço, produto, extra, taxa da maquininha).
+- Ideias registradas (2027): planos por unidade (Gestão / Gestão + IA / Rede), rede de unidades, IA escolhe o
+  barbeiro, caderninho do barbeiro, link por campanha + painel de origem + anúncios Meta.
+- CNPJ: MEI não serve (software fora da lista); ME no Simples + contabilidade online, ou Inova Simples (ver com contador).
+- Usuário pediu **não implementar nada** além do que mandar; o plano completo está em PLANO-V1.md + RECORRENCIA-ASAAS.md.
+- Regra: o repositório é **público** — nenhum nome real de barbearia/dono/barbeiro em arquivo versionado ou commit.
+
 **Sessão de 26/11 (tarde):** demonstração local para o primeiro prospect (detalhes só em documentos/, fora do git —
 o repositório é público: nada de nome de barbearia, dono ou barbeiro real em arquivo versionado).
 - Entregue no master: card "Recorrência do clube" (GET /api/admin/plans/summary) e **comissão própria por serviço**
