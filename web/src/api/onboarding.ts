@@ -19,6 +19,8 @@ export interface SignupInput {
   plan: string | null;
   /** Honeypot: fica escondido; gente não preenche. */
   website: string;
+  /** Código do link de convite (piloto). */
+  invite?: string | null;
 }
 
 /** Passos do assistente guiado — contrato com OnboardingProgressService.STEPS. */

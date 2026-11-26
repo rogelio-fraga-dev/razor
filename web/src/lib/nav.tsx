@@ -45,6 +45,17 @@ export interface NavPage {
    * dono é o Painel.
    */
   menuRoles?: UserRole[];
+  /** Função que o plano da barbearia precisa liberar (piloto sem clube e sem pacotes). */
+  feature?: "CLUB" | "PACKAGES" | "LOYALTY";
+}
+
+// Funções desligadas pelo plano da barbearia (GET /api/admin/plan-features), lidas pelo Layout.
+let disabledFeatures = new Set<string>();
+export function setDisabledFeatures(list: string[]) {
+  disabledFeatures = new Set(list);
+}
+export function featureEnabled(f: string | undefined): boolean {
+  return !f || !disabledFeatures.has(f);
 }
 
 export interface NavGroup {
@@ -70,8 +81,8 @@ export const GROUPS: NavGroup[] = [
     icon: <IconGem />,
     pages: [
       { to: "/retention", label: "Retenção", hint: "cadeiras vazias e quem sumiu", icon: <IconPulse /> },
-      { to: "/plans", label: "Planos", hint: "clube de assinatura", icon: <IconGem /> },
-      { to: "/packages", label: "Pacotes", hint: "cortes pagos adiantado", icon: <IconBox /> },
+      { to: "/plans", label: "Planos", hint: "clube de assinatura", icon: <IconGem />, feature: "CLUB" },
+      { to: "/packages", label: "Pacotes", hint: "cortes pagos adiantado", icon: <IconBox />, feature: "PACKAGES" },
       { to: "/coupons", label: "Cupons", hint: "descontos e fidelidade", icon: <IconTicket /> },
     ],
   },
@@ -101,12 +112,12 @@ export const GROUPS: NavGroup[] = [
 ];
 
 function showInMenu(p: NavPage, role: UserRole | undefined): boolean {
-  return canAccess(p.to, role) && (!p.menuRoles || (!!role && p.menuRoles.includes(role)));
+  return canAccess(p.to, role) && featureEnabled(p.feature) && (!p.menuRoles || (!!role && p.menuRoles.includes(role)));
 }
 
 /** Todas as páginas (para o Ctrl+K), filtradas só pelo papel — sem o filtro de menu. */
 export function reachablePages(role: UserRole | undefined): NavPage[] {
-  return [...QUICK, ...GROUPS.flatMap((g) => g.pages)].filter((p) => canAccess(p.to, role));
+  return [...QUICK, ...GROUPS.flatMap((g) => g.pages)].filter((p) => canAccess(p.to, role) && featureEnabled(p.feature));
 }
 
 /** Atalhos que o papel vê no menu. */

@@ -39,7 +39,7 @@ public class SignupService {
     static final int MIN_PASSWORD = 8;
     /** Slug curto o bastante para caber num cartao e virar subdominio no futuro (rotulo DNS). */
     static final int MAX_SLUG = 40;
-    private static final Set<String> PLANS = Set.of("SOLO", "EQUIPE", "PRO");
+    private static final Set<String> PLANS = Set.of("SOLO", "EQUIPE", "PRO", "PILOTO");
     private static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
     private static final Pattern NON_SLUG = Pattern.compile("[^a-z0-9]+");
     private static final Pattern EDGE_HYPHENS = Pattern.compile("(^-+)|(-+$)");

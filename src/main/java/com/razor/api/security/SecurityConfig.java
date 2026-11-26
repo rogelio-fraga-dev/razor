@@ -149,6 +149,7 @@ public class SecurityConfig {
                         // Cadastro sozinho pela landing (V49): publico, contido pelo limite por
                         // IP por hora (RateLimitFilter), honeypot e e-mail unico.
                         .requestMatchers(HttpMethod.POST, "/api/signup").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/signup/status").permitAll()
                         // Console da plataforma (V51): login em dois passos e logout abertos; todo o
                         // resto so com a sessao do console (PlatformSecurity.Filter). Um login de
                         // barbearia nunca tem este papel.

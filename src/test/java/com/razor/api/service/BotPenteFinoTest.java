@@ -102,4 +102,16 @@ class BotPenteFinoTest {
         assertThat(CustomerConversationService.wantsToReschedule("posso trocar meu dia?")).isTrue();
         assertThat(CustomerConversationService.wantsToReschedule("quero trocar de barbeiro")).isFalse();
     }
+
+    @Test
+    @DisplayName("plano piloto desliga cartão fidelidade, clube e pacotes; sem plano tudo liberado")
+    void planoPiloto() {
+        assertThat(PlanFeatures.disabledFor("PILOTO")).containsExactlyInAnyOrder(
+                PlanFeatures.Feature.LOYALTY, PlanFeatures.Feature.CLUB, PlanFeatures.Feature.PACKAGES);
+        assertThat(PlanFeatures.disabledFor("piloto")).hasSize(3);
+        assertThat(PlanFeatures.disabledFor(null)).isEmpty();
+        assertThat(PlanFeatures.disabledFor("EQUIPE")).isEmpty();
+        assertThat(MenuOptions.getMenuAsText("Navalha", 4, false)).contains("(em breve)").doesNotContain("4 pontos");
+        assertThat(MenuOptions.getMenuAsText("Navalha", 4)).contains("4 pontos");
+    }
 }

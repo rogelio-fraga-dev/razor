@@ -40,6 +40,9 @@ public class CustomerConversationService {
     private final CustomerRepository customerRepository;
     private final InteractionRepository interactionRepository;
     private final OpenAIService openAIService;
+    /** Plano da barbearia (piloto sem cartão fidelidade). Opcional: nulo nos testes = liberado. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PlanFeatures planFeatures;
     private final AgendaService agendaService;
     private final RazorProperties properties;
     private final WaitlistRepository waitlistRepository;
@@ -362,7 +365,7 @@ public class CustomerConversationService {
             log.info("[SISTEMA] Enviando Menu Textual para o Cliente: {}", phoneNumber);
             int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
             String nome = barbershopSettingsService.resolve().displayName();
-            saveAndSend(customer, MenuOptions.getMenuAsText(nome, points), phoneNumber);
+            saveAndSend(customer, MenuOptions.getMenuAsText(nome, points, loyaltyEnabled()), phoneNumber);
             return;
         }
 
@@ -420,6 +423,10 @@ public class CustomerConversationService {
             saveAndSend(customer, tabelaDePrecos(customer), phoneNumber);
             return;
         } else if (msgLower.equals("6") || msgLower.contains("cartao fidelidade") || msgLower.contains("cartão fidelidade") || msgLower.contains("fidelidade")) {
+            if (!loyaltyEnabled()) {
+                saveAndSend(customer, "O cartão fidelidade ainda não está ativo por aqui 🙂 Posso te ajudar a marcar um horário?", phoneNumber);
+                return;
+            }
             int points = customer.getFidelityPoints() != null ? customer.getFidelityPoints() : 0;
             String fidMsg = "💳 *Seu Cartão Fidelidade Digital*\n\nVocê tem *" + points + "* pontos acumulados!\n(Lembre-se: A cada 10 pontos você ganha 10% de desconto!)";
             saveAndSend(customer, fidMsg, phoneNumber);
@@ -1073,6 +1080,10 @@ public class CustomerConversationService {
         String t = semAcento(msg);
         return t.matches("(?s).*\\b(remarc\\w*|reagend\\w*)\\b.*")
                 || (t.matches("(?s).*\\b(mudar|trocar|alterar|passar)\\b.*") && t.matches("(?s).*\\bmeu (horario|agendamento|corte|dia)\\b.*"));
+    }
+
+    private boolean loyaltyEnabled() {
+        return planFeatures == null || planFeatures.enabled(PlanFeatures.Feature.LOYALTY);
     }
 
     static boolean isAbortReply(String text) {

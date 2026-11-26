@@ -1,3 +1,4 @@
+import { FeatureGate } from "./components/Layout";
 import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth/AuthContext";
@@ -87,9 +88,9 @@ export default function App() {
         <Route path="/products" element={<Products />} />
         <Route path="/professionals" element={<Professionals />} />
         <Route path="/customers" element={<Customers />} />
-        <Route path="/plans" element={<Plans />} />
+        <Route path="/plans" element={<FeatureGate feature="CLUB"><Plans /></FeatureGate>} />
         <Route path="/coupons" element={<Coupons />} />
-        <Route path="/packages" element={<Packages />} />
+        <Route path="/packages" element={<FeatureGate feature="PACKAGES"><Packages /></FeatureGate>} />
         <Route path="/comandas" element={<Comandas />} />
         <Route path="/caixa" element={<Caixa />} />
         <Route path="/commissions" element={<Commissions />} />

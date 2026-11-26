@@ -32,6 +32,9 @@ public class FidelityService {
 
     private final CustomerRepository customerRepository;
     private final CouponService couponService;
+    /** Plano da barbearia (piloto sem cartão fidelidade). Opcional: nulo nos testes = liberado. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PlanFeatures planFeatures;
 
     /**
      * Registra a visita do cliente: soma um ponto e, ao completar a cartela, zera e emite o
@@ -52,8 +55,13 @@ public class FidelityService {
                 .orElse(null);
         if (customer == null) return Optional.empty();
 
-        int pontos = (customer.getFidelityPoints() == null ? 0 : customer.getFidelityPoints()) + 1;
         customer.setLastServiceDate(LocalDateTime.now());
+        if (planFeatures != null && !planFeatures.enabled(PlanFeatures.Feature.LOYALTY)) {
+            // Plano sem cartão fidelidade (piloto): só registra a visita, sem ponto nem cupom.
+            customerRepository.save(customer);
+            return Optional.empty();
+        }
+        int pontos = (customer.getFidelityPoints() == null ? 0 : customer.getFidelityPoints()) + 1;
 
         if (pontos < CouponService.FIDELITY_TARGET_POINTS) {
             customer.setFidelityPoints(pontos);

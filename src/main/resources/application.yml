@@ -118,6 +118,9 @@ razor:
     # informativo (banner no painel) enquanto a cobranca nao existe.
     enabled: "${RAZOR_SIGNUP_ENABLED:true}"
     trial-days: "${RAZOR_TRIAL_DAYS:14}"
+    # Piloto (26/11): com um codigo aqui, o cadastro so aceita quem chega pelo link de convite
+    # (/cadastro?convite=CODIGO). Vazio = cadastro aberto.
+    invite-code: "${RAZOR_SIGNUP_INVITE:}"
   webhook:
     # Segredo que a Evolution deve enviar no webhook (header X-Webhook-Token ou ?token=...).
     # Vazio = webhook DESABILITADO (fail-closed): sem ele, qualquer um poderia forjar uma

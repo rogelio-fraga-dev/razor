@@ -27,5 +27,12 @@ public record SignupRequest(
         @NotBlank(message = "Informe o seu WhatsApp.") @Size(max = 30) String whatsapp,
         @NotBlank(message = "Informe a cidade.") @Size(max = 120) String city,
         @Size(max = 20) String plan,
-        @Size(max = 200) String website) {
+        @Size(max = 200) String website,
+        @Size(max = 80) String invite) {
+
+    /** Sem convite (cadastro aberto). */
+    public SignupRequest(String shopName, String ownerName, String email, String password, String whatsapp,
+                         String city, String plan, String website) {
+        this(shopName, ownerName, email, password, whatsapp, city, plan, website, null);
+    }
 }

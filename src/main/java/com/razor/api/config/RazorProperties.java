@@ -141,6 +141,12 @@ public class RazorProperties {
         private boolean enabled = true;
         /** Dias de teste gratis gravados em {@code trial_ends_at}. So informativo, por enquanto. */
         private int trialDays = 14;
+        /** Piloto: com valor, o cadastro só aceita quem traz este código (link de convite). Vazio = aberto. */
+        private String inviteCode = "";
+
+        public boolean inviteOnly() {
+            return inviteCode != null && !inviteCode.isBlank();
+        }
     }
 
     @Data

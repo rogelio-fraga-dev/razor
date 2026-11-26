@@ -99,4 +99,16 @@ class SignupControllerTest {
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(resp.getHeaders().getFirst(HttpHeaders.SET_COOKIE)).isNull();
     }
+
+    @Test
+    @DisplayName("piloto por convite: sem o código certo é 403; status diz que é só por convite")
+    void signup_inviteOnly() {
+        properties.getSignup().setInviteCode("piloto-abc");
+        ResponseEntity<Object> sem = controller.signup(req(), new MockHttpServletRequest(), new MockHttpServletResponse());
+        assertThat(sem.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        SignupRequest errado = new SignupRequest("B", "J", "a@b.com", "senha1234", "21970001111", "Rio", "piloto", null, "outro");
+        assertThat(controller.signup(errado, new MockHttpServletRequest(), new MockHttpServletResponse()).getStatusCode())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(controller.status()).containsEntry("enabled", true).containsEntry("inviteOnly", true);
+    }
 }

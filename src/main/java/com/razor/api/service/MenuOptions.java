@@ -87,13 +87,19 @@ public final class MenuOptions {
     }
 
     public static String getMenuAsText(String barbershopName, int points) {
+        return getMenuAsText(barbershopName, points, true);
+    }
+
+    /** Com {@code loyalty} falso (plano sem cartão fidelidade, como o piloto) a opção 6 aparece como "em breve". */
+    public static String getMenuAsText(String barbershopName, int points, boolean loyalty) {
         return "💈 *Menu " + barbershopName + "*\n\n" +
                "1️⃣ Agendar Horário 📅\n" +
                "2️⃣ Meus Agendamentos (Ver/Cancelar)\n" +
                "3️⃣ Horários Disponíveis 🕒\n" +
                "4️⃣ Endereço e Localização 📍\n" +
                "5️⃣ Serviços e Preços (Planos VIP) 💰\n" +
-               "6️⃣ Cartão Fidelidade Digital 🎫 (Você tem " + points + " pontos)\n" +
+               (loyalty ? "6️⃣ Cartão Fidelidade Digital 🎫 (Você tem " + points + " pontos)\n"
+                        : "6️⃣ Cartão Fidelidade 🎫 (em breve)\n") +
                "7️⃣ Instagram 📸\n" +
                "8️⃣ Falar com o Barbeiro 🗣️\n\n" +
                "_Digite o número da opção desejada ou clique no botão abaixo._\n\n" +

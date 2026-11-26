@@ -88,6 +88,8 @@ services:
       # O painel local roda em http puro (localhost:3000). Chrome/Firefox aceitam cookie Secure
       # em localhost, o Safari nao — por isso false aqui. Em producao (HTTPS) use true.
       RAZOR_COOKIE_SECURE: ${RAZOR_COOKIE_SECURE:-false}
+      # Piloto: com valor, o cadastro so aceita o link de convite (/cadastro?convite=...).
+      RAZOR_SIGNUP_INVITE: ${RAZOR_SIGNUP_INVITE:-}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8081}:8081"
     depends_on:

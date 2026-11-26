@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { NavLink, useLocation } from "react-router";
 import { useAuth } from "../auth/AuthContext";
 import { applyTheme, currentTheme, type Theme } from "../lib/theme";
+import { api } from "../api/client";
 import {
+  featureEnabled,
+  setDisabledFeatures,
   groupOf,
   pathMatches,
   visibleGroups,
@@ -350,6 +353,34 @@ function BottomNav({ quick, groups }: { quick: NavPage[]; groups: NavGroup[] }) 
   );
 }
 
+// Funções do plano (piloto sem clube/pacotes): busca uma vez por sessão e redesenha o menu.
+let planFeaturesLoaded = false;
+function usePlanFeatures(enabled: boolean) {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!enabled || planFeaturesLoaded) return;
+    planFeaturesLoaded = true;
+    api.get<{ plan: string | null; disabled: string[] }>("/api/admin/plan-features")
+      .then((r) => { setDisabledFeatures(r.disabled ?? []); bump((n) => n + 1); })
+      .catch(() => { planFeaturesLoaded = false; });
+  }, [enabled]);
+}
+
+/** Página de uma função que o plano não libera (rota aberta direto pelo endereço). */
+export function FeatureGate({ feature, children }: { feature: "CLUB" | "PACKAGES" | "LOYALTY"; children: ReactNode }) {
+  usePlanFeatures(true);
+  if (featureEnabled(feature)) return <>{children}</>;
+  return (
+    <Layout title="Não disponível no piloto">
+      <div className="card" style={{ maxWidth: 560 }}>
+        <h3 style={{ marginTop: 0 }}>Esta função não faz parte do piloto</h3>
+        <p className="muted" style={{ marginBottom: 0 }}>Durante o teste grátis o clube de assinatura, os pacotes e o cartão
+          fidelidade ficam desligados. Eles voltam quando a barbearia escolher um plano.</p>
+      </div>
+    </Layout>
+  );
+}
+
 export function Layout({
   title,
   actions,
@@ -364,6 +395,7 @@ export function Layout({
 }) {
   const { session, logout } = useAuth();
   const [theme, setTheme] = useState<Theme>(currentTheme);
+  usePlanFeatures(!!session);
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem(COLLAPSED_KEY) === "true";

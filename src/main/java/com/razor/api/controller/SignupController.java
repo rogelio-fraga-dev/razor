@@ -58,6 +58,10 @@ public class SignupController {
         if (!properties.getSignup().isEnabled()) {
             return ResponseEntity.notFound().build();
         }
+        if (properties.getSignup().inviteOnly() && !sameCode(properties.getSignup().getInviteCode(), request.invite())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error",
+                    "No piloto o cadastro é por convite. Use o link que você recebeu ou fale com a gente no Instagram."));
+        }
         try {
             Provisioned p = signupService.signup(request);
             TenantUser owner = p.owner();
@@ -72,6 +76,19 @@ public class SignupController {
         } catch (SignupService.SuspectedBotException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /** Para a página de cadastro saber se está aberta, só por convite ou fechada. */
+    @org.springframework.web.bind.annotation.GetMapping("/status")
+    public Map<String, Object> status() {
+        var s = properties.getSignup();
+        return Map.of("enabled", s.isEnabled(), "inviteOnly", s.isEnabled() && s.inviteOnly());
+    }
+
+    private static boolean sameCode(String expected, String given) {
+        if (given == null) return false;
+        return java.security.MessageDigest.isEqual(expected.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                given.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     /** JSON quebrado (ou texto fora de UTF-8): mesma resposta {@code {error}}, sem stack do Spring. */
