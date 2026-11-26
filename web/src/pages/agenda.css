@@ -135,3 +135,17 @@
   .topbar:has(.ag-compact) > .row { flex: 1; justify-content: space-between; }
   .topbar:has(.ag-compact) .ag-compact { margin-right: auto; }
 }
+
+/* Menu do botão direito num horário (26/11) */
+.ctx-menu { position: fixed; z-index: 400; min-width: 230px; max-width: 290px; padding: 6px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--border); box-shadow: 0 18px 48px rgba(0,0,0,.35);
+  display: flex; flex-direction: column; animation: ctx-in .12s ease-out; }
+@keyframes ctx-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+.ctx-head { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 8px; font-size: 13px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.ctx-head .faint { font-size: 12px; }
+.ctx-menu > button, .ctx-menu > .ctx-link { all: unset; box-sizing: border-box; display: block; width: 100%; padding: 9px 10px; border-radius: 8px;
+  font-size: 14px; cursor: pointer; color: var(--text); }
+.ctx-menu > button:hover:not(:disabled), .ctx-menu > button:focus-visible, .ctx-menu > .ctx-link:hover, .ctx-menu > .ctx-link:focus-visible { background: var(--surface-2); }
+.ctx-menu > button:disabled { opacity: .5; cursor: progress; }
+.ctx-menu .ctx-danger { color: var(--danger, #e5484d); }
+.ctx-sep { height: 1px; background: var(--border); margin: 4px 2px; }

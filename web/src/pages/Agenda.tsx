@@ -13,6 +13,7 @@ import { Skeleton } from "../components/Skeleton";
 import { ScheduleBlocksModal } from "../components/ScheduleBlocksModal";
 import { NewAppointmentModal, type NewSlot } from "../components/agenda/NewAppointmentModal";
 import { AppointmentDrawer } from "../components/agenda/AppointmentDrawer";
+import { AgendaContextMenu } from "../components/agenda/AgendaContextMenu";
 import { Modal, Switch } from "../components/Modal";
 import { useToast } from "../components/Toast";
 import { useAuth } from "../auth/AuthContext";
@@ -129,6 +130,8 @@ export function Agenda() {
   const [showBlocks, setShowBlocks] = useState(false);
   const [newSlot, setNewSlot] = useState<NewSlot | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+  // Botão direito num horário: menu de ações rápidas (fechar comanda, compareceu, cancelar...).
+  const [ctx, setCtx] = useState<{ id: number; x: number; y: number } | null>(null);
   const [notifyOnDrag, setNotifyOnDrag] = useState(true);
   // Celular: a barra do topo fica em UMA linha (‹ Hoje › + "⋯"); o resto abre numa folha.
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -649,7 +652,19 @@ export function Agenda() {
                           onPointerMove={onEventPointerMove}
                           onPointerUp={() => onEventPointerUp(a)}
                           onPointerCancel={() => setDrag(null)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setDrag(null);
+                            setCtx({ id: a.id, x: e.clientX, y: e.clientY });
+                          }}
                           onKeyDown={(e) => {
+                            // Teclado: Shift+F10 ou a tecla de menu abrem o mesmo menu.
+                            if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+                              e.preventDefault();
+                              const r = e.currentTarget.getBoundingClientRect();
+                              setCtx({ id: a.id, x: r.left + 12, y: r.top + 12 });
+                              return;
+                            }
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
                               setOpenId(a.id);
@@ -767,6 +782,24 @@ export function Agenda() {
           }}
         />
       )}
+
+      {ctx && (() => {
+        const it = items.find((a) => a.id === ctx.id);
+        if (!it) return null;
+        return (
+          <AgendaContextMenu
+            key={ctx.id}
+            item={it}
+            x={ctx.x}
+            y={ctx.y}
+            canManage={canEdit}
+            canEdit={canChange(it)}
+            onClose={() => setCtx(null)}
+            onDetails={() => setOpenId(it.id)}
+            onChanged={() => board.reload()}
+          />
+        );
+      })()}
 
       {opened && (
         <AppointmentDrawer
