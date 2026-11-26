@@ -78,6 +78,40 @@ polir e montar o que o piloto precisa. Tudo vai para a AWS sozinho a cada envio 
 4. **Venda como trabalho principal.** Reels, direct e visita presencial em barbearias de Araguari. Daqui
    para frente, a venda pesa tanto quanto o código.
 
+## Próxima fase (1.1 → 1.2): agendamento, área do cliente e recorrência — pedido de 26/11
+
+Origem: demonstração para a LH Barbearia (Araguari), que hoje paga ~R$ 350/mês na CashBarber e cujo maior
+vínculo é o **clube com cobrança recorrente** (LH BARBERCLUB, gateway DOM Pagamentos).
+⚠️ Conflita com "congelar funções no piloto": decidir se entra antes do piloto terminar (para converter a LH)
+ou logo depois. Sugestão: 1.1 começa no fim do piloto, ou antes se a LH fechar.
+
+1. **Agendar horário melhor** (site da barbearia e painel):
+   - Fluxo mais curto no site: serviço → barbeiro (ou "qualquer um") → dia → horário, numa tela só no celular,
+     com os próximos horários livres já sugeridos ("hoje 16:30 com o Vinícius").
+   - Mostrar preço do plano para assinante, sinal PIX quando a barbearia exigir, confirmação clara.
+   - No painel: marcar horário mais rápido (buscar cliente, sugerir horário livre, repetir o último serviço).
+2. **Área do cliente com código pelo WhatsApp** (era a Parte 8, V52, sobe de prioridade):
+   - O cliente digita o celular → recebe um **código no WhatsApp** (pelo número da barbearia) → digita o código.
+   - Já está no banco (cadastrado, importado ou atendido pelo bot)? Só confirma e entra.
+   - Não está? Cria o cadastro com nome e celular, sem senha.
+   - Depois de entrar: ver, remarcar e cancelar horários, ver pacote, plano do clube e pontos.
+   - Cuidados: código de 6 dígitos com validade curta (5 min), limite de tentativas e de envios por número/IP,
+     log no console; sem SMS (custo) — SMS só como alternativa futura.
+3. **Recorrência de verdade (cobrança automática do clube)**:
+   - Integração com gateway de assinatura (**Asaas ou Mercado Pago**): cartão recorrente e **PIX Automático**;
+     o dinheiro cai direto na conta da barbearia (subconta/conta dela), o Razor não segura dinheiro.
+   - Situação de cada assinante: em dia / atrasado / cancelado; benefício suspenso se atrasar; bot avisa o atraso
+     com o link de pagamento; painel com renovações, vencimentos, cancelamentos (churn) e receita do clube.
+4. **Migração da CashBarber (clientes e assinantes)**:
+   - Importar a **planilha exportada da CashBarber** (clientes, telefones, aniversários e quem é assinante de qual
+     plano) pelo console/painel, com prévia e correção de telefone antes de gravar.
+   - Todo cliente que **tinha recorrência** fica marcado "precisa reativar a assinatura".
+   - No **primeiro acesso** dele (área do cliente, item 2), aparece **uma única vez** um pop-up: "Seu plano
+     Barberclub continua aqui — cadastre o cartão para manter a assinatura", que cria a recorrência nova no
+     gateway. Também dá para mandar esse link pelo bot no WhatsApp.
+   - Enquanto o cliente não reativa, a cobrança antiga continua na CashBarber; cancelar lá só depois de reativado aqui.
+   - Perguntas para a barbearia: a CashBarber exporta em planilha? Quantos assinantes ativos? Multa de saída? Taxas da DOM?
+
 ## Decisões para mais adiante: nome, marca e domínio (26/11)
 
 - **Busca no INPI (26/11):** "RAZOR" sozinha está registrada em vigor na classe 9 (Razor USA), foi

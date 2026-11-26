@@ -9,6 +9,11 @@ _Última atualização: 2026-11-25 — Parte 6 (upgrade visual + vídeos) em and
 
 ## PRÓXIMO: versão 1.0 em 30/11/2026 — plano em `docs/PLANO-V1.md`
 
+**Próxima fase pedida em 26/11 (no plano):** agendar horário melhor; área do cliente com código pelo WhatsApp;
+recorrência automática (Asaas/Mercado Pago, cartão e PIX Automático); importar planilha da CashBarber e, no primeiro
+acesso do cliente que tinha clube, pop-up único para cadastrar o cartão e refazer a assinatura. Demo da LH Barbearia
+no ambiente local (scripts/seed-lh.sql + site-lh.py; fotos em documentos/lh-barbearia, fora do git).
+
 **Andamento (26/11, madrugada):** itens 1 a 10 do plano feitos e no ar (ver "Andamento" no plano). Piloto: cadastro
 só por convite, plano PILOTO sem fidelidade/clube/pacotes, feedback obrigatório, console com Barbearias/Feedback/
 Relatório. Migrações novas V57 (feedback, anotação) e V58 (plano PILOTO, situação SUSPENDED).
