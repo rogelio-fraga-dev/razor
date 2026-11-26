@@ -90,25 +90,46 @@ ou logo depois. Sugestão: 1.1 começa no fim do piloto, ou antes se a LH fechar
      com os próximos horários livres já sugeridos ("hoje 16:30 com o Vinícius").
    - Mostrar preço do plano para assinante, sinal PIX quando a barbearia exigir, confirmação clara.
    - No painel: marcar horário mais rápido (buscar cliente, sugerir horário livre, repetir o último serviço).
-2. **Área do cliente com código pelo WhatsApp** (era a Parte 8, V52, sobe de prioridade):
-   - O cliente digita o celular → recebe um **código no WhatsApp** (pelo número da barbearia) → digita o código.
-   - Já está no banco (cadastrado, importado ou atendido pelo bot)? Só confirma e entra.
-   - Não está? Cria o cadastro com nome e celular, sem senha.
-   - Depois de entrar: ver, remarcar e cancelar horários, ver pacote, plano do clube e pontos.
-   - Cuidados: código de 6 dígitos com validade curta (5 min), limite de tentativas e de envios por número/IP,
-     log no console; sem SMS (custo) — SMS só como alternativa futura.
-3. **Recorrência de verdade (cobrança automática do clube)**:
-   - Integração com gateway de assinatura (**Asaas ou Mercado Pago**): cartão recorrente e **PIX Automático**;
-     o dinheiro cai direto na conta da barbearia (subconta/conta dela), o Razor não segura dinheiro.
+2. **Conta do cliente DENTRO de cada barbearia (login próprio)** (era a Parte 8, V52, sobe de prioridade):
+   - Cada barbearia tem os seus clientes: a conta vale para a barbearia onde ele corta (o mesmo celular pode ter
+     conta em duas barbearias, separadas).
+   - **Primeiro acesso:** o cliente digita o celular → recebe um **código no WhatsApp** (enviado pelo número da
+     barbearia) → digita o código → **cria uma senha**. Se o celular já está no banco (cadastrado, importado da
+     CashBarber ou atendido pelo bot), aproveita o cadastro: só confirma o código e cria a senha. Se não está,
+     informa o nome e cria a senha.
+   - **Próximos acessos:** celular + senha. **Esqueci a senha:** novo código no WhatsApp e senha nova.
+   - **Agendar exige estar logado** (ou entrar na hora, no próprio fluxo): o site já sabe quem é, se é assinante e
+     qual o preço do plano; o horário fica na conta dele.
+   - Na conta: próximos horários (remarcar/cancelar), histórico, pacote, plano do clube, cartão/PIX cadastrado.
+   - Cuidados: código de 6 dígitos com validade de 5 min, limite de tentativas e de envios por número/IP, senha com
+     mínimo de 8 caracteres, sessão própria do cliente (separada do painel), tudo registrado; sem SMS por custo.
+3. **Recorrência de verdade (cobrança automática do clube)** — **cartão recorrente ou PIX Automático**:
+   - O cliente escolhe na hora de assinar: cartão (cobra todo mês sozinho) ou PIX Automático (autoriza uma vez no app
+     do banco, debita todo mês). O dinheiro cai na conta da barbearia; o Razor não segura dinheiro.
    - Situação de cada assinante: em dia / atrasado / cancelado; benefício suspenso se atrasar; bot avisa o atraso
      com o link de pagamento; painel com renovações, vencimentos, cancelamentos (churn) e receita do clube.
+   - **Gateway — recomendação: Asaas** (comparação abaixo, 26/11).
+
+   | | **Asaas** | **Mercado Pago** |
+   |---|---|---|
+   | Modelo para plataforma (vários negócios) | **Subcontas** criadas pela API: cada barbearia vira uma conta Asaas "dentro" do Razor, com cadastro e saque próprios | Cada barbearia conecta a **conta Mercado Pago dela** (OAuth) |
+   | Assinatura no cartão | Sim, cobra no vencimento todo mês | Sim (preapproval), com **novas tentativas** quando o cartão recusa |
+   | PIX Automático | Sim, sem custo extra (tarifa de Pix), **só para empresa (CNPJ)** | Sim, exige **CNPJ ativo há mais de 6 meses** e valor fixo |
+   | Taxa do Razor por transação | **Split** automático (valor fixo ou %) | Possível no modelo marketplace, mais trabalhoso |
+   | Tarifas publicadas | Cartão ~2,99% + R$ 0,49; Pix/boleto ~R$ 1,99 (promo menor no início); negociável com volume | Variam pelo prazo de recebimento; conferir a tabela oficial |
+   | Vantagem | Feito para SaaS cobrar em nome dos clientes; também serve para o Razor cobrar a mensalidade das barbearias | Marca conhecida; muita barbearia já usa a maquininha/conta MP |
+
+   Por que Asaas: subcontas + split + assinatura + PIX Automático numa API pensada para plataforma; a barbearia não
+   precisa ter conta em lugar nenhum antes; e o mesmo Asaas cobra a assinatura do Razor das barbearias.
+   Mercado Pago fica como opção para quem já usa e prefere receber na conta MP (fase 2).
+   ⚠️ PIX Automático exige CNPJ da barbearia (e do Razor, para o split): quem é pessoa física fica só no cartão.
 4. **Migração da CashBarber (clientes e assinantes)**:
    - Importar a **planilha exportada da CashBarber** (clientes, telefones, aniversários e quem é assinante de qual
      plano) pelo console/painel, com prévia e correção de telefone antes de gravar.
    - Todo cliente que **tinha recorrência** fica marcado "precisa reativar a assinatura".
-   - No **primeiro acesso** dele (área do cliente, item 2), aparece **uma única vez** um pop-up: "Seu plano
-     Barberclub continua aqui — cadastre o cartão para manter a assinatura", que cria a recorrência nova no
-     gateway. Também dá para mandar esse link pelo bot no WhatsApp.
+   - No **primeiro acesso** dele (código no WhatsApp → cria a senha, item 2), aparece **uma única vez** um pop-up:
+     "Seu plano Barberclub continua aqui — cadastre o **cartão** ou autorize o **PIX recorrente** para manter a
+     assinatura", que cria a recorrência nova no gateway. O bot também manda esse link no WhatsApp para quem não entrar.
    - Enquanto o cliente não reativa, a cobrança antiga continua na CashBarber; cancelar lá só depois de reativado aqui.
    - Perguntas para a barbearia: a CashBarber exporta em planilha? Quantos assinantes ativos? Multa de saída? Taxas da DOM?
 
