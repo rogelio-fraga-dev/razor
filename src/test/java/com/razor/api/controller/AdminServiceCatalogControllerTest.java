@@ -2,6 +2,7 @@ package com.razor.api.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,7 +49,7 @@ class AdminServiceCatalogControllerTest {
     @DisplayName("criar retorna 201 com o serviço criado")
     void create_returns201() {
         UUID id = UUID.randomUUID();
-        when(serviceCatalogService.create(eq("Corte"), eq(new BigDecimal("35.00")), eq(30)))
+        when(serviceCatalogService.create(eq("Corte"), eq(new BigDecimal("35.00")), eq(30), isNull()))
                 .thenReturn(svc(id, "Corte"));
 
         var resp = controller.create(new ServiceRequest("Corte", new BigDecimal("35.00"), 30, null));
@@ -61,11 +62,23 @@ class AdminServiceCatalogControllerTest {
     @DisplayName("atualizar sem 'active' assume ativo")
     void update_defaultsActiveTrue() {
         UUID id = UUID.randomUUID();
-        when(serviceCatalogService.update(eq(id), eq("Corte"), eq(new BigDecimal("35.00")), eq(30), eq(true)))
+        when(serviceCatalogService.update(eq(id), eq("Corte"), eq(new BigDecimal("35.00")), eq(30), eq(true), isNull()))
                 .thenReturn(svc(id, "Corte"));
 
         controller.update(id, new ServiceRequest("Corte", new BigDecimal("35.00"), 30, null));
 
-        verify(serviceCatalogService).update(eq(id), eq("Corte"), eq(new BigDecimal("35.00")), eq(30), eq(true));
+        verify(serviceCatalogService).update(eq(id), eq("Corte"), eq(new BigDecimal("35.00")), eq(30), eq(true), isNull());
+    }
+
+    @Test
+    @DisplayName("atualizar repassa a comissão própria do serviço")
+    void update_passesServiceCommission() {
+        UUID id = UUID.randomUUID();
+        when(serviceCatalogService.update(eq(id), eq("Barba"), eq(new BigDecimal("30.00")), eq(30), eq(true), eq(new BigDecimal("50"))))
+                .thenReturn(svc(id, "Barba"));
+
+        controller.update(id, new ServiceRequest("Barba", new BigDecimal("30.00"), 30, true, new BigDecimal("50")));
+
+        verify(serviceCatalogService).update(eq(id), eq("Barba"), eq(new BigDecimal("30.00")), eq(30), eq(true), eq(new BigDecimal("50")));
     }
 }

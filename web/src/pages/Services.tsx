@@ -18,9 +18,11 @@ interface Draft {
   price: string;
   durationMinutes: string;
   active: boolean;
+  /** Vazio = vale o % de cada barbeiro. */
+  commission: string;
 }
 
-const EMPTY: Draft = { id: null, name: "", price: "", durationMinutes: "30", active: true };
+const EMPTY: Draft = { id: null, name: "", price: "", durationMinutes: "30", active: true, commission: "" };
 
 export function Services() {
   const { data, loading, error, reload } = useApi<ServiceOffering[]>(() => api.get("/api/admin/services"), []);
@@ -39,7 +41,8 @@ export function Services() {
   };
   const openEdit = (s: ServiceOffering) => {
     setFormError(null);
-    setDraft({ id: s.id, name: s.name, price: String(s.price), durationMinutes: String(s.durationMinutes), active: s.active });
+    setDraft({ id: s.id, name: s.name, price: String(s.price), durationMinutes: String(s.durationMinutes), active: s.active,
+      commission: s.commissionPercent == null ? "" : String(s.commissionPercent) });
   };
 
   const save = async () => {
@@ -51,7 +54,13 @@ export function Services() {
       price: Number(draft.price.replace(",", ".")),
       durationMinutes: Number(draft.durationMinutes),
       active: draft.active,
+      commissionPercent: draft.commission.trim() === "" ? null : Number(draft.commission.replace(",", ".")),
     };
+    if (payload.commissionPercent != null && (isNaN(payload.commissionPercent) || payload.commissionPercent < 0 || payload.commissionPercent > 100)) {
+      setSaving(false);
+      setFormError("A comissão precisa ficar entre 0 e 100%.");
+      return;
+    }
     try {
       if (draft.id) await api.put(`/api/admin/services/${draft.id}`, payload);
       else await api.post("/api/admin/services", payload);
@@ -94,6 +103,7 @@ export function Services() {
                   <th>Serviço</th>
                   <th className="num">Preço</th>
                   <th>Duração</th>
+                  <th>Comissão</th>
                   <th>Status</th>
                   {canEdit && <th></th>}
                 </tr>
@@ -104,6 +114,11 @@ export function Services() {
                     <td className="tc-head" style={{ fontWeight: 550 }}>{s.name}</td>
                     <td className="num" data-label="Preço">{money(s.price)}</td>
                     <td className="muted" data-label="Duração">{s.durationMinutes} min</td>
+                    <td data-label="Comissão">
+                      {s.commissionPercent != null
+                        ? <span className="badge badge-plan">{String(s.commissionPercent).replace(".", ",")}% próprio</span>
+                        : <span className="faint">do barbeiro</span>}
+                    </td>
                     <td data-label="Status">
                       {s.active ? <span className="badge badge-green">Ativo</span> : <span className="badge badge-muted">Inativo</span>}
                     </td>
@@ -150,6 +165,15 @@ export function Services() {
                 <input className="input" inputMode="numeric" value={draft.durationMinutes} onChange={(e) => setDraft({ ...draft, durationMinutes: e.target.value })} />
             </label>
               </div>
+            </div>
+            <div className="field">
+              <label>Comissão deste serviço (%)
+              <input className="input" inputMode="decimal" placeholder="Vazio = usa o % de cada barbeiro"
+                value={draft.commission} onChange={(e) => setDraft({ ...draft, commission: e.target.value })} />
+              </label>
+              <span className="faint" style={{ fontSize: 13 }}>
+                Ex.: barba 50% e corte 40%. Preenchido, vale para todos os barbeiros neste serviço.
+              </span>
             </div>
             {draft.id && <Switch checked={draft.active} onChange={(v) => setDraft({ ...draft, active: v })} label="Serviço ativo" />}
             {formError && <div className="error" role="alert">{formError}</div>}

@@ -15,6 +15,8 @@ export interface ServiceOffering {
   price: number;
   durationMinutes: number;
   active: boolean;
+  /** Comissão própria do serviço; null = vale o % do barbeiro. */
+  commissionPercent?: number | null;
 }
 
 export interface ServiceInput {
@@ -22,6 +24,7 @@ export interface ServiceInput {
   price: number;
   durationMinutes: number;
   active?: boolean;
+  commissionPercent?: number | null;
 }
 
 export interface Professional {

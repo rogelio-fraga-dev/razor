@@ -30,14 +30,14 @@ public class AdminServiceCatalogController {
 
     @PostMapping
     public ResponseEntity<ServiceOfferingResponse> create(@Valid @RequestBody ServiceRequest req) {
-        ServiceOffering created = serviceCatalogService.create(req.name(), req.price(), req.durationMinutes());
+        ServiceOffering created = serviceCatalogService.create(req.name(), req.price(), req.durationMinutes(), req.commissionPercent());
         return ResponseEntity.status(HttpStatus.CREATED).body(ServiceOfferingResponse.from(created));
     }
 
     @PutMapping("/{id}")
     public ServiceOfferingResponse update(@PathVariable UUID id, @Valid @RequestBody ServiceRequest req) {
         boolean active = req.active() == null || req.active();
-        ServiceOffering updated = serviceCatalogService.update(id, req.name(), req.price(), req.durationMinutes(), active);
+        ServiceOffering updated = serviceCatalogService.update(id, req.name(), req.price(), req.durationMinutes(), active, req.commissionPercent());
         return ServiceOfferingResponse.from(updated);
     }
 }

@@ -32,12 +32,17 @@ public class ServiceCatalogService {
     }
 
     public ServiceOffering create(String name, BigDecimal price, int durationMinutes) {
+        return create(name, price, durationMinutes, null);
+    }
+
+    public ServiceOffering create(String name, BigDecimal price, int durationMinutes, BigDecimal commissionPercent) {
         ServiceOffering created = serviceOfferingRepository.save(ServiceOffering.builder()
                 .barbershopId(TenantContext.getCurrent())
                 .name(name)
                 .price(price)
                 .durationMinutes(durationMinutes)
                 .active(true)
+                .commissionPercent(commissionPercent)
                 .build());
         log.info("[CATALOGO] Servico '{}' criado para o tenant {}", name, TenantContext.getCurrent());
         return created;
@@ -45,6 +50,12 @@ public class ServiceCatalogService {
 
     /** Atualiza um servico do tenant atual (isolamento: rejeita servico de outro tenant). */
     public ServiceOffering update(UUID id, String name, BigDecimal price, int durationMinutes, boolean active) {
+        return update(id, name, price, durationMinutes, active, null);
+    }
+
+    /** {@code commissionPercent} null = sem comissao propria (vale o % do barbeiro). */
+    public ServiceOffering update(UUID id, String name, BigDecimal price, int durationMinutes, boolean active,
+                                  BigDecimal commissionPercent) {
         ServiceOffering svc = serviceOfferingRepository.findById(id)
                 .filter(s -> TenantContext.getCurrent().equals(s.getBarbershopId()))
                 .orElseThrow(() -> new NotFoundException("Servico nao encontrado."));
@@ -52,6 +63,7 @@ public class ServiceCatalogService {
         svc.setPrice(price);
         svc.setDurationMinutes(durationMinutes);
         svc.setActive(active);
+        svc.setCommissionPercent(commissionPercent);
         return serviceOfferingRepository.save(svc);
     }
 }
