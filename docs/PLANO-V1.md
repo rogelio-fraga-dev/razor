@@ -170,6 +170,35 @@ clube (o card "Recorrência do clube" já existe).
 - A DOM desconta taxa de cada mensalidade? Tem multa para sair da CashBarber?
 - Precisa de nota fiscal? (o Razor ainda é pessoa física — bom motivo para abrir o CNPJ em dezembro)
 
+## Planos e preços por unidade (proposta de 26/11, conversa com o primeiro prospect)
+Ideia: acessível para qualquer tamanho — da barbearia de 1 cadeira à rede com 3–5 unidades e 5–10 barbeiros cada.
+Cobrança **por unidade (filial)**, **barbeiros ilimitados** em todos os planos; a IA é um adicional com cota mensal.
+
+| Plano | O que tem | Preço sugerido (a validar) |
+|---|---|---|
+| **Gestão** | agenda, comanda, caixa, comissões, clientes, clube e cobrança recorrente, site, caderninho do barbeiro | ~R$ 99–119 por unidade/mês |
+| **Gestão + IA** | tudo do Gestão + bot no WhatsApp (atende, agenda, escolhe o barbeiro, cobra sinal, confirma, resgata) com **cota de conversas por mês** (ex.: 1.500) e pacotes extras | ~R$ 219–249 por unidade/mês |
+| **Rede** (2+ unidades) | qualquer um dos dois acima em cada unidade + painel da rede (tudo somado e por unidade), um login do dono para todas, clube que vale em todas as unidades | desconto da 2ª unidade em diante (ex.: −20%) |
+
+Custos de base (medidos no pente fino): IA ≈ US$ 0,0006 por mensagem → barbearia "normal" (120 msgs/dia) ≈ US$ 4/mês;
+o grosso do preço é suporte, WhatsApp e servidor, não a IA. A cota existe para proteger de abuso e deixar claro
+o que está incluso; o console já mede o gasto de IA por dia (falta por barbearia/mês).
+O primeiro cliente pagante (1 unidade + IA, R$ 250 tudo incluso) cabe nessa tabela.
+
+**O que falta construir para isso:**
+1. **Rede de unidades**: hoje cada barbearia é isolada (um tenant). Entra uma "rede" acima delas: o dono troca de
+   unidade no topo do painel, relatórios somados, clientes e assinantes reconhecidos em todas, barbeiro pode
+   atender em mais de uma unidade. O bot: um número por unidade, ou um número da rede que pergunta a unidade.
+2. **Planos de verdade no sistema**: plano por unidade (Gestão / Gestão + IA), cota de conversas da IA com aviso
+   aos 80% e 100%, e o que acontece ao estourar (pacote extra ou bot só responde e encaminha). Bot desligado no
+   plano Gestão (o painel funciona inteiro sem WhatsApp).
+3. **A IA escolhe o barbeiro**: quando o cliente não escolhe, regra configurável por unidade: primeiro livre,
+   **rodízio justo** (equilibra a agenda), por especialidade do serviço, ou o barbeiro de costume do cliente.
+4. **Caderninho do barbeiro** (o que hoje é o login de barbeiro, "Meu dia" e "Meus ganhos", vira um app de bolso
+   instalável no celular): agenda do dia e próximos clientes, **anotações por cliente** ("degradê na 2, sem
+   navalha", foto do corte), comissões e vales do mês (clube · serviços · extras · produtos), meta, bloquear
+   horário/folga, encaixe, os clientes dele que sumiram para chamar de volta.
+
 ## Decisões para mais adiante: nome, marca e domínio (26/11)
 
 - **Busca no INPI (26/11):** "RAZOR" sozinha está registrada em vigor na classe 9 (Razor USA), foi
