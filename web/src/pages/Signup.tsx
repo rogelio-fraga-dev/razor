@@ -16,6 +16,7 @@ const PLANOS: Record<string, { nome: string; resumo: string }> = {
   solo: { nome: "Solo", resumo: "1 barbeiro" },
   equipe: { nome: "Equipe", resumo: "até 5 barbeiros" },
   pro: { nome: "Pro", resumo: "até 10 barbeiros" },
+  piloto: { nome: "Piloto", resumo: "grátis por 14 dias, com tudo liberado" },
 };
 
 /** Endereço da landing (build). Vazio = sem links para os termos (não há site para apontar). */

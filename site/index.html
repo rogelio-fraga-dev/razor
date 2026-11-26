@@ -53,7 +53,7 @@
       <a href="#painel">Painel</a>
       <a href="#site-pronto">Seu site</a>
       <a href="#calculadora">Calculadora</a>
-      <a href="#planos">Planos</a>
+      <a href="#teste-gratis">Piloto</a>
       <a href="#faq">FAQ</a>
       <a class="nav-only-mobile" href="/app" data-panel>Entrar no painel</a>
     </nav>
@@ -65,7 +65,7 @@
       <!-- href resolvido em runtime pelo script.js a partir de window.RAZOR_CONFIG.panelUrl.
            O valor abaixo é só o destino de produção, usado se o JS não rodar. -->
       <a class="btn btn-ghost btn-sm hide-xs" href="/app" data-panel>Entrar</a>
-      <a class="btn btn-primary btn-sm" href="#planos">Começar</a>
+      <a class="btn btn-primary btn-sm" href="#teste-gratis" data-cta="piloto">Quero participar</a>
       <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Abrir menu">
         <span></span><span></span>
       </button>
@@ -86,7 +86,7 @@
       <p class="sub rv d2">A RAZOR responde seus clientes no WhatsApp, entende áudio, marca com o barbeiro
       certo, confirma o horário e cobra o sinal por PIX — enquanto você está na cadeira.</p>
       <div class="cta-row rv d3">
-        <a class="btn btn-primary btn-lg" href="#planos">Automatizar minha barbearia
+        <a class="btn btn-primary btn-lg" href="#teste-gratis">Automatizar minha barbearia
           <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
         <a class="btn btn-ghost btn-lg" href="#ia">Ver como funciona</a>
@@ -627,12 +627,12 @@
   <div class="wrap">
     <div class="trial-card rv">
       <div class="trial-copy">
-        <span class="eyebrow">TESTE GRÁTIS · 14 DIAS</span>
-        <h2>Teste o Razor completo por 14 dias.<br /><em>Sem cartão, sem fidelidade.</em></h2>
-        <p class="lead">Você usa tudo do plano Equipe desde o primeiro dia: a IA atendendo no seu WhatsApp, a agenda, o site e as automações. No fim, escolhe o plano que cabe na sua barbearia, ou não escolhe nenhum.</p>
+        <span class="eyebrow">PILOTO · 5 VAGAS · GRÁTIS</span>
+        <h2>Seja uma das 5 barbearias do piloto.<br /><em>Grátis por 14 dias, sem cartão.</em></h2>
+        <p class="lead">Você usa o Razor completo desde o primeiro dia: a IA atendendo no seu WhatsApp, a agenda, as comandas, o caixa, o site e as automações. Eu configuro junto com você, e em troca você me conta o que achou. No fim, decide se continua — sem compromisso.</p>
         <div class="cta-row">
-          <a class="btn btn-primary btn-lg" href="#planos" data-cta="equipe">Começar meu teste grátis</a>
-          <a class="btn btn-ghost btn-lg" href="#planos">Ver os planos</a>
+          <a class="btn btn-primary btn-lg" href="#teste-gratis" data-cta="piloto">Quero participar do piloto</a>
+          <a class="btn btn-ghost btn-lg" href="#faq">Tirar dúvidas</a>
         </div>
       </div>
       <ol class="trial-steps">
@@ -641,84 +641,10 @@
         <li><span class="ts-n mono">03</span><div><strong>Veja a agenda encher</strong><p>Confirmação anti-falta, lembretes e o site no ar com agendamento online.</p></div></li>
       </ol>
     </div>
-    <div class="extras rv">
-      <h3 class="extras-title">Extras, só se precisar</h3>
-      <div class="extras-grid">
-        <div class="extra"><strong class="mono">+500 conversas</strong><span>R$ 29,90/mês</span><p>Para meses de muito movimento, sem trocar de plano.</p></div>
-        <div class="extra"><strong class="mono">Site exclusivo</strong><span>a partir de R$ 497</span><p>Design feito sob medida, fora dos 3 modelos.</p></div>
-        <div class="extra"><strong class="mono">Migração assistida</strong><span>R$ 97 · inclusa no Pro</span><p>A gente traz seus clientes e serviços do sistema antigo.</p></div>
-      </div>
-    </div>
   </div>
 </section>
 
-<!-- ============ PLANOS ============ -->
-<section class="pricing" id="planos">
-  <div class="wrap">
-    <div class="sec-head center rv">
-      <span class="eyebrow">PLANOS</span>
-      <h2>Escolha o tamanho da sua operação.</h2>
-      <p class="lead">Preço de lançamento. Todos os planos incluem a IA no WhatsApp e o site próprio.</p>
-      <div class="toggle" role="group" aria-label="Período de cobrança">
-        <button class="tg active" id="tg-m" type="button" aria-pressed="true">Mensal</button>
-        <button class="tg" id="tg-a" type="button" aria-pressed="false">Anual <span class="save">2 meses grátis</span></button>
-      </div>
-    </div>
-    <div class="plans">
-      <article class="plan rv">
-        <h3 class="p-name mono">SOLO</h3>
-        <p class="p-for">1 barbeiro · até 300 conversas de IA/mês</p>
-        <p class="p-price"><span class="mono val" data-m="69,90" data-a="58,25" data-total="699,00">R$ 69,90</span><small>/mês</small></p>
-        <p class="p-total mono" hidden></p>
-        <ul>
-          <li>IA no WhatsApp que entende áudio</li>
-          <li>Agenda e agendamento online</li>
-          <li>Site próprio (3 templates) com editor</li>
-          <li>Confirmação anti-falta e lembretes</li>
-          <li>Lista de espera automática</li>
-          <li>Avaliações no Google depois do corte</li>
-          <li>Comandas, caixa, fidelidade e pacotes</li>
-          <li>App no celular</li>
-        </ul>
-        <a class="btn btn-ghost" href="#planos" data-cta="solo">Começar com o Solo</a>
-      </article>
-      <article class="plan featured rv d1">
-        <span class="selo">Recomendado</span>
-        <h3 class="p-name mono">EQUIPE</h3>
-        <p class="p-for">até 5 barbeiros (+R$ 19,90 por extra) · até 1.000 conversas/mês</p>
-        <p class="p-price"><span class="mono val" data-m="149,90" data-a="124,92" data-total="1.499,00">R$ 149,90</span><small>/mês</small></p>
-        <p class="p-total mono" hidden></p>
-        <ul>
-          <li>Tudo do Solo</li>
-          <li>Agenda de vários barbeiros</li>
-          <li>Comissões, acerto, despesas e DRE</li>
-          <li>Clube de assinatura</li>
-          <li>Campanhas automáticas: sumidos, aniversário e retorno</li>
-          <li>Relatório semanal no seu WhatsApp</li>
-          <li>Metas e ranking dos barbeiros</li>
-          <li>Acessos para recepção e barbeiros</li>
-        </ul>
-        <a class="btn btn-primary" href="#planos" data-cta="equipe">Automatizar minha equipe</a>
-      </article>
-      <article class="plan rv d2">
-        <h3 class="p-name mono">PRO</h3>
-        <p class="p-for">até 10 barbeiros (+R$ 19,90 por extra) · até 3.000 conversas/mês</p>
-        <p class="p-price"><span class="mono val" data-m="249,90" data-a="208,25" data-total="2.499,00">R$ 249,90</span><small>/mês</small></p>
-        <p class="p-total mono" hidden></p>
-        <ul>
-          <li>Tudo do Equipe</li>
-          <li>Várias unidades (+R$ 99 por unidade extra)</li>
-          <li>Relatórios consolidados da rede</li>
-          <li>Domínio próprio no site</li>
-          <li>Suporte prioritário no WhatsApp</li>
-          <li>Migração e configuração feitas por nós</li>
-        </ul>
-        <a class="btn btn-ghost" href="#planos" data-cta="pro">Falar sobre o Pro</a>
-      </article>
-    </div>
-    <p class="pricing-note rv"><a href="#teste-gratis">14 dias grátis com tudo do Equipe</a> · sem taxa de setup · sem fidelidade · no anual você paga 10 meses e leva 12.</p>
-  </div>
-</section>
+<!-- PLANOS: fora do ar durante o piloto (volta depois, com os preços definidos). -->
 
 <!-- ============ FAQ ============ -->
 <section class="faq" id="faq">
@@ -754,7 +680,7 @@
       </details>
       <details>
         <summary>Tem fidelidade de contrato?</summary>
-        <p>Não. No mensal, cancela quando quiser. No anual, você paga 10 meses e leva 12.</p>
+        <p>Não. O piloto é grátis e sem compromisso: no fim, você decide se continua.</p>
       </details>
       <details>
         <summary>A calculadora garante esse resultado?</summary>
@@ -775,7 +701,7 @@
     <h2>Deixe o WhatsApp<br /><em>trabalhar por você.</em></h2>
     <p class="lead">Conecte o número, cadastre serviços e barbeiros, e a IA começa a atender.</p>
     <div class="cta-row center">
-      <a class="btn btn-primary btn-lg" href="#planos">Ver planos e começar</a>
+      <a class="btn btn-primary btn-lg" href="#teste-gratis" data-cta="piloto">Quero uma das 5 vagas</a>
       <a class="btn btn-ghost btn-lg" href="/app" data-panel>Já tenho conta</a>
     </div>
     <p class="mono tiny">SEM TAXA DE SETUP · SEM FIDELIDADE · CANCELE QUANDO QUISER</p>
@@ -802,7 +728,7 @@
         <a href="#ia">A IA no WhatsApp</a>
         <a href="#painel">Painel</a>
         <a href="#site-pronto">Site próprio</a>
-        <a href="#planos">Planos e preços</a>
+        <a href="#teste-gratis">Piloto grátis</a>
       </nav>
       <nav class="foot-col" aria-label="Empresa">
         <h4>Empresa</h4>

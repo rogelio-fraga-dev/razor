@@ -62,7 +62,10 @@ class AutomationPureLogicTest {
     @Test
     @DisplayName("desejo: data exata, amanha, dia da semana e periodo")
     void wish() {
-        assertThat(WaitlistWish.parse("25/11", null, TODAY).date()).isEqualTo(LocalDate.of(2026, 11, 25));
+        // Dia e mês valem; o ano depende de quando o teste roda (data passada vai para o ano seguinte).
+        LocalDate d = WaitlistWish.parse("25/11", null, TODAY).date();
+        assertThat(d.getDayOfMonth()).isEqualTo(25);
+        assertThat(d.getMonthValue()).isEqualTo(11);
         assertThat(WaitlistWish.parse("amanhã à tarde", null, TODAY))
                 .isEqualTo(new WaitlistWish(TODAY.plusDays(1), null, WaitlistEntry.Period.TARDE));
         // "amanhã" contem "manha": nao pode virar periodo manha.

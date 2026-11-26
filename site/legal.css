@@ -83,3 +83,14 @@
   .legal-nav .hide-xs { display: none; }
   .legal-body p, .legal-body li { font-size: 15px; }
 }
+
+/* Voltar para a landing (topo e fim das páginas legais) */
+.legal-back {
+  display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 18px;
+  font-size: 14px; font-weight: 600; color: var(--steel, #8b93a1); text-decoration: none;
+  padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1);
+  transition: color .15s ease, border-color .15s ease, background-color .15s ease;
+}
+.legal-back:hover, .legal-back:focus-visible { color: var(--chrome, #e9ebef); border-color: rgba(62,99,255,.5); background: rgba(62,99,255,.08); }
+:root[data-theme="light"] .legal-back { border-color: rgba(0,0,0,.12); }
+.legal-back-bottom { margin: 40px 0 8px; text-align: center; }
