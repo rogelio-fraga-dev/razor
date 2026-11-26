@@ -31,7 +31,7 @@
   /* Texto */
   --text: #12141a;
   --text-muted: #4f5764;
-  --text-faint: #646c7a;
+  --text-faint: #565d6a; /* 26/11: #646c7a dava 4,29:1 no tema claro */
 
   /* Marca e estados */
   --accent: #2b4ee0;
@@ -99,7 +99,7 @@
     --border-hi: #cdd2db;
     --text: #12141a;
     --text-muted: #4f5764;
-    --text-faint: #646c7a;
+    --text-faint: #565d6a; /* 26/11: #646c7a dava 4,29:1 no tema claro */
     --accent: #2b4ee0;
     --content-glow: none;
     --grid-line: transparent;

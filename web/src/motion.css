@@ -103,3 +103,7 @@ a.card:hover, .card.clickable:hover { transform: translateY(-2px); }
 .fb-n.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .fb-choices { display: flex; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 520px) { .fb-scale { grid-template-columns: repeat(6, 1fr); } }
+/* 2ª rodada do pente fino (26/11) */
+.avatar-initials { color: var(--text); }
+.wiz-step.active .wiz-step-n { color: var(--text); }
+.su-n { color: var(--text); }
