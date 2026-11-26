@@ -128,6 +128,11 @@ ou logo depois. Sugestão: 1.1 começa no fim do piloto, ou antes se a LH fechar
      Asaas desconta as taxas lá. O Razor cobra só a mensalidade dele, à parte. Se combinarmos "o Razor cobre as
      taxas", o Razor lê as taxas do mês pela API e **abate na mensalidade seguinte** (ou preço fechado com teto de taxa).
    - **Depois (Razor com CNPJ):** subconta Asaas por barbearia + split automático (taxa do Razor por cobrança).
+   - **Primeiro cliente pagante (decisão de 26/11):** uma barbearia com CNPJ e clube recorrente, trocando o sistema
+     **no começo de 2027** (janeiro). Preço simbólico de **R$ 250/mês, tudo incluso**: o Razor absorve as taxas do
+     gateway (abate da mensalidade). Papel: pagante + usuário validador (feedback toda semana, depoimento).
+     ⇒ Prazo: área do cliente + recorrência Asaas + importação da CashBarber prontas e testadas **até o fim de
+     dezembro** (logo depois do piloto de 02–16/12). Migração com os dois sistemas em paralelo em janeiro.
 4. **Migração da CashBarber (clientes e assinantes)**:
    - Importar a **planilha exportada da CashBarber** (clientes, telefones, aniversários e quem é assinante de qual
      plano) pelo console/painel, com prévia e correção de telefone antes de gravar.
