@@ -9,7 +9,8 @@ _Última atualização: 2026-11-25 — Parte 6 (upgrade visual + vídeos) em and
 
 ## FOCO ATUAL (25/11, noite): piloto MONTADO e DESLIGADO + pente fino do bot
 
-- **AWS montada e parada** (ordem do usuário: "pode criar ... e deixe tudo parado"). Detalhes, custos e o
+- **AWS montada; LIGADA desde 25/11 23h30 por ordem do usuário ("pode deixar aberto até eu falar pra desligar").**
+  Túnel Cloudflare `razor-teste` ok (landing `razor.`, painel `app-razor.`, HTTPS). Antes: montada e parada. Detalhes, custos e o
   que falta para abrir em `docs/PILOTO-AWS.md`. Servidor `razor-piloto` (c7i-flex.large), sem porta de
   entrada, backup diário no S3 testado. **Só ligar com "pode abrir o piloto".** Falta ✋ o token do túnel
   da Cloudflare e ✋ a chave da OpenAI do piloto. Segredos de produção: `.env.piloto` (fora do git).

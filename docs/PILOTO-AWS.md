@@ -1,6 +1,8 @@
 # Piloto na AWS — estrutura montada (25/11/2026)
 
-Estado: **montada, testada e DESLIGADA.** Só ligar com "pode abrir o piloto".
+Estado (25/11, 23h45): **LIGADA por ordem do usuário, até ele mandar desligar.** Túnel da Cloudflare
+(`razor-teste`) instalado e funcionando: landing em `razor.<seu-domínio>`, painel em `app-razor.<seu-domínio>`,
+ambos com HTTPS. Ainda sem barbearias cadastradas e com a chave da OpenAI local.
 
 ## O que existe (tudo com a tag `projeto=razor`)
 
@@ -40,7 +42,7 @@ pública `/b/<slug>`, backup e restauração. Memória com tudo ligado: ~1 GB do
 
 ## Falta para abrir
 
-1. ✋ **Cloudflare:** criar um túnel (Zero Trust → Networks → Tunnels → "Create tunnel", tipo
+1. ✅ **Cloudflare (feito em 25/11):** criar um túnel (Zero Trust → Networks → Tunnels → "Create tunnel", tipo
    Cloudflared) e mandar o *token*. Com ele: `cloudflared service install <token>` no servidor e,
    no painel do túnel, dois "Public hostnames":
    - `razor.<seu-domínio>` → `http://localhost:8000` (landing)
