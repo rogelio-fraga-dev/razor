@@ -109,7 +109,20 @@ ganha como se o corte fosse avulso — num clube ilimitado a comissão pode pass
    - O pote fecha no fim do mês (o barbeiro vê a prévia durante o mês em "Meus ganhos").
 2. **Valor fixo por atendimento de assinante** (ex.: R$ 15 por corte do clube).
 3. **Como hoje** (tabela × %).
-Atendimentos avulsos e produtos continuam com o % normal. O relatório de comissões mostra as duas partes separadas.
+Atendimentos avulsos e produtos continuam com o % normal.
+
+**As quatro fontes de comissão (análise de 26/11):**
+| Fonte | Hoje | Como fica |
+|---|---|---|
+| Serviço avulso | tabela × (% do serviço, senão % do barbeiro) | igual (comissão por serviço entregue em 26/11) |
+| Serviço **coberto pelo plano** do assinante | tabela × % (como se fosse avulso) ❌ | **pote do clube** ou fixo por atendimento |
+| **Extra** do assinante (o que o plano não cobre, ex.: plano só corte e fez barba) | tabela × % (não separa do coberto) | % normal do serviço, separado do coberto; desconto do plano (se houver) entra na base |
+| Produto vendido | venda atribuída a um barbeiro × % de produto do barbeiro; venda sem barbeiro = sem comissão | **por produto**: "não paga comissão" / % próprio / % do barbeiro |
+| Pacote | valor unitário do pacote × % | igual |
+
+Para isso a comanda precisa marcar, em cada item do assinante, se foi **coberto pelo plano** ou **extra** (o Razor
+já sabe os benefícios de cada plano: serviço, dias da semana e limite por mês). O relatório de comissões passa a
+mostrar quatro colunas por barbeiro: **clube · serviços · extras · produtos**, e "Meus ganhos" do barbeiro também.
 
 ## Ordem de construção (2ª quinzena de dezembro)
 1. Ligação da conta (chave criptografada, conferência, webhook automático) + situação no painel e no console.
@@ -117,5 +130,5 @@ Atendimentos avulsos e produtos continuam com o % normal. O relatório de comiss
 3. Central do clube: filas, baixa manual, cobrar no WhatsApp, regras de atraso.
 4. Mensagens do bot e termos do clube.
 5. Importação da planilha + fila "Falta reativar" + pop-up único.
-5b. Comissão do clube (pote por produtividade / fixo por atendimento).
+5b. Comissão do clube (pote por produtividade / fixo por atendimento), coberto × extra na comanda e comissão por produto.
 6. Testes no **sandbox do Asaas** (ambiente de teste, sem dinheiro de verdade) e, por fim, o teste de R$ 5 real.
