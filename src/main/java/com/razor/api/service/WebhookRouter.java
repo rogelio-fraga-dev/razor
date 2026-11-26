@@ -37,6 +37,9 @@ public class WebhookRouter {
     private final TenantResolver tenantResolver;
     private final TenantAdminService tenantAdminService;
     private final BarbershopSettingsService barbershopSettingsService;
+    /** Barbearia suspensa pelo console: o bot não responde (26/11). Opcional: nulo nos testes. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.razor.api.repository.BarbershopRepository barbershopRepository;
     private final StateStore stateStore;
     private final WhatsAppMessenger messenger;
 
@@ -65,6 +68,11 @@ public class WebhookRouter {
                 return;
             }
             TenantContext.set(tenant);
+            if (barbershopRepository != null && barbershopRepository.findById(tenant)
+                    .map(b -> "SUSPENDED".equals(b.getStatus())).orElse(false)) {
+                log.info("[SUSPENSA] Barbearia suspensa pelo console: mensagem ignorada.");
+                return;
+            }
 
             if (shouldIgnoreMessage(webhook)) {
                 log.debug("[IGNORED] Mensagem ignorada (do proprio bot, grupo ou sem numero valido).");

@@ -65,6 +65,41 @@ const TOUR: TourStep[] = [
 
 const PERIODS: SeriesPeriod[] = ["7D", "30D", "MÊS"];
 
+/** Hoje num olhar: próximo cliente, horários que faltam e quanto entrou. */
+function TodayStrip({ agenda, loading, revenue }: { agenda: AppointmentView[] | null | undefined; loading: boolean; revenue: number | null }) {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const toMin = (t: string | null) => { if (!t) return -1; const [h, mm] = t.split(":").map(Number); return h * 60 + (mm || 0); };
+  const list = [...(agenda ?? [])].sort((a, b) => toMin(a.time) - toMin(b.time));
+  const upcoming = list.filter((a) => toMin(a.time) >= nowMin - 10);
+  const next = upcoming[0];
+  return (
+    <section className="today-strip" aria-label="Hoje">
+      <Link to="/agenda" className="today-tile today-next">
+        <span className="today-label">Próximo cliente</span>
+        {loading ? <Skeleton h={30} /> : next ? (
+          <>
+            <b className="today-big mono">{timeShort(next.time)}</b>
+            <span className="today-sub">{next.customerName || "Cliente"} · {next.service || "—"}{next.professionalName ? ` · ${next.professionalName.split(" ")[0]}` : ""}</span>
+          </>
+        ) : (
+          <><b className="today-big">Livre</b><span className="today-sub">nenhum horário pela frente hoje</span></>
+        )}
+      </Link>
+      <Link to="/agenda" className="today-tile">
+        <span className="today-label">Horários hoje</span>
+        <b className="today-big mono">{loading ? "…" : list.length}</b>
+        <span className="today-sub">{loading ? "" : `${upcoming.length} pela frente`}</span>
+      </Link>
+      <Link to="/caixa" className="today-tile">
+        <span className="today-label">Entrou hoje</span>
+        <b className="today-big mono">{revenue == null ? "…" : <CountUp value={revenue} format={money} />}</b>
+        <span className="today-sub">ver o caixa →</span>
+      </Link>
+    </section>
+  );
+}
+
 export function Dashboard() {
   const { session } = useAuth();
   const [period, setPeriod] = useState<SeriesPeriod>("7D");
@@ -79,6 +114,7 @@ export function Dashboard() {
   const series = useApi(() => fetchRevenueSeries(period), [period]);
 
   const m = month.data;
+  const today = useApi<FinancialSummary>(() => api.get(`/api/admin/reports/financial?from=${todayIso()}&to=${todayIso()}`), []);
 
   const [showTour, setShowTour] = useState(false);
   useEffect(() => {
@@ -91,6 +127,9 @@ export function Dashboard() {
   return (
     <Layout title="Painel Analítico">
       <Cockpit name={session?.name ?? ""} />
+
+      {/* O que o barbeiro precisa AGORA, antes de qualquer outra coisa (26/11). */}
+      <TodayStrip agenda={agenda.data} loading={agenda.loading} revenue={today.data?.totalRevenue ?? null} />
 
       <ActivationChecklist />
 

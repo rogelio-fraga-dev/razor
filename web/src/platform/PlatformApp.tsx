@@ -7,11 +7,15 @@ import { papi, lastActivity, SESSION_LOST, MFA_REQUIRED, type Me } from "./api";
 import { OverviewTab, HealthTab, AiTab, AuditTab } from "./PlatformPages";
 import { ConversationsTab, MetricsTab, RevenueTab } from "./PlatformData";
 import { SecurityTab } from "./SecurityTab";
+import { ShopsAdminTab, FeedbackTab, ReportTab } from "./PlatformAdmin";
 import { CodeInput, MfaSetup, RecoveryCodes } from "./MfaSetup";
 import "./platform.css";
 
 const TABS = [
   { id: "overview", label: "Visão geral" },
+  { id: "shops", label: "Barbearias" },
+  { id: "feedback", label: "Feedback" },
+  { id: "report", label: "Relatório" },
   { id: "health", label: "Saúde" },
   { id: "ai", label: "IA" },
   { id: "conversations", label: "Conversas" },
@@ -99,6 +103,9 @@ export default function PlatformApp() {
       )}
       <main className="plat-main">
         {tab === "overview" && <OverviewTab />}
+        {tab === "shops" && <ShopsAdminTab />}
+        {tab === "feedback" && <FeedbackTab />}
+        {tab === "report" && <ReportTab />}
         {tab === "health" && <HealthTab />}
         {tab === "ai" && <AiTab />}
         {tab === "conversations" && <ConversationsTab />}

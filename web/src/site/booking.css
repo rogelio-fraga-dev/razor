@@ -141,7 +141,7 @@
 .bk-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .bk-fine { font-size: 13px; margin-top: 10px; text-align: center; }
 .bk-alt { margin-top: 36px; text-align: center; }
-.bk-alt a { color: var(--accent); font-weight: 600; }
+.bk-alt a { color: inherit; font-weight: 700; text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px; } /* cor do tema da barbearia dava 2,4:1 no claro */
 
 /* ---------- Sucesso ---------- */
 .bk-done { text-align: center; padding: 56px 0 24px; display: grid; gap: 16px; justify-items: center; }

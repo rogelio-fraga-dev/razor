@@ -26,6 +26,9 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final SessionValidator sessionValidator;
+    /** Barbearia suspensa pelo console não entra (26/11). Opcional: nulo nos testes. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.razor.api.repository.BarbershopRepository barbershopRepository;
 
     /**
      * Hash bcrypt de uma senha aleatoria, comparado quando o email nao existe (ou o usuario esta
@@ -51,9 +54,20 @@ public class AuthService {
             throw new BadCredentialsException("Credenciais invalidas.");
         }
 
+        if (barbershopRepository != null && barbershopRepository.findById(user.getBarbershopId())
+                .map(b -> "SUSPENDED".equals(b.getStatus())).orElse(false)) {
+            throw new AccountSuspendedException();
+        }
         log.info("[AUTH] Login do usuario {} (tenant {})", user.getEmail(), user.getBarbershopId());
         return new LoginResult(jwtService.issue(user), user.getBarbershopId(), user.getRole(),
                 user.getName(), user.getEmail());
+    }
+
+    /** Conta da barbearia suspensa pelo console da plataforma. */
+    public static class AccountSuspendedException extends RuntimeException {
+        public AccountSuspendedException() {
+            super("Conta suspensa. Fale com o suporte do Razor.");
+        }
     }
 
     /** Usuario logado (para o /me do painel). */

@@ -296,6 +296,8 @@ export function AuditTab() {
     WHATSAPP_CONNECT: "gerou QR do WhatsApp", MFA_ENABLED: "ativou o 2FA", MFA_DISABLED: "desativou o 2FA",
     RECOVERY_CODES: "gerou códigos de recuperação", LOGOUT_ALL: "saiu de todos os aparelhos",
     DEVICE_REVOKED: "esqueceu um aparelho",
+    SHOP_EXTEND_TRIAL: "estendeu o teste", SHOP_STATUS: "mudou a situação", SHOP_PLAN: "mudou o plano",
+    SHOP_NOTE: "anotou", SHOP_RESET_OWNER_PASSWORD: "redefiniu a senha do dono", REPORT_EXPORT: "gerou o relatório",
   };
   const METHOD: Record<string, string> = {
     PASSWORD: "só senha", TOTP: "senha + app", RECOVERY: "código de recuperação", TRUSTED_DEVICE: "aparelho lembrado",

@@ -74,7 +74,8 @@ function buildItems(data: ChecklistData): Item[] {
 }
 
 export function ActivationChecklist() {
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "true");
+  // Recolhido por padrão (26/11): o dia a dia vem antes; quem quiser abre a lista.
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) !== "false");
 
   const { data, loading, error } = useApi<ChecklistData>(async () => {
     const [status, botTexts, professionals, customers, agenda] = await Promise.all([

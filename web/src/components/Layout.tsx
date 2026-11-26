@@ -18,6 +18,7 @@ import { EdgeMark, RazorLogo } from "./Logo";
 import { Clock } from "./Clock";
 import { InstallAppButton } from "./InstallAppButton";
 import { TrialBanner } from "./TrialBanner";
+import { FeedbackPrompt } from "./FeedbackPrompt";
 import { HealthBanner } from "./SystemHealth";
 import { Drawer } from "./Drawer";
 import { IconChevron, IconMore } from "./Icons";
@@ -502,6 +503,7 @@ export function Layout({
 
       <BottomNav quick={quick} groups={groups} />
       <StampLayer />
+      {session?.role === "OWNER" && <FeedbackPrompt />}
     </div>
   );
 }

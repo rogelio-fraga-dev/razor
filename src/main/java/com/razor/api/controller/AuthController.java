@@ -72,6 +72,8 @@ public class AuthController {
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, sessionCookies.issue(r.token()).toString())
                     .body(new LoginResponse(r.barbershopId(), r.role().name(), r.name(), r.email()));
+        } catch (com.razor.api.service.AuthService.AccountSuspendedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (BadCredentialsException e) {
             rateLimiter.recordFailure(request.email(), ip);
             // Mensagem generica: nao revela se o email existe.

@@ -89,7 +89,7 @@
 /* Ao vivo: trilha alta + palco preso. */
 .day.live .day-track { height: 420vh; }
 .day.live .day-pin { position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; align-items: center; }
-.day.live .day-step { opacity: 0.38; }
+.day.live .day-step { opacity: 0.6; }
 .day.live .day-step.on { opacity: 1; background: rgba(255, 255, 255, 0.03); border-color: var(--border); }
 :root[data-theme="light"] .day.live .day-step.on { background: rgba(18, 20, 26, 0.03); }
 .day.live .day-step.on::before { transform: scaleY(1); }
