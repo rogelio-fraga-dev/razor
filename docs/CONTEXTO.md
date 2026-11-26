@@ -7,7 +7,20 @@ _Última atualização: 2026-11-25 — Parte 6 (upgrade visual + vídeos) em and
 
 ---
 
-## FOCO ATUAL (25/11): Parte 6 — upgrade visual e vídeos ✅ (vídeos entregues)
+## FOCO ATUAL (25/11, noite): piloto MONTADO e DESLIGADO + pente fino do bot
+
+- **AWS montada e parada** (ordem do usuário: "pode criar ... e deixe tudo parado"). Detalhes, custos e o
+  que falta para abrir em `docs/PILOTO-AWS.md`. Servidor `razor-piloto` (c7i-flex.large), sem porta de
+  entrada, backup diário no S3 testado. **Só ligar com "pode abrir o piloto".** Falta ✋ o token do túnel
+  da Cloudflare e ✋ a chave da OpenAI do piloto. Segredos de produção: `.env.piloto` (fora do git).
+- **Pente fino do bot:** `scripts/bot-sim.py` simula 42 conversas pelo webhook local (números
+  fictícios, sem WhatsApp); 4 rodadas em `docs/testes/`. Correções no master (`70db53d`).
+- **Estimativa OpenAI:** ~US$ 0,0006 por mensagem de cliente; 5 barbearias × 2 semanas ≈ US$ 9–18
+  (recomendado colocar US$ 20 com limite).
+- **CUIDADO local:** `docker compose up backend` SOBE A EVOLUTION junto (dependência) e ela reconecta o
+  número real. Use `--no-deps` ao subir/reconstruir o backend.
+
+## Antes (25/11): Parte 6 — upgrade visual e vídeos ✅ (vídeos entregues)
 
 O usuário pausou o piloto e pediu: **upgrade visual → vídeo do professor → Reels**. Tudo entregue em 25/11.
 Branch/worktree `parte-6-visual` (`.claude/worktrees/parte-6-visual`), no GitHub e **no master** (merge `0b5eec8`, 25/11).

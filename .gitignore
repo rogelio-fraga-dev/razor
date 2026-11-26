@@ -72,3 +72,4 @@ backups/
 # Gravacoes do dono e videos renderizados (dados pessoais, arquivos grandes)
 roteiros/
 videos/
+.env.piloto
