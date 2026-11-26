@@ -48,7 +48,8 @@ polir e montar o que o piloto precisa. Tudo vai para a AWS sozinho a cada envio 
      para conferir se o Razor fala a língua do público e o que falta (prova social, depoimentos, vídeo).
 8. **Feedback obrigatório no teste grátis:** janela no painel do dono no 3º dia, no 7º e no fim do teste:
    nota 0–10 ("indicaria o Razor?"), "o que está achando", "o que mais ajudou", "o que falta/atrapalhou",
-   print opcional. Regra a confirmar ✋ (proposta: adia 1 vez por 24 h; depois bloqueia até responder).
+   print opcional; no fim do teste também "pagaria para continuar? quanto por mês?". Pode adiar 1 vez por
+   24 h; depois bloqueia o painel até responder (confirmado em 26/11).
 9. **Console com controle total:**
    - Aba **Barbearias**: detalhes, uso, WhatsApp, situação do teste; **estender teste, suspender/reativar,
      encerrar e apagar dados** (confirmação dupla), **redefinir a senha do dono**, anotação interna.
@@ -64,12 +65,30 @@ polir e montar o que o piloto precisa. Tudo vai para a AWS sozinho a cada envio 
     (30/11/2026)**; cada atualização seguinte ganha uma entrada (1.0.1, 1.1.0…). Fonte única:
     `CHANGELOG.md`, lido pela página.
 
-## Perguntas em aberto ✋
+## Estratégia do piloto (a partir da 1.0)
 
-1. Nome do responsável que aparece nos termos, e-mail de contato/suporte e cidade do foro.
-2. Regra do feedback obrigatório (bloquear depois de 24 h ou só lembrar).
-3. "Entrar como a barbearia" no console (só leitura): sim ou não.
-4. Assinatura do termo: impressa ou gov.br (faço os dois formatos; muda só o rodapé).
+1. **Congelar funções novas depois da 1.0.** Área do cliente, multiunidade e metas ficam para depois. Nas
+   2 semanas do piloto, só correção e ajuste a partir do que os barbeiros pedirem.
+2. **Medir 3 coisas no piloto** (o console precisa mostrar isso, item 9):
+   - **Eles usam todo dia?** Dias com acesso ao painel e ações por barbearia.
+   - **A IA realmente marca horários sozinha?** Agendamentos feitos pela IA sem humano, e quanto renderam.
+   - **Eles pagariam, e quanto?** Pergunta no feedback do fim do teste ("pagaria? quanto por mês?").
+3. **Cobrar cedo.** Para quem quiser continuar depois do teste, um valor simbólico de **fundador**
+   (preço travado enquanto for cliente). Pagamento é a única validação que não mente.
+4. **Venda como trabalho principal.** Reels, direct e visita presencial em barbearias de Araguari. Daqui
+   para frente, a venda pesa tanto quanto o código.
+
+## Decisões (26/11)
+
+- Termos em nome de pessoa física, contato por e-mail, foro de Araguari/MG.
+- Feedback: adia 1 vez por 24 h, depois bloqueia.
+- "Entrar como a barbearia": só leitura, 30 min, faixa de "modo suporte", registrado na trilha.
+- Termo de adesão: gov.br ou impresso com foto/PDF (`documentos/`, fora do git).
+
+## Andamento
+
+- ✅ 26/11 — 1. Deploy automático (OIDC + SSM, rollback) · 2. Preços fora da landing · 3. Páginas legais ·
+  4. Termo de adesão (Word + PDF em `documentos/`) · legenda do Reels em `roteiros/legenda-reels.md`.
 
 ## Piloto (já ligado desde 25/11)
 
