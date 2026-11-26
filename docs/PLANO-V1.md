@@ -140,6 +140,11 @@ ou logo depois. Sugestão: 1.1 começa no fim do piloto, ou antes se a LH fechar
        que não é nosso, risco de atuar como intermediador de pagamento sem autorização, estornos na nossa conta).
      - ⇒ Para janeiro: implementar a conexão **por OAuth do Mercado Pago ou pela chave do Asaas**, com o botão "Ligar minha conta
        de recebimento" em Configurações; decidir o gateway quando o dono responder qual conta já tem/prefere.
+     - **O mais fácil de todos: usar a conta da maquininha que a barbearia JÁ tem.** Mercado Pago (Point) e
+       PagBank (PagSeguro) têm "conectar conta" (OAuth) + API de assinatura/recorrência; se a maquininha for de um
+       deles, não precisa criar nada. Stone/Ton/InfinitePay: sem API de assinatura para plataformas → aí cria-se a
+       conta MP na hora, junto com o dono (~10 min no app, CNPJ + selfie). Ordem: 1º o que ele já tem; 2º MP;
+       3º (com CNPJ do Razor) recebedor/subconta onde ele só informa o banco (Asaas/Pagar.me).
    - **Primeiro cliente pagante (decisão de 26/11):** uma barbearia com CNPJ e clube recorrente, trocando o sistema
      **no começo de 2027** (janeiro). Preço simbólico de **R$ 250/mês, tudo incluso**: o Razor absorve as taxas do
      gateway (abate da mensalidade). Papel: pagante + usuário validador (feedback toda semana, depoimento).
