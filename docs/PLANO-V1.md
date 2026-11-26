@@ -105,6 +105,15 @@ polir e montar o que o piloto precisa. Tudo vai para a AWS sozinho a cada envio 
 
 - ✅ 26/11 — 1. Deploy automático (OIDC + SSM, rollback) · 2. Preços fora da landing · 3. Páginas legais ·
   4. Termo de adesão (Word + PDF em `documentos/`) · legenda do Reels em `roteiros/legenda-reels.md`.
+- ✅ 26/11 (noite) — plano PILOTO no sistema (sem cartão fidelidade, clube e pacotes: menu, API 403, bot e
+  pontos); cadastro **só por convite** (`RAZOR_SIGNUP_INVITE`; link em `documentos/link-convite-piloto.txt`),
+  landing manda para o Instagram @rogeliofraga.dev com resultado em **02/12**; 6. nova tela de cadastro;
+  5. pente fino visual (100 combinações, contraste e botões no celular); 7. faixa "Hoje" no painel
+  (próximo cliente, horários, quanto entrou) e "Comece por aqui" recolhido; 8. feedback obrigatório (V57);
+  9. console: Barbearias (estender, suspender, plano, senha do dono, anotação), Feedback e Relatório para o
+  Claude; suspensão vale no login e no bot (V58); 10. versão 1.0.0, página "Sobre" e Novidades (`web/CHANGELOG.md`).
+- ⏳ Falta: conferir tudo no ar, revisar as demais telas do dia a dia (agenda, comandas, clientes) com o mesmo
+  cuidado da faixa "Hoje", e o "entrar como a barbearia" (só leitura) — deixado para depois da 1.0.
 
 ## Piloto (já ligado desde 25/11)
 

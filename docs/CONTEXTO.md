@@ -9,6 +9,10 @@ _Última atualização: 2026-11-25 — Parte 6 (upgrade visual + vídeos) em and
 
 ## PRÓXIMO: versão 1.0 em 30/11/2026 — plano em `docs/PLANO-V1.md`
 
+**Andamento (26/11, madrugada):** itens 1 a 10 do plano feitos e no ar (ver "Andamento" no plano). Piloto: cadastro
+só por convite, plano PILOTO sem fidelidade/clube/pacotes, feedback obrigatório, console com Barbearias/Feedback/
+Relatório. Migrações novas V57 (feedback, anotação) e V58 (plano PILOTO, situação SUSPENDED).
+
 Lançamento do piloto (5 barbearias) em 30/11. Cronograma e itens (deploy automático, preços fora da landing,
 páginas legais em CPF, termo de adesão, pente fino visual, telas do dia a dia, feedback obrigatório, console
 com controle total, versão/Sobre/Novidades) no plano.
