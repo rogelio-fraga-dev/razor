@@ -145,6 +145,9 @@ ou logo depois. Sugestão: 1.1 começa no fim do piloto, ou antes se a LH fechar
        deles, não precisa criar nada. Stone/Ton/InfinitePay: sem API de assinatura para plataformas → aí cria-se a
        conta MP na hora, junto com o dono (~10 min no app, CNPJ + selfie). Ordem: 1º o que ele já tem; 2º MP;
        3º (com CNPJ do Razor) recebedor/subconta onde ele só informa o banco (Asaas/Pagar.me).
+     - **Banco da barbearia (ex.: Sicoob) não muda nada:** o gateway cobra o assinante e transfere sozinho para a
+       conta do banco dela (saque/transferência automática por Pix). Integrar direto com o banco (API do Sicoob:
+       Pix/boleto, certificado e contrato) fica fora: não cobra cartão recorrente e dá muito trabalho por banco.
    - **Primeiro cliente pagante (decisão de 26/11):** uma barbearia com CNPJ e clube recorrente, trocando o sistema
      **no começo de 2027** (janeiro). Preço simbólico de **R$ 250/mês, tudo incluso**: o Razor absorve as taxas do
      gateway (abate da mensalidade). Papel: pagante + usuário validador (feedback toda semana, depoimento).
