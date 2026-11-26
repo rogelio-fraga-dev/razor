@@ -156,8 +156,15 @@ public class CustomerConversationService {
                 return;
             }
             contentToSave = transcription;
-        } else if (contentToSave == null) {
-            contentToSave = "[Arquivo]";
+        } else if ((contentToSave == null || contentToSave.isBlank()) && (webhook.hasImage() || webhook.hasDocument())) {
+            // Foto/arquivo sem legenda: resposta fixa. Antes ia para a IA como "[Arquivo]" e ela
+            // chegou a responder "O atendimento foi cancelado" (pente fino de 25/11).
+            interactionRepository.save(Interaction.builder().barbershopId(customer.getBarbershopId()).customer(customer).type(Interaction.InteractionType.USER).content("[Arquivo]").messageId(webhook.getData().getKey().getId()).build());
+            saveAndSend(customer, FILE_RECEIVED_MSG, phoneNumber);
+            return;
+        } else if (contentToSave == null || contentToSave.isBlank()) {
+            log.info("[CLIENTE IN] Mensagem vazia de {} ignorada", phoneNumber);
+            return;
         }
 
         log.info("[CLIENTE IN] Mensagem: '{}'", sanitizeForConsole(contentToSave));
@@ -369,7 +376,31 @@ public class CustomerConversationService {
             return;
         }
 
-        // 6. Tratamento das Opções do Menu Numérico e Palavras-chave
+        // 5.5 "Quero cancelar meu horário" / "desmarcar" com horário marcado: cancela DE VERDADE.
+        //     Antes só a frase exata funcionava; o resto ia para a IA, que respondia "cancelado"
+        //     sem cancelar nada (pente fino de 25/11). Fora de um fluxo de agendamento.
+        if (cState == null && wantsToCancelAppointment(msgLower)) {
+            trataCancelarAgendamento(customer, phoneNumber);
+            return;
+        }
+        if (cState == null && wantsToReschedule(msgLower)) {
+            List<Appointment> futuros = agendaService.getAgendamentosFuturos(phoneNumber);
+            if (!futuros.isEmpty()) {
+                Appointment ag = futuros.get(0);
+                saveAndSend(customer, "Você tem horário em *" + AppointmentDates.formatDate(ag.getAppointmentDate()) + "* às *"
+                        + AppointmentDates.formatTime(ag.getAppointmentTime()) + "*. Para trocar, responda *cancelar meu horário* "
+                        + "e depois me diga o novo dia e horário que eu marco pra você. 👍", phoneNumber);
+                return;
+            }
+        }
+
+        // 6. Tratamento das Opções do Menu Numérico e Palavras-chave.
+        //    Número solto no meio de uma conversa com a IA é resposta à pergunta dela ("1 - 10:30,
+        //    2 - 11:30"), não opção do menu: antes "2" virava "Você não possui agendamento".
+        if (msgLower.matches("[1-8]") && numberAnswersBot(customer.getId())) {
+            chamaIAETrataMensagem(customer, "Opção " + msgLower + " (da sua última pergunta)", phoneNumber);
+            return;
+        }
         if (msgLower.equals("1") || msgLower.equals("agendar") || msgLower.equals("agendar horario")) {
             contentToSave = "Quero agendar um horário."; // IA assume
         } else if ((msgLower.equals("2") || msgLower.contains("meus agendamentos") || msgLower.contains("meu agendamento") || msgLower.contains("meu horário") || msgLower.contains("meu horario"))
@@ -456,7 +487,9 @@ public class CustomerConversationService {
             String apptService = ag.getService();
 
             if (agendaService.cancelarAgendamentoExato(ag)) {
-                saveAndSend(customer, "✅ Seu agendamento foi cancelado com sucesso!", phoneNumber);
+                saveAndSend(customer, "✅ Cancelei seu horário de *" + (diaSemana != null ? diaSemana + ", " : "") + apptDate
+                        + "* às *" + apptTime + "*" + (apptService != null ? " (" + apptService + ")" : "")
+                        + ". Se quiser marcar outro, é só me dizer o dia.", phoneNumber);
 
                 waitlistOfferService.offerFreedSlot(ag);
             } else {
@@ -523,6 +556,10 @@ public class CustomerConversationService {
             // Nem o modelo forte mandou a tag: nao confirma um horario que nao existe.
             log.warn("[IA] Resposta dizia que agendou, mas sem a tag; nada foi gravado para {}", phoneNumber);
             responseToSend = "Opa, não consegui registrar seu horário agora. 😕 Pode responder *SIM* de novo para eu confirmar?";
+        } else if (isAbortReply(intent.cleanedResponse()) && !asksToAbort(prompt)) {
+            // A IA usava "atendimento cancelado" para 👍, arquivo e mensagem que não entendia.
+            log.warn("[IA] Frase de desistência sem o cliente pedir; trocada para {}", phoneNumber);
+            responseToSend = "Como posso te ajudar? 😊 Se quiser marcar, me diz o serviço e o dia que fica bom pra você.";
         } else {
             responseToSend = intent.cleanedResponse();
         }
@@ -802,13 +839,19 @@ public class CustomerConversationService {
                 .findFirst()
                 .orElse(atribuido.equals(escolhido) ? nomeEscolhido : null);
         String comQuem = nomeAtribuido != null ? "com *" + nomeAtribuido + "* " : "";
+        // O barbeiro pedido já estava ocupado e a agenda deu o horário a outro: o cliente precisa
+        // saber (antes o bot confirmava "com o Rafael" e marcava com o Caio).
+        String trocaDeBarbeiro = (escolhido != null && atribuido != null && !atribuido.equals(escolhido) && nomeEscolhido != null)
+                ? "\n\n⚠️ O *" + nomeEscolhido + "* já estava ocupado nesse horário, então reservei com o *" + nomeAtribuido
+                  + "*. Se preferir o " + primeiroNome(nomeEscolhido) + ", me diga outro horário que eu troco."
+                : "";
         var sinal = noShowDepositService.requireDepositIfNeeded(criado.get(), primeiroNome(pend.getName()));
         if (sinal.isPresent()) {
             clearCustomerState(phoneNumber);
             saveAndSend(customer, sinal.get(), phoneNumber);
             return;
         }
-        String confirm = "Fechado! Seu horário " + comQuem + "para *" + pend.getDate() + "* às *" + pend.getTime() + "* está reservado. 🎉";
+        String confirm = "Fechado! Seu horário " + comQuem + "para *" + pend.getDate() + "* às *" + pend.getTime() + "* está reservado. 🎉" + trocaDeBarbeiro;
         String response = anexarPerguntaPagamento(comResumoDoValor(confirm, pend.getService()));
         setCustomerState(phoneNumber, "ESPERANDO_PAGAMENTO");
         log.info("[AGENDA] Agendamento multiprofissional concluído para {}; estado ESPERANDO_PAGAMENTO", phoneNumber);
@@ -1008,6 +1051,57 @@ public class CustomerConversationService {
      * Verifica se o cliente tem uma conversa ativa recente com a IA (últimas 4+ interações nos últimos 5 min).
      * Isso evita que saudações como "Oi, me chamo João" disparem o menu no meio de um agendamento.
      */
+    static final String FILE_RECEIVED_MSG = "Recebi seu arquivo 👍 Por aqui eu leio texto e áudio. "
+            + "Se for o comprovante do PIX, é só mostrar na barbearia no dia. Posso te ajudar em mais alguma coisa?";
+
+    private static String semAcento(String s) {
+        return java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase();
+    }
+
+    /** "quero cancelar meu horário", "desmarcar o corte de sábado", "cancela minha reserva". */
+    static boolean wantsToCancelAppointment(String msg) {
+        if (msg == null) return false;
+        String t = semAcento(msg);
+        if (t.matches("\\s*desmarcar\\s*")) return true;
+        return t.matches("(?s).*\\b(cancel\\w*|desmarc\\w*)\\b.*")
+                && t.matches("(?s).*\\b(horario|agendamento|marcacao|hora|corte|reserva|barba|atendimento marcado)\\b.*");
+    }
+
+    /** "quero mudar meu horário", "dá pra remarcar?", "trocar o dia do meu corte". */
+    static boolean wantsToReschedule(String msg) {
+        if (msg == null) return false;
+        String t = semAcento(msg);
+        return t.matches("(?s).*\\b(remarc\\w*|reagend\\w*)\\b.*")
+                || (t.matches("(?s).*\\b(mudar|trocar|alterar|passar)\\b.*") && t.matches("(?s).*\\bmeu (horario|agendamento|corte|dia)\\b.*"));
+    }
+
+    static boolean isAbortReply(String text) {
+        return text != null && text.toLowerCase().contains("atendimento foi cancelado");
+    }
+
+    /** O cliente pediu, com palavras, para cancelar ou desistir. */
+    static boolean asksToAbort(String msg) {
+        if (msg == null) return false;
+        String t = java.text.Normalizer.normalize(msg, java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase();
+        return t.matches("(?s).*\\b(cancel\\w*|desist\\w*|deixa (pra|para) la|esquece|nao quero( mais)?|para(r)? tudo|nao precisa)\\b.*");
+    }
+
+    /**
+     * Número solto responde à pergunta do bot (e não ao menu) quando a última mensagem dele, de
+     * até 30 min atrás, não foi o próprio menu nem o "digite 1 para marcar".
+     */
+    private boolean numberAnswersBot(java.util.UUID customerId) {
+        List<Interaction> recent = interactionRepository.findRecentInteractionsByCustomerId(customerId);
+        Interaction lastBot = recent.stream().filter(i -> i.getType() == Interaction.InteractionType.BOT).findFirst().orElse(null);
+        if (lastBot == null || lastBot.getTimestamp() == null || lastBot.getContent() == null) return false;
+        long min = java.time.Duration.between(lastBot.getTimestamp(), java.time.LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"))).toMinutes();
+        if (Math.abs(min) > 30) return false;
+        String c = lastBot.getContent();
+        if (c.contains("1️⃣ Agendar") || c.contains("Digite *1* para marcar")) return false;
+        // Só faz sentido "2" = segunda opção quando a pergunta trouxe opções em lista.
+        return c.lines().filter(l -> l.trim().matches("^([-•▪]|\\*?\\d{1,2}\\*?\\s*[-–.)]|[1-9]️⃣).*")).count() >= 2;
+    }
+
     private boolean hasRecentIAConversation(java.util.UUID customerId) {
         List<Interaction> recent = interactionRepository.findRecentInteractionsByCustomerId(customerId);
         if (recent.size() < 4) return false;
