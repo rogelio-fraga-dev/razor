@@ -128,6 +128,18 @@ ou logo depois. Sugestão: 1.1 começa no fim do piloto, ou antes se a LH fechar
      Asaas desconta as taxas lá. O Razor cobra só a mensalidade dele, à parte. Se combinarmos "o Razor cobre as
      taxas", o Razor lê as taxas do mês pela API e **abate na mensalidade seguinte** (ou preço fechado com teto de taxa).
    - **Depois (Razor com CNPJ):** subconta Asaas por barbearia + split automático (taxa do Razor por cobrança).
+   - **"A gente cuida de tudo, ele só liga a conta de recebimento" (26/11):** possível, com um limite fixo: a conta
+     que recebe tem que estar no nome/CNPJ da barbearia, com os documentos dela (regra do Banco Central). O resto
+     (planos, assinaturas, cobranças, avisos, painel) o Razor faz.
+     - **Mercado Pago "Conectar conta" (OAuth):** o dono clica, entra na conta MP dele e autoriza; o Razor cria e
+       gerencia as assinaturas na conta dele. É o mais próximo de "só ligar a conta".
+     - **Asaas com a chave de API:** mesma ideia, mas a ligação é colar a chave (fazemos junto numa chamada).
+     - **Subconta Asaas criada pelo Razor:** fica para depois — no período de avaliação do Asaas a subconta
+       **não pode criar assinaturas** e tem teto de R$ 2.000 em cobranças, e o ideal é o Razor ter CNPJ.
+     - **Nunca:** o dinheiro dos assinantes cair na conta do Razor/CPF para depois repassar (imposto sobre dinheiro
+       que não é nosso, risco de atuar como intermediador de pagamento sem autorização, estornos na nossa conta).
+     - ⇒ Para janeiro: implementar a conexão **por OAuth do Mercado Pago ou pela chave do Asaas**, com o botão "Ligar minha conta
+       de recebimento" em Configurações; decidir o gateway quando o dono responder qual conta já tem/prefere.
    - **Primeiro cliente pagante (decisão de 26/11):** uma barbearia com CNPJ e clube recorrente, trocando o sistema
      **no começo de 2027** (janeiro). Preço simbólico de **R$ 250/mês, tudo incluso**: o Razor absorve as taxas do
      gateway (abate da mensalidade). Papel: pagante + usuário validador (feedback toda semana, depoimento).
