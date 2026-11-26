@@ -22,7 +22,7 @@ def common(s):
     s = s.replace("navalhademo.local", "lhbarbearia.local")
     s = s.replace("Navalha de Prata", "LH Barbearia")
     # Dois barbeiros: o dono (LH) e o Vinícius. O terceiro some e a divisão fica entre os dois.
-    s = s.replace("'Rafael Tesoura'", "'LH'").replace("'Bruno Navalha'", "'Vinícius'")
+    s = s.replace("'Rafael Tesoura'", "'Luiz'").replace("'Bruno Navalha'", "'Vinícius'")
     s = re.sub(r"v_prof\[1 \+ \(\(v_i \+ v_k\) % 3\)\]", "v_prof[1 + ((v_i + v_k) % 2)]", s)
     s = re.sub(r"v_prof\[1 \+ \(v_k % 3\)\]", "v_prof[1 + (v_k % 2)]", s)
     s = s.replace("v_prof[3]", "v_prof[2]")
@@ -40,7 +40,7 @@ s = re.sub(r"\n      \(v_prof\[\d\], v_shop, 'Caio Máquina'[^\n]*", "", s)
 s = must(s, "      (v_prof[2], v_shop, 'Vinícius',  '5511999990003', true, 45.00, NULL,  now() - interval '12 months', now()),",
          "      (v_prof[2], v_shop, 'Vinícius',  '5511999990003', true, 45.00, NULL,  now() - interval '12 months', now());")
 s = s.replace("'Juliana Alves',  'RECEPTION'", "'Recepção',  'RECEPTION'").replace("'Juliana Alves'", "'LH'")
-s = s.replace("'Ricardo Prata'", "'LH'")
+s = s.replace("'Ricardo Prata'", "'Luiz'")
 s = must(s, "    v_svc_preco := ARRAY[45.00, 35.00, 70.00, 90.00, 60.00, 20.00, 20.00];",
          "    v_svc_preco := ARRAY[40.00, 30.00, 65.00, 70.00, 45.00, 15.00, 15.00];")
 # 5 meses de história em vez de 2
@@ -57,6 +57,20 @@ s = s.replace("'1,2,3',       now(), now()),\n      -- Silver", "'1,2,3,4',     
 # ~1/3 dos clientes no clube (antes só 3 assinantes)
 s = must(s, "CASE v_i WHEN 1 THEN v_plan_vip WHEN 2 THEN v_plan_silver WHEN 3 THEN v_plan_bronze ELSE NULL END,",
          "CASE v_i % 9 WHEN 1 THEN v_plan_vip WHEN 2 THEN v_plan_silver WHEN 3 THEN v_plan_bronze ELSE NULL END,")
+# Luiz é dono e barbeiro: o login do dono fica ligado ao profissional Luiz; o de barbeiro é o Vinícius.
+s += """
+DO $lh$
+BEGIN
+    UPDATE barbershops SET signup_plan = 'PRO', status = 'ACTIVE', trial_ends_at = NULL
+     WHERE id = 'a1a1a1a1-0000-4000-8000-000000000001';
+    UPDATE tenant_users SET name = 'Vinícius', email = 'vinicius@lhbarbearia.local',
+           professional_id = 'a1a1a1a1-0000-4000-8000-000000000032'
+     WHERE barbershop_id = 'a1a1a1a1-0000-4000-8000-000000000001' AND role = 'BARBER';
+    UPDATE tenant_users SET professional_id = 'a1a1a1a1-0000-4000-8000-000000000031'
+     WHERE barbershop_id = 'a1a1a1a1-0000-4000-8000-000000000001' AND role = 'OWNER';
+END
+$lh$;
+"""
 open(os.path.join(ROOT, "seed-lh.sql"), "w", encoding="utf-8", newline="\n").write(
     "-- GERADO por scripts/make-seed-lh.py a partir de seed-demo.sql (demonstração da LH Barbearia).\n" + s)
 

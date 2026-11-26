@@ -123,6 +123,11 @@ ou logo depois. Sugestão: 1.1 começa no fim do piloto, ou antes se a LH fechar
    precisa ter conta em lugar nenhum antes; e o mesmo Asaas cobra a assinatura do Razor das barbearias.
    Mercado Pago fica como opção para quem já usa e prefere receber na conta MP (fase 2).
    ⚠️ PIX Automático exige CNPJ da barbearia (e do Razor, para o split): quem é pessoa física fica só no cartão.
+   - **Começo (Razor ainda sem CNPJ), ex.: LH/Luiz que tem CNPJ:** a barbearia abre a **própria conta Asaas no CNPJ
+     dela** e cola a chave de API no Razor; as assinaturas são criadas na conta dela, o dinheiro cai direto lá e o
+     Asaas desconta as taxas lá. O Razor cobra só a mensalidade dele, à parte. Se combinarmos "o Razor cobre as
+     taxas", o Razor lê as taxas do mês pela API e **abate na mensalidade seguinte** (ou preço fechado com teto de taxa).
+   - **Depois (Razor com CNPJ):** subconta Asaas por barbearia + split automático (taxa do Razor por cobrança).
 4. **Migração da CashBarber (clientes e assinantes)**:
    - Importar a **planilha exportada da CashBarber** (clientes, telefones, aniversários e quem é assinante de qual
      plano) pelo console/painel, com prévia e correção de telefone antes de gravar.

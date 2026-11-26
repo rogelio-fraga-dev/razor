@@ -168,12 +168,12 @@ BEGIN
 
     INSERT INTO tenant_users (id, barbershop_id, email, password_hash, name, role, active, created_at, updated_at)
     VALUES
-      ('a1a1a1a1-0000-4000-8000-000000000011', v_shop, 'dono@lhbarbearia.local',      v_pwd, 'LH',  'OWNER',     true, now() - interval '18 months', now()),
+      ('a1a1a1a1-0000-4000-8000-000000000011', v_shop, 'dono@lhbarbearia.local',      v_pwd, 'Luiz',  'OWNER',     true, now() - interval '18 months', now()),
       ('a1a1a1a1-0000-4000-8000-000000000012', v_shop, 'recepcao@lhbarbearia.local',  v_pwd, 'Recepção',  'RECEPTION', true, now() - interval '10 months', now()),
-      ('a1a1a1a1-0000-4000-8000-000000000013', v_shop, 'barbeiro@lhbarbearia.local',  v_pwd, 'LH', 'BARBER',    true, now() - interval '8 months',  now());
+      ('a1a1a1a1-0000-4000-8000-000000000013', v_shop, 'barbeiro@lhbarbearia.local',  v_pwd, 'Luiz', 'BARBER',    true, now() - interval '8 months',  now());
 
     INSERT INTO barbershop_admins (id, barbershop_id, phone, name, created_at, updated_at)
-    VALUES ('a1a1a1a1-0000-4000-8000-000000000021', v_shop, '5511999990001', 'LH', now(), now());
+    VALUES ('a1a1a1a1-0000-4000-8000-000000000021', v_shop, '5511999990001', 'Luiz', now(), now());
 
     -- -----------------------------------------------------------------------------------------
     -- 2. Equipe
@@ -186,7 +186,7 @@ BEGIN
 
     INSERT INTO professionals (id, barbershop_id, name, phone, active, commission_percent, product_commission_percent, created_at, updated_at)
     VALUES
-      (v_prof[1], v_shop, 'LH', '5511999990002', true, 40.00, 10.00, now() - interval '18 months', now()),
+      (v_prof[1], v_shop, 'Luiz', '5511999990002', true, 40.00, 10.00, now() - interval '18 months', now()),
       (v_prof[2], v_shop, 'Vinícius',  '5511999990003', true, 45.00, NULL,  now() - interval '12 months', now());
 
     -- Login do barbeiro ligado ao cadastro dele (V44): o "Meu dia" mostra os horarios e a
@@ -457,7 +457,7 @@ BEGIN
             INSERT INTO professional_advances (id, barbershop_id, professional_id, amount, advance_date,
                                                notes, cash_movement_id, granted_by_name, created_at)
             VALUES (gen_random_uuid(), v_shop, v_prof[2], 100.00, v_dia, 'Vale semanal',
-                    v_mov, 'LH', v_dia + time '18:00');
+                    v_mov, 'Luiz', v_dia + time '18:00');
         END IF;
 
         -- Sangria de seguranca quando o caixa acumula muito dinheiro vivo.
@@ -473,7 +473,7 @@ BEGIN
         v_contado := CASE WHEN v_i % 23 = 0 THEN v_esperado - 2.00 ELSE v_esperado END;
 
         UPDATE cash_register_sessions
-           SET status = 'CLOSED', closed_by_name = 'LH',
+           SET status = 'CLOSED', closed_by_name = 'Luiz',
                closed_at = v_dia + time '20:15',
                closing_expected = v_esperado, closing_counted = v_contado,
                notes = CASE WHEN v_contado <> v_esperado THEN 'Diferença conferida com a equipe.' ELSE NULL END,
@@ -647,10 +647,10 @@ BEGIN
                                          amount, notes, paid_by_name, paid_at, payment_date, created_at)
         VALUES
           (gen_random_uuid(), v_shop, v_prof[v_i], CURRENT_DATE - 60, CURRENT_DATE - 31,
-           (900 + v_i * 137)::numeric, 'Acerto mensal', 'LH',
+           (900 + v_i * 137)::numeric, 'Acerto mensal', 'Luiz',
            (CURRENT_DATE - 30) + time '19:00', CURRENT_DATE - 30, now()),
           (gen_random_uuid(), v_shop, v_prof[v_i], CURRENT_DATE - 30, CURRENT_DATE - 1,
-           (950 + v_i * 121)::numeric, 'Acerto mensal', 'LH',
+           (950 + v_i * 121)::numeric, 'Acerto mensal', 'Luiz',
            CURRENT_DATE + time '09:00', CURRENT_DATE, now());
     END LOOP;
 
@@ -773,3 +773,15 @@ BEGIN
     RAISE NOTICE 'Seed da demo concluido para a barbearia % (slug lh-barbearia).', v_shop;
 END
 $seed$;
+
+DO $lh$
+BEGIN
+    UPDATE barbershops SET signup_plan = 'PRO', status = 'ACTIVE', trial_ends_at = NULL
+     WHERE id = 'a1a1a1a1-0000-4000-8000-000000000001';
+    UPDATE tenant_users SET name = 'Vinícius', email = 'vinicius@lhbarbearia.local',
+           professional_id = 'a1a1a1a1-0000-4000-8000-000000000032'
+     WHERE barbershop_id = 'a1a1a1a1-0000-4000-8000-000000000001' AND role = 'BARBER';
+    UPDATE tenant_users SET professional_id = 'a1a1a1a1-0000-4000-8000-000000000031'
+     WHERE barbershop_id = 'a1a1a1a1-0000-4000-8000-000000000001' AND role = 'OWNER';
+END
+$lh$;
